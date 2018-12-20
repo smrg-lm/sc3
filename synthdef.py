@@ -18,7 +18,7 @@ import threading
 import inspect
 import warnings
 
-from supercollie.utils import aslist, perform_in_shape
+from supercollie.utils import as_list, perform_in_shape
 
 
 class SynthDef():
@@ -133,7 +133,7 @@ class SynthDef():
                                     # **** VER, puede ser que hace extend por si el valor de alguno de los argumentos es un array no literal.
                                     # **** def.prototypeFrame DEVUELVE NIL EN VEZ DE LOS ARRAY NO LITERALES!
                                     # **** Además, ver cómo es en Python porque no tendría las mismas restricciones que sclang
-        values = _apply_metadata_specs(names, values) # convierte Nones en ceros o valores por defecto
+        values = self._apply_metadata_specs(names, values) # convierte Nones en ceros o valores por defecto
         rates += [0] * (len(names) - len(rates)) # VER: sclang extend, pero no trunca
         rates = [x if x else 0.0 for x in rates]
 
@@ -213,9 +213,9 @@ class SynthDef():
     # L178
     def _build_controls(self): # llama solo desde _build_ugen_graph, retorna una lista
         nn_cns = [x for x in self.control_names if x.rate is 'noncontrol']
-		ir_cns = [x for x in self.control_names if x.rate is 'scalar']
-		tr_cns = [x for x in self.control_names if x.rate is 'trigger']
-		ar_cns = [x for x in self.control_names if x.rate is 'audio']
+        ir_cns = [x for x in self.control_names if x.rate is 'scalar']
+        tr_cns = [x for x in self.control_names if x.rate is 'trigger']
+        ar_cns = [x for x in self.control_names if x.rate is 'audio']
         kr_cns = [x for x in self.control_names if x.rate is 'control']
 
         arguments = [0] * len(self.control_names)
@@ -332,7 +332,8 @@ class SynthDef():
             # OC: This populates the descendants and antecedents.
             ugen.init_topo_sort() # pong
         for ugen in reversed(self.children):
-            ugen.descendants = # ugen.descendants.asArray.sort({ arg a, b; a.synthIndex < b.synthIndex })
+            ugen.descendants = list(ugen.descendants) # VER: lo convierte en lista (asArray en el original) para ordenarlo y lo deja como lista. ugen.init_topo_sort() es la función que puebla el conjunto.
+            ugen.descendants.sort(key=lambda x: x.synth_index) # VER: pero que pasa con antecedents? tal vez no se usa para hacer recorridos?
             # OC: All ugens with no antecedents are made available.
             ugen.make_available()
 
@@ -386,8 +387,8 @@ class SynthDef():
             self.children.append(ugen)
 
     def remove_ugen(self, ugen): # # lo usan UGen y BinaryOpUGen para optimizaciones
-		# OC: Lazy removal: clear entry and later remove all None entries # Tiene un typo, dice enties
-		self.children[ugen.synth_index] = None;
+        # OC: Lazy removal: clear entry and later remove all None entries # Tiene un typo, dice enties
+        self.children[ugen.synth_index] = None;
 
     def replace_ugen(self, a, b): # lo usa BinaryOpUGen para optimizaciones
         if not isinstance(UGen, b):

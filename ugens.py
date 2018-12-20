@@ -166,14 +166,16 @@ class UGen(AbstractFunction):
                 n = len(self.inputs)
             for i in range(n):
                 if as_ugen_rate(self.inputs[i]) != 'audio': # *** VER VALORES POSIBLES PARA self.inputs[i]:: IMPLEMENTADO ARRIBA COMO SINGLE DISPATCH
-                    return 'input {} is not audio rate: {} {}'.format(
-                        i, self.inputs[i], self.inputs[0].rate)
+                    msg = 'input {} is not audio rate: {} {}'\
+                            .format(i, self.inputs[i], self.inputs[0].rate)
+                    return msg
         return self.check_valid_inputs() # comprueba is_valid_ugen_input no el rate.
 
     def check_sr_as_first_input(self): # checkSameRateAsFirstInput ídem anterior, deben ser interfaz protejida
         if self.rate is not as_ugen_rate(self.inputs[0]): # *** VER VALORES POSIBLES PARA self.inputs[0]: IMPLEMENTADO ARRIBA COMO SINGLE DISPATCH
-            return 'first input is not {} rate: {} {}'.format(
-                self.rate, self.inputs[0], self.inputs[0].rate)
+            msg = 'first input is not {} rate: {} {}'\
+                    .format(self.rate, self.inputs[0], self.inputs[0].rate)
+            return msg
         return self.check_valid_inputs()
 
     def arg_name_for_input_at(self, i): # se usa acá y en basicopugen dentro de checkValidInputs, ambas clases lo implementan.
@@ -185,8 +187,8 @@ class UGen(AbstractFunction):
             arg_names = [x.name for x in params]
             if not arg_names: return None
             if i < len(arg_names):
-                # if selector is '__init__': # TODO, TODO, TODO: No se puede usar __init__ y haya que usar new o dr para demand rate!!!!!
-                #     return arg_names[i + 1] # TODO, TODO, TODO: VER ABAJO: 1 es arg_names_inputs_offset
+                # if selector is '__init__': # TODO: *** __init__ SOLO PUEDE RETORNAR NONE Y NEW1 RETORNA DISTINTAS COSAS. super().__init__() inicializa las propiedades desde new1 *** No se puede usar __init__ (super(UGen, self).__init__() no me funciona) hay que usar new o dr para demand rate!!!!!
+                #     return arg_names[i + 1] # TODO: VER ABAJO: 1 es arg_names_inputs_offset
                 # else:
                 #     return arg_names[i]
                 return arg_names[i]
@@ -215,8 +217,8 @@ class UGen(AbstractFunction):
             if 'ir' in dir(cls): # VER arriba: es try: getattr(cls, self.method_selector_for_rate()) except AttributeError: lala.
                 return 'ir'
             else:
-                return 'new' # TODO, OJO, VER, LAS SUBCLASES NO PUEDEN IMPLEMENTAR __init__ !!!
-        if rate is 'demand': return 'dr' # DR SE USA PORQUE LAS SUBCLASES DE UGEN NO PUEDEN IMPLEMENTAR __init__, DE PASO QUEDA MÁS CONSISTENTE...
+                return 'new' # TODO, *** __init__ SOLO PUEDE RETORNAR NONE Y NEW1 RETORNA DISTINTAS COSAS. super().__init__() inicializa las propiedades desde new1 *** OJO, VER, LAS SUBCLASES NO PUEDEN IMPLEMENTAR __init__ !!! super(UGen, self).__init__() no me funciona con new1
+        if rate is 'demand': return 'dr' # *** super().__init__() inicializa las propiedades desde new1 *** DR SE USA PORQUE LAS SUBCLASES DE UGEN NO PUEDEN IMPLEMENTAR __init__, DE PASO QUEDA MÁS CONSISTENTE...
         return None
 
     def dump_args(self): # implementa acá y en basicopugen se usa en SynthDef checkInputs y en Mix*kr
@@ -313,7 +315,7 @@ class UGen(AbstractFunction):
     def name(self): # es ugen name
         return self.__class__.__name__
 
-    def rate_number(sefl): #rateNumber # se usa en writeDef/Old y writeOutputSpec
+    def rate_number(self): #rateNumber # se usa en writeDef/Old y writeOutputSpec
         if self.rate is 'control': return 1
         if self.rate is 'audio': return 2
         if self.rate is 'demand': return 3
@@ -381,8 +383,47 @@ class PureUGen(UGen):
         self.perform_dead_code_elimination() # VER: creo que no es necesario llamar a super
 
 
-class MultiOutUGen(UGen): # TODO
-    pass
+class MultiOutUGen(UGen):
+    def __init__(self):
+        super().__init__() # TODO: *** super().__init__() inicializa las propiedades correctamente desde new1 *** VER métodos de UGen
+        self._synth_index = -1 # VER: en UGen synth_index es una propiedad sin setter/getter/deleter, Pero llama al setter solo si se llama desde subclase, es OK.
+        self.channels = []
+
+    @property
+    def synth_index(self):
+        return self._synth_index
+
+    @synth_index.setter
+    def synth_index(self, value):
+        self._synth_index = value
+        for output in self.channels:
+            output.synth_index = value
+
+    @synth_index.deleter
+    def synth_index(self):
+        del self._synth_index
+
+    @classmethod
+    def new_from_desc(cls, rate, num_outputs, inputs): # TODO
+        pass
+
+    def init_outputs(self, num_channels, rate):
+        if not num_channels or num_channels < 1:
+            msg = '{}: wrong number of channels ({})'\
+                    .format(self.name(), num_channels)
+            raise Exception(msg)
+        self.channels = [OutputProxy.new(rate, self, i)\
+                        for i in range(num_channels)]
+        if num_channels is 1:
+            return self.channels[0]
+        return self.channels
+
+    def num_outputs(self):
+        return len(channels)
+
+    def write_output_specs(self, file): # TODO: Aún no está hecho en UGen.
+        for output in self.channels:
+            output.write_output_spec(file)
 
 
 class PureMultiOutUGen(MultiOutUGen):
@@ -396,6 +437,10 @@ class OutputProxy(UGen):
     def new(cls, rate, source_ugen, index):
         return cls.new1(rate, source_ugen, index) # OJO: tiene que retornoarseeee lo mismo que init_ugen!
 
+    # def __init__(self, rate, source_ugen, index):
+    #     super().__init__()
+    #     # TODO: para usar __init__() new1 debería ser __init__ PERO __init__ tiene que retornar None, NO PUEDE RETORNAR DISTINTAS COSAS.
+
     def init_ugen(self, source_ugen, index): # init_ugen tiene que retornar self! en Python retorna None por defecto.
         self.source_ugen = source_ugen # OJO: source cambia a source_ugen
         self.output_index = index
@@ -406,7 +451,8 @@ class OutputProxy(UGen):
         self.synthdef = SynthDef._current_def
 
     def dump_name(self):
-        return self.source_ugen.dump_name() + '[' + str(self.output_index) + ']'
+        return self.source_ugen.dump_name() + '['\
+                + str(self.output_index) + ']'
 
 
 # Estos métodos no sé cómo implementarlos. El problema es que serían un

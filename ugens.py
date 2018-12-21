@@ -12,12 +12,21 @@ en otra clase que actúe como protocolo.
 from math import isnan
 from functools import singledispatch
 
-from supercollie.functions import AbstractFunction
-from supercollie.synthdef import SynthDef
-from supercollie.utils import as_list
+# 1) rec imports, no anda.
+# from supercollie.functions import AbstractFunction
+# from supercollie.synthdef import SynthDef
+# from supercollie.utils import as_list
+# 2) anda dependiendo del orden en que se importen, e.g. import supercollie.iougens antes de supercollie.ugens
+# from . import functions as fn
+# from . import synthdef as sd
+# from . import utils as ut
+# 3) dice module supercollie no tiene attribute ugens/synthdef/inout cuando import supercollie.ugens
+import supercollie.functions as fn
+import supercollie.synthdef as sd
+import supercollie.utils as ut
 
 
-class UGen(AbstractFunction):
+class UGen(fn.AbstractFunction):
     # classvar <>buildSynthDef; // the synth currently under construction,  PASADA A SynthDef._current_def y tiene un Lock
 
     @classmethod
@@ -128,7 +137,7 @@ class UGen(AbstractFunction):
 
     # L287
     def add_to_synth(self): # este método lo reimplementan OuputProxy y WidthFirstUGen
-        self.synthdef = SynthDef._current_def
+        self.synthdef = sd.SynthDef._current_def
         if self.synthdef:
             self.synthdef.add_ugen(self)
 
@@ -261,7 +270,7 @@ class UGen(AbstractFunction):
         num_zeroes = values.count(0.0)
         if num_zeroes is 0: return values
 
-        silent_channels = as_list(Silent.ar(num_zeroes)) # usa asCollection
+        silent_channels = ut.as_list(Silent.ar(num_zeroes)) # usa asCollection
         pos = 0
         for i, item in enumerate(values):
             if item == 0.0:
@@ -448,7 +457,7 @@ class OutputProxy(UGen):
         return self
 
     def add_to_synth(self):
-        self.synthdef = SynthDef._current_def
+        self.synthdef = sd.SynthDef._current_def
 
     def dump_name(self):
         return self.source_ugen.dump_name() + '['\
@@ -473,7 +482,7 @@ class Node(): pass    #
 def is_valid_ugen_input(obj):
     return False
 
-@is_valid_ugen_input.register(AbstractFunction)
+@is_valid_ugen_input.register(fn.AbstractFunction)
 @is_valid_ugen_input.register(UGen)
 @is_valid_ugen_input.register(list)
 @is_valid_ugen_input.register(tuple)
@@ -493,7 +502,7 @@ def as_ugen_input(obj): # ugen_cls (*** VER ABAJO ***) es opt_arg, solo Abstract
     return obj
 
 @as_ugen_input.register
-def _(obj: AbstractFunction, *ugen_cls): # *** VER, creo que siempre es una clase UGen, puede que no sea así?
+def _(obj: fn.AbstractFunction, *ugen_cls): # *** VER, creo que siempre es una clase UGen, puede que no sea así?
     return obj(*ugen_cls)
 
 @as_ugen_input.register(tuple) # las tuplas se convierten en listas, no sé si podría ser al revés.

@@ -18,8 +18,15 @@ import threading
 import inspect
 import warnings
 
-from supercollie.inout import ControlName, Control, TrigControl, AudioControl, LagControl
-from supercollie.utils import as_list, perform_in_shape
+# 1) rec imports, no anda.
+# from supercollie.inout import ControlName, Control, TrigControl, AudioControl, LagControl
+# from supercollie.utils import as_list, perform_in_shape
+# 2) anda dependiendo del orden en que se importen, e.g. import supercollie.iougens antes de supercollie.ugens
+# from . import inout as scio
+# from . import utils as ut
+# 3) dice module supercollie no tiene attribute ugens/synthdef/inout cuando import supercollie.ugens
+import supercollie.inout as scio
+import supercollie.utils as ut
 
 
 class SynthDef():
@@ -186,23 +193,23 @@ class SynthDef():
     # OC: Allow incremental building of controls.
     # estos métodos los usa solamente NamedControls desde afuera y no es subclase de SynthDef ni de UGen
     def add_non_control(self, name, values): # lo cambio por _add_nc _add_non? este método no se usa en ninguna parte de la librería estandar
-        self.add_control_name(ControlName(name, None, 'noncontrol', # IMPLEMENTAR CONTROLNAME
+        self.add_control_name(scio.ControlName(name, None, 'noncontrol', # IMPLEMENTAR CONTROLNAME
             values, len(self.control_names))) # values hace copy *** VER self.controls/control_names no pueden ser None
 
     def add_ir(self, name, values): # *** VER dice VALUES en plural, pero salvo que se pase un array como valor todos los que calcula son escalares u objetos no iterables.
-        self.add_control_name(ControlName(name, len(self.controls), 'scalar', # *** VER self.controls/control_names no pueden ser None
+        self.add_control_name(scio.ControlName(name, len(self.controls), 'scalar', # *** VER self.controls/control_names no pueden ser None
             values, len(self.control_names))) # values *** VER el argumento de ControlName es defaultValue que puede ser un array para expansión multicanal de controles, pero eso puede pasar acá saliendo de los argumentos?
 
     def add_tr(self, name, values):
-        self.add_control_name(ControlName(name, len(self.controls), 'trigger', # *** VER self.controls/control_names no pueden ser None
+        self.add_control_name(scio.ControlName(name, len(self.controls), 'trigger', # *** VER self.controls/control_names no pueden ser None
             values, len(self.control_names))) # values hace copy, *** VER ControlName hace expansión multicanal como dice la documentación???
 
     def add_ar(self, name, values):
-        self.add_control_name(ControlName(name, len(self.controls), 'audio', # *** VER self.controls/control_names no pueden ser None
+        self.add_control_name(scio.ControlName(name, len(self.controls), 'audio', # *** VER self.controls/control_names no pueden ser None
             values, len(self.control_names))) # values hace copy
 
     def add_kr(self, name, values, lags): # acá también dice lags en plural pero es un valor simple como string (symbol) o number según interpreto del código anterior.
-        self.add_control_name(ControlName(name, len(self.controls), 'control', # *** VER self.controls/control_names no pueden ser None
+        self.add_control_name(scio.ControlName(name, len(self.controls), 'control', # *** VER self.controls/control_names no pueden ser None
             values, len(self.control_names), lags)) # *** VER values y lag hacen copy
 
     # este también está expuesto como variente de la interfaz, debe ser el original.
@@ -237,24 +244,24 @@ class SynthDef():
                 for cn in ita_cns:
                     values.append(cn.default_value)
                 index = self.control_index
-                ctrl_ugens = perform_in_shape(values, ctrl_class, method) # Control.ir(values.flat).asArray.reshapeLike(values);
+                ctrl_ugens = ut.perform_in_shape(values, ctrl_class, method) # Control.ir(values.flat).asArray.reshapeLike(values);
                 for i, cn in enumerate(ita_cns):
                     cn.index = index
-                    index += len(as_list(cn.default_value))
+                    index += len(ut.as_list(cn.default_value))
                     arguments[cn.arg_num] = ctrl_ugens[i]
                     self._set_control_names(ctrl_ugens[i], cn)
-        build_ita_controls(ir_cns, Control, 'ir')
-        build_ita_controls(tr_cns, TrigControl, 'kr')
-        build_ita_controls(ar_cns, AudioControl, 'ar')
+        build_ita_controls(ir_cns, scio.Control, 'ir')
+        build_ita_controls(tr_cns, scio.TrigControl, 'kr')
+        build_ita_controls(ar_cns, scio.AudioControl, 'ar')
 
         if kr_cns:
             values = []
             lags = []
             for cn in kr_cns:
                 values.append(cn.default_value)
-                valsize = len(as_list(cn.default_value))
+                valsize = len(ut.as_list(cn.default_value))
                 if valsize > 1:
-                    lags.append(wrap_extend(as_list(cn.lag), valsize))
+                    lags.append(wrap_extend(ut.as_list(cn.lag), valsize))
                 else:
                     lags.append(cn.lag)
             index = self.control_index
@@ -263,12 +270,12 @@ class SynthDef():
                 # pero _set_control_names soporta solo un nivel porque
                 # OutputProxy no tiene atributo name. # **** REVISAR todo esto, es posible que haya pasado algo por alto porque me mareé. Pero por _set_control_names me parece que me mareé al pedoó.
                 values = [(values[i], lags[i]) for i in range(len(values))]
-                ctrl_ugens = perform_in_shape(values, LagControl, 'kr') # LagControl.kr(values.flat, lags).asArray.reshapeLike(values);
+                ctrl_ugens = ut.perform_in_shape(values, scio.LagControl, 'kr') # LagControl.kr(values.flat, lags).asArray.reshapeLike(values);
             else:
-                ctrl_ugens = perform_in_shape(values, Control, 'kr') # Control.ir(values.flat).asArray.reshapeLike(values);
+                ctrl_ugens = ut.perform_in_shape(values, scio.Control, 'kr') # Control.ir(values.flat).asArray.reshapeLike(values);
             for i, cn in enumerate(kr_cns):
                 cn.index = index
-                index += len(as_list(cn.default_value))
+                index += len(ut.as_list(cn.default_value))
                 arguments[cn.arg_num] = ctrl_ugens[i]
                 self._set_control_names(ctrl_ugens[i], cn)
 

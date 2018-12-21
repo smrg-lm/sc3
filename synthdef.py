@@ -14,25 +14,15 @@ pueden importar las cosas como conjuntos de paquetes tal vez compuestos
 de subconjuntos de los elemnentos de los paquetes... suena complicado.
 """
 
-import threading
 import inspect
 import warnings
 
-# 1) rec imports, no anda.
-# from supercollie.inout import ControlName, Control, TrigControl, AudioControl, LagControl
-# from supercollie.utils import as_list, perform_in_shape
-# 2) anda dependiendo del orden en que se importen, e.g. import supercollie.iougens antes de supercollie.ugens
-# from . import inout as scio
-# from . import utils as ut
-# 3) dice module supercollie no tiene attribute ugens/synthdef/inout cuando import supercollie.ugens
 import supercollie.inout as scio
+import supercollie._global as _gl
 import supercollie.utils as ut
 
 
 class SynthDef():
-    _current_def = None #UGen.buildSynthDef // the synth currently under construction
-    _build_lock = threading.Lock()
-
     synthdef_dir = None
     @classmethod
     def synthdef_dir(cls, dir): # es setter, usar @property, además se llama desde *initClass
@@ -52,7 +42,7 @@ class SynthDef():
         self.metadata = metadata
         #self.desc # *** Aún no vi dónde inicializa
 
-        self.controls = [] # inicializa en initBuild, esta propiedad la setean las ugens mediante _current_def agregando controles
+        self.controls = [] # inicializa en initBuild, esta propiedad la setean las ugens mediante _gl.current_synthdef agregando controles
         self.control_names = [] # en sclang se inicializan desde nil en addControlNames, en Python tienen que estar acá porque se pueden llamar desde wrap
         self.all_control_names = [] # en sclang se inicializan desde nil en addControlNames
         self.control_index = 0 # lo inicializa cuando declara la propiedad y lo reinicializa al mismo valor en initBuild, no sé por qué porque wrap salta a después de initBuild, este valor lo incrementan las ugen, e.g. audiocontrol
@@ -79,16 +69,16 @@ class SynthDef():
     # inicializando las restantes variables de instancia según el paso.
     # Tal vez debería ponerlas todas a None en __init__
     def _build(self, graph_func, rates, prepend_args):
-        with SynthDef._build_lock:
+        with _gl.def_build_lock:
             try:
-                SynthDef._current_def = self
+                _gl.current_synthdef = self
                 self._init_build()
                 self._build_ugen_graph(graph_func, rates, prepend_args)
                 self._finish_build()
                 self.func = graph_func # inicializa func que junto con name son las primeras propiedades.
-                SynthDef._current_def = None
+                _gl.current_synthdef = None
             except Exception as e:
-                SynthDef._current_def = None
+                _gl.current_synthdef = None
                 raise e
 
     # L53
@@ -100,7 +90,7 @@ class SynthDef():
 
     # L69
     def _init_build(self):
-        #UGen.buildSynthDef = this; Ahora se hace como SynthDef._current_def con un lock.
+        #UGen.buildSynthDef = this; Ahora se hace como _gl.current_synthdef con un lock.
         self.constants = dict() # o {} crea un diccionario en Python
         self.constant_set = set() # será constantS_set?
         self.controls = []
@@ -214,7 +204,7 @@ class SynthDef():
 
     # este también está expuesto como variente de la interfaz, debe ser el original.
     # el problema es que son internos de la implementación de la librería, no deberían ser expuestos al usuario.
-    def add_control_name(self, cn): # lo llama también desde las ugens mediante _current_def, e.g. audiocontrol
+    def add_control_name(self, cn): # lo llama también desde las ugens mediante _gl.current_synthdef, e.g. audiocontrol
         self.control_names.append(cn)
         self.all_control_names.append(cn)
 

@@ -1,17 +1,9 @@
 """InOut.sc"""
 
-# 1) rec imports, no anda.
-# from supercollie.ugens import UGen, MultiOutUGen
-# from supercollie.synthdef import SynthDef
-# from supercollie.utils import as_list, unbubble
-# 2) anda dependiendo del orden en que se importen, e.g. import supercollie.iougens antes de supercollie.ugens
-# from . import ugens as ug
-# from . import synthdef as sd
-# from . import utils as ut
-# 3) dice module supercollie no tiene attribute ugens/synthdef/inout cuando import supercollie.ugens
 import supercollie.ugens as ug
-import supercollie.synthdef as sd
+import supercollie._global as _gl
 import supercollie.utils as ut
+
 
 # Controls
 
@@ -38,7 +30,7 @@ class Control(ug.MultiOutUGen):
 
     @classmethod
     def names(cls, names):
-        synthdef = sd.SynthDef._current_def
+        synthdef = _gl.current_synthdef
         index = synthdef.control_index
         names = ut.as_list(names)
         for i, name in enumerate(names):

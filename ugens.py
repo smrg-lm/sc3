@@ -12,22 +12,13 @@ en otra clase que actúe como protocolo.
 from math import isnan
 from functools import singledispatch
 
-# 1) rec imports, no anda.
-# from supercollie.functions import AbstractFunction
-# from supercollie.synthdef import SynthDef
-# from supercollie.utils import as_list
-# 2) anda dependiendo del orden en que se importen, e.g. import supercollie.iougens antes de supercollie.ugens
-# from . import functions as fn
-# from . import synthdef as sd
-# from . import utils as ut
-# 3) dice module supercollie no tiene attribute ugens/synthdef/inout cuando import supercollie.ugens
 import supercollie.functions as fn
-import supercollie.synthdef as sd
+import supercollie._global as _gl
 import supercollie.utils as ut
 
 
 class UGen(fn.AbstractFunction):
-    # classvar <>buildSynthDef; // the synth currently under construction,  PASADA A SynthDef._current_def y tiene un Lock
+    # classvar <>buildSynthDef; // the synth currently under construction,  PASADA A _gl.current_synthdef y tiene un Lock
 
     @classmethod
     def new1(cls, rate, *args): # la verdad que see podría llamar single_new.
@@ -99,7 +90,7 @@ class UGen(fn.AbstractFunction):
         self.inputs = () # en sc es un array, es una tupla acá, se inicializa en UGen.init
         self.rate = 'audio' # TODO: VER: No se puede pasar opcionalmente a new1  *** !!! hacer un enum de algún tipo !!!
         # atributos de instancia privados
-        self.synthdef = None # es SynthDef._current_def luego de add_to_synth
+        self.synthdef = None # es _gl.current_synthdef luego de add_to_synth
         self.synth_index = -1
         self.opcode_id = 0 # self.specialIndex = 0; # special_index # ver nombre, esto sería opcode_id
         # topo sorting
@@ -137,7 +128,7 @@ class UGen(fn.AbstractFunction):
 
     # L287
     def add_to_synth(self): # este método lo reimplementan OuputProxy y WidthFirstUGen
-        self.synthdef = sd.SynthDef._current_def
+        self.synthdef = _gl.current_synthdef
         if self.synthdef:
             self.synthdef.add_ugen(self)
 
@@ -457,7 +448,7 @@ class OutputProxy(UGen):
         return self
 
     def add_to_synth(self):
-        self.synthdef = sd.SynthDef._current_def
+        self.synthdef = _gl.current_synthdef
 
     def dump_name(self):
         return self.source_ugen.dump_name() + '['\

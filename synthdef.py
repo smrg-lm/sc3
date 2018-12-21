@@ -18,6 +18,7 @@ import threading
 import inspect
 import warnings
 
+from supercollie.inout import ControlName, Control, TrigControl, AudioControl, LagControl
 from supercollie.utils import as_list, perform_in_shape
 
 
@@ -39,12 +40,12 @@ class SynthDef():
     def __init__(self, name, graph_func, rates=[], # ALGO HABÍA LEIDO SOBRE NO PONER ALGO POR DEFECTO Y CHECKAR NONE
                 prepend_args=[], variants={}, metadata={}): # rates y prepend args pueden ser anotaciones, prepargs puede ser un tipo especial en las anotaciones, o puede ser otro decorador?
         self.name = name
-        #self.func = graph_func # la inicializa en build luego de finishBuild
+        self.func = graph_func # la inicializa en build luego de finishBuild
         self.variants = variants # no sé por qué está agrupada como propiedad junto con las variables de topo sort
         self.metadata = metadata
         #self.desc # *** Aún no vi dónde inicializa
 
-        #self.controls = [] # inicializa en initBuild, esta propiedad la setean las ugens mediante _current_def agregando controles
+        self.controls = [] # inicializa en initBuild, esta propiedad la setean las ugens mediante _current_def agregando controles
         self.control_names = [] # en sclang se inicializan desde nil en addControlNames, en Python tienen que estar acá porque se pueden llamar desde wrap
         self.all_control_names = [] # en sclang se inicializan desde nil en addControlNames
         self.control_index = 0 # lo inicializa cuando declara la propiedad y lo reinicializa al mismo valor en initBuild, no sé por qué porque wrap salta a después de initBuild, este valor lo incrementan las ugen, e.g. audiocontrol

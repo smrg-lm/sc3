@@ -12,6 +12,15 @@ def as_list(obj):
     else:
         return obj if isinstance(obj, list) else [obj]
 
+def unbubble(obj): # only one level
+    '''If obj is a list of one item or any other object unbubble(obj)
+    returns the item, otherwise returns the list or object unchanged.'''
+    if isinstance(obj, list) and len(obj) is 1:
+        return obj[0]
+    else:
+        return obj
+
+
 # to avoid flat -> reshapeLike in SynthDef:_build_controls
 def perform_in_shape(inlist, obj, selector):
     '''Takes an inlist, maybe containing sub lists, and performs

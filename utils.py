@@ -47,6 +47,8 @@ def wrap_extend(inlist, n):
 # reject [x for x in self.control_names if x.rate is not 'noncontrol']
 # any with predicate (a generator) como en sclang any(x > 10 for x in l)
 
+# clump [l[i:i + n] for i in range(0, len(l), n)] https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
+# dup [UGen] * n
 # collect if else ['todo' if isinstance(x, A) else 'nada' for x in arr]
 #[0] * (len(names) - len(rates)) # VER: sclang extend, pero no trunca
 # [l[i%len(l)] for i in range(8)] # wrapExtend

@@ -39,14 +39,18 @@ class UGen(fn.AbstractFunction):
         obj = cls()
         obj.rate = rate
         obj.add_to_synth()
-        return obj.init_ugen(*args) # debería llamarse init_ugen o algo así
+        return obj.init_ugen(*args) # OJO: en sclang es init, init_ugen es mejor acá porque tiene que retornar el valor adecuado, siempre.
 
     # @classmethod
     # def new_from_desc(cls, rate, numOutputs, inputs, specialIndex):
     #     pass
 
     @classmethod
-    def multi_new(cls, *args):
+    def multi_new(cls, *args): # VER: No entiendo para qué sirve este método que solo envuelve a multi_new_list. multi_new_list es 'como de' más bajo nivel, o es una implementación o tiene que ver con cómo se pueden pasar los argumentos, o no lo sé.
+        cls.multi_new_list(list(args))
+
+    @classmethod
+    def multi_new_list(cls, args):
         '''OD: These methods are responsible for multichannel expansion.
         They call UGen.new1(rate, *args) for each parallel combination.
         Most UGen.ar/kr methods delegate to UGen.multiNewList.
@@ -72,16 +76,6 @@ class UGen(fn.AbstractFunction):
                               else item # hace la expansión multicanal
             results[i] = cls.multi_new(*new_args)
         return results
-
-    # @classmethod
-    # def multi_new_list(cls, args): # REMOVED
-    #     '''OD: See UGen.multi_new. ESTE MÉTODO LO VOY A PASAR A MULTI_NEW Y YA.
-    #     Este método debe ser privado y específico para las ugens que soportan
-    #     expansión multicanal, y otras ugens pueden reimplementar multi_new,
-    #     pero no sucede en la librería de clases, solo los veo en Rect,
-    #     tal vez no sea la famosa dynamic geometry support.
-    #     '''
-    #     pass
 
     # Python __init__ no es sclang SynthDef init
     # acá solo puse los valores de instancia por defecto de la clase original.
@@ -112,7 +106,7 @@ class UGen(fn.AbstractFunction):
     #     return self
     # def __copy__(self): # para Lib/copy.py module, ver si tiene utilidad
     #     return self
-    def dup(self, n):
+    def dup(self, n): # TODO: VER [1] * n, que es el equivalente a dup en Python
         return [self] * n
 
     # Desde L51 hasta L284 son, más que nada, métodos de operaciones
@@ -385,9 +379,10 @@ class PureUGen(UGen):
 
 class MultiOutUGen(UGen):
     def __init__(self):
+        self.channels = [] # Nueva propiedad # VER: se necesita antes de llamar a super().__init__() porque en UGen inicializa self.synth_index y llama al setter de esta sub-clase.
         super().__init__() # TODO: *** super().__init__() inicializa las propiedades correctamente desde new1 *** VER métodos de UGen
-        self._synth_index = -1 # VER: en UGen synth_index es una propiedad sin setter/getter/deleter, Pero llama al setter solo si se llama desde subclase, es OK.
-        self.channels = []
+        #self._synth_index = -1 # VER: en UGen synth_index es una propiedad sin setter/getter/deleter, Pero llama al setter solo si se llama desde subclase.
+        #self.channels = []
 
     @property
     def synth_index(self):
@@ -489,7 +484,7 @@ def _(obj):
 
 
 @singledispatch #Este método es implementado por varias clases y extensiones. Cada clase prepara los datos para que sea una entrada válida.
-def as_ugen_input(obj): # ugen_cls (*** VER ABAJO ***) es opt_arg, solo AbstractFunction y Array lo usan, Array porque itera sobre. Si la llamada recibe una tupla estrella vacía '*()' no pasa nada.
+def as_ugen_input(obj, *ugen_cls): # ugen_cls (*** VER ABAJO ***) es opt_arg, solo AbstractFunction y Array lo usan, Array porque itera sobre. Si la llamada recibe una tupla estrella vacía '*()' no pasa nada. EL PROBLEMA ES QUE SCLANG IGNORA LOS PARÁMETROS SI LA FUNCIÓN NO RECIBE ARGUMENTOS Y LA TUPLA PUEDE NO ESTAR VACÍA.
     return obj
 
 @as_ugen_input.register
@@ -502,23 +497,23 @@ def _(obj, *ugen_cls):
     return list(map(lambda x: as_ugen_input(x, *ugen_cls), obj)) # de Array: ^this.collect(_.asUGenInput(for))
 
 @as_ugen_input.register
-def _(obj: Buffer): # si la llamada recibe una tupla estrella vacía '*()' no pasa nada.
+def _(obj: Buffer, *ugen_cls): # si la llamada recibe una tupla estrella vacía '*()' no pasa nada. Pero si es genérica como en multi_new_list sí pasa, porque la tupla no está vacía. Solo AbstractFunction usa el parámetro realmente, no se si se usó en algún momento de la historia.
     return obj.bufnum
 
 @as_ugen_input.register
-def _(obj: Bus):
+def _(obj: Bus, *ugen_cls):
     return obj.index
 
 @as_ugen_input.register
-def _(obj: Dunique):
+def _(obj: Dunique, *ugen_cls):
     raise NotImplementedError('Dunique as ugen input is not implemente yet.') #TODO
 
 @as_ugen_input.register
-def _(obj: Event): # sc Event, VER
+def _(obj: Event, *ugen_cls): # sc Event, VER
     return as_control_input(obj) # es otro método de interfaz
 
 @as_ugen_input.register
-def _(obj: Node): # sc Node
+def _(obj: Node, *ugen_cls): # sc Node
     raise NotImplementedError('Should not use a Node inside a SynthDef') # dice esto pero implmente as_control_input
 
 #@as_ugen_input.register

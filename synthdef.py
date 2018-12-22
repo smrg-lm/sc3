@@ -20,6 +20,7 @@ import warnings
 import supercollie.inout as scio
 import supercollie._global as _gl
 import supercollie.utils as ut
+import supercollie.ugens as ug
 
 
 class SynthDef():
@@ -100,13 +101,13 @@ class SynthDef():
 
     def _build_ugen_graph(self, graph_func, rates, prepend_args):
         # OC: save/restore controls in case of *wrap
-        save_ctrl_names = self.control_names # aún no se inicializó self.control_names usando new, es para wrap que se llama desde dentro de otra SynthDef ya en construcción.
+        save_ctl_names = self.control_names # aún no se inicializó self.control_names usando new, es para wrap que se llama desde dentro de otra SynthDef ya en construcción.
         self.control_names = [] # None # no puede ser None acá
         self.prepend_args = prepend_args # Acá es una lista, no hay asArray.
         self._args_to_controls( # add_controls_from_args_of_func_please(
             graph_func, rates, len(self.prepend_args)) # HAY QUE TOMAR DECISIONES.
-        result = func(*(prepend_args + self._build_controls())) # usa func.valueArray(prepend_args ++ this.buildControls) buildControls tiene que devolver una lista.
-        self.control_names = save_control_names
+        result = self.func(*(prepend_args + self._build_controls())) # usa func.valueArray(prepend_args ++ this.buildControls) buildControls tiene que devolver una lista.
+        self.control_names = save_ctl_names
         return result
 
     #addControlsFromArgsOfFunc (llamada desde buildUGenGraph)
@@ -417,7 +418,7 @@ class SynthDef():
         print(self.name)
         for ugen in self.children: # tampoco terminó usando el índice
             if ugen.inputs:
-                inputs = [x.dump_name() if isinstance(x, UGen)\
+                inputs = [x.dump_name() if isinstance(x, ug.UGen)\
                           else x for x in ugen.inputs] # ugen.inputs.collect {|in| if (in.respondsTo(\dumpName)) { in.dumpName }{ in }; }; # Las únicas clases que implementan dumpName son UGen, BasicOpUGen y OutputProxy, sería interfaz de UGen, sería if is UGen
             print([ugen.dump_name(), ugen.rate, inputs])
 

@@ -87,12 +87,12 @@ class UGen(fn.AbstractFunction):
     # acá solo puse los valores de instancia por defecto de la clase original.
     def __init__(self): # OJO: Las subclases de UGen no pueden implementar __init___ !!!
         # atributos de instancia públicos?
-        self.inputs = () # en sc es un array, es una tupla acá, se inicializa en UGen.init
+        self.inputs = () # TODO: en sc es un array, es una tupla acá, se inicializa en UGen.init
         self.rate = 'audio' # TODO: VER: No se puede pasar opcionalmente a new1  *** !!! hacer un enum de algún tipo !!!
         # atributos de instancia privados
         self.synthdef = None # es _gl.current_synthdef luego de add_to_synth
         self.synth_index = -1
-        self.opcode_id = 0 # self.specialIndex = 0; # special_index # ver nombre, esto sería opcode_id
+        self.special_index = 0 # self.specialIndex = 0; # se obtiene de los símbolos, llama a _Symbol_SpecialIndex
         # topo sorting
         self.antecedents = None #set() # estos sets los inicializa SynthDef init_topo_sort, antecedents lo transforma en lista luego, por eso los dejo en none.
         self.descendants = None #set()
@@ -370,7 +370,7 @@ class UGen(fn.AbstractFunction):
             for input in self.inputs:
                 if isinstance(input, UGen):
                     input.descendants.remove(self)
-                    input._optimize_graph()
+                    input.optimize_graph()
             self.synthdef.remove_ugen(self)
             return True
         return False

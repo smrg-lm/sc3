@@ -49,7 +49,7 @@ class Control(ug.MultiOutUGen):
     def init_ugen(self, *values):
         self.values = list(values)
         if self.synthdef:
-            self.special_index = len(self.synthdef.controls)
+            self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
             self.synthdef.controls.extend(self.values)
 
             ctl_names = self.synthdef.control_names

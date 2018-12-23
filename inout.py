@@ -180,8 +180,9 @@ class AbstractOut(ug.UGen):
         if self.rate is 'audio':
             for i in range(self.__class__.num_fixed_args(), len(self.inputs)):
                 if self.inputs[i].rate is not 'audio':
-                    msg = 'input at index {} ({}) is not audio rate'
-                    return msg.format(i, self.inputs[i])
+                    msg = '{}:'.format(self.__class__.__name__)
+                    msg += ' input at index {} ({}) is not audio rate'
+                    return msg.format(i, self.inputs[i].__class__.__name__) # TODO: Si es OutputProxy que imprima source_ugen
         elif len(self.inputs) <= self.__class_.num_fixed_args():
             return 'missing input at index 1'
         return self.check_valid_inputs()

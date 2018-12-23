@@ -43,7 +43,7 @@ class SynthDef():
         self.metadata = metadata
         #self.desc # *** Aún no vi dónde inicializa
 
-        self.controls = [] # inicializa en initBuild, esta propiedad la setean las ugens mediante _gl.current_synthdef agregando controles
+        self.controls = None # [] es un array pero por defecto es nil # TODO: puede haber problema porque nil.add se relaciona en comportamiento con asArray. # inicializa en initBuild, esta propiedad la setean las ugens mediante _gl.current_synthdef agregando controles
         self.control_names = [] # en sclang se inicializan desde nil en addControlNames, en Python tienen que estar acá porque se pueden llamar desde wrap
         self.all_control_names = [] # en sclang se inicializan desde nil en addControlNames
         self.control_index = 0 # lo inicializa cuando declara la propiedad y lo reinicializa al mismo valor en initBuild, no sé por qué porque wrap salta a después de initBuild, este valor lo incrementan las ugen, e.g. audiocontrol
@@ -119,7 +119,7 @@ class SynthDef():
         sig = inspect.signature(func)
         params = list(sig.parameters.values())
         arg_names = [x.name for x in params] # list(map(lambda x: x.name, params))
-        if len(arg_names) < 1: return self # None
+        if len(arg_names) < 1: return None
 
         # OC: OK what we do here is separate the ir, tr and kr rate arguments,
 		# create one Control ugen for all of each rate,
@@ -235,7 +235,9 @@ class SynthDef():
                 for cn in ita_cns:
                     values.append(cn.default_value)
                 index = self.control_index
-                ctrl_ugens = ut.perform_in_shape(values, ctrl_class, method) # Control.ir(values.flat).asArray.reshapeLike(values);
+                ctrl_ugens = getattr(ctrl_class, method)(ut.flat(values)) # XControl.xr(values.flat)
+                ctrl_ugens = ut.as_list(ctrl_ugens) # .asArray
+                ctrl_ugens = ut.reshape_like(ctrl_ugens, values) # .reshapeLike(values);
                 for i, cn in enumerate(ita_cns):
                     cn.index = index
                     index += len(ut.as_list(cn.default_value))
@@ -255,15 +257,15 @@ class SynthDef():
                     lags.append(wrap_extend(ut.as_list(cn.lag), valsize))
                 else:
                     lags.append(cn.lag)
-            index = self.control_index
+            index = self.control_index # TODO: esto puede ir abajo si los kr no cambian el índice.
+
             if any(x != 0 for x in lags):
-                # flop. Sub-levels se pueden producir por expansión multicanal
-                # pero _set_control_names soporta solo un nivel porque
-                # OutputProxy no tiene atributo name. # **** REVISAR todo esto, es posible que haya pasado algo por alto porque me mareé. Pero por _set_control_names me parece que me mareé al pedoó.
-                values = [(values[i], lags[i]) for i in range(len(values))]
-                ctrl_ugens = ut.perform_in_shape(values, scio.LagControl, 'kr') # LagControl.kr(values.flat, lags).asArray.reshapeLike(values);
+                ctrl_ugens = scio.LagControl.kr(ut.flat(values), lags) # LagControl.kr(values.flat, lags) //.asArray.reshapeLike(values);
             else:
-                ctrl_ugens = ut.perform_in_shape(values, scio.Control, 'kr') # Control.ir(values.flat).asArray.reshapeLike(values);
+                ctrl_ugens = scio.Control.kr(ut.flat(values)) # Control.kr(values.flat)
+            ctrl_ugens = ut.as_list(ctrl_ugens) # .asArray
+            ctrl_ugens = ut.reshape_like(ctrl_ugens, values) # .reshapeLike(values);
+
             for i, cn in enumerate(kr_cns):
                 cn.index = index
                 index += len(ut.as_list(cn.default_value))

@@ -20,20 +20,45 @@ def unbubble(obj): # only one level
     else:
         return obj
 
-
-# to avoid flat -> reshapeLike in SynthDef:_build_controls
-def perform_in_shape(inlist, obj, selector):
-    '''Takes an inlist, maybe containing sub lists, and performs
-    a selector of obj with each item in the list as argument
-    returning a new list of values with the shape of inlist'''
+def flat(inlist):
+    def _(inlist, outlist):
+        for item in inlist:
+            if isinstance(item, list):
+                _(item, outlist)
+            else:
+                outlist.append(item)
     outlist = []
-    for item in inlist:
-        if isinstance(item, list):
-            outlist.append(perform_in_shape(item, obj, selector))
-        else:
-            if not isinstance(item, tuple): item = (item,)
-            outlist.append(getattr(obj, selector)(*item))
+    _(inlist, outlist)
     return outlist
+
+def reshape_like(one, another):
+    index = 0
+    one_flat = flat(one)
+    def func(*discard):
+        nonlocal index
+        item = one_flat[index % len(one_flat)] # indexing='wrapAt'
+        index += 1
+        return item
+    return deep_collect(another, 0x7FFFFFFF, func)
+
+def deep_collect(inlist, depth, func, index=0, rank=0):
+    if depth is None:
+        rank += 1
+        if isinstance(inlist, list):
+            return [deep_collect(item, depth, func, i, rank) for i, item in enumerate(inlist)]
+        else:
+            return func(inlist, index, rank)
+    if depth <= 0:
+        if func:
+            return func(inlist, index, rank) # inlist es un objeto no lista en este caso, creo.
+        else:
+            return None
+    depth -= 1
+    rank += 1
+    if isinstance(inlist, list):
+        return [deep_collect(item, depth, func, i, rank) for i, item in enumerate(inlist)]
+    else:
+        return func(inlist, index, rank)
 
 def wrap_extend(inlist, n):
     '''Create a new list by extending inlist with its

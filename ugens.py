@@ -301,7 +301,7 @@ class UGen(fn.AbstractFunction):
     #if(self, trueugen, falseugen)
 
     # L470
-    # Este método llama a los de abajo, reordené or orden de lectura.
+    # Este método llama a los de abajo, reordené por orden de lectura.
     # Escribe a archivo, pero también generan el formato. VER con SynthDef
     #writeDef
 
@@ -437,7 +437,7 @@ class OutputProxy(UGen):
     #     # TODO: para usar __init__() new1 debería ser __init__ PERO __init__ tiene que retornar None, NO PUEDE RETORNAR DISTINTAS COSAS.
 
     def init_ugen(self, source_ugen, index): # init_ugen tiene que retornar self! en Python retorna None por defecto.
-        self.source_ugen = source_ugen # OJO: source cambia a source_ugen
+        self.source_ugen = source_ugen # OJO: source cambia a source_ugen, y puede no ser necesario inicializarla en init
         self.output_index = index
         self.synth_index = source_ugen.synth_index
         return self

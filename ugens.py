@@ -62,7 +62,7 @@ class UGen(fn.AbstractFunction):
         lenght = 0
         args = as_ugen_input(args, cls)
         for item in args:
-            if type(item) is list:
+            if isinstance(item, list):
                 lenght = max(lenght, len(item))
         if lenght is 0:
             return cls.new1(*args)
@@ -72,7 +72,7 @@ class UGen(fn.AbstractFunction):
         for i in range(lenght): # tener en cuenta sclang #[] y `()
             for j, item in enumerate(args):
                 new_args[j] = item[i % len(item)]\
-                              if type(item) is list\
+                              if isinstance(item, list)\
                               else item # hace la expansión multicanal
             results[i] = cls.multi_new(*new_args)
         return results
@@ -177,7 +177,7 @@ class UGen(fn.AbstractFunction):
 
     def arg_name_for_input_at(self, i): # se usa acá y en basicopugen dentro de checkValidInputs, ambas clases lo implementan.
         try:
-            selector = self.method_selector_for_rate()
+            selector = self.method_selector_for_rate(self.rate)
             method = getattr(self.__class__, selector)
             sig = inspect.signature(method)
             params = list(sig.parameters.values())
@@ -203,15 +203,15 @@ class UGen(fn.AbstractFunction):
     # def arg_names_inputs_offset(self): # lo implementan varias clases como intefaz, se usa solo acá y basicopugen en argNameForInputAt
     #     return 1
 
-    def method_selector_for_rate(self): # SUBIDA de la sección write
-        return UGen.method_selector_for_rate(self.rate) # VER: este no tendría try/except en getattr? VER: repite el código porque comprueba con self.rate que cambia si se inicializa con ar/kr/ir, pero no es lo mismo así?? No lo implementa ninguna sub-clase.
+    # def method_selector_for_rate(self): # **** TODO *** NO PUEDEN HABER MÉTODOS DE CLASE E INSTANCIA CON EL MISMO NOMBRE # SUBIDA de la sección write
+    #     return self.__class__.method_selector_for_rate(self.rate) # VER: este no tendría try/except en getattr? VER: repite el código porque comprueba con self.rate que cambia si se inicializa con ar/kr/ir, pero no es lo mismo así?? No lo implementa ninguna sub-clase.
 
     @classmethod
-    def method_selector_for_rate(cls, rate): # este tiene una variante de instancia, ahora acá arriba.
+    def method_selector_for_rate(cls, rate): # TODO VER: este no tendría try/except en getattr? VER: repite el código porque comprueba con self.rate que cambia si se inicializa con ar/kr/ir, pero no es lo mismo así?? No lo implementa ninguna sub-clase. En sclang tiene una variante de instancia que acá no puede existir.
         if rate is 'audio': return 'ar'
         if rate is 'control': return 'kr'
         if rate is 'scalar':
-            if 'ir' in dir(cls): # VER arriba: es try: getattr(cls, self.method_selector_for_rate()) except AttributeError: lala.
+            if 'ir' in dir(cls): # TODO: VER arriba: es try: getattr(cls, self.method_selector_for_rate()) except AttributeError: lala.
                 return 'ir'
             else:
                 return 'new' # TODO, *** __init__ SOLO PUEDE RETORNAR NONE Y NEW1 RETORNA DISTINTAS COSAS. super().__init__() inicializa las propiedades desde new1 *** OJO, VER, LAS SUBCLASES NO PUEDEN IMPLEMENTAR __init__ !!! super(UGen, self).__init__() no me funciona con new1
@@ -364,7 +364,7 @@ class UGen(fn.AbstractFunction):
         pass # pass? se usa para esto o es confuso?
 
     def perform_dead_code_elimination(self): # Se usa un optimize_graph de BinaryOpUGen, PureMultiOutUGen, PureUGen y UnaryOpUGen.
-        if self.descendants is 0:
+        if len(self.descendants) is 0:
             for input in self.inputs:
                 if isinstance(input, UGen):
                     input.descendants.remove(self)
@@ -413,7 +413,7 @@ class MultiOutUGen(UGen):
             raise Exception(msg)
         self.channels = [OutputProxy.new(rate, self, i)\
                         for i in range(num_channels)]
-        if num_channels is 1:
+        if num_channels == 1:
             return self.channels[0]
         return self.channels
 

@@ -21,7 +21,7 @@ class Silent(): # No es una UGen.
     @classmethod
     def ar(cls, num_channels=1):
         sig = DC.ar(0)
-        if num_channels is 1:
+        if num_channels == 1:
             return sig
         else:
             return [sig] * num_channels

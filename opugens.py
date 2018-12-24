@@ -64,21 +64,21 @@ class BinaryOpUGen(BasicOpUGen):
     def new1(cls, rate, selector, a, b):
         # OC: eliminate degenerate cases
         if selector is '*':
-            if a is 0.0: return 0.0
-            if b is 0.0: return 0.0
-            if a is 1.0: return b
-            if a is -1.0: return -b #.neg() # TODO: esto sería neg(b) si los operatores unarios se convierten en funciones.
-            if b is 1.0: return a
-            if b is -1.0: return -a #.neg() # TODO: ídem. Además, justo este es neg. UGen usa AbstractFunction __neg__ para '-'
+            if a == 0.0: return 0.0
+            if b == 0.0: return 0.0
+            if a == 1.0: return b
+            if a == -1.0: return -b #.neg() # TODO: esto sería neg(b) si los operatores unarios se convierten en funciones.
+            if b == 1.0: return a
+            if b == -1.0: return -a #.neg() # TODO: ídem. Además, justo este es neg. UGen usa AbstractFunction __neg__ para '-'
         if selector is '+':
-            if a is 0.0: return b
-            if b is 0.0: return a
+            if a == 0.0: return b
+            if b == 0.0: return a
         if selector is '-':
-            if a is 0.0: return b.neg() # TODO: Ídem -a, -b, VER
-            if b is 0.0: return a
+            if a == 0.0: return b.neg() # TODO: Ídem -a, -b, VER
+            if b == 0.0: return a
         if selector is '/':
-            if b is 1.0: return a
-            if b is -1.0: return a.neg()
+            if b == 1.0: return a
+            if b == -1.0: return a.neg()
         return super().new1(rate, selector, a, b) # TODO: es así la llamada acá en clase?
 
     @classmethod
@@ -292,10 +292,10 @@ class MulAdd(ug.UGen):
     @classmethod
     def new1(cls, rate, input, mul, add):
         # OC: eliminate degenerate cases
-        if mul is 0.0: return add
-        minus = mul is -1.0
-        nomul = mul is 1.0
-        noadd = add is 0.0
+        if mul == 0.0: return add
+        minus = mul == -1.0
+        nomul = mul == 1.0
+        noadd = add == 0.0
         if nomul and noadd: return input
         if minus and noadd: return input.neg() # TODO: ES POSIBLE QUE PUEDA NO SER UNA UGEN?
         if noadd: return input * mul
@@ -334,9 +334,9 @@ class Sum3(ug.UGen):
 
     @classmethod
     def new1(cls, dummy_rate, in0, in1, in2):
-        if in2 is 0.0: return in0 + in1
-        if in1 is 0.0: return in0 + in2
-        if in0 is 0.0: return in1 + in2
+        if in2 == 0.0: return in0 + in1
+        if in1 == 0.0: return in0 + in2
+        if in0 == 0.0: return in1 + in2
 
         arg_array = [in0, in1, in2]
         rate = ug.as_ugen_rate(arg_array)
@@ -352,10 +352,10 @@ class Sum4(ug.UGen):
 
     @classmethod
     def new1(cls, in0, in1, in2, in3):
-        if in0 is 0.0: return Sum3.new1(nil, in1, in2, in3)
-        if in1 is 0.0: return Sum3.new1(nil, in0, in2, in3)
-        if in2 is 0.0: return Sum3.new1(nil, in0, in1, in3)
-        if in3 is 0.0: return Sum3.new1(nil, in0, in1, in2)
+        if in0 == 0.0: return Sum3.new1(nil, in1, in2, in3)
+        if in1 == 0.0: return Sum3.new1(nil, in0, in2, in3)
+        if in2 == 0.0: return Sum3.new1(nil, in0, in1, in3)
+        if in3 == 0.0: return Sum3.new1(nil, in0, in1, in2)
 
         arg_array = [in0, in1, in2, in3]
         rate = ug.as_ugen_rate(arg_array)

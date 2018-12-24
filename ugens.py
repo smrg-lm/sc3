@@ -47,7 +47,7 @@ class UGen(fn.AbstractFunction):
 
     @classmethod
     def multi_new(cls, *args): # VER: No entiendo para qué sirve este método que solo envuelve a multi_new_list. multi_new_list es 'como de' más bajo nivel, o es una implementación o tiene que ver con cómo se pueden pasar los argumentos, o no lo sé.
-        cls.multi_new_list(list(args))
+        return cls.multi_new_list(list(args))
 
     @classmethod
     def multi_new_list(cls, args):
@@ -472,12 +472,13 @@ class Node(): pass    #
 # madd
 
 @singledispatch
-def madd(obj: UGen, mul=1.0, add=0.0):
-    from supercollie.opugens import MulAdd # TODO: VAN A ESTAR ESTE PROBLEMA CON TODOS LOS OPERADORES QUE DEVUELVEN UGENS.
-    return MulAdd.new(obj, mul, add)
+def madd(obj, mul=1.0, add=0.0):
+    msg = "'{}' is not a valid type for madd"
+    raise TypeError(msg.format(obj.__class__.__name__))
 
 @madd.register(list)
 @madd.register(tuple)
+@madd.register(UGen)
 def _(obj, mul=1.0, add=0.0):
     from supercollie.opugens import MulAdd # TODO: VAN A ESTAR ESTE PROBLEMA CON TODOS LOS OPERADORES QUE DEVUELVEN UGENS.
     return MulAdd.new(obj, mul, add) # TODO: Tiene que hacer expansión multicanal, es igual a UGen. VER: qué pasa con MulAdd args = ug.as_ugen_input([input, mul, add], cls)

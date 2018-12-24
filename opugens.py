@@ -2,6 +2,7 @@
 
 import supercollie.ugens as ug
 import supercollie.utils as ut
+import supercollie._specialindex as si
 
 
 class BasicOpUGen(ug.UGen):
@@ -15,8 +16,8 @@ class BasicOpUGen(ug.UGen):
 
     @operator.setter
     def operator(self, value):
-        self._operator = value # op es un símbolo en sclang, el método op.specialIndex llama a _Symbol_SpecialIndex // used by BasicOpUGens to get an ID number for the operator
-        self.special_index = special_index(value) # TODO: en inout.py hace: self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
+        self._operator = value
+        self.special_index = si.special_index(value) # TODO: en inout.py hace: self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
         if self.special_index < 0:
             msg = "Operator '{}' applied to a UGen is not supported by the server" # Cambié scsynth por server
             raise Exception(msg.format(value))
@@ -79,7 +80,7 @@ class BinaryOpUGen(BasicOpUGen):
         if selector is '/':
             if b == 1.0: return a
             if b == -1.0: return a.neg()
-        return super().new1(rate, selector, a, b) # TODO: es así la llamada acá en clase?
+        return super().new1(rate, selector, a, b)
 
     @classmethod
     def new(cls, selector, a, b):

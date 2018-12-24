@@ -275,8 +275,10 @@ class UGen(fn.AbstractFunction):
     # OC: function composition
     # Son la interfaz de AbstractFunction
     def compose_unop(self, selector): # composeUnaryOp
+        from supercollie.opugens import UnaryOpUGen # TODO: import cíclico, en este caso las OPUGENS podrían estar en este archivo como sucede con AbstractFunction.
         return UnaryOpUGen.new(selector, self)
     def compose_binop(self, selector, input): #composeBinaryOp
+        from supercollie.opugens import BinaryOpUGen # TODO: import cíclico, en este caso las OPUGENS podrían estar en este archivo como sucede con AbstractFunction.
         if is_valid_ugen_input(input):
             return BinaryOpUGen.new(selector, self, input)
         else:

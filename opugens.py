@@ -69,12 +69,12 @@ class BinaryOpUGen(BasicOpUGen):
             if a is 1.0: return b
             if a is -1.0: return -b #.neg() # TODO: esto sería neg(b) si los operatores unarios se convierten en funciones.
             if b is 1.0: return a
-            if b is -1.0: return -a #.neg() # TODO: ídem. Además, justo este es neg. UGen usa AbstractFunction __neg__
+            if b is -1.0: return -a #.neg() # TODO: ídem. Además, justo este es neg. UGen usa AbstractFunction __neg__ para '-'
         if selector is '+':
             if a is 0.0: return b
             if b is 0.0: return a
         if selector is '-':
-            if a is 0.0: return b.neg()
+            if a is 0.0: return b.neg() # TODO: Ídem -a, -b, VER
             if b is 0.0: return a
         if selector is '/':
             if b is 1.0: return a

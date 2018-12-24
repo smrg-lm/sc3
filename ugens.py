@@ -255,7 +255,7 @@ class UGen(fn.AbstractFunction):
         num_zeroes = values.count(0.0)
         if num_zeroes is 0: return values
 
-        silent_channels = ut.as_list(Silent.ar(num_zeroes)) # usa asCollection
+        silent_channels = ut.as_list(Silent.ar(num_zeroes)) # usa asCollection # TODO: prefijo de Silent cuando lo haga.
         pos = 0
         for i, item in enumerate(values):
             if item == 0.0:
@@ -271,10 +271,10 @@ class UGen(fn.AbstractFunction):
     # OC: function composition
     # Son la interfaz de AbstractFunction
     def compose_unop(self, selector): # composeUnaryOp
-        return UnaryOpUGen(selector, self)
+        return UnaryOpUGen.new(selector, self)
     def compose_binop(self, selector, input): #composeBinaryOp
         if is_valid_ugen_input(input):
-            return BinaryOpUGen(selector, self, input)
+            return BinaryOpUGen.new(selector, self, input)
         else:
             # TODO: anInput.performBinaryOpOnUGen(aSelector, this);
             # Lo implementan Complex, Polar, MathLib:Spherical y Object.

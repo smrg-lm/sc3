@@ -111,8 +111,8 @@ class TrigControl(Control): pass # No hace nada especial.
 
 class LagControl(Control):
     @classmethod
-    def ir(cls):
-        msg = '{} should not implemet ir constructor'
+    def ir(cls, values):
+        msg = '{} should not implemet ir constructor' # TODO: ver en qué casos se puede llamar, porque acá le agregué los argumentos si no tira error.
         raise NotImplementedError(msg.format(cls.__name__))
 
     @classmethod
@@ -160,11 +160,62 @@ class AbstractIn(ug.MultiOutUGen):
         return True
 
 
-class In(AbstractIn): pass
-class LocalIn(AbstractIn): pass
-class LagIn(AbstractIn): pass
-class InFeedback(AbstractIn): pass
-class InTrig(AbstractIn): pass
+class In(AbstractIn):
+    @classmethod
+    def ar(cls, bus=0, num_channels=1):
+        return cls.multi_new('audio', num_channels, bus)
+
+    @classmethod
+    def kr(cls, bus=0, num_channels=1):
+        return cls.multi_new('control', num_channels, bus)
+
+    def init_ugen(self, num_channels, *arg_bus):
+        self.inputs = arg_bus # TODO: VER: es siempre tupla
+        return self.init_outputs(num_channels, self.rate)
+
+
+class LocalIn(AbstractIn):
+    @classmethod
+    def ar(cls, num_channels=1, default=0.0):
+        return cls.multi_new('audio', num_channels, *ut.as_list(default))
+
+    @classmethod
+    def kr(cls, num_channels=1, default=0.0):
+        return cls.multi_new('control', num_channels, *ut.as_list(default))
+
+    def init_ugen(self, num_channels, *default):
+        self.inputs = tuple(ut.wrap_extend(list(default), num_channels))
+        return self.init_outputs(num_channels, self.rate)
+
+
+class LagIn(AbstractIn):
+    @classmethod
+    def kr(cls, bus=0, num_channels=1, lag=0.1):
+        return cls.multi_new('control', num_channels, bus, lag)
+
+    def init_ugen(self, num_channels, *inputs):
+        self.inputs = inputs # TODO: es tupla no usa as list.
+        return self.init_outputs(num_channels, self.rate)
+
+
+class InFeedback(AbstractIn):
+    @classmethod
+    def ar(cls, bus=0, num_channels=1):
+        return cls.multi_new('audio', num_channels, bus)
+
+    def init_ugen(self, num_channels, *arg_bus):
+        self.inputs = arg_bus # TODO: es tupla
+        return self.init_outputs(num_channels, self.rate)
+
+
+class InTrig(AbstractIn):
+    @classmethod
+    def kr(cls, bus=0, num_channels=1):
+        return cls.multi_new('control', num_channels, bus)
+
+    def init_ugen():
+        self.inputs = arg_bus # TODO: es tupla
+        return self.init_outputs(num_channels, self.rate)
 
 
 # Outputs
@@ -174,12 +225,12 @@ class AbstractOut(ug.UGen):
         return 0
 
     def write_output_specs(self):
-        pass # No implementa, VER VALOR DE RETORNO en sclang es self.
+        pass # TODO: Método vacío, VER VALOR DE RETORNO en sclang es self.
 
     def check_inputs(self):
         if self.rate is 'audio':
             for i in range(self.__class__.num_fixed_args(), len(self.inputs)):
-                if self.inputs[i].rate is not 'audio':
+                if ug.as_ugen_rate(self.inputs[i]) is not 'audio':
                     msg = '{}:'.format(self.__class__.__name__)
                     msg += ' input at index {} ({}) is not audio rate'
                     return msg.format(i, self.inputs[i].__class__.__name__) # TODO: Si es OutputProxy que imprima source_ugen
@@ -193,13 +244,13 @@ class AbstractOut(ug.UGen):
 
     @classmethod
     def num_fixed_args(cls):
-        pass # VER: ^this.subclassResponsibility(thisMethod)
+        pass # TODO: VER: ^this.subclassResponsibility(thisMethod)
 
     def num_audio_channels(self):
         return len(self.inputs) - self.__class__.num_fixed_args()
 
     def writes_to_bus(self):
-        pass # VER: ^this.subclassResponsibility(thisMethod)
+        pass # TODO: VER: ^this.subclassResponsibility(thisMethod)
 
 
 class Out(AbstractOut):
@@ -223,7 +274,56 @@ class Out(AbstractOut):
         return True
 
 
-class ReplaceOut(Out): pass # No hace nada.
-class OffsetOut(Out): pass
-class LocalOut(AbstractOut): pass
-class XOut(AbstractOut): pass
+class ReplaceOut(Out): pass # No hace nada espcial.
+
+
+class OffsetOut(Out):
+    @classmethod
+    def kr(cls, bus, channels_list):
+        msg = '{} should not implemet kr constructor' # TODO: ver en qué casos se puede llamar, porque acá le agregué los argumentos si no tira error.
+        raise NotImplementedError(msg.format(cls.__name__))
+
+class LocalOut(AbstractOut):
+    @classmethod
+    def ar(cls, channels_list):
+        channels_list = ug.as_ugen_input(channels_list, cls)
+        channels_list = ut.as_list(channels_list)
+        channels_list = cls.replace_zeroes_with_silence(channels_list)
+        cls.multi_new_list(['audio'] + channels_list)
+        return 0.0 # OC: LocalOut has no output.
+
+    @classmethod
+    def kr(cls, channels_list):
+        channels_list = ut.as_list(channels_list)
+        cls.multi_new_list(['audio'] + channels_list)
+        return 0.0 # OC: LocalOut has no output.
+
+    @classmethod
+    def num_fixed_args(cls):
+        return 0
+
+    def writes_to_bus(self):
+        return False
+
+
+class XOut(AbstractOut):
+    @classmethod
+    def ar(cls, bus, xfade, channels_list):
+        channels_list = ug.as_ugen_input(channels_list, cls)
+        channels_list = ut.as_list(channels_list)
+        channels_list = cls.replace_zeroes_with_silence(channels_list)
+        cls.multi_new_list(['audio', bus, xfade] + channels_list)
+        return 0.0 # OC: Out has no output.
+
+    @classmethod
+    def kr(cls, bus, xfade, channels_list):
+        channels_list = ut.as_list(channels_list)
+        cls.multi_new_list(['control', bus, xfade] + channels_list)
+        return 0.0 # OC: Out has no output.
+
+    @classmethod
+    def num_fixed_args(cls):
+        return 2
+
+    def writes_to_bus(self):
+        return True

@@ -311,6 +311,7 @@ class MulAdd(ug.UGen):
     def init_ugen(self, input, mul, add):
         self.inputs = [input, mul, add]
         self.rate = ug.as_ugen_rate(self.inputs)
+        return self
 
     @classmethod
     def can_be_muladd(cls, input, mul, add):

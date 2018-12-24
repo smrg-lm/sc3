@@ -106,12 +106,15 @@ class UGen(fn.AbstractFunction):
     #     return self
     # def __copy__(self): # para Lib/copy.py module, ver si tiene utilidad
     #     return self
-    def dup(self, n): # TODO: VER [1] * n, que es el equivalente a dup en Python
-        return [self] * n
+    # def dup(self, n): # TODO: VER [1] * n, que es el equivalente a dup en Python
+        # return [self] * n
 
     # Desde L51 hasta L284 son, más que nada, métodos de operaciones
     # mátemáticas que aplican las ugens correspondientes, el mismo
     # principio de AbstractFunction aplicados a los ugengraphs.
+    def madd(self, mul=1.0, add=0.0): # TODO: TAL VEZ NO VAYA EN ESTE LUGAR DE LA CLASE.
+        from supercollie.opugens import MulAdd # TODO: VAN A ESTAR ESTE PROBLEMA CON TODOS LOS OPERADORES QUE DEVUELVEN UGENS.
+        return MulAdd.new(self, mul, add) # TODO: TAMBIÉN ESTOY AGREGANDO MADD COMO SINGLE DISPATCH ABAJO, SE USA TAMBIÉN EN ARRAY Y SIMPLENUMBER PORQUE EL VALOR DE RETORNO DE LAS UGENS ES VARIABLE.
     # Lueve vienen:
 
     # L284
@@ -255,7 +258,8 @@ class UGen(fn.AbstractFunction):
         num_zeroes = values.count(0.0)
         if num_zeroes is 0: return values
 
-        silent_channels = ut.as_list(Silent.ar(num_zeroes)) # usa asCollection # TODO: prefijo de Silent cuando lo haga.
+        from supercollie.line import Silent # Cyclic import. TODO: ESTOY VIENDO QUE VA A HABER PROBLEMS CON LOS OPERADORES UNARIOS (e.g. madd)...
+        silent_channels = ut.as_list(Silent.ar(num_zeroes)) # VER: usa asCollection
         pos = 0
         for i, item in enumerate(values):
             if item == 0.0:
@@ -464,6 +468,29 @@ class Dunique(): pass #
 class Event(): pass   #
 class Node(): pass    #
 
+
+# madd
+
+@singledispatch
+def madd(obj: UGen, mul=1.0, add=0.0):
+    from supercollie.opugens import MulAdd # TODO: VAN A ESTAR ESTE PROBLEMA CON TODOS LOS OPERADORES QUE DEVUELVEN UGENS.
+    return MulAdd.new(obj, mul, add)
+
+@madd.register(list)
+@madd.register(tuple)
+def _(obj, mul=1.0, add=0.0):
+    from supercollie.opugens import MulAdd # TODO: VAN A ESTAR ESTE PROBLEMA CON TODOS LOS OPERADORES QUE DEVUELVEN UGENS.
+    return MulAdd.new(obj, mul, add) # TODO: Tiene que hacer expansión multicanal, es igual a UGen. VER: qué pasa con MulAdd args = ug.as_ugen_input([input, mul, add], cls)
+
+@madd.register(float)
+@madd.register(int)
+def _(obj, mul=1.0, add=0.0):
+    from supercollie.opugens import MulAdd # TODO: VAN A ESTAR ESTE PROBLEMA CON TODOS LOS OPERADORES QUE DEVUELVEN UGENS.
+    return (obj * mul) + add
+
+
+# is_valid_ugen_input
+
 @singledispatch
 def is_valid_ugen_input(obj):
     return False
@@ -482,6 +509,8 @@ def _(obj):
 def _(obj):
     return not isnan(obj)
 
+
+# as_ugen_input
 
 @singledispatch #Este método es implementado por varias clases y extensiones. Cada clase prepara los datos para que sea una entrada válida.
 def as_ugen_input(obj, *ugen_cls): # ugen_cls (*** VER ABAJO ***) es opt_arg, solo AbstractFunction y Array lo usan, Array porque itera sobre. Si la llamada recibe una tupla estrella vacía '*()' no pasa nada. EL PROBLEMA ES QUE SCLANG IGNORA LOS PARÁMETROS SI LA FUNCIÓN NO RECIBE ARGUMENTOS Y LA TUPLA PUEDE NO ESTAR VACÍA.
@@ -522,6 +551,8 @@ def _(obj: Node, *ugen_cls): # sc Node
 # Ref y UGen devuelve this, el caso por defecto.
 
 
+# as_control_input
+
 @singledispatch
 def as_control_input(obj):
     return obj
@@ -535,6 +566,8 @@ def _(obj: UGen):
     raise TypeError("Can't set a control to an UGen.")
 
 
+# num_channels
+
 @singledispatch
 def num_channels(obj):
     '''Idem anteriores.'''# TODO
@@ -544,6 +577,8 @@ def num_channels(obj):
 def _(obj: UGen):
     return 1
 
+
+# as_ugen_rate
 
 # Agregado por la propiedad rate de las UGens que está implementada a nivel
 # de la librería de clases. Nil retorna nil, SimpleNumber devuelve 'scalar'.

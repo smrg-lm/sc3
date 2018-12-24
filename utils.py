@@ -78,3 +78,13 @@ def wrap_extend(inlist, n):
 #[0] * (len(names) - len(rates)) # VER: sclang extend, pero no trunca
 # [l[i%len(l)] for i in range(8)] # wrapExtend
 # VER si la cantidad y necesidad en distintos lugares crece, si no sacar.
+
+# producto cartesiano, es combinatoria
+# https://stackoverflow.com/questions/10973766/understanding-the-map-function
+#[(a, b) for a in iterable_a for b in iterable_b]
+
+# map sirve como collect
+#map(función, iterable)
+
+# pero también se puede usar list comprehensions como sugiere el link
+#[f(x) for x in iterable]

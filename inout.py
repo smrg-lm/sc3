@@ -170,7 +170,7 @@ class In(AbstractIn):
         return cls.multi_new('control', num_channels, bus)
 
     def init_ugen(self, num_channels, *arg_bus):
-        self.inputs = arg_bus # TODO: VER: es siempre tupla
+        self.inputs = arg_bus # TODO: es tupla, en sclang es nil si no hay inputs.
         return self.init_outputs(num_channels, self.rate)
 
 
@@ -184,7 +184,7 @@ class LocalIn(AbstractIn):
         return cls.multi_new('control', num_channels, *ut.as_list(default))
 
     def init_ugen(self, num_channels, *default):
-        self.inputs = tuple(ut.wrap_extend(list(default), num_channels))
+        self.inputs = tuple(ut.wrap_extend(list(default), num_channels)) # TODO: es tupla, en sclang es nil si no hay inputs.
         return self.init_outputs(num_channels, self.rate)
 
 
@@ -194,7 +194,7 @@ class LagIn(AbstractIn):
         return cls.multi_new('control', num_channels, bus, lag)
 
     def init_ugen(self, num_channels, *inputs):
-        self.inputs = inputs # TODO: es tupla no usa as list.
+        self.inputs = inputs # TODO: es tupla, en sclang es nil si no hay inputs. Quité as list
         return self.init_outputs(num_channels, self.rate)
 
 
@@ -204,7 +204,7 @@ class InFeedback(AbstractIn):
         return cls.multi_new('audio', num_channels, bus)
 
     def init_ugen(self, num_channels, *arg_bus):
-        self.inputs = arg_bus # TODO: es tupla
+        self.inputs = arg_bus # TODO: es tupla, en sclang es nil si no hay inputs.
         return self.init_outputs(num_channels, self.rate)
 
 
@@ -214,7 +214,7 @@ class InTrig(AbstractIn):
         return cls.multi_new('control', num_channels, bus)
 
     def init_ugen():
-        self.inputs = arg_bus # TODO: es tupla
+        self.inputs = arg_bus # TODO: es tupla, en sclang es nil si no hay inputs.
         return self.init_outputs(num_channels, self.rate)
 
 
@@ -229,12 +229,12 @@ class AbstractOut(ug.UGen):
 
     def check_inputs(self):
         if self.rate is 'audio':
-            for i in range(self.__class__.num_fixed_args(), len(self.inputs)):
+            for i in range(self.__class__.num_fixed_args(), len(self.inputs)): # TODO: es tupla, en sclang es nil si no hay inputs.
                 if ug.as_ugen_rate(self.inputs[i]) is not 'audio':
                     msg = '{}:'.format(self.__class__.__name__)
                     msg += ' input at index {} ({}) is not audio rate'
                     return msg.format(i, self.inputs[i].__class__.__name__) # TODO: Si es OutputProxy que imprima source_ugen
-        elif len(self.inputs) <= self.__class_.num_fixed_args():
+        elif len(self.inputs) <= self.__class_.num_fixed_args(): # TODO: es tupla, en sclang es nil si no hay inputs.
             return 'missing input at index 1'
         return self.check_valid_inputs()
 
@@ -247,7 +247,7 @@ class AbstractOut(ug.UGen):
         pass # TODO: VER: ^this.subclassResponsibility(thisMethod)
 
     def num_audio_channels(self):
-        return len(self.inputs) - self.__class__.num_fixed_args()
+        return len(self.inputs) - self.__class__.num_fixed_args() # TODO: es tupla, en sclang es nil si no hay inputs.
 
     def writes_to_bus(self):
         pass # TODO: VER: ^this.subclassResponsibility(thisMethod)

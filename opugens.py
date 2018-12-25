@@ -37,7 +37,7 @@ class BasicOpUGen(ug.UGen):
         tab = ' ' * 4
         msg += tab + 'operator: ' + self.operator + '\n'
         arg_name = None
-        for i, input in enumerate(self.inputs):
+        for i, input in enumerate(self.inputs): # TODO: es tupla, en sclang es nil si no hay inputs.
             arg_name = self.arg_name_for_input_at(i)
             if not arg_name: arg_name = str(i)
             msg += tab + arg_name + ' ' + str(input)
@@ -56,7 +56,7 @@ class UnaryOpUGen(BasicOpUGen):
     def init_ugen(self, operator, input):
         self.operator = operator
         self.rate = input.rate
-        self.inputs = tuple(ut.as_array(input)) # TODO: ver, acá es una tupla como en ugens.py, complica las cosas?
+        self.inputs = tuple(ut.as_array(input)) # TODO: es tupla, en sclang es nil si no hay inputs.
         return self # TIENEN QUE DEVOLVER SELF
 
     def optimize_graph(self):
@@ -92,7 +92,7 @@ class BinaryOpUGen(BasicOpUGen):
     def init_ugen(self, operator, a, b):
         self.operator = operator
         self.rate = self.determine_rate(a, b)
-        self.inputs = (a, b) # TODO: ver, acá es una tupla como en ugens.py, complica las cosas?
+        self.inputs = (a, b) # TODO: es tupla, en sclang es nil si no hay inputs.
         return self # TIENEN QUE DEVOLVER SELF
 
     def determine_rate(self, a, b):
@@ -134,7 +134,7 @@ class BinaryOpUGen(BasicOpUGen):
 
     # L239
     def optimize_to_sum3(self):
-        a, b = self.inputs
+        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
         if ug.as_ugen_rate(a) is 'demand' or ug.as_ugen_rate(b) is 'demand':
             return None
 
@@ -159,7 +159,7 @@ class BinaryOpUGen(BasicOpUGen):
 
     # L262
     def optimize_to_sum4(self):
-        a, b = self.inputs
+        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
         if ug.as_ugen_rate(a) is 'demand' or ug.as_ugen_rate(b) is 'demand':
             return None
 
@@ -181,7 +181,7 @@ class BinaryOpUGen(BasicOpUGen):
 
     # L197
     def optimize_to_muladd(self):
-        a, b = self.inputs
+        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
 
         if isinstance(a, BinaryOpUGen) and a.operator is '*'\
             and len(a.descendants) is 1:
@@ -222,7 +222,7 @@ class BinaryOpUGen(BasicOpUGen):
 
     # L168
     def optimize_addneg(self):
-        a, b = self.inputs
+        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
 
         if isinstance(b, UnaryOpUGen) and b.operator is 'neg'\
             and len(b.descendants) is 1:
@@ -251,7 +251,7 @@ class BinaryOpUGen(BasicOpUGen):
 
     # L283
     def optimize_sub(self):
-        a, b = self.inputs
+        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
 
         if isinstance(b, UnaryOpUGen) and b.operator is 'neg'\
             and len(b.descendants) is 1:
@@ -314,7 +314,7 @@ class MulAdd(ug.UGen):
         return (input * mul) + add
 
     def init_ugen(self, input, mul, add):
-        self.inputs = [input, mul, add]
+        self.inputs = (input, mul, add) # TODO: es tupla, en sclang es nil si no hay inputs. No recuerdo por qué acá puse un array.
         self.rate = ug.as_ugen_rate(self.inputs)
         return self
 

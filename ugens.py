@@ -81,7 +81,7 @@ class UGen(fn.AbstractFunction):
     # acá solo puse los valores de instancia por defecto de la clase original.
     def __init__(self): # OJO: Las subclases de UGen no pueden implementar __init___ !!!
         # atributos de instancia públicos?
-        self.inputs = () # TODO: en sc es un array, es una tupla acá, se inicializa en UGen.init
+        self.inputs = () # None # TODO: Puede generar BUG luego, en sc es un array o nil si no se le pasan inputs, es una tupla acá, se inicializa en UGen.init
         self.rate = 'audio' # TODO: VER: No se puede pasar opcionalmente a new1  *** !!! hacer un enum de algún tipo !!!
         # atributos de instancia privados
         self.synthdef = None # es _gl.current_synthdef luego de add_to_synth
@@ -96,7 +96,7 @@ class UGen(fn.AbstractFunction):
     # simplemente hace lo que se ve, guarda las entradas como un Array. Se llama después de setear rate y synthDef (a través de addToSynth)
     # Pero en control names guarda otra cosa... creo que las salidas, o los índices de los controles, no sé.
     def init_ugen(self, *inputs):
-        self.inputs = inputs # VER para todos los casos (otras ugens)
+        self.inputs = inputs # or None # TODO: VER: en sclang es nil pero habría que comprobar acá porque iterar sobre nil es nada en sclang. VER para todos los casos (otras ugens)
         return self # OJO: Tiene que retornarse sí o sí porque es el valor de retorno de new1
 
     # OC: You can't really copy a UGen without disturbing the Synth.
@@ -131,7 +131,7 @@ class UGen(fn.AbstractFunction):
 
     # L292
     def _collect_constants(self): # pong
-        for input in self.inputs:
+        for input in self.inputs: # TODO: es tupla, en sclang es nil si no hay inputs.
             if isinstance(input, (int, float)):
                 self.synthdef.add_constant(float(input))
 
@@ -150,7 +150,7 @@ class UGen(fn.AbstractFunction):
 
     def check_valid_inputs(self):  # este método se usa acá y en otras ugens dentro de check_inputs, es interfaz de UGen se usa junto con check_inputs
         '''Returns error msg or None.'''
-        for i, input in enumerate(self.inputs):
+        for i, input in enumerate(self.inputs): # TODO: es tupla, en sclang es nil si no hay inputs.
             if not is_valid_ugen_input(input):
                 arg_name = self.arg_name_for_input_at(i)
                 if not arg_name: arg_name = i
@@ -160,7 +160,7 @@ class UGen(fn.AbstractFunction):
     def check_n_inputs(self, n): # ídem anterior, deben ser interfaz protejida. Este no sé si pueda ser check_inputs sobrecargado o con parámetro opcional, tal vez si...
         if self.rate is 'audio': # *** convertir audio en constante de enum
             if n > len(self.inputs): # en sclang no comprueba el rango de inputs porque arr[i] fuera de rango devuelve nil y nil.rate devuelve nil!
-                n = len(self.inputs)
+                n = len(self.inputs) # TODO: es tupla, en sclang es nil si no hay inputs.
             for i in range(n):
                 if as_ugen_rate(self.inputs[i]) != 'audio': # *** VER VALORES POSIBLES PARA self.inputs[i]:: IMPLEMENTADO ARRIBA COMO SINGLE DISPATCH
                     msg = 'input {} is not audio rate: {} {}'\
@@ -222,7 +222,7 @@ class UGen(fn.AbstractFunction):
         msg = 'ARGS:\n'
         tab = ' ' * 4
         arg_name = None
-        for i, input in enumerate(self.inputs):
+        for i, input in enumerate(self.inputs): # TODO: es tupla, en sclang es nil si no hay inputs.
             arg_name = self.arg_name_for_input_at(i)
             if not arg_name: arg_name = str(i)
             msg += tab + arg_name + ' ' + str(input)
@@ -323,7 +323,7 @@ class UGen(fn.AbstractFunction):
         return 0 # 'scalar'
 
     def num_inputs(self): #numInputs
-        return len(self.inputs)
+        return len(self.inputs) # TODO: es tupla, en sclang es nil si no hay inputs.
 
     def num_outputs(self):
         return 1
@@ -338,7 +338,7 @@ class UGen(fn.AbstractFunction):
 
     # L488
     def init_topo_sort(self):
-        for input in self.inputs:
+        for input in self.inputs: # TODO: es tupla, en sclang es nil si no hay inputs.
             if isinstance(input, UGen):
                 if isinstance(input, OutputProxy): # Omite los OutputProxy in pone las fuentes en antecedents, ver BUG? abajo.
                     ugen = input.source_ugen # VER: source acá es solo propiedad de OutputProxy(es), no se implementa en otras clases.

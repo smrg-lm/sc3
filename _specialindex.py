@@ -90,10 +90,10 @@ UnaryOpcodes = Enum(
 BinaryOpcodes = Enum(
     'UnaryOpcodes',
     [
-        '+',
+        '+', # TODO: __add__ __radd__ y no van a funcionar porque en Enum son métodos.
         '-',
-        '*',
-        'div', # Python //
+        '*', # __mul__ __rmul__
+        'div', # Python '//'
         '/',
         'mod',
         '==',

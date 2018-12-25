@@ -35,29 +35,116 @@ class AbstractFunction(object):
     def compose_narop(self, selector, *args): # , **kwargs): # si? no? no, si? si, no, no, si, si?
         return NAryOpFunction(selector, self, *args) #, **kwargs)
 
+    # https://docs.python.org/3/library/operator.html
+    # Categories: object comparison, logical operations, mathematical operations and sequence operations
+
+    # Leyendo: https://docs.python.org/3/reference/datamodel.html#objects veo que no debería usar is
+    # para la comparación de leng() con int o entre strings. "after a = 1; b = 1, a and b may or may not refer to the same object with the value one"
+    # semánticamente == e is son diferentes, aunque x is y implies x == y viceversa no es verdad.
+
+    # Values comparison:
+    # https://docs.python.org/3/reference/expressions.html#comparisons
+    # Rich comparison:
+    # https://docs.python.org/3/reference/datamodel.html#object.__lt__
+
+    # Basic custimization:
+    # https://docs.python.org/3/reference/datamodel.html#customization
+
     # unary operators
+
     def __neg__(self):
         return self.compose_unop('__neg__') # -
     def __pos__(self):
         return self.compose_unop('__pos__') # +
     def __abs__(self):
-        return self.compose_unop('__abs__') # abs() # este da la pauta de como se definirían los enarios...
+        return self.compose_unop('__abs__') # abs() # TODO: ver builtins
     def __invert__(self):
-        return self.compose_unop('__invert__') # ~
-    # ...
+        return self.compose_unop('__invert__') # ~ bitwise inverse, depende de la representación
+
+    # conversion
+    # def __complex__(self): # builtin complex() # TODO: acá las builtins llamam directamente al método mágico, pero estas funciones tienen que retornar un objeto del tipo, no pueden retornar una función abstracta, y deberían evaluar la función perdiendo su lazzyness
+    #     return self.compose_unop('__complex__')
+    # def __int__(self): # builtin int()
+    #     return self.compose_unop('__int__')
+    # def __float__(self): # builtin float()
+    #     return self.compose_unop('__float__')
+    # object.__index__(self) # tiene que retornar int
+
+    def __round__(self[, ndigits]): # object.__round__(self[, ndigits])
+        return self.compose_unop('__round__')
+    def __trunc__(self):
+        return self.compose_unop('__trunc__')
+    def __floor__(self):
+        return self.compose_unop('__floor__')
+    def __ceil__(self):
+        return self.compose_unop('__ceil__')
 
     # binary operators
-    def __mul__(self, other): # *
-        return self.compose_binop('__mul__', other)
-    def __rmul__(self, other):
-        return self.compose_binop('__rmul__', other)
+
+    # Mathematical operations
+    # https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations
+    # https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
     def __add__(self, other): # +
         return self.compose_binop('__add__', other)
     def __radd__(self, other):
         return self.compose_binop('__radd__', other)
-    # ...
+    def __sub__(self, other): # -
+        return self.compose_binop('__sub__', other)
+    def __rsub__(self, other):
+        return self.compose_binop('__rsub__', other)
+    def __mul__(self, other): # *
+        return self.compose_binop('__mul__', other)
+    def __rmul__(self, other):
+        return self.compose_binop('__rmul__', other)
+    def __matmul__(self, other): # @
+        return self.compose_binop('__matmul__', other)
+    def __rmatmul__(self, other):
+        return self.compose_binop('__rmatmul__', other)
+    def __truediv__(self, other): # /
+        return self.compose_binop('__truediv__', other)
+    def __rtruediv__(self, other):
+        return self.compose_binop('__rtruediv__', other)
+    def __floordiv__(self, other): # //
+        return self.compose_binop('__floordiv__', other)
+    def __rfloordiv__(self, other):
+        return self.compose_binop('__rfloordiv__', other)
+    def __mod__(self, other): # %
+        return self.compose_binop('__mod__', other)
+    def __rmod__(self, other):
+        return self.compose_binop('__rmod__', other)
+    def __divmod__(self, other): # divmod() # __floordiv__() and __mod__()
+        return self.compose_binop('__divmod__', other)
+    def __rdivmod__(self, other):
+        return self.compose_binop('__rdivmod__', other)
+    def __pow__(self, other): # pow(), **, object.__pow__(self, other[, modulo])
+        return self.compose_binop('__pow__', other)
+    def __rpow__(self, other):
+        return self.compose_binop('__rpow__', other)
+    def __lshift__(self, other): # <<
+        return self.compose_binop('__lshift__', other)
+    def __rlshift__(self, other):
+        return self.compose_binop('__rlshift__', other)
+    def __rshift__(self, other): # >>
+        return self.compose_binop('__rshift__', other)
+    def __rrshift__(self, other):
+        return self.compose_binop('__rrshift__', other)
+    def __and__(self, other): # &
+        return self.compose_binop('__and__', other)
+    def __rand__(self, other):
+        return self.compose_binop('__rand__', other)
+    def __xor__(self, other): # ^
+        return self.compose_binop('__xor__', other)
+    def __rxor__(self, other):
+        return self.compose_binop('__rxor__', other)
+    def __or__(self, other): # |
+        return self.compose_binop('__or__', other)
+    def __ror__(self, other):
+        return self.compose_binop('__ror__', other)
 
     # nary operators
+
+    # TODO: los operadores enarios deberían ser implementados por duplicado
+    # como las funciones incluidas para los tipos numéricos.
     def clip(self, lo, hi):
         return self.compose_narop('clip', lo, hi)
     def wrap(self, lo, hi):
@@ -74,7 +161,7 @@ class UnaryOpFunction(AbstractFunction):
 
     def __call__(self, *args): # los parámetros solo pueden ser posicionales
         #if callable(a): a siempre va a ser una AbstractFunction no usar rbinop
-        return getattr(self.a(*args), self.selector)() # qué pasa con los tipos de retorno de a() ... (ver NotImplemented)
+        return getattr(self.a(*args), self.selector)() # qué pasa con los tipos de retorno de a() ... (ver NotImplementedError)
 
 
 class BinaryOpFunction(AbstractFunction):
@@ -122,7 +209,7 @@ class function(AbstractFunction):
             raise TypeError(msg)
 
     def __call__(self, *args): # no kwargs
-        '''Parameters can only be positional (no keywords), and remnant
+        '''Parameters can only be positional (no keywords), remnant
         is discarded, more or less like sclang valueArray.'''
         return self.func(*args[:self._nargs])
 

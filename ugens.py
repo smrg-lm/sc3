@@ -20,6 +20,8 @@ import supercollie.utils as ut
 class UGen(fn.AbstractFunction):
     # classvar <>buildSynthDef; // the synth currently under construction,  PASADA A _gl.current_synthdef y tiene un Lock
 
+    # TODO: VER: https://docs.python.org/3/reference/datamodel.html#basic-customization __new__
+
     @classmethod
     def new1(cls, rate, *args): # la verdad que see podría llamar single_new.
         '''OD: This method returns a single instance of the UGen,

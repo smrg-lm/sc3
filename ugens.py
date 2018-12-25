@@ -89,7 +89,7 @@ class UGen(fn.AbstractFunction):
         self.special_index = 0 # self.specialIndex = 0; # se obtiene de los símbolos, llama a _Symbol_SpecialIndex
         # topo sorting
         self.antecedents = None #set() # estos sets los inicializa SynthDef init_topo_sort, antecedents lo transforma en lista luego, por eso los dejo en none.
-        self.descendants = None #set()
+        self.descendants = None #list() # inicializa en set() y lo transforma en list() inmediatamente después de poblarlo
         self.width_first_antecedents = [] # se inicializa con SynthDef _width_first_ugens[:] que es un array
 
     # VER: mutabilidad. *** Este método lo sobreescriben las subclases y se llama en new1 que se llama desde multiNewList ***
@@ -339,7 +339,7 @@ class UGen(fn.AbstractFunction):
     def init_topo_sort(self):
         for input in self.inputs:
             if isinstance(input, UGen):
-                if isinstance(input, OutputProxy):
+                if isinstance(input, OutputProxy): # Omite los OutputProxy in pone las fuentes en antecedents, ver BUG? abajo.
                     ugen = input.source_ugen # VER: source acá es solo propiedad de OutputProxy(es), no se implementa en otras clases.
                 else:                        # OJO: SynthDesc-readUGenSpec llama a source dos veces, la primera sin checar. VER: source es un método/propiedad de varias clases, Array (que returns the source UGen from an Array of OutputProxy(s)) y Nil
                     ugen = input             # VER: source, Object (devuelve this), Nil (método vacío), OutputProxy (es propiedad) y Array, VER otras clases
@@ -358,16 +358,17 @@ class UGen(fn.AbstractFunction):
         self.make_available()
 
     def schedule(self, out_stack): # el nombre de este método no me cierra, la ugen se agrega a la pila, no más...
-        for ugen in self.descendants: # por qué hace descendants.reverseDo si descendants es un Set???
+        for ugen in reversed(self.descendants): # Hace reverseDo descendants la inicializa en SynthDef _init_topo_sort como set, la puebla, la transforma en lista y la ordena.
             ugen.remove_antecedent(self)
         out_stack.append(self)
 
     def optimize_graph(self):
         pass # pass? se usa para esto o es confuso?
 
-    def perform_dead_code_elimination(self): # Se usa un optimize_graph de BinaryOpUGen, PureMultiOutUGen, PureUGen y UnaryOpUGen.
+    def perform_dead_code_elimination(self): # Se usa en optimize_graph de BinaryOpUGen, PureMultiOutUGen, PureUGen y UnaryOpUGen.
         if len(self.descendants) is 0:
-            for input in self.inputs:
+            #for input in self.inputs: # BUG EN SCLANG? NO ES ANTECEDENTS DONDE NO ESTÁN LOS OUTPUTPROXY? en sclang funciona por nil responde a casi todo devolviendo nil.
+            for input in self.antecedents: # TODO: PREGUNTAR, ASÍ PARECE FUNCIONAR CORRECTAMENTE.
                 if isinstance(input, UGen):
                     input.descendants.remove(self)
                     input.optimize_graph()
@@ -448,7 +449,7 @@ class OutputProxy(UGen):
         self.synth_index = source_ugen.synth_index
         return self
 
-    def add_to_synth(self):
+    def add_to_synth(self): # OutputProxy no se agrega a sí con add_ugen, por lo tanto no se puebla con init_topo_sort y no se guarda en antecedents. init_topo_sort comprueba if isinstance(input, OutputProxy): y agrega source_ugen
         self.synthdef = _gl.current_synthdef
 
     def dump_name(self):

@@ -10,6 +10,8 @@ class BasicOpUGen(ug.UGen):
         super().__init__()
         self._operator = None
 
+    # TODO: El método writeName está comentado en el original. Agregar comentado.
+
     @property
     def operator(self):
         return self._operator
@@ -94,12 +96,13 @@ class BinaryOpUGen(BasicOpUGen):
         return self # TIENEN QUE DEVOLVER SELF
 
     def determine_rate(self, a, b):
-        if ug.as_ugen_rate(a) is 'control': return 'control'
-        if ug.as_ugen_rate(b) is 'control': return 'control'
-        if ug.as_ugen_rate(a) is 'audio': return 'audio'
-        if ug.as_ugen_rate(b) is 'audio': return 'audio'
+        # El orden es importante.
         if ug.as_ugen_rate(a) is 'demand': return 'demand'
         if ug.as_ugen_rate(b) is 'demand': return 'demand'
+        if ug.as_ugen_rate(a) is 'audio': return 'audio'
+        if ug.as_ugen_rate(b) is 'audio': return 'audio'
+        if ug.as_ugen_rate(a) is 'control': return 'control'
+        if ug.as_ugen_rate(b) is 'control': return 'control'
         return 'scalar'
 
     def optimize_graph(self):

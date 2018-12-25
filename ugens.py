@@ -215,7 +215,7 @@ class UGen(fn.AbstractFunction):
                 return 'ir'
             else:
                 return 'new' # TODO, *** __init__ SOLO PUEDE RETORNAR NONE Y NEW1 RETORNA DISTINTAS COSAS. super().__init__() inicializa las propiedades desde new1 *** OJO, VER, LAS SUBCLASES NO PUEDEN IMPLEMENTAR __init__ !!! super(UGen, self).__init__() no me funciona con new1
-        if rate is 'demand': return 'dr' # *** super().__init__() inicializa las propiedades desde new1 *** DR SE USA PORQUE LAS SUBCLASES DE UGEN NO PUEDEN IMPLEMENTAR __init__, DE PASO QUEDA MÁS CONSISTENTE...
+        if rate is 'demand': return 'dr' # TODO: dr? *** super().__init__() inicializa las propiedades desde new1 *** DR SE USA PORQUE LAS SUBCLASES DE UGEN NO PUEDEN IMPLEMENTAR __init__, DE PASO QUEDA MÁS CONSISTENTE...
         return None
 
     def dump_args(self): # implementa acá y en basicopugen se usa en SynthDef checkInputs y en Mix*kr
@@ -316,8 +316,9 @@ class UGen(fn.AbstractFunction):
         return self.__class__.__name__
 
     def rate_number(self): #rateNumber # se usa en writeDef/Old y writeOutputSpec
-        if self.rate is 'control': return 1
+        # El orden de los tres primeros no importa, pero en otra parte se usa la comparación lt/gt entre strings y este sería el orden lexicográfico.
         if self.rate is 'audio': return 2
+        if self.rate is 'control': return 1
         if self.rate is 'demand': return 3
         return 0 # 'scalar'
 

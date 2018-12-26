@@ -16,37 +16,37 @@ from enum import Enum
 UnaryOpcodes = Enum(
     'UnaryOpcodes',
     [
-        'neg',
-        'not',
+        'neg', # __neg__
+        'not', # es not buleano, operator.not_(obj)/operator.__not__(obj)
         'isNil',
         'notNil',
-        'bitNot',
-        'abs',
+        'bitNot', # __invert__
+        'abs', # __abs__, es builtin
         'asFloat',
         'asInt',
-        'ceil',
-        'floor',
-        'frac',
-        'sign',
-        'squared',
-        'cubed',
-        'sqrt',
-        'exp',
-        'reciprocal',
+        'ceil', # __ceil__
+        'floor', # __floor__
+        'frac', # math.modf, no se comporta igual
+        'sign', # no existe
+        'squared', # no existe
+        'cubed', # no existe
+        'sqrt', # math.sqrt(x), VER: se comporta raro en sclang, no entiendo.
+        'exp', # e to the power of the receiver. math.exp(x)
+        'reciprocal', # 1 / this
+
         'midicps',
         'cpsmidi',
-
         'midiratio',
         'ratiomidi',
         'dbamp',
         'ampdb',
         'octcps',
         'cpsoct',
-        'log',
+        'log', # math.log
         'log2',
         'log10',
-        'sin',
-        'cos',
+        'sin', # math
+        'cos', # etc...
         'tan',
         'asin',
         'acos',
@@ -54,7 +54,7 @@ UnaryOpcodes = Enum(
         'sinh',
         'cosh',
         'tanh',
-        'rand',
+        'rand', # VER que hay en Python
         'rand2',
         'linrand',
         'bilinrand',
@@ -90,9 +90,9 @@ UnaryOpcodes = Enum(
 BinaryOpcodes = Enum(
     'UnaryOpcodes',
     [
-        '+', # TODO: __add__ __radd__ y no van a funcionar porque en Enum son métodos.
+        '+', # TODO: __add__ __radd__ __iadd__ y no van a funcionar porque en Enum son métodos.
         '-',
-        '*', # __mul__ __rmul__
+        '*', # __mul__ __rmul__ __imul__
         'div', # Python '//'
         '/',
         'mod',
@@ -112,9 +112,9 @@ BinaryOpcodes = Enum(
         'bitXor',
         'lcm',
         'gcd',
-        'round',
+        'round', # __round__ es Unario con argumento
         'roundUp',
-        'trunc',
+        'trunc', # __truc__ es Unario, es la operación por defecto para int(x)
         'atan2',
         'hypot',
         'hypotApx',

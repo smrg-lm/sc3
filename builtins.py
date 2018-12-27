@@ -80,6 +80,21 @@ _MSG = "bad operand type for {}: '{}'"
 #     return obj.__invert__()
 # # ...
 
+# TODO: es para denormals en ugens, pero el nombre está bueno.
+# // this is a function for preventing pathological math operations in ugens.
+# // can be used at the end of a block to fix any recirculating filter values.
+# def zapgremlins(x):
+#     float32 absx = std::abs(x);
+#     // very small numbers fail the first test, eliminating denormalized numbers
+#     //    (zero also fails the first test, but that is OK since it returns zero.)
+#     // very large numbers fail the second test, eliminating infinities
+#     // Not-a-Numbers fail both tests and are eliminated.
+#     return (absx > (float32)1e-15 && absx < (float32)1e15) ? x : (float32)0.;
+
+# TODO: No quiero sobreescribir o variar operaciones básicas de Python
+# return std::log2(x);
+# return std::log10(std::abs(x)); # Esta, además, no se usa para las siguientes funciones.
+
 _ONETWELFTH = 1/12
 _ONE440TH = 1/440
 
@@ -97,48 +112,139 @@ def cpsmidi(freq):
     except TypeError as e:
         raise TypeError(_MSG.format('cpsmidi()', type(freq).__name_)) from e
 
-# @singledispatch
-# def __(obj):
-#     raise TypeError(_msg.format(obj.__class__.__name__, '__()'))
-# @__.register(AbstractFunction)
-# @__.register(float)
-# @__.register(int)
-# def _(obj):
-#     return
-#
+def midiratio(midi):
+    #return std::pow((float32)2. , midi * (float32)0.083333333333);
+    return pow(2., midi * _ONETWELFTH)
 
-# @singledispatch
-# def __(obj):
-#     raise TypeError(_msg.format(obj.__class__.__name__, '__()'))
-# @__.register(AbstractFunction)
-# @__.register(float)
-# @__.register(int)
-# def _(obj):
-#     return
-#
+def ratiomidi(ratio):
+    #return (float32)12. * sc_log2(ratio);
+    return 12. * math.log2(ratio)
 
+def octcps(note):
+    # return (float32)440. * std::pow((float32)2., note - (float32)4.75);
+
+def cpsoct(freq):
+    # return sc_log2(freq * (float32)0.0022727272727) + (float32)4.75;
+
+def ampdb(amp):
+    # return std::log10(amp) * (float32)20.;
+
+def dbamp(db):
+    # return std::pow((float32)10., db * (float32).05);
+
+# TODO: VER qué onda...
+# squared(float32 x) return x * x;
+# cubed(float32 x) return return x * x * x;
+# sqrt(float32 x) return x < (float32)0. ? -sqrt(-x) : sqrt(x);
+
+def hanwindow(x):
+    # if (x < (float32)0. || x > (float32)1.) return (float32)0.;
+    # return (float32)0.5 - (float32)0.5 * static_cast<float32>(cos(x * (float32)twopi));
+
+def welwindow(x):
+    # if (x < (float32)0. || x > (float32)1.) return (float32)0.;
+    # return static_cast<float32>(sin(x * pi));
+
+def triwindow(x):
+    # if (x < (float32)0. || x > (float32)1.) return (float32)0.;
+    # if (x < (float32)0.5) return (float32)2. * x;
+    # else return (float32)-2. * x + (float32)2.;
+
+def bitriwindow(x):
+    # float32 ax = (float32)1. - std::abs(x);
+    # if (ax <= (float32)0.) return (float32)0.;
+    # return ax;
+
+def rectwindow(x):
+    # if (x < (float32)0. || x > (float32)1.) return (float32)0.;
+    # return (float32)1.;
+
+def scurve(x):
+    # if (x <= (float32)0.) return (float32)0.;
+    # if (x >= (float32)1.) return (float32)1.;
+    # return x * x * ((float32)3. - (float32)2. * x);
+
+def scurve0(x):
+    # // assumes that x is in range
+    # return x * x * ((float32)3. - (float32)2. * x);
+
+def ramp(x):
+    # if (x <= (float32)0.) return (float32)0.;
+    # if (x >= (float32)1.) return (float32)1.;
+    # return x;
+
+def sign(x):
+    # return x < (float32)0. ? (float32)-1. : (x > (float32)0. ? (float32)1.f : (float32)0.f);
+
+def distort(x):
+    # return x / ((float32)1. + std::abs(x));
+
+def distortneg(x):
+    # if (x < (float32)0.)
+    #     return x/((float32)1. - x);
+    # else
+    #     return x;
+
+def softclip(x):
+    # float32 absx = std::abs(x);
+    # if (absx <= (float32)0.5) return x;
+    # else return (absx - (float32)0.25) / x;
+
+# // Taylor expansion out to x**9/9! factored  into multiply-adds
+# // from Phil Burk.
+def taylorsin(x):
+    # // valid range from -pi/2 to +3pi/2
+    # x = static_cast<float32>((float32)pi2 - std::abs(pi2 - x));
+    # float32 x2 = x * x;
+    # return static_cast<float32>(x*(x2*(x2*(x2*(x2*(1.0/362880.0)
+    #         - (1.0/5040.0))
+    #         + (1.0/120.0))
+    #         - (1.0/6.0))
+    #         + 1.0));
+
+# TODO: VER arriba.
+# trunc(x) return std::trunc(x);
+# ceil(x) usa SSE4 opcionalmente
+# floor(x) ídem.
+# reciprocal(x) ídem, y es 1/x acá, y el nombre del método es largo, pero me ha resultado útil.
+# bitNot return (float32) ~ (int)x;
+
+def frac(x):
+    # return x - sc_floor(x);
+
+def sc_lg3interp(x1, a, b, c, d): # solo la define para float32
+    # // cubic lagrange interpolator
+    # float32 x0 = x1 + 1.f;
+    # float32 x2 = x1 - 1.f;
+    # float32 x3 = x1 - 2.f;
+    #
+    # float32 x03 = x0 * x3 * 0.5f;
+    # float32 x12 = x1 * x2 * 0.16666666666666667f;
+    #
+    # return x12 * (d * x0 - a * x3) + x03 * (b * x2 - c * x1);
+
+def calcfeedback(delaytime, decaytime):  # CalcFeedback, solo la define para float
+    # if (delaytime == 0.f || decaytime == 0.f)
+    #     return 0.f;
+    #
+    # float32 absret = static_cast<float32>( std::exp(log001 * delaytime / std::abs(decaytime)));
+    # float32 ret = std::copysign(absret, decaytime);
+    # return ret;
+
+def wrap1(x):
+    # if (x >= (float32) 1.) return x + (float32)-2.;
+    # if (x <  (float32)-1.) return x + (float32) 2.;
+    # return x;
+
+def fold1(x):
+    # if (x >= (float32) 1.) return (float32) 2. - x;
+    # if (x <  (float32)-1.) return (float32)-2. - x;
+    # return x;
+
+def graycode(x): # grayCode, está abajo de todo y es para float32
+    # return x ^ (x >> 1);
 
 # Binary
 # TODO: ver el módulo operator: https://docs.python.org/3/library/operator.html
-
-
+# VER NOTAS ARRIBA.
 # Nary
-
-#@singledispatch
-def clip():
-    pass
-#@singledispatch
-def wrap():
-    pass
-#@singledispatch
-def fold():
-    pass
-# @singledispatch
-# def __(obj):
-#     raise TypeError(_msg.format(obj.__class__.__name__, '__()'))
-# @__.register(AbstractFunction)
-# @__.register(float)
-# @__.register(int)
-# def _(obj):
-#     return
-#

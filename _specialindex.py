@@ -93,7 +93,7 @@ BinaryOpcodes = Enum(
         '+', # TODO: __add__ __radd__ __iadd__ y no van a funcionar porque en Enum son métodos.
         '-',
         '*', # __mul__ __rmul__ __imul__
-        'div', # Python '//'
+        'div', # Python '//' (__floordiv__)
         '/',
         'mod',
         '==',

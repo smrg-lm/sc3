@@ -70,7 +70,7 @@ class AbstractFunction(object):
     #     return self.compose_unop('__float__')
     # object.__index__(self) # tiene que retornar int
 
-    def __round__(self[, ndigits]): # object.__round__(self[, ndigits])
+    def __round__(self): # TODO: object.__round__(self[, ndigits]) OPERADOR UNARIO QUE RECIBE ARGUMENTOS.
         return self.compose_unop('__round__')
     def __trunc__(self):
         return self.compose_unop('__trunc__')

@@ -174,6 +174,10 @@ class BinaryOpFunction(AbstractFunction):
         if callable(self.b):
             return getattr(self.a(*args), self.selector)(self.b(*args))
         else:
+            # BUG: int.__mul__(float) devuelve NotImplemented, deberíá llamar float.__mul__(int)
+            # BUG: proque int.__rmul__(float) tampoco funciona, y supongo que otras operaciones lo mismo.
+            # BUG: entonces tengo que hacer un catch de NotImplemented en cada OpFunction y/o comprobar
+            # BUG: los tipos. ¿Cómo implementa '*' Python?
             return getattr(self.a(*args), self.selector)(self.b)
 
 

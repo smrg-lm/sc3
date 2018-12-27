@@ -17,7 +17,8 @@ Ver:
 /include/plugin_interface/SC_InlineBinaryOp.h
 """
 
-from functools import singledispatch
+import math
+#from functools import singledispatch
 
 
 # DONE: ver qué hacer con las listas de Python. RTA: EN PYTHON SE USA MAP Y
@@ -79,18 +80,22 @@ _MSG = "bad operand type for {}: '{}'"
 #     return obj.__invert__()
 # # ...
 
+_ONETWELFTH = 1/12
+_ONE440TH = 1/440
 
-@singledispatch
-def midicps(obj):
-    raise TypeError(_msg.format(obj.__class__.__name__, '__()'))
-@midicps.register(AbstractFunction)
-# TODO: la de abstract function iría con nombre para asignar (ej. _af_midicps)
-@midicps.register(float)
-@midicps.register(int)
-# TODO: si se implementa solo para int y float hacer isinstance(obj, (int, float)) y ya.
-def _(obj):
-    #return (float32)440. * std::pow((float32)2., (note - (float32)69.) * (float32)0.083333333333);
-    #return 440. * pow(2., (obj - 69.) - 0.083333333333) TODO: la múltiplicación de opfunc no funciona para floats? pow anda bien.
+def midicps(note):
+    try: # TODO: VER: try evita dependencia cíclica, la otra es dejar que tiere el error de tipo que tira por defecto.
+        # return (float64)440. * std::pow((float64)2., (note - (float64)69.) * (float64)0.08333333333333333333333333);
+        return 440. * pow(2., (note - 69.) * _ONETWELFTH) # TODO: la múltiplicación de opfunc no funciona para floats? pow anda bien.
+    except TypeError as e:
+        raise TypeError(_MSG.format('midicps()', type(note).__name__)) from e
+
+def cpsmidi(freq):
+    try:
+        # return sc_log2(freq * (float64)0.002272727272727272727272727) * (float64)12. + (float64)69.;
+        return math.log2(freq * _ONE440TH) * 12. + 69.
+    except TypeError as e:
+        raise TypeError(_MSG.format('cpsmidi()', type(freq).__name_)) from e
 
 # @singledispatch
 # def __(obj):
@@ -119,13 +124,13 @@ def _(obj):
 
 # Nary
 
-@singledispatch
+#@singledispatch
 def clip():
     pass
-@singledispatch
+#@singledispatch
 def wrap():
     pass
-@singledispatch
+#@singledispatch
 def fold():
     pass
 # @singledispatch

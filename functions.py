@@ -174,11 +174,16 @@ class BinaryOpFunction(AbstractFunction):
         if callable(self.b):
             return getattr(self.a(*args), self.selector)(self.b(*args))
         else:
-            # BUG: int.__mul__(float) devuelve NotImplemented, deberíá llamar float.__mul__(int)
-            # BUG: proque int.__rmul__(float) tampoco funciona, y supongo que otras operaciones lo mismo.
-            # BUG: entonces tengo que hacer un catch de NotImplemented en cada OpFunction y/o comprobar
-            # BUG: los tipos. ¿Cómo implementa '*' Python?
-            return getattr(self.a(*args), self.selector)(self.b)
+            # int.__mul__(float) devuelve NotImplemented, deberíá llamar float.__mul__(int)
+            # proque int.__rmul__(float) tampoco funciona, y supongo que otras operaciones lo mismo.
+            # entonces tengo que hacer un catch de NotImplemented en cada OpFunction y/o comprobar
+            # los tipos. ¿Cómo implementa '*' Python? La solución de abajo es solo para int.__op__(float)
+            a_value = self.a(*args)
+            ret_value = getattr(a_value, self.selector)(self.b)
+            if ret_value is NotImplemented and type(a_value) is int and type(self.b) is float:
+                return getattr(float(a_value), self.selector)(self.b)
+            else:
+                return ret_value
 
 
 class NAryOpFunction(AbstractFunction):

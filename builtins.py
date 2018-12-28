@@ -20,7 +20,7 @@ Ver:
 import math
 #from functools import singledispatch
 
-from . import functions as fn
+from . import functions as fn # desde la terminal, funciona solo si el otro módulo fue cargado antes.
 
 
 # DONE: ver qué hacer con las listas de Python. RTA: EN PYTHON SE USA MAP Y
@@ -61,10 +61,9 @@ _MSG = "bad operand type for {}: '{}'"
 #     // Not-a-Numbers fail both tests and are eliminated.
 #     return (absx > (float32)1e-15 && absx < (float32)1e15) ? x : (float32)0.;
 
-# TODO: No quiero sobreescribir o variar operaciones básicas de Python
-# TODO: PERO TENGO QUE HACERLO PARA ALGUNAS FUNCIONES BÁSICAS.
-
 # TODO: poner los try? si? no? sino?
+# TODO: Hay que hacer la lógica de UGen porque alugnas de estas funciones
+# TODO: están implementadas como unidades generadoras. ******************
 def log(x, base=math.e):
     if isinstance(x, fn.AbstractFunction):
         return fn.ValueOpFunction(math.log, x, base)
@@ -83,17 +82,19 @@ def log10(x):
     else:
         return math.log10(x)
 
-def log1p(x):
+def log1p(x): # VER: Creo que no existe como UGen.
     if isinstance(x, fn.AbstractFunction):
         return fn.ValueOpFunction(math.log1p, x)
     else:
         return math.log1p(x)
 
+# TODO: faltan sin/cos/etc.
+
 _ONETWELFTH = 1/12
 _ONE440TH = 1/440
 
 def midicps(note):
-    try: # TODO: VER: try evita dependencia cíclica, la otra es dejar que tiere el error de tipo que tira por defecto.
+    try: # TODO: tendría que ponerlo en todas y cada una de las funciones? Me parece poco económico.
         # return (float64)440. * std::pow((float64)2., (note - (float64)69.) * (float64)0.08333333333333333333333333);
         return 440. * pow(2., (note - 69.) * _ONETWELFTH)
     except TypeError as e:
@@ -108,99 +109,135 @@ def cpsmidi(freq):
 
 def midiratio(midi):
     #return std::pow((float32)2. , midi * (float32)0.083333333333);
-    #return pow(2., midi * _ONETWELFTH)
-    pass
+    return pow(2., midi * _ONETWELFTH)
 
 def ratiomidi(ratio):
     #return (float32)12. * sc_log2(ratio);
-    #return 12. * math.log2(ratio)
-    pass
+    return 12. * log2(ratio)
 
 def octcps(note):
     # return (float32)440. * std::pow((float32)2., note - (float32)4.75);
-    pass
+    return 440. * pow(2., note - 4.75)
 
 def cpsoct(freq):
     # return sc_log2(freq * (float32)0.0022727272727) + (float32)4.75;
-    pass
+    return log2(freq * _ONE440TH + 4.75)
 
 def ampdb(amp):
     # return std::log10(amp) * (float32)20.;
-    pass
+    return log10(amp) * 20.
 
 def dbamp(db):
     # return std::pow((float32)10., db * (float32).05);
-    pass
+    return pow(10., db * .05)
 
-# TODO: VER qué onda...
-# squared(float32 x) return x * x;
-# cubed(float32 x) return return x * x * x;
-# sqrt(float32 x) return x < (float32)0. ? -sqrt(-x) : sqrt(x);
+# TODO: VER qué onda... porque están implementadas a bajo nivel como ugens.
+# el mensaje generado es el nombre de la función y no los porxies internos.
+def squared(x):
+    return x * x;
 
+def cubed(x):
+    return x * x * x;
+
+def _sqrt(x): # BUG: Falta la lógica del 'tronco'.
+    if x < 0.:
+        return -math.sqrt(-x)
+    else:
+        return math.sqrt(x)
+def sqrt(x):
+    #return x < 0. ? -sqrt(-x) : sqrt(x);
+    if isinstance(x, fn.AbstractFunction):
+        return fn.ValueOpFunction(_sqrt, x) # BUG: el nombre del 'selector' no va a coincidir.
+    else:
+        return _sqrt(x)
+
+# include/plugin_interface/SC_Constants.h
+pi = math.pi # usa std::acos(-1.), en Python math.acos(-1.) == math.pi es True
+pi2  = pi * 0.5
+twopi = pi * 2
+
+# TODO: Con AbstractFunction y sobre listas estas operaciones no son eficientes.
 def hanwindow(x):
     # if (x < (float32)0. || x > (float32)1.) return (float32)0.;
     # return (float32)0.5 - (float32)0.5 * static_cast<float32>(cos(x * (float32)twopi));
-    pass
+    if x < 0. or x > 1.: return 0. # BUG: ver qué pasa si x es AbstractFunction en todas las comparaciones...
+                                   # BUG: les tengo que implementar la lógica del tronco a todas estas funciones y las de arriba.
+    return 0.5 - 0.5 * cos(x * twopi)
 
 def welwindow(x):
     # if (x < (float32)0. || x > (float32)1.) return (float32)0.;
     # return static_cast<float32>(sin(x * pi));
-    pass
+    if x < 0. or x > 1.: return 0.
+    return sin(x * pi)
 
 def triwindow(x):
     # if (x < (float32)0. || x > (float32)1.) return (float32)0.;
     # if (x < (float32)0.5) return (float32)2. * x;
     # else return (float32)-2. * x + (float32)2.;
-    pass
+    if x < 0. or x > 1.: return 0.
+    if x < 0.5: return 2. * x
+    return -2. * x + 2.
 
 def bitriwindow(x):
     # float32 ax = (float32)1. - std::abs(x);
     # if (ax <= (float32)0.) return (float32)0.;
     # return ax;
-    pass
+    ax = 1. - abs(x)
+    if ax <= 0.: return 0.
+    return ax
 
 def rectwindow(x):
     # if (x < (float32)0. || x > (float32)1.) return (float32)0.;
     # return (float32)1.;
-    pass
+    if x < 0. or x > 1.: return 0.
+    return 1.
 
 def scurve(x):
     # if (x <= (float32)0.) return (float32)0.;
     # if (x >= (float32)1.) return (float32)1.;
     # return x * x * ((float32)3. - (float32)2. * x);
-    pass
+    if x <= 0.: return 0.
+    if x >= 1.: return 1.
+    return x * x * (3. - 2. * x)
 
 def scurve0(x):
     # // assumes that x is in range
     # return x * x * ((float32)3. - (float32)2. * x);
-    pass
+    return x * x * (3. - 2. * x)
 
 def ramp(x):
     # if (x <= (float32)0.) return (float32)0.;
     # if (x >= (float32)1.) return (float32)1.;
     # return x;
-    pass
+    if x <= 0.: return 0.
+    if x >= 1.: return 1.
+    return x
 
 def sign(x):
     # return x < (float32)0. ? (float32)-1. : (x > (float32)0. ? (float32)1.f : (float32)0.f);
-    pass
+    if x < 0.: return -1.
+    if x > 0.: return 1.
+    return 0.
 
-def distort(x):
+def distort(x): # TODO: para mi, qué otras funciones de distorsión hay y cómo generan parciales agudos?
     # return x / ((float32)1. + std::abs(x));
-    pass
+    return x / (1. + abs(x))
 
 def distortneg(x):
     # if (x < (float32)0.)
     #     return x/((float32)1. - x);
     # else
     #     return x;
-    pass
+    if x < 0.: return x / (1. - x)
+    return x
 
 def softclip(x):
     # float32 absx = std::abs(x);
     # if (absx <= (float32)0.5) return x;
     # else return (absx - (float32)0.25) / x;
-    pass
+    absx = abs(x)
+    if absx <= 0.5: return x
+    return (absx - 0.25) / x
 
 # // Taylor expansion out to x**9/9! factored  into multiply-adds
 # // from Phil Burk.
@@ -213,7 +250,13 @@ def taylorsin(x):
     #         + (1.0/120.0))
     #         - (1.0/6.0))
     #         + 1.0));
-    pass
+    x = pi2 - abs(pi2 - x)
+    x2 = x * x
+    return (x*(x2*(x2*(x2*(x2*(1.0/362880.0)\
+        - (1.0/5040.0))\
+        + (1.0/120.0))\
+        - (1.0/6.0))\
+        + 1.0))
 
 # TODO: VER arriba.
 # trunc(x) return std::trunc(x);

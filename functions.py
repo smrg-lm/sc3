@@ -16,6 +16,8 @@ por ejemplo (#object.__rmul__)
 
 import inspect
 
+import supercollie.builtins as bi # TODO: TEST, ver abajo.
+
 
 # ver abstract base clases in python
 class AbstractFunction(object):
@@ -78,6 +80,27 @@ class AbstractFunction(object):
         return self.compose_unop('__floor__')
     def __ceil__(self):
         return self.compose_unop('__ceil__')
+
+    # *********************************************************************************************************************
+    # TODO: TEST, BORRAR O HACER OTRA IMPLEMENTACIÓN, PERO SUPONGO QUE COMO FUNCIONES DE LIBRERÍA SERÍAN MÁS PYTÓNICAS.
+    # Este método lo implementan AbstractFunction, SequenceableCollection y SimpleNumber (y Symbol pero por specialIndex).
+    # La evaluación de AbstractFunction recae en el tipo básico (número o secuencia) específico. Para no intervenir los
+    # tipos básicos la implementación más clara es hacer funciones de librería. AbstractFunction ya de por sí se comporta
+    # como un número (int of float y tendría que agregar/checkear complex) porque para eso están hechas (imitar el
+    # comportamiento numérico). Por eso las llamadas a midicps(abstfunc) devuevle UnaryOpFunction. Estas funciones, además,
+    # tendrían que funcionar con listas que es el otro tipo básico/importante de sclang. Sin embargo, se pierde la
+    # comodidad de hacer ugen.round.midicps y queda midicps(round(ugen)). Pero para implementar esto como métodos de
+    # instancia lo único que hay que hacer es la llamada a las funciones builtin, duplicando el punto de acceso así:
+    def midicps(self):
+        return bi.midicps(self)
+    # o simplemente:
+    cpsmidi = bi.cpsmidi
+    # pero:
+    # func.midicps
+    # <bound method AbstractFunction.midicps of <supercollie.functions.function object at 0x7fb10012f208>>
+    # func.cpsmidi
+    # <bound method cpsmidi of <supercollie.functions.function object at 0x7fb10012f208>>
+    # *********************************************************************************************************************
 
     # binary operators
 
@@ -194,6 +217,16 @@ class NAryOpFunction(AbstractFunction):
 
     def __call__(self, *args):
         return getattr(self.a(*args), self.selector)(*self.args)
+
+
+class ValueOpFunction(AbstractFunction): # TODO: Los posibles nombres no me convencen. Se llama value porque es para las funciones de librería que sí o sí necesitan un valor concreto.
+    def __init__(self, function, a, *args):
+        self.function = function
+        self.a = a
+        self.args = args
+
+    def __call__(self, *args):
+        return self.function(self.a(*args), *self.args)
 
 
 # class FunctionList(AbstractFunction):

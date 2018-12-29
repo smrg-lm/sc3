@@ -343,7 +343,11 @@ def graycode(x): # grayCode, está abajo de todo y es para int32
 # Binary
 
 @scbuiltin
-def mod(xin, hi): # TODO: en Python se usa __mod__ para el símbolo. Y no sé que tanto afecta el comportamiento esta implementación.
+def mod(a, b): # TODO: en Python se usa __mod__ para el símbolo. Y no sé que tanto afecta el comportamiento esta implementación.
+               # TODO: en sclang para números enteros negativos devuelve distintos dependiendo si son iguales mayores o menores,
+               # TODO: mod(-3, -2) es -3, mod(-7, -3) es -4, mod(-7, -3) es -5
+               # TODO: en Python devuleve el módulo negativo, e.g. -3 % -2 es -1, -7 % -3 es -1, -8 % -3 es -2
+               # TODO: en el caso que el operando es positivo y el operador negativo ambos se comportan igual (de mal?) e.g. 1 % -6 es -5, 10 % -8 es -6
     # DOUBLE/FLOAT
     # // avoid the divide if possible
 	# const double lo = (double)0.;
@@ -356,26 +360,31 @@ def mod(xin, hi): # TODO: en Python se usa __mod__ para el símbolo. Y no sé qu
 	# } else return in;
     #
 	# if (hi == lo) return lo;
+    # FLOAT
 	# return in - hi*sc_floor(in/hi);
-
     # INT
-	# // avoid the divide if possible
-	# const int lo = 0;
-	# if (in >= hi) {
-	# 	in -= hi;
-	# 	if (in < hi) return in;
-	# } else if (in < lo) {
-	# 	in += hi;
-	# 	if (in >= lo) return in;
-	# } else return in;
-    #
-	# if (hi == lo) return lo;
-    #
-	# int c;
-	# c = in % hi;
-	# if (c<0) c += hi;
-	# return c;
-    pass
+    # int c;
+    # c = in % hi;
+    # if (c<0) c += hi;
+    # return c;
+    zero = 0
+    if a >= b:
+        a -= b
+        if a < b: return a
+    elif a < zero:
+        a += b
+        if a >= zero: return a
+    else:
+        return a
+
+    if b == zero: return zero
+
+    if type(a) is float or type(b) is float:
+        return a - b * floor(a/b)
+
+    c = int(math.fmod(a, b))
+    if c < 0: c += b
+    return c
 
 @scbuiltin
 def wrap(xin, lo, hi, range): # TODO: tiene dos firmas, sin y con range, la implementación varía sutilmente.

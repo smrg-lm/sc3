@@ -1,50 +1,48 @@
 """
 builtins.py
 
-Builtin functions from sclang.
+Builtin functions from ugens/sclang.
 
-Son los operadores unarios/(¿binarios?)/enarios de las
+Son los operadores unarios/binarios/enarios de las
 AbstractFunction y las UGen que también se aplican a otros
 tipos de datos básico dentro de la librería de clases.
 
-Son las funciones de _specialindex.py.
-
 De no tener equivalentes estas funciones deberían implementarse
-en CPython. En SuperCollider están implementadas a bajo nivel.
+en CPython?
 
 Ver:
 /include/plugin_interface/SC_InlineUnaryOp.h
 /include/plugin_interface/SC_InlineBinaryOp.h
+
+Son, en gran parte, las funciones de _specialindex.py. Agregué
+las que no están implementadas como interfaz para las ugens
+pero sí están en sclang.
 """
 
 import math
-#import inspect
-#from functools import singledispatch
 
 from . import functions as fn # TODO: desde la terminal, funciona solo si el otro módulo fue cargado antes.
 
 
-# DONE: ver qué hacer con las listas de Python. RTA: EN PYTHON SE USA MAP Y
-# LISTCOMPREHENSION, TRATAR DE HACERLA PYTÓNICA.
-
-# DONE: ver qué hacer con los métodos mágicos de AbstractFucntion. RTA: EL PROBLEMA NO ES ABSTRACTFUNCTION
-# SINO LOS TIPOS NUMÉRICOS INTEGRADOS, ABFUNC FUNCIONA CON LOS MÉTODOS INTEGRADOS NUMÉRICOS PERO LOS
-# NÚMEROS NO VAN A FUNCIONAR CON MIDICPS, POR EJEMPLO. NO REIMPLEMENTAR LAS OPERACIONES PARA LOST TIPOS INTEGRADOS,
-# NO REIMPLEMENTAR LOS MÉTODOS PARA LOS TIPOS INTEGRADOS (E.G. NEG).
-
-# DONE: VER: https://docs.python.org/3/library/numbers.html#numbers.Integral
-# implementa como if isinstance elif isinstance, tal vez @singledispatch
-# genera una sobrecarga importante. Pero @singledispatch es relativamente
-# nuevo, v3.4 o .5. En todo caso se puede cambiar después (o medir ahora...)
-
-# TODO: ver módulo operator: https://docs.python.org/3/library/operator.html
-# No estoy implementando los métodos inplace (e.g. a += b). Además el módulo
-# provee funciones para las operaciones sobre tipos integrados, ver cuáles
-# sí implementa y sin funcionan mediante los métodos mágicos.
+# Module Constants
+# /include/plugin_interface/SC_Constants.h
+pi = math.acos(-1.)
+pi2 = pi * .5
+pi32 = pi * 1.5
+twopi = pi * 2.
+rtwopi = 1. / twopi
+log001 = math.log(0.001)
+log01 = math.log(0.01)
+log1 = math.log(0.1)
+rlog2 = 1. / math.log(2.)
+sqrt2 = math.sqrt(2.)
+rsqrt2 = 1. / sqrt2
 
 # Decorator
 def scbuiltin(func):
     def scbuiltin_(*args):
+        # DONE: ver qué hacer con las listas de Python. RTA: EN PYTHON SE USA MAP Y
+        # LISTCOMPREHENSION, TRATAR DE HACERLA PYTÓNICA.
         # _MSG = "bad operand type for {}: '{}'"
         # try: # TODO: Ahora el único problema es que quede la cosa demasiado sobrecargada, y si agrego collections más.
         # except TypeError as e: raise TypeError(_MSG.format('midicps()', type(note).__name__)) from e
@@ -57,16 +55,20 @@ def scbuiltin(func):
 
 # Unary
 
-# TODO: es para denormals en ugens, pero el nombre está bueno.
+# TODO: faltan sin/cos/etc. Ver AbstractFunction y la documentación de Operators.
+
 # // this is a function for preventing pathological math operations in ugens.
 # // can be used at the end of a block to fix any recirculating filter values.
-# def zapgremlins(x):
-#     float32 absx = std::abs(x);
-#     // very small numbers fail the first test, eliminating denormalized numbers
-#     //    (zero also fails the first test, but that is OK since it returns zero.)
-#     // very large numbers fail the second test, eliminating infinities
-#     // Not-a-Numbers fail both tests and are eliminated.
-#     return (absx > (float32)1e-15 && absx < (float32)1e15) ? x : (float32)0.;
+def zapgremlins(x):
+    # float32 absx = std::abs(x);
+    # // very small numbers fail the first test, eliminating denormalized numbers
+    # //    (zero also fails the first test, but that is OK since it returns zero.)
+    # // very large numbers fail the second test, eliminating infinities
+    # // Not-a-Numbers fail both tests and are eliminated.
+    # return (absx > (float32)1e-15 && absx < (float32)1e15) ? x : (float32)0.;
+    absx = math.abs(x)
+    if absx > 1e-15 and absx < 1e15: return x
+    return 0.
 
 @scbuiltin
 def log(x, base=math.e):
@@ -84,10 +86,8 @@ def log10(x):
 def log1p(x): # VER: Creo que no existe como UGen
     return math.log1p(x)
 
-# TODO: faltan sin/cos/etc.
-
-_ONETWELFTH = 1/12
-_ONE440TH = 1/440
+_ONETWELFTH = 1. / 12.
+_ONE440TH = 1. / 440.
 
 @scbuiltin
 def midicps(note):
@@ -144,17 +144,11 @@ def sqrt(x):
     else:
         return math.sqrt(x)
 
-# include/plugin_interface/SC_Constants.h
-pi = math.pi # usa std::acos(-1.), en Python math.acos(-1.) == math.pi es True
-pi2  = pi * 0.5
-twopi = pi * 2
-
 @scbuiltin
 def hanwindow(x):
     # if (x < (float32)0. || x > (float32)1.) return (float32)0.;
     # return (float32)0.5 - (float32)0.5 * static_cast<float32>(cos(x * (float32)twopi));
-    if x < 0. or x > 1.: return 0. # BUG: ver qué pasa si x es AbstractFunction en todas las comparaciones...
-                                   # BUG: les tengo que implementar la lógica del tronco a todas estas funciones y las de arriba.
+    if x < 0. or x > 1.: return 0.
     return 0.5 - 0.5 * cos(x * twopi)
 
 @scbuiltin
@@ -289,7 +283,7 @@ def frac(x):
     # return x - sc_floor(x);
     return x - floor(x)
 
-_ONESIXTH = 1/6
+_ONESIXTH = 1. / 6.
 
 @scbuiltin
 def lg3interp(x1, a, b, c, d): # sc_lg3interp solo la define para float32
@@ -308,9 +302,6 @@ def lg3interp(x1, a, b, c, d): # sc_lg3interp solo la define para float32
     x03 = x0 * x3 * 0.5
     x12 = x1 * x2 * _ONESIXTH
     return x12 * (d * x0 - a * x3) + x03 * (b * x2 - c * x1)
-
-# SC_Constants.h # TODO: tal vez debería hacer un archivo a parte, o ponerlas todas arriba aunque no se usen.
-log001 = math.log(0.001)
 
 @scbuiltin
 def calcfeedback(delaytime, decaytime):  # CalcFeedback, solo la define para float32
@@ -351,11 +342,305 @@ def graycode(x): # grayCode, está abajo de todo y es para int32
 
 # Binary
 
-# TODO: ver el módulo operator: https://docs.python.org/3/library/operator.html VER NOTAS ARRIBA.
-# ...
-#lcm
-#gcd
-#...
+@scbuiltin
+def mod(xin, hi): # TODO: en Python se usa __mod__ para el símbolo. Y no sé que tanto afecta el comportamiento esta implementación.
+    # DOUBLE/FLOAT
+    # // avoid the divide if possible
+	# const double lo = (double)0.;
+	# if (in >= hi) {
+	# 	in -= hi;
+	# 	if (in < hi) return in;
+	# } else if (in < lo) {
+	# 	in += hi;
+	# 	if (in >= lo) return in;
+	# } else return in;
+    #
+	# if (hi == lo) return lo;
+	# return in - hi*sc_floor(in/hi);
+
+    # INT
+	# // avoid the divide if possible
+	# const int lo = 0;
+	# if (in >= hi) {
+	# 	in -= hi;
+	# 	if (in < hi) return in;
+	# } else if (in < lo) {
+	# 	in += hi;
+	# 	if (in >= lo) return in;
+	# } else return in;
+    #
+	# if (hi == lo) return lo;
+    #
+	# int c;
+	# c = in % hi;
+	# if (c<0) c += hi;
+	# return c;
+    pass
+
+@scbuiltin
+def wrap(xin, lo, hi, range): # TODO: tiene dos firmas, sin y con range, la implementación varía sutilmente.
+	# // avoid the divide if possible
+	# if (in >= hi) {
+# range = hi - lo; # sin range
+	# 	in -= range;
+	# 	if (in < hi) return in;
+	# } else if (in < lo) {
+# range = hi - lo; # sin range
+	# 	in += range;
+	# 	if (in >= lo) return in;
+	# } else return in;
+    #
+	# if (hi == lo) return lo;
+	# return in - range * sc_floor((in - lo)/range);
+# INT: abajo define wrap para int sin range.
+# return sc_mod(in - lo, hi - lo + 1) + lo;
+    pass
+
+@scbuiltin
+def fold(xin, lo, hi, range, range2): # TODO: ídem wrap con range y range2
+	# double x, c;
+	# x = in - lo;
+    #
+	# // avoid the divide if possible
+	# if (in >= hi) {
+	# 	in = hi + hi - in;
+	# 	if (in >= lo) return in;
+	# } else if (in < lo) {
+	# 	in = lo + lo - in;
+	# 	if (in < hi) return in;
+	# } else return in;
+    #
+	# if (hi == lo) return lo;
+	# // ok do the divide
+# range = hi - lo; # sin range
+# range2 = range + range; # sin range2
+	# c = x - range2 * sc_floor(x / range2);
+	# if (c>=range) c = range2 - c;
+	# return c + lo;
+# INT: abajo define fold para int sin range ni range2
+# int b = hi - lo;
+# int b2 = b+b;
+# int c = sc_mod(in - lo, b2);
+# if (c>b) c = b2-c;
+# return c + lo;
+    pass
+
+# TODO: define pow, eso no es bueno para mi. *********************************
+# @scbuiltin
+# def pow(a, b):
+#     # return a >= 0.f ? std::pow(a, b) : -std::pow(-a, b);
+#     pass
+
+@scbuiltin
+def round(x, quant):
+    # return quant==0. ? x : sc_floor(x/quant + .5) * quant;
+    # INT return quant==0 ? x : sc_div(x + quant/2, quant) * quant;
+    pass
+
+@scbuiltin
+def roundup(x, quant):
+    # return quant==0. ? x : sc_ceil(x/quant) * quant;
+    # INT return quant==0 ? x : sc_div(x + quant - 1, quant) * quant;
+    pass
+
+@scbuiltin
+def trunc(x, quant): # TODO: esta ya la definió en unary pero con otra firma.
+    # return quant==0. ? x : sc_floor(x/quant) * quant;
+    # INT: return quant==0 ? x : sc_div(x, quant) * quant;
+    pass
+
+@scbuiltin
+def atan2(a, b): # Solo la define para float. Pero creo que no define sin/cos y las demás.
+    # return std::atan2(a, b);
+    pass
+
+_SQRT2M1 = math.sqrt(2.) - 1.;
+
+@scbuiltin
+def hypotx(x, y):
+	# double minxy;
+    #
+	# x = std::abs(x);
+	# y = std::abs(y);
+    #
+	# minxy = sc_min(x,y);
+    #
+	# return x + y - kDSQRT2M1 * minxy;
+    pass
+
+@scbuiltin
+def div(a, b): # TODO: define div para int devolviendo el dividendo si el divisor es cero, en sclang es el comportamiento de 1 div: 0, en Python 1 // 0 es error.
+               # TODO: ver si se usa para las ugens o qué cómo, lo mismo con mod.
+	# int c;
+	# if (b) {
+	# 	if (a<0) c = (a+1)/b - 1;
+	# 	else c = a/b;
+	# } else c = a;
+	# return c;
+    pass
+
+@scbuiltin
+def gcd(a, b):
+    # if (a == 0)
+    # 	return b;
+    # if (b == 0)
+    # 	return a;
+    # const bool negative = (a <= 0 && b <= 0);
+    # a = sc_abs(a);
+    # b = sc_abs(b);
+    # if (a == 1 || b == 1) {
+    # 	if(negative) {
+    # 		return (long) -1;
+    # 	} else {
+    # 		return (long) 1;
+    # 	}
+    # }
+    # if (a < b) {
+    # 	long t = a;
+    # 	a = b;
+    # 	b = t;
+    # }
+    # while (b > 0) {
+    # 	long t = a % b;
+    # 	a = b;
+    # 	b = t;
+    # }
+    # if(negative) {
+    # 	a = 0 - a;
+    # }
+    # return a;
+# FLOAT: abajo define para float gcd(u, v)
+# return (float) sc_gcd((long) std::trunc(u), (long) std::trunc(v));
+    pass
+
+@scbuiltin
+def lcm(a, b):
+    # if (a == 0 || b == 0)
+    #     return (long)0;
+    # else
+    #     return (a * b) / sc_gcd(a, b);
+# FLOAT: abajo define para float lcm(u, v)
+# return (float) sc_lcm((long) std::trunc(u), (long) std::trunc(v));
+    pass
+
+@scbuiltin
+def bitand(a, b): # BUG: estoy viendo que al pasar todo a minúsculas no me va a coincidir el nombre con la lista de símbolos...
+    return a & b
+
+@scbuiltin
+def bitor(a, b):
+    return a | b
+
+@scbuiltin
+def leftshift(a, b):
+    return a << b
+
+@scbuiltin
+def rightshift(a, b):
+    return a >> b
+
+# @scbuiltin # TODO: VER
+# def unsignedRightShift(a, b):
+    # return (uint32)a >> b;
+
+# @scbuiltin # TODO: VER: se usa solo en /server/plugins/LFUGens.cpp y hay un ejemplo en ServerPluginAPI.schelp
+             # TODO: pero no creo que se use para nada más en ninguna otra parte.
+# def powi(x, n):
+#     # F z = 1;
+#     # while (n != 0)
+#     # {
+#     # 	if ((n & 1) != 0)
+#     # 	{
+#     # 		z *= x;
+#     # 	}
+#     # 	n >>= 1;
+#     # 	x *= x;
+#     # }
+#     # return z;
+#     pass
+
+@scbuiltin
+def thresh(a, b): # sc_thresh(T a, U b)
+    # return a < b ? (T)0 : a;
+    pass
+
+@scbuiltin
+def clip2(a, b): # sc_clip2(T a, T b) # Estas son las que usa como operadores integrados de las UGens.
+    # return sc_clip(a, -b, b);
+    pass
+
+@scbuiltin
+def wrap2(a, b): # wrap2(T a, T b)
+    # return sc_wrap(a, -b, b);
+    pass
+
+@scbuiltin
+def fold2(a, b): # sc_fold2(T a, T b)
+    # return sc_fold(a, -b, b);
+    pass
+
+@scbuiltin
+def excess(a, b): # sc_excess(T a, T b)
+    # return a - sc_clip(a, -b, b);
+    pass
+
+@scbuiltin
+def scaleneg(a, b):
+    # template: T a, T b
+	# if (a < 0)
+	# 	return a*b;
+	# else
+	# 	return a;
+    # DOUBLE/FLOAT
+    # b = 0.5 * b + 0.5;
+	# return (std::abs(a) - a) * b + a;
+    pass
+
+@scbuiltin
+def amclip(a, b):
+    # template: T a, T b
+	# if (b < 0)
+	# 	return 0;
+	# else
+	# 	return a*b;
+    # DOUBLE/FLOAT
+    # return a * 0.5 * (b + std::abs(b));
+    pass
+
+@scbuiltin
+def ring1(a, b):
+    return a * b + a
+
+@scbuiltin
+def ring2(a, b):
+    return a * b + a + b
+
+@scbuiltin
+def ring3(a, b):
+    return a * a * b
+
+@scbuiltin
+def ring4(a, b):
+    return a * a * b - a * b * b
+
+@scbuiltin
+def difsqr(a, b):
+    return a * a - b * b
+
+@scbuiltin
+def sumsqr(a, b):
+    return a * a + b * b
+
+@scbuiltin
+def sqrsum(a, b):
+    z = a + b
+    return z * z
+
+@scbuiltin
+def sqrdif(a, b):
+    z = a - b
+	return z * z
+
 
 # TODO: En AbstractFunction
 #linrand

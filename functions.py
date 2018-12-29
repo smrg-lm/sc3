@@ -37,6 +37,11 @@ class AbstractFunction(object):
     def compose_narop(self, selector, *args): # , **kwargs): # si? no? no, si? si, no, no, si, si?
         return NAryOpFunction(selector, self, *args) #, **kwargs)
 
+    # TODO: ver módulo operator: https://docs.python.org/3/library/operator.html
+    # No estoy implementando los métodos inplace (e.g. a += b). Además el módulo
+    # provee funciones para las operaciones sobre tipos integrados, ver cuáles
+    # sí implementa y sin funcionan mediante los métodos mágicos.
+
     # https://docs.python.org/3/library/operator.html
     # Categories: object comparison, logical operations, mathematical operations and sequence operations
 

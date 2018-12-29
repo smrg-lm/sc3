@@ -88,7 +88,7 @@ UnaryOpcodes = Enum(
 
 
 BinaryOpcodes = Enum(
-    'UnaryOpcodes',
+    'BinaryOpcodes',
     [
         '+', # TODO: __add__ __radd__ __iadd__ y no van a funcionar porque en Enum son métodos.
         '-',

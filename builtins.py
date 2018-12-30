@@ -387,7 +387,13 @@ def mod(a, b): # TODO: en Python se usa __mod__ para el símbolo. Y no sé que t
     return c
 
 @scbuiltin
-def wrap(xin, lo, hi, range): # TODO: tiene dos firmas, sin y con range, la implementación varía sutilmente.
+def wrap(x, lo, hi, range=None): # TODO: tiene dos firmas, sin y con range, la implementación varía sutilmente.
+# INT: abajo define wrap para int sin range como:
+# return sc_mod(in - lo, hi - lo + 1) + lo;
+    if type(x) is int:
+        lo = int(lo)
+        hi = int(hi)
+        return mod(x - lo, hi - lo + 1) + lo
 	# // avoid the divide if possible
 	# if (in >= hi) {
 # range = hi - lo; # sin range
@@ -401,12 +407,38 @@ def wrap(xin, lo, hi, range): # TODO: tiene dos firmas, sin y con range, la impl
     #
 	# if (hi == lo) return lo;
 	# return in - range * sc_floor((in - lo)/range);
-# INT: abajo define wrap para int sin range.
-# return sc_mod(in - lo, hi - lo + 1) + lo;
-    pass
+    if x >= hi:
+        if range is None:
+            range = hi - lo
+        x -= range
+        if x < hi: return x
+    elif x < lo:
+        if range is None:
+            range = hi - lo
+        x += range
+        if x >= lo: return x
+    else:
+        return x
+
+    if hi == lo: return lo
+    return x - range * floor((x - lo) / range)
 
 @scbuiltin
-def fold(xin, lo, hi, range, range2): # TODO: ídem wrap con range y range2
+def fold(x, lo, hi, range=None, range2=None): # TODO: ídem wrap con range y range2
+# INT: abajo define fold para int sin range ni range2
+# int b = hi - lo;
+# int b2 = b+b;
+# int c = sc_mod(in - lo, b2);
+# if (c>b) c = b2-c;
+# return c + lo;
+    if type(x) is int:
+        lo = int(lo)
+        hi = int(hi)
+        b = hi - lo
+        b2 = b + b
+        c = mod(x - lo, b2)
+        if c > b: c = b2 - c
+        return c + lo
 	# double x, c;
 	# x = in - lo;
     #
@@ -426,13 +458,24 @@ def fold(xin, lo, hi, range, range2): # TODO: ídem wrap con range y range2
 	# c = x - range2 * sc_floor(x / range2);
 	# if (c>=range) c = range2 - c;
 	# return c + lo;
-# INT: abajo define fold para int sin range ni range2
-# int b = hi - lo;
-# int b2 = b+b;
-# int c = sc_mod(in - lo, b2);
-# if (c>b) c = b2-c;
-# return c + lo;
-    pass
+    x2 = x - lo
+    if x >= hi:
+        x = hi + hi - x
+        if x >= lo: return x
+    elif x < lo:
+        x = lo + lo - x
+        if x < hi: return x
+    else:
+        return x
+
+    if hi == lo: return lo
+    if range is None:
+        range = hi - lo
+        range2 = range + range
+    c = x2 - range2 * floor(x2 / range2)
+    if c >= range:
+        c = range2 - c
+    return c + lo
 
 # TODO: define pow, eso no es bueno para mi. *********************************
 # @scbuiltin
@@ -441,55 +484,99 @@ def fold(xin, lo, hi, range, range2): # TODO: ídem wrap con range y range2
 #     pass
 
 @scbuiltin
-def round(x, quant):
-    # return quant==0. ? x : sc_floor(x/quant + .5) * quant;
-    # INT return quant==0 ? x : sc_div(x + quant/2, quant) * quant;
-    pass
-
-@scbuiltin
-def roundup(x, quant):
-    # return quant==0. ? x : sc_ceil(x/quant) * quant;
-    # INT return quant==0 ? x : sc_div(x + quant - 1, quant) * quant;
-    pass
-
-@scbuiltin
-def trunc(x, quant): # TODO: esta ya la definió en unary pero con otra firma.
-    # return quant==0. ? x : sc_floor(x/quant) * quant;
-    # INT: return quant==0 ? x : sc_div(x, quant) * quant;
-    pass
-
-@scbuiltin
-def atan2(a, b): # Solo la define para float. Pero creo que no define sin/cos y las demás.
-    # return std::atan2(a, b);
-    pass
-
-_SQRT2M1 = math.sqrt(2.) - 1.;
-
-@scbuiltin
-def hypotx(x, y):
-	# double minxy;
-    #
-	# x = std::abs(x);
-	# y = std::abs(y);
-    #
-	# minxy = sc_min(x,y);
-    #
-	# return x + y - kDSQRT2M1 * minxy;
-    pass
-
-@scbuiltin
 def div(a, b): # TODO: define div para int devolviendo el dividendo si el divisor es cero, en sclang es el comportamiento de 1 div: 0, en Python 1 // 0 es error.
                # TODO: ver si se usa para las ugens o qué cómo, lo mismo con mod.
+               # TODO: si lo sargumentos son float sclang realiza las operaciones y castead el valor de retorno.
 	# int c;
 	# if (b) {
 	# 	if (a<0) c = (a+1)/b - 1;
 	# 	else c = a/b;
 	# } else c = a;
 	# return c;
-    pass
+    if b:
+        if a < 0: c = (a + 1) / b - 1
+        else: c = a / b
+    else:
+        c = a
+    return int(c)
+
+@scbuiltin
+def round(x, quant):
+    # return quant==0. ? x : sc_floor(x/quant + .5) * quant;
+    # INT return quant==0 ? x : sc_div(x + quant/2, quant) * quant;
+    if type(x) is int:
+        quant = int(quant)
+        if quant == 0:
+            return x
+        else:
+            return div(x + quant // 2, quant) * quant
+    if quant == 0.:
+        return x
+    else:
+        return floor(x / quant + .5) * quant
+
+@scbuiltin
+def roundup(x, quant):
+    # return quant==0. ? x : sc_ceil(x/quant) * quant;
+    # INT return quant==0 ? x : sc_div(x + quant - 1, quant) * quant;
+    if type(x) is int:
+        quant = int(quant)
+        if quant == 0:
+            return x
+        else:
+            return div(x + quant - 1, quant) * quant
+    if quant == 0.:
+        return x
+    else:
+        return ceil(x / quant) * quant
+
+@scbuiltin
+def trunc(x, quant): # BUG: TODO: esta ya la definió en unary pero con otra firma.
+    # return quant==0. ? x : sc_floor(x/quant) * quant;
+    # INT: return quant==0 ? x : sc_div(x, quant) * quant;
+    if type(x) is int:
+        quant = int(quant)
+        if quant == 0:
+            return x
+        else:
+            return div(x, quant) * quant
+    if quant == 0.:
+        return x
+    else:
+        return floor(x / quant) * quant
+
+@scbuiltin
+def atan2(a, b): # TODO: Solo la define para float. Pero creo que no define sin/cos y las demás.
+    # return std::atan2(a, b);
+    return math.atan2(a, b)
+
+_SQRT2M1 = math.sqrt(2.) - 1.;
+
+#./common/SC_BoundsMacros.h:
+#define sc_abs(a) std::abs(a) # Use Python's
+#define sc_max(a,b) (((a) > (b)) ? (a) : (b)) # Use Python's
+#define sc_min(a,b) (((a) < (b)) ? (a) : (b)) # Use Python's
+#inline T sc_clip(T x, U lo, V hi) return std::max(std::min(x, (T)hi), (T)lo);
+def clip(x, lo, hi):
+    T = type(x)
+    return max(min(x, T(hi)), T(lo))
+
+@scbuiltin
+def hypotx(x, y):
+	# double minxy;
+	# x = std::abs(x);
+	# y = std::abs(y);
+	# minxy = sc_min(x,y);
+	# return x + y - kDSQRT2M1 * minxy;
+    x = abs(x)
+    y = abs(y)
+    minxy = min(x, y)
+    return x + y - SQRT2M1 * minxy
 
 @scbuiltin
 def gcd(a, b):
+# FLOAT: abajo define para float gcd(u, v)
+# return (float) sc_gcd((long) std::trunc(u), (long) std::trunc(v));
     # if (a == 0)
     # 	return b;
     # if (b == 0)
@@ -518,19 +605,48 @@ def gcd(a, b):
     # 	a = 0 - a;
     # }
     # return a;
-# FLOAT: abajo define para float gcd(u, v)
-# return (float) sc_gcd((long) std::trunc(u), (long) std::trunc(v));
-    pass
+    if type(a) is float or type(b) is float:
+        a = int(a)
+        b = int(b)
+    T = type(a)
+
+    if a == 0: return b
+    if b == 0: return a
+    negative = a <= 0 and b <=0
+    a = abs(a)
+    b = abs(b)
+    if a == 1 or b == 1:
+        if negative: return -1
+        else: return 1
+    if a < b:
+        t = a
+        a = b
+        b = t
+    while b > 0:
+        t = a % b
+        a = b
+        b = t
+    if negative:
+        a = 0 - a
+
+    return T(a)
 
 @scbuiltin
 def lcm(a, b):
+# FLOAT: abajo define para float lcm(u, v)
+# return (float) sc_lcm((long) std::trunc(u), (long) std::trunc(v));
     # if (a == 0 || b == 0)
     #     return (long)0;
     # else
     #     return (a * b) / sc_gcd(a, b);
-# FLOAT: abajo define para float lcm(u, v)
-# return (float) sc_lcm((long) std::trunc(u), (long) std::trunc(v));
-    pass
+    if type(a) is float or type(b) is float:
+        a = int(a)
+        b = int(b)
+
+    if a == 0 or b == 0:
+        return 0
+    else:
+        return (a * b) // gcd(a, b)
 
 @scbuiltin
 def bitand(a, b): # BUG: estoy viendo que al pasar todo a minúsculas no me va a coincidir el nombre con la lista de símbolos...
@@ -571,27 +687,29 @@ def rightshift(a, b):
 @scbuiltin
 def thresh(a, b): # sc_thresh(T a, U b)
     # return a < b ? (T)0 : a;
-    pass
+    T = type(a)
+    if a < b: return T(0)
+    return a
 
 @scbuiltin
 def clip2(a, b): # sc_clip2(T a, T b) # Estas son las que usa como operadores integrados de las UGens.
     # return sc_clip(a, -b, b);
-    pass
+    return clip(a, -b, b)
 
 @scbuiltin
 def wrap2(a, b): # wrap2(T a, T b)
     # return sc_wrap(a, -b, b);
-    pass
+    return wrap(a, -b, b)
 
 @scbuiltin
 def fold2(a, b): # sc_fold2(T a, T b)
     # return sc_fold(a, -b, b);
-    pass
+    return fold(a, -b, b)
 
 @scbuiltin
 def excess(a, b): # sc_excess(T a, T b)
     # return a - sc_clip(a, -b, b);
-    pass
+    return a - clip(a, -b, b)
 
 @scbuiltin
 def scaleneg(a, b):
@@ -603,7 +721,11 @@ def scaleneg(a, b):
     # DOUBLE/FLOAT
     # b = 0.5 * b + 0.5;
 	# return (std::abs(a) - a) * b + a;
-    pass
+    if type(a) is int and type(b) is int:
+        if a < 0: return a * b
+        return a
+    b = 0.5 * b + 0.5
+    return (abs(a) - a) * b + a
 
 @scbuiltin
 def amclip(a, b):
@@ -614,7 +736,10 @@ def amclip(a, b):
 	# 	return a*b;
     # DOUBLE/FLOAT
     # return a * 0.5 * (b + std::abs(b));
-    pass
+    if type(a) is int and type(b) is int:
+        if b < 0: return 0
+        return a * b
+    return a * 0.5 * (b + abs(b))
 
 @scbuiltin
 def ring1(a, b):

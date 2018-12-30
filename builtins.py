@@ -41,15 +41,14 @@ rsqrt2 = 1. / sqrt2
 # Decorator
 def scbuiltin(func):
     def scbuiltin_(*args):
-        # DONE: ver qué hacer con las listas de Python. RTA: EN PYTHON SE USA MAP Y
-        # LISTCOMPREHENSION, TRATAR DE HACERLA PYTÓNICA.
+        # TODO: ver qué hacer con las listas de Python. UNA RTA: EN PYTHON SE USA MAP Y
+        # LISTCOMPREHENSION, TRATAR DE HACERLA PYTÓNICA. PERO SCLANG SOPORTA ESE COMPORTAMIENTO Y ES MUY COMÚN.
+        # EL PROBLEMA ES QUE SI SE IMPLEMENTA PARA ESTAS FUNCIONES, EL RESTO DE LAS COSAS PITÓNICAS QUEDA TRUNCO?
         # _MSG = "bad operand type for {}: '{}'"
         # try: # TODO: Ahora el único problema es que quede la cosa demasiado sobrecargada, y si agrego collections más.
         # except TypeError as e: raise TypeError(_MSG.format('midicps()', type(note).__name__)) from e
-        if isinstance(args[0], fn.AbstractFunction):
-            return fn.ValueOpFunction(func, *args)
-        else:
-            return func(*args)
+        return func(*args)
+    scbuiltin_.__scbuiltin__ = func.__name__ # TODO: ESTO PODRÍA SER EL NOMBRE EN SPECIAL INDEX?
     scbuiltin_.__qualname__ += func.__name__
     return scbuiltin_
 
@@ -59,6 +58,7 @@ def scbuiltin(func):
 
 # // this is a function for preventing pathological math operations in ugens.
 # // can be used at the end of a block to fix any recirculating filter values.
+@scbuiltin
 def zapgremlins(x):
     # float32 absx = std::abs(x);
     # // very small numbers fail the first test, eliminating denormalized numbers
@@ -773,7 +773,7 @@ def sqrsum(a, b):
 @scbuiltin
 def sqrdif(a, b):
     z = a - b
-	return z * z
+    return z * z
 
 
 # TODO: En AbstractFunction

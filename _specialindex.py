@@ -12,6 +12,9 @@ Used by BasicOpUGens to get an ID number for the operator.
 
 from enum import Enum
 
+# TODO: special_index se usa en BasicOpUGen pero, además, creo, el atributo
+# operator tiene que ser uno de estos símbolos (porque un y bin comparten
+# números). Estos atributos special_index y name se usan en write_def de UGen.
 
 UnaryOpcodes = Enum(
     'UnaryOpcodes',

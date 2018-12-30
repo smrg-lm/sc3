@@ -86,26 +86,9 @@ class AbstractFunction(object):
     def __ceil__(self):
         return self.compose_unop('__ceil__')
 
-    # *********************************************************************************************************************
-    # TODO: TEST, BORRAR O HACER OTRA IMPLEMENTACIÓN, PERO SUPONGO QUE COMO FUNCIONES DE LIBRERÍA SERÍAN MÁS PYTÓNICAS.
-    # Este método lo implementan AbstractFunction, SequenceableCollection y SimpleNumber (y Symbol pero por specialIndex).
-    # La evaluación de AbstractFunction recae en el tipo básico (número o secuencia) específico. Para no intervenir los
-    # tipos básicos la implementación más clara es hacer funciones de librería. AbstractFunction ya de por sí se comporta
-    # como un número (int of float y tendría que agregar/checkear complex) porque para eso están hechas (imitar el
-    # comportamiento numérico). Por eso las llamadas a midicps(abstfunc) devuevle UnaryOpFunction. Estas funciones, además,
-    # tendrían que funcionar con listas que es el otro tipo básico/importante de sclang. Sin embargo, se pierde la
-    # comodidad de hacer ugen.round.midicps y queda midicps(round(ugen)). Pero para implementar esto como métodos de
-    # instancia lo único que hay que hacer es la llamada a las funciones builtin, duplicando el punto de acceso así:
+
     def midicps(self):
-        return bi.midicps(self)
-    # o simplemente:
-    cpsmidi = bi.cpsmidi
-    # pero:
-    # func.midicps
-    # <bound method AbstractFunction.midicps of <supercollie.functions.function object at 0x7fb10012f208>>
-    # func.cpsmidi
-    # <bound method cpsmidi of <supercollie.functions.function object at 0x7fb10012f208>>
-    # *********************************************************************************************************************
+        return self.compose_unop(bi.midicps)
 
     # binary operators
 
@@ -169,10 +152,14 @@ class AbstractFunction(object):
     def __ror__(self, other):
         return self.compose_binop('__ror__', other)
 
+
+    def mod(self, other):
+        return self.compose_binop(bi.mod, other)
+
     # nary operators
 
     # TODO: los operadores enarios deberían ser implementados por duplicado
-    # como las funciones incluidas para los tipos numéricos.
+    # como las funciones incluidas para los tipos numéricos. VER MIDICPS Y MOD ARRIBA.
     def clip(self, lo, hi):
         return self.compose_narop('clip', lo, hi)
     def wrap(self, lo, hi):
@@ -187,10 +174,11 @@ class UnaryOpFunction(AbstractFunction):
         self.selector = selector
         self.a = a
 
-    def __call__(self, *args): # los parámetros solo pueden ser posicionales
-        #if callable(a): a siempre va a ser una AbstractFunction no usar rbinop
-        return getattr(self.a(*args), self.selector)() # qué pasa con los tipos de retorno de a() ... (ver NotImplementedError)
-
+    def __call__(self, *args): # TODO: los parámetros solo pueden ser posicionales, supongo que se podrían agregar palabras clase si se hace el filtrado.
+        if hasattr(self.selector, '__scbuiltin__'):
+            return self.selector(self.a(*args))
+        else:
+            return getattr(self.a(*args), self.selector)() # TODO: qué pasa con los tipos de retorno de a() ... (ver NotImplementedError)
 
 class BinaryOpFunction(AbstractFunction):
     def __init__(self, selector, a, b):
@@ -199,19 +187,18 @@ class BinaryOpFunction(AbstractFunction):
         self.b = b
 
     def __call__(self, *args):
-        if callable(self.b):
-            return getattr(self.a(*args), self.selector)(self.b(*args))
-        else:
-            # int.__mul__(float) devuelve NotImplemented, deberíá llamar float.__mul__(int)
-            # proque int.__rmul__(float) tampoco funciona, y supongo que otras operaciones lo mismo.
-            # entonces tengo que hacer un catch de NotImplemented en cada OpFunction y/o comprobar
-            # los tipos. ¿Cómo implementa '*' Python? La solución de abajo es solo para int.__op__(float)
-            a_value = self.a(*args)
-            ret_value = getattr(a_value, self.selector)(self.b)
-            if ret_value is NotImplemented and type(a_value) is int and type(self.b) is float:
-                return getattr(float(a_value), self.selector)(self.b)
-            else:
-                return ret_value
+        a_value = self.a(*args)
+        if callable(self.b): # TODO: puede ser cualquier función, pero podría restringirse a AbstractFunction, en sclang todo es AbstractFunction
+            b_value = self.b(*args)
+
+        if hasattr(self.selector, '__scbuiltin__'):
+            return self.selector(a_value, b_value) # los scbuiltins se encargan de los tipos.
+
+        ret_value = getattr(a_value, self.selector)(b_value)
+        if ret_value is NotImplemented and type(a_value) is int and type(self.b) is float: # TODO: ver qué pasa con otros operadores integrados.
+            return getattr(float(a_value), self.selector)(self.b)
+
+        return ret_value
 
 
 class NAryOpFunction(AbstractFunction):
@@ -221,17 +208,11 @@ class NAryOpFunction(AbstractFunction):
         self.args = args
 
     def __call__(self, *args):
-        return getattr(self.a(*args), self.selector)(*self.args)
-
-
-class ValueOpFunction(AbstractFunction): # TODO: Los posibles nombres no me convencen. Se llama value porque es para las funciones de librería que sí o sí necesitan un valor concreto.
-    def __init__(self, function, a, *args):
-        self.function = function
-        self.a = a
-        self.args = args
-
-    def __call__(self, *args):
-        return self.function(self.a(*args), *self.args)
+        evaluated_args = [x(*args) if isinstance(x, AbstractFunction) else x for x in self.args]
+        if hasattr(self.selector, '__scbuiltin__'):
+            return self.selector(self.a(*args), *evaluated_args)
+        else:
+            return getattr(self.a(*args), self.selector)(*evaluated_args)
 
 
 # class FunctionList(AbstractFunction):

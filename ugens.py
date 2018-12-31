@@ -284,17 +284,11 @@ class UGen(fn.AbstractFunction):
         if is_valid_ugen_input(input):
             return BinaryOpUGen.new(selector, self, input)
         else:
-            # TODO: anInput.performBinaryOpOnUGen(aSelector, this);
-            # Lo implementan Complex, Polar, MathLib:Spherical y Object.
-            # Cada clase prepara los datos para que sean ugens (o válidos).
-            # Object llama al método performBinaryOpOnSomething que prepara
-            # los datos según las características del tipo según un subconjunto
-            # de operaciones binarias (== y !=) o tira BinaryOpFailureError.
-            # TODO: se podría poner la lógica como envío doble en BinaryOpUGen?
-            # cómo afecta esto a la creación de extensiones? Los objetos complex
-            # en Python tienen el método __complex__, ver cmath builtin lib.
-            msg = 'operations between UGen and {} are not implemented (yet or never)'
-            raise NotImplementedError(msg.format(type(input).__name__))
+            # TODO: VER ABAJO DE tODO LA FUNCIÓN LLAMADA, TIENE NOTAS.
+            # BUG: ADEMÁS, ESTE MÉTODO NUNCA SE LLAMA PARA '==' O '!='
+            # BUG: PORQUE NO ESTÁN IMPLEMENTADAS EN ABSTRACTFUNCTION !!!!!!!!!
+            perform_binary_op_on_ugen(input, selector, self)
+        return self # BUG: ESTE VALOR TAMPOCO CAMBIA TRUE/FALSE
     # def compose_rbinop(self, selector, ugen): # puede que no sea necesario, salvo otras operaciones de sclang, pero BinaryOpFunction usa rmethod y habría que cambiarlo también
     #     return BinaryOpUGen(selector, ugen, self)
     def compose_narop(self, selector, *args): #composeNAryOp
@@ -369,6 +363,7 @@ class UGen(fn.AbstractFunction):
         pass # pass? se usa para esto o es confuso?
 
     def perform_dead_code_elimination(self): # Se usa en optimize_graph de BinaryOpUGen, PureMultiOutUGen, PureUGen y UnaryOpUGen.
+        # TODO: Cuando quedan las synthdef solo con controles que no van a ninguna parte también se podrían optimizar?
         if len(self.descendants) is 0:
             #for input in self.inputs: # BUG EN SCLANG? NO ES ANTECEDENTS DONDE NO ESTÁN LOS OUTPUTPROXY? en sclang funciona por nil responde a casi todo devolviendo nil.
             for input in self.antecedents: # TODO: PREGUNTAR, ASÍ PARECE FUNCIONAR CORRECTAMENTE.
@@ -636,7 +631,41 @@ def _(obj):
 # @as_ugen_rate.register # pero asi también habría que hacerlo para set y dict, no tienen clase base con list y tuple?
 # def _(obj: tuple):
 #     return ...
-
 # @as_ugen_rate.register
 # def _(obj):
 #     return
+
+# TODO: Object L684, performBinaryOpOnUGen, hay OnSomething (este delega acá), OnSimpleNumber, OnSignal, OnComplex y OnSeqColl. Actúan como double dispatch, nota en Complex.sc
+# TODO: SimpleNumber es la clase que se encarga de llamar a las primitivas e implementa performBinaryOpOnSimpleNumber como: BinaryOpFailureError(this, aSelector, [aNumber, adverb]).throw;
+# TODO: y es el método que llama luego de las primitivas y el error posterior a la llamada de bajo nivel a cada método binario, por ejemplo: clip2(): { _Clip2; ^aNumber.performBinaryOpOnSimpleNumber('clip2', this, adverb) }
+# TODO: Lo que hice yo fué llamar a las primitivas desde AbstractFunction, que llaman a las builtin, porque no puedo delegar las operaciones en los tipos básicos.
+# TODO: Esta función se llama si la entrada no is_valid_ugen_input en compose_binop donde escrbibí la siguiente nota:
+# anInput.performBinaryOpOnUGen(aSelector, this);
+# Lo implementan Complex, Polar, MathLib:Spherical y Object.
+# Cada clase prepara los datos para que sean ugens (o válidos).
+# Object llama al método performBinaryOpOnSomething que prepara
+# los datos según las características del tipo según un subconjunto
+# de operaciones binarias (== y !=) o tira BinaryOpFailureError.
+# Se podría poner la lógica como envío doble en BinaryOpUGen?
+# cómo afecta esto a la creación de extensiones? Los objetos complex
+# en Python tienen el método __complex__, ver cmath builtin lib.
+@singledispatch
+def perform_binary_op_on_ugen(input, selector, thing):
+    # // catch binary operators failure
+	# Object llama a performBinaryOpOnSomething { arg aSelector, thing, adverb;
+    # BUG: ADEMÁS, ESTA FUNCIÓN NUNCA SE LLAMA PARA UGENS PORQUE LOS MÉTODOS
+    # BUG: '==' Y '!=' NO ESTÁN IMPLEMENTADOS POR ABSTRACTFUNCTION EN SCLANG.
+    # BUG: VER LA LLAMADA ARRIBA. EN EL GRAFO QUEDA EL VALOR DE RETORNO DE
+    # BUG: ==/!= DE OBJET.
+    print('***** perform_binary_op_on_ugen:', input, selector, thing)
+    if selector == '==': return False # BUG: en sclang la operación sobre False retorna: ERROR: Message 'rate' not understood. RECEIVER: false
+    if selector == '!=': return True  # BUG: no entiendo por que retorna estos boleanos, el único método que usa esta función es UGen-compose_binop y el valor de retorno n ose asigna ni devuelve.
+                                      # BUG: Pero el comportamiento, el grafo generado, es distinto entre sclang y acá (ver test_synthdef02.py)
+                                      # BUG: Puede que sea por el otro BUG de sclang en antecedents y por eso en sclang tira error en vez de devolver nil?
+    # BinaryOpFailureError(this, aSelector, [thing, adverb]).throw;
+    msg = "operations between ugens and '{}' ('{}') are not implemented"
+    raise NotImplementedError(msg.format(type(input).__name__, input))
+
+@perform_binary_op_on_ugen.register(complex) # También Polar y Spherical en sclang. No hay nada implementado para Python complex aún.
+def _(input, selector, thing):
+    pass

@@ -18,9 +18,9 @@ class BasicOpUGen(ug.UGen):
 
     @operator.setter
     def operator(self, value):
-        self._operator = value
-        # TODO: línea de abajo comentada, ver cuáles y cómo son los operadores sportados por el servidor y cómo traducir desde Python __mul__, __rmul__, etc.
-        #self.special_index = si.special_index(value) # TODO: en inout.py hace: self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
+        index, operator = si.sc_spindex_opname(value)
+        self._operator = operator
+        self.special_index = index # TODO: en inout.py hace: self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
         if self.special_index < 0:
             msg = "Operator '{}' applied to a UGen is not supported by the server" # TODO: ver cuáles son los soportados por el servidor porque Symbol responde a muchos más. # Cambié scsynth por server
             raise Exception(msg.format(value))

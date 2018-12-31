@@ -38,9 +38,10 @@ class AbstractFunction(object):
         return NAryOpFunction(selector, self, *args) #, **kwargs)
 
     # TODO: ver módulo operator: https://docs.python.org/3/library/operator.html
-    # No estoy implementando los métodos inplace (e.g. a += b). Además el módulo
-    # provee funciones para las operaciones sobre tipos integrados, ver cuáles
-    # sí implementa y sin funcionan mediante los métodos mágicos.
+    # No estoy implementando los métodos inplace (e.g. a += b), por defecto
+    # cae en la implementación de __add__ y __radd__, por ejemplo.
+    # Además el módulo provee funciones para las operaciones sobre tipos integrados,
+    # ver cuáles sí implementa y sin funcionan mediante los métodos mágicos.
 
     # https://docs.python.org/3/library/operator.html
     # Categories: object comparison, logical operations, mathematical operations and sequence operations
@@ -48,11 +49,6 @@ class AbstractFunction(object):
     # Leyendo: https://docs.python.org/3/reference/datamodel.html#objects veo que no debería usar is
     # para la comparación de leng() con int o entre strings. "after a = 1; b = 1, a and b may or may not refer to the same object with the value one"
     # semánticamente == e is son diferentes, aunque x is y implies x == y viceversa no es verdad.
-
-    # Values comparison:
-    # https://docs.python.org/3/reference/expressions.html#comparisons
-    # Rich comparison:
-    # https://docs.python.org/3/reference/datamodel.html#object.__lt__
 
     # Basic custimization:
     # https://docs.python.org/3/reference/datamodel.html#customization
@@ -62,9 +58,9 @@ class AbstractFunction(object):
     def __neg__(self):
         return self.compose_unop('__neg__') # -
     def __pos__(self):
-        return self.compose_unop('__pos__') # +
+        return self.compose_unop('__pos__') # + # BUG: no está en _specialindex
     def __abs__(self):
-        return self.compose_unop('__abs__') # abs() # TODO: ver builtins
+        return self.compose_unop('__abs__') # abs()
     def __invert__(self):
         return self.compose_unop('__invert__') # ~ bitwise inverse, depende de la representación
 
@@ -76,19 +72,78 @@ class AbstractFunction(object):
     # def __float__(self): # builtin float()
     #     return self.compose_unop('__float__')
     # object.__index__(self) # tiene que retornar int
+    # Python's builtin round and math trunc/floor/ceil
+    # def __round__(self): # TODO: object.__round__(self[, ndigits]) OPERADOR UNARIO QUE RECIBE ARGUMENTOS.
+    #     return self.compose_unop('__round__')
+    # def __trunc__(self):
+    #     return self.compose_unop('__trunc__')
+    # def __floor__(self):
+    #     return self.compose_unop('__floor__')
+    # def __ceil__(self):
+    #     return self.compose_unop('__ceil__')
 
-    def __round__(self): # TODO: object.__round__(self[, ndigits]) OPERADOR UNARIO QUE RECIBE ARGUMENTOS.
-        return self.compose_unop('__round__')
-    def __trunc__(self):
-        return self.compose_unop('__trunc__')
-    def __floor__(self):
-        return self.compose_unop('__floor__')
-    def __ceil__(self):
-        return self.compose_unop('__ceil__')
-
+    def log(self): # BUG [,base] ES BINARIO, LO MISMO QUE PASA CON POW
+        return self.compose_unop(bi.log)
+    def log2(self):
+        return self.compose_unop(bi.log2)
+    def log10(self):
+        return self.compose_unop(bi.log10)
+    # def log1p(self):
+    #     return self.compose_unop(bi.log1p)
+    def exp(x):
+        return self.compose_unop(bi.exp)
+    def sin(x):
+        return self.compose_unop(bi.sin)
+    def cos(x):
+        return self.compose_unop(bi.cos)
+    def tan(x):
+        return self.compose_unop(bi.tan)
+    def asin(x):
+        return self.compose_unop(bi.asin)
+    def acos(x):
+        return self.compose_unop(bi.acos)
+    def atan(x):
+        return self.compose_unop(bi.atan)
+    def sinh(x):
+        return self.compose_unop(bi.sinh)
+    def cosh(x):
+        return self.compose_unop(bi.cosh)
+    def tanh(x):
+        return self.compose_unop(bi.tanh)
+    # def asinh(x):
+    #     return self.compose_unop(bi.asinh)
+    # def acosh(x):
+    #     return self.compose_unop(bi.acosh)
+    # def atanh(x):
+    #     return self.compose_unop(bi.atanh)
 
     def midicps(self):
         return self.compose_unop(bi.midicps)
+    def cpsmidi(self):
+        return self.compose_unop(bi.cpsmidi)
+    def midiratio(self):
+        return self.compose_unop(bi.midiratio)
+    def ratiomidi(self):
+        return self.compose_unop(bi.ratiomidi)
+    def octcps(self):
+        return self.compose_unop(bi.octcps)
+    def cpsoct(self):
+        return self.compose_unop(bi.cpsoct)
+    def ampdb(self):
+        return self.compose_unop(bi.ampdb)
+    def dbamp(self):
+        return self.compose_unop(bi.dbamp)
+
+    def squared(self):
+        return self.compose_unop(bi.squared)
+    def cubed(self):
+        return self.compose_unop(bi.cubed)
+    def sqrt(self):
+        return self.compose_unop(bi.sqrt)
+
+    # TODO: FALTA, SEGUIR LA INTERFAZ DE ABSTRACTFUNCTION EN SCLANG,
+    # E IR COMPROBANDO LOS MÉTODOS.
+
 
     # binary operators
 
@@ -107,10 +162,10 @@ class AbstractFunction(object):
         return self.compose_binop('__mul__', other)
     def __rmul__(self, other):
         return self.compose_binop('__rmul__', other)
-    def __matmul__(self, other): # @
-        return self.compose_binop('__matmul__', other)
-    def __rmatmul__(self, other):
-        return self.compose_binop('__rmatmul__', other)
+    # def __matmul__(self, other): # @
+    #     return self.compose_binop('__matmul__', other)
+    # def __rmatmul__(self, other):
+    #     return self.compose_binop('__rmatmul__', other)
     def __truediv__(self, other): # /
         return self.compose_binop('__truediv__', other)
     def __rtruediv__(self, other):
@@ -123,10 +178,10 @@ class AbstractFunction(object):
         return self.compose_binop('__mod__', other)
     def __rmod__(self, other):
         return self.compose_binop('__rmod__', other)
-    def __divmod__(self, other): # divmod() # __floordiv__() and __mod__()
-        return self.compose_binop('__divmod__', other)
-    def __rdivmod__(self, other):
-        return self.compose_binop('__rdivmod__', other)
+    # def __divmod__(self, other): # divmod(), método integrado
+    #     return self.compose_binop('__divmod__', other)
+    # def __rdivmod__(self, other):
+    #     return self.compose_binop('__rdivmod__', other)
     def __pow__(self, other): # pow(), **, object.__pow__(self, other[, modulo])
         return self.compose_binop('__pow__', other)
     def __rpow__(self, other):
@@ -151,6 +206,26 @@ class AbstractFunction(object):
         return self.compose_binop('__or__', other)
     def __ror__(self, other):
         return self.compose_binop('__ror__', other)
+
+    # Values comparison:
+    # https://docs.python.org/3/reference/expressions.html#comparisons
+    # Rich comparison:
+    # https://docs.python.org/3/reference/datamodel.html#object.__lt__
+    # hashable
+    # https://docs.python.org/3/glossary.html#term-hashable
+    # "Hashable objects which compare equal must have the same hash value." (__hash__ y __eq__)
+    def __lt__(self, other): # <
+        return self.compose_binop('__lt__', other)
+    def __le__(self, other): # <=
+        return self.compose_binop('__le__', other)
+    # def __eq__(self, other): # == # ESTE MÉTODO NO SE IMPLEMENTA NI EN AbstractFunction NI EN UGen. Aunque está en la tabla de ops.
+    #     return self.compose_binop('__eq__', other)
+    # def __ne__(self, other): # != # ESTE MÉTODO NO SE IMPLEMENTA NI EN AbstractFunction NI EN UGen. Aunque está en la tabla de ops.
+    #     return self.compose_binop('__ne__', other)
+    def __gt__(self, other): # >
+        return self.compose_binop('__gt__', other)
+    def __ge__(self, other): # >=
+        return self.compose_binop('__ge__', other)
 
 
     def mod(self, other):

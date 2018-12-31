@@ -48,13 +48,14 @@ def scbuiltin(func):
         # try: # TODO: Ahora el único problema es que quede la cosa demasiado sobrecargada, y si agrego collections más.
         # except TypeError as e: raise TypeError(_MSG.format('midicps()', type(note).__name__)) from e
         return func(*args)
-    scbuiltin_.__scbuiltin__ = func.__name__ # TODO: ESTO PODRÍA SER EL NOMBRE EN SPECIAL INDEX?
+    scbuiltin_.__scbuiltin__ = True # TODO: VER, podría ser None, solo se comprueba si tiene el atributo.
+    scbuiltin_.__name__ = func.__name__ # Este es el nombre que se usa para obtener special_index.
     scbuiltin_.__qualname__ += func.__name__
     return scbuiltin_
 
 # Unary
 
-# TODO: faltan sin/cos/etc. Ver AbstractFunction y la documentación de Operators.
+# TODO: Ver AbstractFunction y la documentación de Operators en SuperCollider.
 
 # // this is a function for preventing pathological math operations in ugens.
 # // can be used at the end of a block to fix any recirculating filter values.
@@ -71,10 +72,6 @@ def zapgremlins(x):
     return 0.
 
 @scbuiltin
-def log(x, base=math.e):
-    return math.log(x, base)
-
-@scbuiltin
 def log2(x):
     return math.log2(x)
 
@@ -82,9 +79,53 @@ def log2(x):
 def log10(x):
     return math.log10(x)
 
+# TODO: faltantes agregadas, no se usan como builtins abajo pero si en AbstractFunction
 @scbuiltin
-def log1p(x): # VER: Creo que no existe como UGen
-    return math.log1p(x)
+def log(x, base=math.e): # BUG: ES BINARIO.
+    return math.log(x, base)
+@scbuiltin
+def exp(x):
+    return math.exp(x)
+@scbuiltin
+def sin(x):
+    return math.sin(x)
+@scbuiltin
+def cos(x):
+    return math.cos(x)
+@scbuiltin
+def tan(x):
+    return math.tan(x)
+@scbuiltin
+def asin(x):
+    return math.asin(x)
+@scbuiltin
+def acos(x):
+    return math.acos(x)
+@scbuiltin
+def atan(x):
+    return math.atan(x)
+@scbuiltin
+def sinh(x):
+    return math.sinh(x)
+@scbuiltin
+def cosh(x):
+    return math.cosh(x)
+@scbuiltin
+def tanh(x):
+    return math.tanh(x)
+# TODO: no están en _specialindex
+# @scbuiltin
+# def log1p(x):
+#     return math.log1p(x)
+# @scbuiltin
+# def asinh(x):
+#     return math.asinh(x)
+# @scbuiltin
+# def acosh(x):
+#     return math.acosh(x)
+# @scbuiltin
+# def atanh(x):
+#     return math.atanh(x)
 
 _ONETWELFTH = 1. / 12.
 _ONE440TH = 1. / 440.

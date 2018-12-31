@@ -16,21 +16,21 @@ Used by BasicOpUGens to get an ID number for the operator.
 
 # unary opcodes list
 _unops_list = [
-    ('neg', '__neg__'),  # __neg__ TODO: FALTAN COMLPETAR SINÓNIMOS Y COMPROBAR EL MISMO COMPORTAMIENTO.
-    ('not', '__not__'), # es not buleano, operator.not_(obj)/operator.__not__(obj)
-    ('isNil',),
-    ('notNil',),
-    ('bitNot', '__invert__'),
-    ('abs', '__abs__'),
+    ('neg', '__neg__'), # '-' unario # TODO: FALTAN COMLPETAR SINÓNIMOS Y COMPROBAR EL MISMO COMPORTAMIENTO.
+    ('not',), # es not buleano en sclang
+    ('isNil',), # nil/obj en sclang
+    ('notNil',), # nil/obj en sclang
+    ('bitNot', '__invert__'), # ~
+    ('abs', '__abs__'), # abs()
     ('asFloat',),
     ('asInt',),
     ('ceil', '__ceil__'),
     ('floor', '__floor__'),
-    ('frac',), # math.modf, no se comporta igual
-    ('sign',), # no existe
-    ('squared',), # no existe
-    ('cubed',), # no existe
-    ('sqrt',), # math.sqrt(x), VER: se comporta raro en sclang, no entiendo.
+    ('frac',), # es math.modf(x)[0], no se comporta igual, devuelve una tupla
+    ('sign',),
+    ('squared',),
+    ('cubed',),
+    ('sqrt',), # math.sqrt(x), raíz e
     ('exp',), # e to the power of the receiver. math.exp(x)
     ('reciprocal',),
     ('midicps',),
@@ -53,11 +53,11 @@ _unops_list = [
     ('sinh',),
     ('cosh',),
     ('tanh',),
-    ('rand',), # VER que hay en Python
+    ('rand',),
     ('rand2',),
     ('linrand',),
     ('bilinrand',),
-    #'exprand',
+    #'exprand', # existe en AbstractFunction, está comentado acá.
     #'biexprand',
     ('sum3rand',),
     #'gammarand',
@@ -66,9 +66,9 @@ _unops_list = [
     ('distort',),
     ('softclip',),
     ('coin',),
-    ('digitValue',),
-    ('silence',),
-    ('thru',),
+    ('digitValue',), # no existe en sclang
+    ('silence',), # no existe en sclang
+    ('thru',), # no existe en sclang
     ('rectWindow',),
     ('hanWindow',),
     ('welWindow',),
@@ -80,36 +80,36 @@ _unops_list = [
 
 # binary opcodes list
 _binops_list = [
-    ('+', '__add__', '__radd__', '__iadd__'), # TODO: COMPROBAR
-    ('-',),
-    ('*', '__mul__', '__rmul__', '__imul__'),
-    ('div', '__floordiv__'), # Python '//
-    ('/',),
-    ('mod',),
-    ('==',),
-    ('!=',),
-    ('<',),
-    ('>',),
-    ('<=',),
-    ('>=',),
+    ('+', '__add__', '__radd__'),
+    ('-', '__sub__', '__rsub__'),
+    ('*', '__mul__', '__rmul__'),
+    ('div', '__floordiv__', '__floordiv__'), # Python '//'
+    ('/', '__truediv__', '__rtruediv__'),
+    ('mod', '__mod__', '__rmod__'),
+    ('==', '__eq__'),
+    ('!=', '__ne__'),
+    ('<', '__lt__'),
+    ('>', '__gt__'),
+    ('<=', '__le__'),
+    ('>=', '__ge__'),
     #'===', # Python is
     #'!==', # Python is not
     ('min',),
     ('max',),
-    ('bitAnd',),
-    ('bitOr',),
-    ('bitXor',),
+    ('bitAnd', '__and__', '__rand__'),
+    ('bitOr', '__or__', '__ror__'),
+    ('bitXor', '__xor__', '__rxor__'),
     ('lcm',),
     ('gcd',),
-    ('round',), # __round__ es Unario con argumento
+    ('round',), # Es trunc(x, quant) En Python __round__ es Unario con argumento
     ('roundUp',),
-    ('trunc',), # __truc__ es Unario, es la operación por defecto para int(x)
+    ('trunc',), # BUG: Es trunc(x, quant) # En Python __truc__ es Unario, es la operación por defecto para int(x)
     ('atan2',),
     ('hypot',),
-    ('hypotApx',),
-    ('pow',),
-    ('leftShift',),
-    ('rightShift',),
+    ('hypotApx',), # BUG: está en AbstractFunction, no encontré una implementación con el mismo nombre.
+    ('pow', '__pow__', '__rpow__'),
+    ('leftShift', '__lshift__', '__rlshift__'),
+    ('rightShift', '__rshift__', '__rrshift__'),
     ('unsignedRightShift',),
     ('fill',),
     ('ring1',), # a * (b + 1) == a * b + a
@@ -147,21 +147,22 @@ _binops = _build_op_dict(_binops_list)
 # Interface
 
 def sc_spindex_opname(operator):
-    'Returns [special_index, sc_opname] or None'
+    '''Returns [special_index, sc_opname] or [-1, None].
+    operator can be a str or scbuiltin function.'''
+    if hasattr(operator, '__scbuiltin__'):
+        operator = operator.__name__
     try: return _unops[operator]
     except KeyError: pass
     try: return _binops[operator]
     except KeyError: pass
-    return None # ***************** TODO: OJO, esto era -1 pero no tiene seitndo retornar distintos tipos de valores, ver si afecta.
+    return [-1, None]
 
 def special_index(operator):
-    'Returns server operators special index or None'
+    'Returns server operators special index or -1.'
     ret = sc_spindex_opname(operator)
-    if ret: return ret[0]
-    return ret
+    return ret[0]
 
 def sc_opname(operator):
-    'Returns server operator name or None'
+    'Returns server operator name or None.'
     ret = sc_spindex_opname(operator)
-    if ret: return ret[1]
-    return ret
+    return ret[1]

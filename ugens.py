@@ -66,7 +66,7 @@ class UGen(fn.AbstractFunction):
         for item in args:
             if isinstance(item, list):
                 lenght = max(lenght, len(item))
-        if lenght is 0:
+        if lenght == 0:
             return cls.new1(*args)
         # multichannel expansion
         new_args = [None] * len(args)
@@ -160,7 +160,7 @@ class UGen(fn.AbstractFunction):
         return None
 
     def check_n_inputs(self, n): # ídem anterior, deben ser interfaz protejida. Este no sé si pueda ser check_inputs sobrecargado o con parámetro opcional, tal vez si...
-        if self.rate is 'audio': # *** convertir audio en constante de enum
+        if self.rate == 'audio': # *** convertir audio en constante de enum
             if n > len(self.inputs): # en sclang no comprueba el rango de inputs porque arr[i] fuera de rango devuelve nil y nil.rate devuelve nil!
                 n = len(self.inputs) # TODO: es tupla, en sclang es nil si no hay inputs.
             for i in range(n):
@@ -171,7 +171,7 @@ class UGen(fn.AbstractFunction):
         return self.check_valid_inputs() # comprueba is_valid_ugen_input no el rate.
 
     def check_sr_as_first_input(self): # checkSameRateAsFirstInput ídem anterior, deben ser interfaz protejida
-        if self.rate is not as_ugen_rate(self.inputs[0]): # *** VER VALORES POSIBLES PARA self.inputs[0]: IMPLEMENTADO ARRIBA COMO SINGLE DISPATCH
+        if self.rate != as_ugen_rate(self.inputs[0]): # *** VER VALORES POSIBLES PARA self.inputs[0]: IMPLEMENTADO ARRIBA COMO SINGLE DISPATCH
             msg = 'first input is not {} rate: {} {}'\
                     .format(self.rate, self.inputs[0], self.inputs[0].rate)
             return msg
@@ -210,14 +210,14 @@ class UGen(fn.AbstractFunction):
 
     @classmethod
     def method_selector_for_rate(cls, rate): # TODO VER: este no tendría try/except en getattr? VER: repite el código porque comprueba con self.rate que cambia si se inicializa con ar/kr/ir, pero no es lo mismo así?? No lo implementa ninguna sub-clase. En sclang tiene una variante de instancia que acá no puede existir.
-        if rate is 'audio': return 'ar'
-        if rate is 'control': return 'kr'
-        if rate is 'scalar':
+        if rate == 'audio': return 'ar'
+        if rate == 'control': return 'kr'
+        if rate == 'scalar':
             if 'ir' in dir(cls): # TODO: VER arriba: es try: getattr(cls, self.method_selector_for_rate()) except AttributeError: lala.
                 return 'ir'
             else:
                 return 'new' # TODO, *** __init__ SOLO PUEDE RETORNAR NONE Y NEW1 RETORNA DISTINTAS COSAS. super().__init__() inicializa las propiedades desde new1 *** OJO, VER, LAS SUBCLASES NO PUEDEN IMPLEMENTAR __init__ !!! super(UGen, self).__init__() no me funciona con new1
-        if rate is 'demand': return 'dr' # TODO: dr? *** super().__init__() inicializa las propiedades desde new1 *** DR SE USA PORQUE LAS SUBCLASES DE UGEN NO PUEDEN IMPLEMENTAR __init__, DE PASO QUEDA MÁS CONSISTENTE...
+        if rate == 'demand': return 'dr' # TODO: dr? *** super().__init__() inicializa las propiedades desde new1 *** DR SE USA PORQUE LAS SUBCLASES DE UGEN NO PUEDEN IMPLEMENTAR __init__, DE PASO QUEDA MÁS CONSISTENTE...
         return None
 
     def dump_args(self): # implementa acá y en basicopugen se usa en SynthDef checkInputs y en Mix*kr
@@ -258,7 +258,7 @@ class UGen(fn.AbstractFunction):
         # OC: This replaces zeroes with audio rate silence.
         # Sub collections are deep replaced
         num_zeroes = values.count(0.0)
-        if num_zeroes is 0: return values
+        if num_zeroes == 0: return values
 
         from supercollie.line import Silent # Cyclic import. TODO: ESTOY VIENDO QUE VA A HABER PROBLEMS CON LOS OPERADORES UNARIOS (e.g. madd)...
         silent_channels = ut.as_list(Silent.ar(num_zeroes)) # VER: usa asCollection
@@ -313,9 +313,9 @@ class UGen(fn.AbstractFunction):
 
     def rate_number(self): #rateNumber # se usa en writeDef/Old y writeOutputSpec
         # El orden de los tres primeros no importa, pero en otra parte se usa la comparación lt/gt entre strings y este sería el orden lexicográfico.
-        if self.rate is 'audio': return 2
-        if self.rate is 'control': return 1
-        if self.rate is 'demand': return 3
+        if self.rate == 'audio': return 2
+        if self.rate == 'control': return 1
+        if self.rate == 'demand': return 3
         return 0 # 'scalar'
 
     def num_inputs(self): #numInputs
@@ -347,7 +347,7 @@ class UGen(fn.AbstractFunction):
             ugen.descendants.add(self)
 
     def make_available(self):
-        if len(self.antecedents) is 0:
+        if len(self.antecedents) == 0:
             self.synthdef.available.append(self)
 
     def remove_antecedent(self, ugen):
@@ -364,7 +364,7 @@ class UGen(fn.AbstractFunction):
 
     def perform_dead_code_elimination(self): # Se usa en optimize_graph de BinaryOpUGen, PureMultiOutUGen, PureUGen y UnaryOpUGen.
         # TODO: Cuando quedan las synthdef solo con controles que no van a ninguna parte también se podrían optimizar?
-        if len(self.descendants) is 0:
+        if len(self.descendants) == 0:
             #for input in self.inputs: # BUG EN SCLANG? NO ES ANTECEDENTS DONDE NO ESTÁN LOS OUTPUTPROXY? en sclang funciona por nil responde a casi todo devolviendo nil.
             for input in self.antecedents: # TODO: PREGUNTAR, ASÍ PARECE FUNCIONAR CORRECTAMENTE.
                 if isinstance(input, UGen):
@@ -614,10 +614,10 @@ def _(obj):
 @as_ugen_rate.register(list)
 @as_ugen_rate.register(tuple)
 def _(obj):
-    if len(obj) is 1: return as_ugen_rate(obj[0]) # *** en SequenceableCollection si this.size es 1 devuelve this.first.rate
+    if len(obj) == 1: return as_ugen_rate(obj[0]) # *** en SequenceableCollection si this.size es 1 devuelve this.first.rate
 
     obj = [as_ugen_rate(x) for x in obj]
-    if any(x is None for x in obj): # *** demás, reduce con Collection minItem, los símbolos por orden lexicográfico, si algún elemento es nil devuelve nil !!!
+    if any(x is None for x in obj): # TODO: este 'is' está bien usado, no? *** demás, reduce con Collection minItem, los símbolos por orden lexicográfico, si algún elemento es nil devuelve nil !!!
         return None
     else:
         return min(obj) # VER pero falla si los objetos no son comparables (e.g. int y str),

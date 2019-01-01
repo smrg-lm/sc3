@@ -415,10 +415,10 @@ class SynthDef():
     # L535
     # Método utilitario de SynthDef, debe ser original para debuguing.
     def dump_ugens(self): # no se usa, no está documentado, pero es ÚTIL! se puede hacer hasta acá y pasar a las ugens (pero hay que hacer addUGen, etc., acá)
-        inputs = []
         #ugen_name = None # esta no la usa, es un descuido del programador
         print(self.name)
         for ugen in self.children: # tampoco terminó usando el índice
+            inputs = None
             if ugen.inputs:
                 inputs = [x.dump_name() if isinstance(x, ug.UGen)\
                           else x for x in ugen.inputs] # ugen.inputs.collect {|in| if (in.respondsTo(\dumpName)) { in.dumpName }{ in }; }; # Las únicas clases que implementan dumpName son UGen, BasicOpUGen y OutputProxy, sería interfaz de UGen, sería if is UGen

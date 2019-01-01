@@ -518,33 +518,37 @@ def _(obj):
 def as_ugen_input(obj, *ugen_cls): # ugen_cls (*** VER ABAJO ***) es opt_arg, solo AbstractFunction y Array lo usan, Array porque itera sobre. Si la llamada recibe una tupla estrella vacía '*()' no pasa nada. EL PROBLEMA ES QUE SCLANG IGNORA LOS PARÁMETROS SI LA FUNCIÓN NO RECIBE ARGUMENTOS Y LA TUPLA PUEDE NO ESTAR VACÍA.
     return obj
 
-@as_ugen_input.register
-def _(obj: fn.AbstractFunction, *ugen_cls): # *** VER, creo que siempre es una clase UGen, puede que no sea así?
-    return obj(*ugen_cls)
+@as_ugen_input.register(fn.AbstractFunction) # Es la única clase que usa ugen_cls en sclang
+def _(obj, *ugen_cls):
+    return obj(*ugen_cls) # BUG: Cuando se use va a tirar error porque a obj lo castea a AbstractFunction
+
+@as_ugen_input.register(UGen) # Es necesario porque AbstractFunction responde distsinto y UGen es subclass, todas las subclases que cambian lo tiene que volver a implementar (pasa con Ref también en sclang)
+def _(obj, *ugen_cls):
+    return obj
 
 @as_ugen_input.register(tuple) # las tuplas se convierten en listas, no sé si podría ser al revés.
 @as_ugen_input.register(list)
 def _(obj, *ugen_cls):
     return list(map(lambda x: as_ugen_input(x, *ugen_cls), obj)) # de Array: ^this.collect(_.asUGenInput(for))
 
-@as_ugen_input.register
-def _(obj: Buffer, *ugen_cls): # si la llamada recibe una tupla estrella vacía '*()' no pasa nada. Pero si es genérica como en multi_new_list sí pasa, porque la tupla no está vacía. Solo AbstractFunction usa el parámetro realmente, no se si se usó en algún momento de la historia.
+@as_ugen_input.register(Buffer) # TODO: prefijo
+def _(obj, *ugen_cls): # si la llamada recibe una tupla estrella vacía '*()' no pasa nada. Pero si es genérica como en multi_new_list sí pasa, porque la tupla no está vacía. Solo AbstractFunction usa el parámetro realmente, no se si se usó en algún momento de la historia.
     return obj.bufnum
 
-@as_ugen_input.register
-def _(obj: Bus, *ugen_cls):
+@as_ugen_input.register(Bus) # TODO: prefijo
+def _(obj, *ugen_cls):
     return obj.index
 
-@as_ugen_input.register
-def _(obj: Dunique, *ugen_cls):
-    raise NotImplementedError('Dunique as ugen input is not implemente yet.') #TODO
+@as_ugen_input.register(Dunique) # TODO: prefijo
+def _(obj, *ugen_cls):
+    raise NotImplementedError('Dunique as ugen input is not implemente yet.') # TODO, es complicado para ahora.
 
-@as_ugen_input.register
-def _(obj: Event, *ugen_cls): # sc Event, VER
+@as_ugen_input.register(Event) # TODO: prefijo
+def _(obj, *ugen_cls): # sc Event, VER
     return as_control_input(obj) # es otro método de interfaz
 
-@as_ugen_input.register
-def _(obj: Node, *ugen_cls): # sc Node
+@as_ugen_input.register(Node) # TODO: prefijo
+def _(obj, *ugen_cls): # sc Node
     raise NotImplementedError('Should not use a Node inside a SynthDef') # dice esto pero implmente as_control_input
 
 #@as_ugen_input.register
@@ -559,8 +563,8 @@ def _(obj: Node, *ugen_cls): # sc Node
 def as_control_input(obj):
     return obj
 
-@as_control_input.register
-def _(obj: UGen):
+@as_control_input.register(UGen)
+def _(obj):
     '''Otro método de interfaz para otras clases, muchas. Los
     valores válidos son los aceptados por las ugens, que tengo
     que ver cuales son, por lo pronto números y arrays.
@@ -575,8 +579,8 @@ def num_channels(obj):
     '''Idem anteriores.'''# TODO
     return obj
 
-@num_channels.register
-def _(obj: UGen):
+@num_channels.register(UGen)
+def _(obj):
     return 1
 
 
@@ -597,8 +601,8 @@ def _(obj: UGen):
 def as_ugen_rate(obj):
     return None
 
-@as_ugen_rate.register
-def _(obj: str): # OJO, porque en sclang es tanto una función como una propiedad, RawArray retorna 'scalar' ("audio".rate -> 'scalar'), ver el caso list
+@as_ugen_rate.register(str)
+def _(obj): # TODO OJO, porque en sclang es tanto una función como una propiedad, RawArray retorna 'scalar' ("audio".rate -> 'scalar'), ver el caso list
     return obj
 
 @as_ugen_rate.register(UGen)

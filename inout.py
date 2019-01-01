@@ -225,7 +225,7 @@ class AbstractOut(ug.UGen):
         return 0
 
     def write_output_specs(self):
-        pass # TODO: Método vacío, VER VALOR DE RETORNO en sclang es self.
+        pass # TODO: Método vacío, VER VALOR DE RETORNO en sclang es self, no lo usa, no parece comportarse como una función.
 
     def check_inputs(self):
         if self.rate is 'audio':

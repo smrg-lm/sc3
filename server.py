@@ -34,6 +34,12 @@ class Server(object):
         _liblo.send(target, msg)
         self.sproc.finish()
 
+    def value(self): # cambiar a name o algo similar.
+        return 'cambiame el nombre value() en Server' # Es el método value de Object que devuelve self.options.name
+    def is_local(self, *args):
+        raise NotImplementedError('Implementar Server-is_local()')
+    def send_msg(self, *args):
+        raise NotImplementedError('Implementar Server-send_msg()')
 
 class ServerOptions(object):
     def __init__(self):

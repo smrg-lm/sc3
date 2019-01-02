@@ -426,26 +426,70 @@ class SynthDef():
 
     # L549
     # OC: make SynthDef available to all servers
-    #add
+    def add(self, libname, completion_msg, keep_def=True;):
+        desc = self.as_synthdesc(libname or 'global', keep_def)
+        if libname is None:
+            servers = xxx.Server.all_booted_servers() # BUG: namespace (posible dependencia cíclica)
+        else:
+            servers = xxx.SynthDescLib.get_lib(libname).servers # BUG: namespace (posible dependencia cíclica)
+        for server in servers:
+            self.do_send(server.value(), completion_msg(server)) # TODO: server.value retorna el nombre del servidor, pj. 'localhost' es el método de Object, sin embargo. Tendríá que cambiarlo a 'name'?
+
+    # L645
+    def as_synthdesc(self, libname='global', keep_def=True): # Subido, estaba abajo, lo usa add.
+        # TODO: CollStream es un IOStream, es un archivo en memoria.
+        pass
+
+    # L587
+    def do_send(self, server, completion_msg):
+        bytes = self.as_bytes()
+        if len(bytes) < (65535 // 4):
+            server.send_msg('/d_recv', bytes, completion_msg)
+        else:
+            if server.is_local():
+                msg = 'SynthDef {} too big for sending. Retrying via synthdef file'
+                warnings.warn(msg.format(self.name))
+                self.write_def_file(self.synthdef_dir)
+                server.send_msg('/d_load', self.synthdef_dir + '/' + self.name + '.scsyndef', completionMsg) # BUG: ver el separador de Path.
+            else:
+                msg = 'SynthDef {} too big for sending'
+                warnings.warn(msg.format(self.name))
+
+    def as_bytes(self):
+        # TODO: CollStream es un IOStream, es un archivo en memoria.
+        pass
+    def write_def_file(self, dir, overwrite=True, md_plugin=None):
+        pass
+    def write_def(self, file):
+        pass
+    def write_constants(self, file):
+        pass
+
     # L561
-    #*removeAt *** ver dónde se usa, es de clase
+    @classmethod
+    def remove_at(cls, name, libname='global'): # Este método lo debe usar en SynthDes.sc. Ojo que hay mil métodos removeAt.
+        lib = SynthDescLib.get_lib(libname)
+        lib.remove_at(name)
+        for server in lib.servers:
+            server.value().send_msg('/d_free', name) # BUG: send_msg es método de String en sclang (!)
 
     # L294 # PUESTA DESPUÉS DE ADD. estos métodos no deberían ir luego de add? están como puestos antes acá, ver si tienen alguna dependencia de los métodos alrededor.
-    #asBytes
-    #writeDefFile
-    #writeDef
-    #writeConstants
+    #asBytes PASADO ARRIBA
+    #writeDefFile PASADO ARRIBA
+    #writeDef PASADO ARRIBA
+    #writeConstants PASADO ARRIBA
+    # TODO: VER también #*writeOnce arriba de todo, la variante de instancia llama a writeDefFile.
 
     # L570
     # OC: Methods for special optimizations.
     # OC: Only send to servers.
     #send
-    #doSend
+    #doSend PASADA ARRIBA.
     # OC: Send to server and write file.
     #load
     # OC: Write to file and make synth description.
     #store
-    #asSynthDesc
+    #asSynthDesc PASADA ARRIBA.
 
     # L653
     # OC: This method warns and does not halt because

@@ -16,6 +16,8 @@ de subconjuntos de los elemnentos de los paquetes... suena complicado.
 
 import inspect
 import warnings
+import io
+import struct
 
 import supercollie.inout as scio
 import supercollie._global as _gl
@@ -431,14 +433,18 @@ class SynthDef():
         if libname is None:
             servers = xxx.Server.all_booted_servers() # BUG: namespace (posible dependencia cíclica)
         else:
-            servers = xxx.SynthDescLib.get_lib(libname).servers # BUG: namespace (posible dependencia cíclica)
         for server in servers:
+            servers = xxx.SynthDescLib.get_lib(libname).servers # BUG: namespace (posible dependencia cíclica)
             self.do_send(server.value(), completion_msg(server)) # TODO: server.value retorna el nombre del servidor, pj. 'localhost' es el método de Object, sin embargo. Tendríá que cambiarlo a 'name'?
 
     # L645
     def as_synthdesc(self, libname='global', keep_def=True): # Subido, estaba abajo, lo usa add.
-        # TODO: CollStream es un IOStream, es un archivo en memoria.
-        pass
+        stream = io.BytesIO(self.as_bytes()) # TODO: El problema es que esto depende de server.send_msg (interfaz osc)
+        if libname is None:
+            libname = 'global'
+        lib = xxx.SynthDescLib.get_lib(libname) # BUG: namespace (posible dependencia cíclica)
+        desc = lib.read_desc_from_def(stream, keep_def, self, self.metadata) # TODO
+        return desc
 
     # L587
     def do_send(self, server, completion_msg):
@@ -456,12 +462,22 @@ class SynthDef():
                 warnings.warn(msg.format(self.name))
 
     def as_bytes(self):
-        # TODO: CollStream es un IOStream, es un archivo en memoria.
-        pass
+        stream = io.BytesIO(b' ' * 256) # tamaño prealocado
+        write_def([self], stream); # Es Array-writeDef, hace asArray que devuelve [ a SynthDef ] porque Array-writeDef puede escribir varias synthdef en un def file. Tiene que ser una función para list abajo.
+		return bytearray(stream.getbuffer()) # TODO: ver si hay conversiones posteriores. Arriba en as_synthdesc lo vuevle a convertir en CollStream...
+                                             # el método asBytes se usa para enviar la data en NRT también, como array.
+                                             # En do_send, arriba, está la llamada server.send_msg('/d_recv', self.as_bytes()), en sclang tiene que ser un array, ver implementación.
+                                             # En sclang retorna un array de bytes (Int8Array)
+                                             # En liblo, es un blob (osc 'b') que se mapea a una lista de int(s) (python2.x) o bytes (python3.x)
+        # stream = bytearray(stream.getbuffer())
+        # return [bytes(x) for x in stream] ?? pero esto no funciona con io.BytesIO(stream)
+
     def write_def_file(self, dir, overwrite=True, md_plugin=None):
         pass
+
     def write_def(self, file):
-        pass
+        pass # TODO NEXT: Acá está el moño. Probar antes la funcionalidad básica anterior.
+
     def write_constants(self, file):
         pass
 
@@ -501,3 +517,20 @@ class SynthDef():
     #storeOnce
 
     #play
+
+
+# Collection SynthDef support.
+
+def write_def(lst, file):
+    '''Escribe las SynthDefs contenidas en la lista lst en el archivo file.
+    file es un stream en el que se puede escribir.'''
+
+    file.write(b'SCgf'); # 'all data is stored big endian' Synth Definition File Format. En este caso no afecta porque son bytes. Todos los enteros son con signo.
+	file.write(struct.pack('>i', 2)) # file.putInt32(2); // file version
+	file.write(struct.pack('>h', len(lst))) # file.putInt16(this.size); // number of defs in file.
+    for synthdef in lst:
+        synthdef.write_def(file)
+
+def write_input_spec(lst, file, synthdef):
+    for item in lst:
+        item.write_input_spec(file, synthdef)

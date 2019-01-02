@@ -1,6 +1,6 @@
 """BasicOpUGens.sc"""
 
-import supercollie.ugens as ug
+from . import ugens as ug
 import supercollie.utils as ut
 import supercollie._specialindex as si
 

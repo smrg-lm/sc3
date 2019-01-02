@@ -15,6 +15,8 @@ from functools import singledispatch
 import supercollie.functions as fn
 import supercollie._global as _gl
 import supercollie.utils as ut
+#import supercollie.opugens as op # TODO: TEST, pasado abajo antes de los singledispatch, es una desgracia que no se puedan hacer imports cíclicos de manera fácil.
+                                  # TODO: en opugens.py se usa from . import ugens as ug
 
 
 class UGen(fn.AbstractFunction):
@@ -114,10 +116,8 @@ class UGen(fn.AbstractFunction):
     # Desde L51 hasta L284 son, más que nada, métodos de operaciones
     # mátemáticas que aplican las ugens correspondientes, el mismo
     # principio de AbstractFunction aplicados a los ugengraphs.
-    def madd(self, mul=1.0, add=0.0): # TODO: TAL VEZ NO VAYA EN ESTE LUGAR DE LA CLASE.
-        from supercollie.opugens import MulAdd # TODO: VAN A ESTAR ESTE PROBLEMA CON TODOS LOS OPERADORES QUE DEVUELVEN UGENS.
-        return MulAdd.new(self, mul, add) # TODO: TAMBIÉN ESTOY AGREGANDO MADD COMO SINGLE DISPATCH ABAJO, SE USA TAMBIÉN EN ARRAY Y SIMPLENUMBER PORQUE EL VALOR DE RETORNO DE LAS UGENS ES VARIABLE.
-    # Lueve vienen:
+    def madd(self, mul=1.0, add=0.0): # TODO: tal vez, estos op métodos tendría que ponerlos abajo de todo en la clase, o en un helper?, para que quede separada y junta la lógica de UGens.
+        return op.MulAdd.new(self, mul, add) # TODO: TEST NOTA, el import de op se define luego antes de los singledispatch por problema cíclico.
 
     # L284
     def signal_range(self):
@@ -470,6 +470,8 @@ class Event(): pass   #
 class Node(): pass    #
 
 
+import supercollie.opugens as op # TODO: acá evita el problema cíclico y no hay que declararlo 20 veces. Ver.
+
 # madd
 
 @singledispatch
@@ -481,13 +483,11 @@ def madd(obj, mul=1.0, add=0.0):
 @madd.register(tuple)
 @madd.register(UGen)
 def _(obj, mul=1.0, add=0.0):
-    from supercollie.opugens import MulAdd # TODO: VAN A ESTAR ESTE PROBLEMA CON TODOS LOS OPERADORES QUE DEVUELVEN UGENS.
-    return MulAdd.new(obj, mul, add) # TODO: Tiene que hacer expansión multicanal, es igual a UGen. VER: qué pasa con MulAdd args = ug.as_ugen_input([input, mul, add], cls)
+    return op.MulAdd.new(obj, mul, add) # TODO: Tiene que hacer expansión multicanal, es igual a UGen. VER: qué pasa con MulAdd args = ug.as_ugen_input([input, mul, add], cls)
 
 @madd.register(float)
 @madd.register(int)
 def _(obj, mul=1.0, add=0.0):
-    from supercollie.opugens import MulAdd # TODO: VAN A ESTAR ESTE PROBLEMA CON TODOS LOS OPERADORES QUE DEVUELVEN UGENS.
     return (obj * mul) + add
 
 

@@ -68,8 +68,8 @@ def wrap_extend(inlist, n):
 #def reshape_like(this, that); # or that this like sclang?
 
 # flop [(a[i], b[i]) for i in range(len(a))] pero len(a) >= len(b)
-# select [x for x in self.control_names if x.rate is 'noncontrol']
-# reject [x for x in self.control_names if x.rate is not 'noncontrol']
+# select [x for x in self.control_names if x.rate == 'noncontrol']
+# reject [x for x in self.control_names if x.rate != 'noncontrol']
 # any with predicate (a generator) como en sclang any(x > 10 for x in l)
 
 # clump [l[i:i + n] for i in range(0, len(l), n)] https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks

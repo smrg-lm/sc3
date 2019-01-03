@@ -123,7 +123,7 @@ class LagControl(Control):
         else:
             lags = ut.as_list(lags)
 
-        if len(values) is not len(lags):
+        if len(values) != len(lags):
             msg = '{} len(values) is not len(lags), {}.kr returns None'
             warning.warn(msg.format(cls.__name__, cls.__name__))
             return None
@@ -224,13 +224,13 @@ class AbstractOut(ug.UGen):
     def num_outputs(self):
         return 0
 
-    def write_output_specs(self):
-        pass # TODO: Método vacío, VER VALOR DE RETORNO en sclang es self, no lo usa, no parece comportarse como una función.
+    # def write_output_specs(self, file): # BUG: Es interfaz de polimorfismo desde UGen, y acá no se usa, en Python tira error al escribir la def, no sé por qué se define (y eso no es bueno)!
+    #     pass # TODO: Método vacío, VER VALOR DE RETORNO en sclang es self, no lo usa, no parece comportarse como una función.
 
     def check_inputs(self):
         if self.rate is 'audio':
             for i in range(self.__class__.num_fixed_args(), len(self.inputs)): # TODO: es tupla, en sclang es nil si no hay inputs.
-                if ug.as_ugen_rate(self.inputs[i]) is not 'audio':
+                if ug.as_ugen_rate(self.inputs[i]) != 'audio':
                     msg = '{}:'.format(self.__class__.__name__)
                     msg += ' input at index {} ({}) is not audio rate'
                     return msg.format(i, self.inputs[i].__class__.__name__) # TODO: Si es OutputProxy que imprima source_ugen

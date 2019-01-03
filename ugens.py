@@ -10,6 +10,7 @@ en otra clase que actúe como protocolo.
 """
 
 from math import isnan
+import struct
 from functools import singledispatch
 
 import supercollie.functions as fn
@@ -95,6 +96,9 @@ class UGen(fn.AbstractFunction):
         self.antecedents = None #set() # estos sets los inicializa SynthDef init_topo_sort, antecedents lo transforma en lista luego, por eso los dejo en none.
         self.descendants = None #list() # inicializa en set() y lo transforma en list() inmediatamente después de poblarlo
         self.width_first_antecedents = [] # se inicializa con SynthDef _width_first_ugens[:] que es un array
+        # output_index TODO: VER DE NUEVO las propiedades y los métodos en general.
+        # TODO: (sigue) tal vez convenga crea propiedades pero para esta clase sería mucho código.
+        self.output_index = 0 # TODO: en UGen es un método, pero lo pasé a propiedad porque es una propiedad en OutputPorxy (!)
 
     # VER: mutabilidad. *** Este método lo sobreescriben las subclases y se llama en new1 que se llama desde multiNewList ***
     # simplemente hace lo que se ve, guarda las entradas como un Array. Se llama después de setear rate y synthDef (a través de addToSynth)
@@ -236,8 +240,8 @@ class UGen(fn.AbstractFunction):
     def dump_name(self):
         return str(self.synth_index) + '_' + self.name()
 
-    def output_index(self): # es una propiedad de OutputProxy, es método constante acá. No tiene otra implementación en la librería estandar. Se usa solo UGen.writeInputSpec y SynthDesc.readUGenSpec se obtiene de las inputs.
-        return 0
+    # def output_index(self): # es una propiedad de OutputProxy, es método constante acá. No tiene otra implementación en la librería estandar. Se usa solo UGen.writeInputSpec y SynthDesc.readUGenSpec se obtiene de las inputs.
+    #     return 0
 
     def writes_to_bus(self): # la implementan algunas out ugens, se usa en SynthDesc.outputData
         return False
@@ -305,7 +309,20 @@ class UGen(fn.AbstractFunction):
     # L470
     # Este método llama a los de abajo, reordené por orden de lectura.
     # Escribe a archivo, pero también generan el formato. VER con SynthDef
-    #writeDef
+    def write_def(self, file):
+        try:
+            file.write(struct.pack('B', len(self.name()))) # 01 putPascalString, unsigned int8 -> bytes
+            file.write(bytes(self.name(), 'ascii')) # 02 putPascalString
+            file.write(struct.pack('b', self.rate_number())) # putInt8
+            file.write(struct.pack('>i', self.num_inputs())) # putInt32
+            file.write(struct.pack('>i', self.num_outputs())) # putInt32
+            file.write(struct.pack('>h', self.special_index)) # putInt16
+            # // write wire spec indices.
+            for input in self.inputs:
+                write_input_spec(input, file, self.synthdef)
+            self.write_output_specs(file)
+        except Exception as e:
+            raise Exception('SynthDef: could not write def') from e
 
     # L467
     def name(self): # es ugen name
@@ -324,13 +341,15 @@ class UGen(fn.AbstractFunction):
     def num_outputs(self):
         return 1
 
-    # L435 métodos write, escriben a archivo, pero también generan el formato.
-    # VER junto con SynthDef, se llaman desde writeDef (ahora arriba por orden de lectura)
-    #writeInputSpec
-    #writeOutputSpec
-    #writeOutputSpecs
+    # L435
+    # def write_input_spec(self, file, synthdef): # PASADO A @singledispatch
+    def write_output_spec(self, file):
+        file.write(struct.pack('b', self.rate_number())) # putInt8
 
-    # Topo sort methods. # y dumpName (PASADO ARRIBA) que se usa en UGen dumpUGens y OutputProxy dumpName
+    def write_output_specs(self, file): # TODO: variación con 's' que llama a la sin 's', este método sería para las ugens con salidas múltiples, el nombre del método debería ser más descriptivo porque es fácil de confundir, además. # lo implementan AbstractOut, MultiOutUGen, SendPeakRMS, SendTrig y UGen.
+        self.write_output_spec(file)
+
+    # Topo sort methods
 
     # L488
     def init_topo_sort(self):
@@ -419,9 +438,9 @@ class MultiOutUGen(UGen):
         return self.channels
 
     def num_outputs(self):
-        return len(channels)
+        return len(self.channels)
 
-    def write_output_specs(self, file): # TODO: Aún no está hecho en UGen.
+    def write_output_specs(self, file):
         for output in self.channels:
             output.write_output_spec(file)
 
@@ -673,3 +692,34 @@ def perform_binary_op_on_ugen(input, selector, thing):
 @perform_binary_op_on_ugen.register(complex) # También Polar y Spherical en sclang. No hay nada implementado para Python complex aún.
 def _(input, selector, thing):
     pass
+
+
+# write_input_spec
+
+@singledispatch
+def write_input_spec(obj, file, synthdef):
+    msg = "write_input_spec can't be performed on {}, possible BUG"
+    raise TypeError(msg.format(obj))
+
+@write_input_spec.register(UGen)
+def _(obj, file, synthdef):
+    file.write(struct.pack('>i', obj.synth_index)) # putInt32
+    print('***** {}'.format(obj)) # BUG output_index es un método que devuelve 0 para UGen
+    file.write(struct.pack('>i', obj.output_index)) # putInt32
+
+@write_input_spec.register(float)
+@write_input_spec.register(int)
+def _(obj, file, synthdef):
+    try:
+        const_index = synthdef.constants[float(obj)]
+        file.write(struct.pack('>i', -1)) # putInt32
+        file.write(struct.pack('>i', const_index)) # putInt32
+    except KeyError as e:
+        msg = 'write_input_spec constant not found: {}'
+        raise Exception(msg.format(float(obj))) from e
+
+@write_input_spec.register(list)
+@write_input_spec.register(tuple)
+def _(obj, file, synthdef):
+    for item in obj:
+        write_input_spec(item, file, synthdef)

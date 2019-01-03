@@ -129,7 +129,7 @@ class SynthDef():
 		# the OutputProxies of these two Control ugens in the original order.
         names = arg_names[skip_args:]
         arg_values = [x.default for x in params] # list(map(lambda x: x.default, params))
-        values = [x if x is not inspect._empty else None for x in arg_values] # any replace method?
+        values = [x if x != inspect.Signature.empty else None for x in arg_values] # any replace method?
         values = values[skip_args:] # **** VER, original tiene extend, no se si es necesario acá (o allá), len(names) debería ser siempre igual a len(values), se puede aplicar "extend" como abajo, pero VER!
                                     # **** VER, puede ser que hace extend por si el valor de alguno de los argumentos es un array no literal.
                                     # **** def.prototypeFrame DEVUELVE NIL EN VEZ DE LOS ARRAY NO LITERALES!
@@ -275,13 +275,13 @@ class SynthDef():
                 self._set_control_names(ctrl_ugens[i], cn)
 
         self.control_names = [x for x in self.control_names\
-                              if x.rate is not 'noncontrol']
+                              if x.rate != 'noncontrol']
         return arguments
 
     # L263
     def _set_control_names(self, ctrl_ugens, cn):
         if isinstance(ctrl_ugens, list):
-            for ctrl_ugen in ctrl_ugens: # este loop no me da la pauta de que no soporta más que un nivel de anidamiento? (!)
+            for ctrl_ugen in ctrl_ugens: # TODO:, posible BUG? Este loop me da la pauta de que no soporta más que un nivel de anidamiento? (!) Qué pasaba si hay más de un nivel acá?
                 ctrl_ugen.name = cn.name
         else:
             ctrl_ugens.name = cn.name
@@ -411,8 +411,10 @@ class SynthDef():
     def add_constant(self, value): # lo usa UGen:collectConstants
         if value not in self.constant_set:
             self.constant_set.add(value) # es un set, como su nombre lo indica, veo que se usa por primera vez
-            self.constants[value] = len(self.constants) # es un dict, ver qué valores puede asumir value y si puede fallar como llave del diccionario, e.g. si son float generados por operaciones matemáticas.
-            # VER: cómo se usa self.constants y por qué guarda len, que, supongo, sería el índice de la constante en una lista pero es una llave de un diccionario.
+            self.constants[value] = len(self.constants) # value lo setea UGen.collectConstants, el único método que llama a este y agrega las input de las ugens que son números (value es float)
+                                                        # value (float) es la llave, el valor de la llave es el índice de la constante almacenada en la synthdef en el momento de la inserción.
+                                                        # collect_constants es un método ping/pong (synthdef/ugen), se llama desde SynthDef._finish_build, antes de _check_inputs y re-sort
+                                                        # es simplemente un conjunto de constantes que almacena como datos reusables de las synthdef cuyo valor se accede por el índice aquí generado con len.
 
     # L535
     # Método utilitario de SynthDef, debe ser original para debuguing.
@@ -428,13 +430,13 @@ class SynthDef():
 
     # L549
     # OC: make SynthDef available to all servers
-    def add(self, libname, completion_msg, keep_def=True;):
+    def add(self, libname, completion_msg, keep_def=True):
         desc = self.as_synthdesc(libname or 'global', keep_def)
         if libname is None:
             servers = xxx.Server.all_booted_servers() # BUG: namespace (posible dependencia cíclica)
         else:
-        for server in servers:
             servers = xxx.SynthDescLib.get_lib(libname).servers # BUG: namespace (posible dependencia cíclica)
+        for server in servers:
             self.do_send(server.value(), completion_msg(server)) # TODO: server.value retorna el nombre del servidor, pj. 'localhost' es el método de Object, sin embargo. Tendríá que cambiarlo a 'name'?
 
     # L645
@@ -462,24 +464,64 @@ class SynthDef():
                 warnings.warn(msg.format(self.name))
 
     def as_bytes(self):
-        stream = io.BytesIO(b' ' * 256) # tamaño prealocado
+        stream = io.BytesIO() #(b' ' * 256) # tamaño prealocado pero en sclang este no es un tamaño fijo de retorno sino una optimización para el llenado, luego descarta lo que no se usó.
         write_def([self], stream); # Es Array-writeDef, hace asArray que devuelve [ a SynthDef ] porque Array-writeDef puede escribir varias synthdef en un def file. Tiene que ser una función para list abajo.
-		return bytearray(stream.getbuffer()) # TODO: ver si hay conversiones posteriores. Arriba en as_synthdesc lo vuevle a convertir en CollStream...
+        return bytearray(stream.getbuffer()) # TODO: ver si hay conversiones posteriores. Arriba en as_synthdesc lo vuevle a convertir en CollStream...
                                              # el método asBytes se usa para enviar la data en NRT también, como array.
                                              # En do_send, arriba, está la llamada server.send_msg('/d_recv', self.as_bytes()), en sclang tiene que ser un array, ver implementación.
                                              # En sclang retorna un array de bytes (Int8Array)
                                              # En liblo, es un blob (osc 'b') que se mapea a una lista de int(s) (python2.x) o bytes (python3.x)
-        # stream = bytearray(stream.getbuffer())
-        # return [bytes(x) for x in stream] ?? pero esto no funciona con io.BytesIO(stream)
+                                             # stream = bytearray(stream.getbuffer())
+                                             # return [bytes(x) for x in stream] ?? pero esto no funciona con io.BytesIO(stream)
 
     def write_def_file(self, dir, overwrite=True, md_plugin=None):
         pass
 
     def write_def(self, file):
-        pass # TODO NEXT: Acá está el moño. Probar antes la funcionalidad básica anterior.
+        try:
+            file.write(struct.pack('B', len(self.name))) # 01 putPascalString, unsigned int8 -> bytes
+            file.write(bytes(self.name, 'ascii')) # 02 putPascalString
+
+            self.write_constants(file)
+
+            # //controls have been added by the Control UGens
+            file.write(struct.pack('>i', len(self.controls))) # putInt32
+            for item in self.controls:
+                file.write(struct.pack('>f', item)) # putFloat
+
+            tmp_allcns = [x for x in self.all_control_names\
+                          if x.rate != 'noncontrol'] # reject
+            file.write(struct.pack('>i', len(tmp_allcns))) # putInt32
+            for item in tmp_allcns:
+                # comprueba if (item.name.notNil) # TODO: posible BUG? (ver arriba _set_control_names). Pero no debería poder agregarse items sin no son ControlNames. Arrays anidados como argumentos, de más de un nivel, no están soportados porque fallar _set_control_names según analicé.
+                #if item.name: # TODO: y acá solo comprueba que sea un string no vacío, pero no comprueba el typo ni de name ni de item.
+                if not isinstance(item, scio.ControlName): # TODO: test para debugear luego.
+                    raise Error('** Falla Test ** SynthDef self.all_control_names contiene un objeto no ControlName')
+                elif not item.name: # ídem.
+                    raise Error('** Falla Test ** SynthDef self.all_control_names contiene un ControlName con name vacío = {}'.format(item.name))
+                file.write(struct.pack('B', len(item.name))) # 01 putPascalString, unsigned int8 -> bytes
+                file.write(bytes(item.name, 'ascii')) # 02 putPascalString
+
+            file.write(struct.pack('>i', len(self.children))) # putInt32
+            for item in self.children:
+                item.write_def(file)
+
+            file.write(struct.pack('>h', len(self.variants))) # putInt16
+            # if (variants.size > 0)
+            # TODO: variants.
+
+            # ...
+        except Exception as e:
+            raise Exception('SynthDef: could not write def') from e
 
     def write_constants(self, file):
-        pass
+        size = len(self.constants)
+        arr = [None] * size
+        for value, index in self.constants.items():
+            arr[index] = value
+        file.write(struct.pack('>i', size)) # putInt32
+        for item in arr:
+            file.write(struct.pack('>f', item)) # putFloat
 
     # L561
     @classmethod
@@ -494,6 +536,7 @@ class SynthDef():
     #writeDefFile PASADO ARRIBA
     #writeDef PASADO ARRIBA
     #writeConstants PASADO ARRIBA
+
     # TODO: VER también #*writeOnce arriba de todo, la variante de instancia llama a writeDefFile.
 
     # L570
@@ -525,12 +568,8 @@ def write_def(lst, file):
     '''Escribe las SynthDefs contenidas en la lista lst en el archivo file.
     file es un stream en el que se puede escribir.'''
 
-    file.write(b'SCgf'); # 'all data is stored big endian' Synth Definition File Format. En este caso no afecta porque son bytes. Todos los enteros son con signo.
-	file.write(struct.pack('>i', 2)) # file.putInt32(2); // file version
-	file.write(struct.pack('>h', len(lst))) # file.putInt16(this.size); // number of defs in file.
+    file.write(b'SCgf'); # BUG: es putString y dice: 'a null terminated String', parece estar correcto porque muestra los nombres bien. # 'all data is stored big endian' Synth Definition File Format. En este caso no afecta porque son bytes. Todos los enteros son con signo.
+    file.write(struct.pack('>i', 2)) # file.putInt32(2); // file version
+    file.write(struct.pack('>h', len(lst))) # file.putInt16(this.size); // number of defs in file.
     for synthdef in lst:
         synthdef.write_def(file)
-
-def write_input_spec(lst, file, synthdef):
-    for item in lst:
-        item.write_input_spec(file, synthdef)

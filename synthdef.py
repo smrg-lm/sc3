@@ -41,7 +41,7 @@ class SynthDef():
                 prepend_args=[], variants={}, metadata={}): # rates y prepend args pueden ser anotaciones, prepargs puede ser un tipo especial en las anotaciones, o puede ser otro decorador?
         self.name = name
         self.func = graph_func # la inicializa en build luego de finishBuild
-        self.variants = variants # no sé por qué está agrupada como propiedad junto con las variables de topo sort
+        self.variants = variants # # TODO: comprobar tipo, no es un valor que se genere internamente. No sé por qué está agrupada como propiedad junto con las variables de topo sort
         self.metadata = metadata
         #self.desc # *** Aún no vi dónde inicializa
 
@@ -489,10 +489,10 @@ class SynthDef():
             for item in self.controls:
                 file.write(struct.pack('>f', item)) # putFloat
 
-            tmp_allcns = [x for x in self.all_control_names\
+            allcns_tmp = [x for x in self.all_control_names\
                           if x.rate != 'noncontrol'] # reject
-            file.write(struct.pack('>i', len(tmp_allcns))) # putInt32
-            for item in tmp_allcns:
+            file.write(struct.pack('>i', len(allcns_tmp))) # putInt32
+            for item in allcns_tmp:
                 # comprueba if (item.name.notNil) # TODO: posible BUG? (ver arriba _set_control_names). Pero no debería poder agregarse items sin no son ControlNames. Arrays anidados como argumentos, de más de un nivel, no están soportados porque fallar _set_control_names según analicé.
                 #if item.name: # TODO: y acá solo comprueba que sea un string no vacío, pero no comprueba el typo ni de name ni de item.
                 if not isinstance(item, scio.ControlName): # TODO: test para debugear luego.
@@ -508,9 +508,41 @@ class SynthDef():
                 item.write_def(file)
 
             file.write(struct.pack('>h', len(self.variants))) # putInt16
-            # if len(self.variants) > 0:
-                # TODO: variants.
-                # ...
+            if len(self.variants) > 0:
+                allcns_map = dict()
+                for cn in allcns_tmp:
+                    allcns_map[cn.name] = cn
+
+                for varname, pairs in self.variants.items():
+                    varname = self.name + '.' + varname
+                    if len(varname) > 32:
+                        msg = 'variant {} name too log, not writing more variants'
+                        warnings.warn(msg.format(varname))
+                        return False
+
+                    varcontrols = self.controls[:]
+                    for cname, values in pairs.items():
+                        if allcns_map.keys().isdisjoint([cname]):
+                            msg = 'variant: {} control: {} not found, not writing more variants'
+                            warnings.warn(msg.format(varname, cname))
+                            return False
+
+                        cn = allcns_map[cname]
+                        values = ut.as_list(values)
+                        if len(values) > len(ut.as_list(cn.default_value)):
+                            msg = 'variant: {} control: {} size mismatch, not writing more variants'
+                            warnings.warn(msg.format(varname, cname))
+                            return False
+
+                        index = cn.index
+                        for i, val in enumerate(values):
+                            varcontrols[index + i] = val
+
+                    file.write(struct.pack('B', len(varname))) # 01 putPascalString, unsigned int8 -> bytes
+                    file.write(bytes(varname, 'ascii')) # 02 putPascalString
+                    for item in varcontrols:
+                        file.write(struct.pack('>f', item)) # putFloat
+            return True
         except Exception as e:
             raise Exception('SynthDef: could not write def') from e
 

@@ -501,16 +501,16 @@ class SynthDef():
                     raise Error('** Falla Test ** SynthDef self.all_control_names contiene un ControlName con name vacío = {}'.format(item.name))
                 file.write(struct.pack('B', len(item.name))) # 01 putPascalString, unsigned int8 -> bytes
                 file.write(bytes(item.name, 'ascii')) # 02 putPascalString
+                file.write(struct.pack('>i', item.index))
 
             file.write(struct.pack('>i', len(self.children))) # putInt32
             for item in self.children:
                 item.write_def(file)
 
             file.write(struct.pack('>h', len(self.variants))) # putInt16
-            # if (variants.size > 0)
-            # TODO: variants.
-
-            # ...
+            # if len(self.variants) > 0:
+                # TODO: variants.
+                # ...
         except Exception as e:
             raise Exception('SynthDef: could not write def') from e
 

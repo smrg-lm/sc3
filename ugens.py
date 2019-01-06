@@ -704,7 +704,6 @@ def write_input_spec(obj, file, synthdef):
 @write_input_spec.register(UGen)
 def _(obj, file, synthdef):
     file.write(struct.pack('>i', obj.synth_index)) # putInt32
-    print('***** {}'.format(obj)) # BUG output_index es un método que devuelve 0 para UGen
     file.write(struct.pack('>i', obj.output_index)) # putInt32
 
 @write_input_spec.register(float)

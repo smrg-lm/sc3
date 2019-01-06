@@ -224,8 +224,8 @@ class AbstractOut(ug.UGen):
     def num_outputs(self):
         return 0
 
-    # def write_output_specs(self, file): # BUG: Es interfaz de polimorfismo desde UGen, y acá no se usa, en Python tira error al escribir la def, no sé por qué se define (y eso no es bueno)!
-    #     pass # TODO: Método vacío, VER VALOR DE RETORNO en sclang es self, no lo usa, no parece comportarse como una función.
+    def write_output_specs(self, file):
+        pass # Se define como no hacer nada porque las ugens que escriben a buses no tienen señales de salida (cables internos). Es interfaz de polimorfismo desde UGen.
 
     def check_inputs(self):
         if self.rate is 'audio':

@@ -394,7 +394,7 @@ class SynthDef():
         self.children[ugen.synth_index] = None;
 
     def replace_ugen(self, a, b): # lo usa BinaryOpUGen para optimizaciones
-        if not isinstance(UGen, b):
+        if not isinstance(b, ug.UGen):
             raise Exception('replace_ugen assumes a UGen')
 
         b.width_first_antecedents = a.width_first_antecedents
@@ -406,7 +406,9 @@ class SynthDef():
             if item:
                 for i, input in enumerate(item.inputs):
                     if input is a:
-                        item.inputs[i] = b
+                        aux = list(item.inputs) # TODO: hasta ahora es el único lugar donde se modifica ugen.inputs
+                        aux[i] = b
+                        item.inputs = tuple(aux)
 
     def add_constant(self, value): # lo usa UGen:collectConstants
         if value not in self.constant_set:
@@ -452,13 +454,13 @@ class SynthDef():
     def do_send(self, server, completion_msg):
         bytes = self.as_bytes()
         if len(bytes) < (65535 // 4):
-            server.send_msg('/d_recv', bytes, completion_msg)
+            server.send_msg('/d_recv', bytes, completion_msg) # BUG: falta implementar.
         else:
             if server.is_local():
                 msg = 'SynthDef {} too big for sending. Retrying via synthdef file'
                 warnings.warn(msg.format(self.name))
                 self.write_def_file(self.synthdef_dir)
-                server.send_msg('/d_load', self.synthdef_dir + '/' + self.name + '.scsyndef', completionMsg) # BUG: ver el separador de Path.
+                server.send_msg('/d_load', self.synthdef_dir + '/' + self.name + '.scsyndef', completionMsg) # BUG: ver el separador de Path, falta implementar.
             else:
                 msg = 'SynthDef {} too big for sending'
                 warnings.warn(msg.format(self.name))
@@ -475,7 +477,8 @@ class SynthDef():
                                              # return [bytes(x) for x in stream] ?? pero esto no funciona con io.BytesIO(stream)
 
     def write_def_file(self, dir, overwrite=True, md_plugin=None):
-        pass
+        pass # BUG: falta implementar.
+    # TODO: VER también #*writeOnce arriba de todo, la variante de instancia llama a writeDefFile.
 
     def write_def(self, file):
         try:
@@ -557,19 +560,11 @@ class SynthDef():
 
     # L561
     @classmethod
-    def remove_at(cls, name, libname='global'): # Este método lo debe usar en SynthDes.sc. Ojo que hay mil métodos removeAt.
+    def remove_at(cls, name, libname='global'): # TODO: Este método lo debe usar en SynthDesc.sc. Ojo que hay mil métodos removeAt.
         lib = SynthDescLib.get_lib(libname)
         lib.remove_at(name)
         for server in lib.servers:
             server.value().send_msg('/d_free', name) # BUG: send_msg es método de String en sclang (!)
-
-    # L294 # PUESTA DESPUÉS DE ADD. estos métodos no deberían ir luego de add? están como puestos antes acá, ver si tienen alguna dependencia de los métodos alrededor.
-    #asBytes PASADO ARRIBA
-    #writeDefFile PASADO ARRIBA
-    #writeDef PASADO ARRIBA
-    #writeConstants PASADO ARRIBA
-
-    # TODO: VER también #*writeOnce arriba de todo, la variante de instancia llama a writeDefFile.
 
     # L570
     # OC: Methods for special optimizations.

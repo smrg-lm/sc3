@@ -270,21 +270,21 @@ class BinaryOpUGen(BasicOpUGen):
     # replacement = this's replacement
     # deletedUnit = auxiliary unit being removed, not replaced
     def optimize_update_descendants(self, replacement, deleted_unit):
-        def replace_func(ugen):
-            if isinstance(ugen, UGen):
-                desc = ugen.descendants
-                desc.add(replacement)
-                desc.remove(self)
-                desc.remove(deleted_unit)
-
         for input in replacement.inputs:
-            replace_func(input)
-            if isinstance(input, OutputProxy):
-                replace_func(input.source_ugen)
+            if isinstance(input, ug.UGen):
+                if isinstance(input, ug.OutputProxy):
+                    input = input.source_ugen
+                desc = input.descendants
+                if desc is None: return # BUG, CREO QUE RESUELTO: add falla si desc es None, sclang reponde no haciendo nada.
+                desc.append(replacement)
+                if desc.count(self): # BUG, CREO QUE RESUELTO: remove falla si self no es descendiente, sclang reponde no haciendo nada.
+                    desc.remove(self)
+                if desc.count(deleted_unit): # BUG, CREO QUE RESUELTO: remove falla si deleted_unit no es descendiente, sclang reponde no haciendo nada.
+                    desc.remove(deleted_unit)
 
     # L301
     def constant_folding(self): # No sé si se usa este método, tal vez fue reemplazado porque está comentada la llamada arriba, pero no está comentado.
-        pass # TODO, boring to copy
+        pass # BUG, boring to copy
 
 
 class MulAdd(ug.UGen):

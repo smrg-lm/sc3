@@ -405,8 +405,7 @@ class MultiOutUGen(UGen):
     def __init__(self):
         self.channels = [] # Nueva propiedad # VER: se necesita antes de llamar a super().__init__() porque en UGen inicializa self.synth_index y llama al setter de esta sub-clase.
         super().__init__() # TODO: *** super().__init__() inicializa las propiedades correctamente desde new1 *** VER métodos de UGen
-        #self._synth_index = -1 # VER: en UGen synth_index es una propiedad sin setter/getter/deleter, Pero llama al setter solo si se llama desde subclase.
-        #self.channels = []
+        #self._synth_index = -1 # BUG: VER: en UGen synth_index es una propiedad sin setter/getter/deleter, Pero llama al setter solo si se llama desde subclase.
 
     @property
     def synth_index(self):

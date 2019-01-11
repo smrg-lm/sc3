@@ -1,6 +1,14 @@
 """
-Utility functions from sclang style.
+Utility classes and functions from sclang style.
 """
+
+class UniqueID(): # TODO: en sclang está en Common/Collections/ObjectTable.sc
+    _id = 1000
+    @classmethod
+    def next(cls):
+        cls._id += 1
+        return cls._id
+
 
 # lists
 

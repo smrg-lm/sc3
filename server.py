@@ -10,17 +10,14 @@ Se encarga de:
 import subprocess as _subprocess
 import threading as _threading
 import atexit as _atexit
-import liblo as _liblo
 
-#import supercollie as _sc
+import liblo as _lo
+import supercollie.client as cl
 
 
 class Server(object):
-    def __init__(self, options=None, client=None): # clientID lo paso a Client
-        if options is None:
-            self.options = ServerOptions()
-        else:
-            self.options = options
+    def __init__(self, options=None, client=None): # clientID lo paso a Client BUG: clietnID es un paramétro que tiene que estar acá también.
+        self.options = options or ServerOptions()
 
     def boot(self):
         # localserver
@@ -30,8 +27,7 @@ class Server(object):
     def quit(self):
         # check running
         target = (self.options.hostname, self.options.port)
-        msg = _liblo.Message('/quit')
-        _liblo.send(target, msg)
+        cl.Client.default.send_msg(target, '/quit')
         self.sproc.finish()
 
     def value(self): # cambiar a name o algo similar.
@@ -46,7 +42,7 @@ class ServerOptions(object):
         self.name = 'localhost'
         self.hostname = '127.0.0.1'
         self.port = 57110
-        self.proto = _liblo.UDP
+        self.proto = _lo.UDP
         self.program = 'scsynth' # test
         self.cmd_options = [
             '-u', '57110', '-a', '1024',
@@ -71,7 +67,7 @@ class _ServerProcesses(object):
             bufsize=1,
             universal_newlines=True) # or with asyncio.Subprocesses? :-/
         self._redirect_outerr()
-        _atexit.register(self._terminate_proc)
+        _atexit.register(self._terminate_proc) # BUG: no compruebo que no se agreguen más si se reinicia el cliente.
 
     def _terminate_proc(self):
         try:

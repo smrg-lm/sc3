@@ -45,6 +45,10 @@ VER DOCUMENTACIÓN: 'OSC COMMUNICATION'
 ESTA CLASE PROBABLEMENTE QUEDE COMO WRAPPER DE LIBLO SEND CON ADDRESS,
 PERO TAL VEZ SEA MEJOR USAR LA INSTANCIA GLOBAL DEL CLIENTE PARA QUE LOS
 MENSAJES SALGAN DEL MISMO PUERTO.
+
+IDEA: DESCARTAR EL MANEJO DE PROTOCOLO TCP, QUE NetAddr SEA SIMPLEMENTE
+UNA INTERFAZ DE CLIENT PARA USAR CON LA FUNCIONALIDAD INTEGRADA. PARA OTROS
+USOS SE PUEDE USAR liblo QUE ES DEPENDENCIA.
 """
 
 import ipaddress as _ipaddress
@@ -62,34 +66,35 @@ class NetAddr():
 
     # es sclang new L009
     def __init__(self, hostname, port):
-        if hostname is not None:
-            addr = int(_ipaddress.IPv4Address(hostname)) # en sclang es una función de boost, gethostbyname, no dan el mismo número, en sclang parece un overflow
-        else:
-            addr = 0
-        self.addr = addr
-        self.port = port
+        self._addr = int(_ipaddress.IPv4Address(hostname)) # tira error si la dirección es inválida
         self._hostname = hostname # es @property y sincroniza self.addr al setearla.
-        self.socket = None # BUG: las NetAddr que tienen socket son TCP y se manejan con try_connect_tcp, try_disconnect_tcp, connect, disconnect, connectionsClosed. liblo no provee una interfaz así pero los mensajes puede especificar protocolo.
+        self.port = port
 
     @classmethod
-    def from_ip(cls, addr, port): # TODO: addr es un entero, usa el método de Integer: asIPString que convierte un número en un string operando sobre bits.
-        pass # BUG: primitiva
+    def local_addr(cls): # TODO: este método también es próximo a inútil
+        return cls('127.0.0.1', cls.client_port())
 
     @classmethod
-    def lang_port(cls): # TODO: client_port? # En Client es el atributo port.
-        return g_client.port # TODO: no está definida.
+    def client_port(cls):
+        return cl.Client.default.port
 
-    @classmethod
-    def match_lang_ip(cls, ipstring): # TODO: match_client_ip? simplemente dice si la dirección ip es la misma, en la misma máquina es 127.0.0.1
-        pass # BUG: primitiva
+    # @classmethod
+    # def from_ip(cls, i32addr, port): # TODO: no le veo uso a este método en la lógica reducida de usar NetAddr como interfaz de Client.
+    #     hostname = str(_ipaddress.IPv4Address(addr))
+    #     return cls(hostname, port)
 
-    @classmethod
-    def local_end_point(cls):
-        return cls(cls.lang_ip(), cls.lang_port()) # BUG: cosa curiosa, ctrl-i en langIP, que no existe como método, me dirije a matchLangIP, que tiene un argumento.
+    # @classmethod
+    # def client_ip(cls):
+    #     pass # BUG: este método no está definido en sclang, aunque debería?, supongo que tiene que retornar la dirección de ip, o en la red local, el problema es que no hay una sola y simple solución multiplataforma.
+               # BUG: ver las repuestas de abajo en: https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib
 
-    @classmethod
-    def local_addr(cls):
-        return cls('127.0.0.1', cls.lang_port())
+    # @classmethod
+    # def match_lang_ip(cls, ipstring): # TODO: match_client_ip? simplemente dice si la dirección ip es la misma, en la misma máquina es 127.0.0.1
+    #     pass # BUG: primitiva # Este método es casi inecesario.
+
+    # @classmethod
+    # def local_end_point(cls):
+    #     return cls(cls.client_ip(), cls.client_port()) # BUG: depende de client_ip
 
     # @classmethod
     # def disconnect_all(cls):
@@ -119,7 +124,7 @@ class NetAddr():
     # // warning: this primitive will fail to send if the bundle size is too large
 	# // but it will not throw an error.  this needs to be fixed
     def send_bundle(self, time, *args):
-        cl.Client.default.send_bundle((self.hostname, self.port), *args)
+        cl.Client.default.send_bundle((self.hostname, self.port), time, *args)
 
     # def send_status_msg(self): # TODO: esto es particular de la relación del cliente con el servidor
     #     cl.Client.default.send_msg('/status')
@@ -157,5 +162,6 @@ class NetAddr():
         return self
 
 
-class BundleNetAddr(NetAddr):
-    pass
+# Esta clase no tiene sentido.
+# class BundleNetAddr(NetAddr):
+#     pass

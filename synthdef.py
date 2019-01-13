@@ -439,7 +439,7 @@ class SynthDef():
         else:
             servers = xxx.SynthDescLib.get_lib(libname).servers # BUG: namespace (posible dependencia cíclica)
         for server in servers:
-            self.do_send(server.value(), completion_msg(server)) # TODO: server.value retorna el nombre del servidor, pj. 'localhost' es el método de Object, sin embargo. Tendríá que cambiarlo a 'name'?
+            self.do_send(server.value(), completion_msg(server)) # BUG: completion_msg no se usa/recibe en do_send # TODO: server.value retorna el nombre del servidor, pj. 'localhost' es el método de Object, sin embargo. Tendríá que cambiarlo a 'name'?
 
     # L645
     def as_synthdesc(self, libname='global', keep_def=True): # Subido, estaba abajo, lo usa add.

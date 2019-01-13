@@ -79,6 +79,15 @@ def wrap_extend(inlist, n):
 # select [x for x in self.control_names if x.rate == 'noncontrol']
 # reject [x for x in self.control_names if x.rate != 'noncontrol']
 # any with predicate (a generator) como en sclang any(x > 10 for x in l)
+# también está la función all en Python.
+
+# detect sería:
+# control = None
+# for item in self.controls:
+#     if item.index == (b.output_index + b.source_ugen.special_index):
+#         control = item
+#         break
+# pero no es nada compacto, tal vez haya un truco
 
 # clump [l[i:i + n] for i in range(0, len(l), n)] https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
 # dup [UGen] * n

@@ -10,7 +10,7 @@ import supercollie.utils as ut
 # Controls
 
 class ControlName():
-    def __init__(self, name, index, rate, default_value, arg_num, lag):
+    def __init__(self, name, index, rate, default_value, arg_num, lag=None):
         self.name = name
         self.index = index
         self.rate = rate

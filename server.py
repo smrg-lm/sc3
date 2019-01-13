@@ -12,12 +12,16 @@ import threading as _threading
 import atexit as _atexit
 
 import liblo as _lo
+
+import supercollie.netaddr as na
 import supercollie.client as cl
 
-
 class Server(object):
-    def __init__(self, options=None, client=None): # clientID lo paso a Client BUG: clietnID es un paramétro que tiene que estar acá también.
+    def __init__(self, name, addr, options=None, clientID=None):
+        self.name = name
+        self.addr = addr
         self.options = options or ServerOptions()
+        # TODO...
 
     def boot(self):
         # localserver
@@ -26,23 +30,24 @@ class Server(object):
 
     def quit(self):
         # check running
-        target = (self.options.hostname, self.options.port)
-        cl.Client.default.send_msg(target, '/quit')
+        self.addr.send_msg('/quit')
         self.sproc.finish()
+
+    def send_msg(self, *args):
+        self.addr.send_msg(*args)
+
+    def send_bundle(self, time, *args):
+        self.addr.send_bundle(time, *args)
+
 
     def value(self): # cambiar a name o algo similar.
         return 'cambiame el nombre value() en Server' # Es el método value de Object que devuelve self.options.name
     def is_local(self, *args):
         raise NotImplementedError('Implementar Server-is_local()')
-    def send_msg(self, *args):
-        raise NotImplementedError('Implementar Server-send_msg()')
+
 
 class ServerOptions(object):
     def __init__(self):
-        self.name = 'localhost'
-        self.hostname = '127.0.0.1'
-        self.port = 57110
-        self.proto = _lo.UDP
         self.program = 'scsynth' # test
         self.cmd_options = [
             '-u', '57110', '-a', '1024',
@@ -102,3 +107,7 @@ class _ServerProcesses(object):
         self._tflag = _threading.Event()
         self._tout = make_thread(self.proc.stdout, 'SCOUT:', self._tflag)
         self._terr = make_thread(self.proc.stdout, 'SCERR:', self._tflag)
+
+
+# TODO: Instancia por defecto, es la única manera?
+Server.default = Server('localhost', na.NetAddr('127.0.0.1', 57110))

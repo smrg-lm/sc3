@@ -451,16 +451,16 @@ class SynthDef():
         return desc
 
     # L587
-    def do_send(self, server, completion_msg):
+    def do_send(self, server): #, completion_msg): # BUG: parece que no existe un argumento que reciba completionMsg
         bytes = self.as_bytes()
-        if len(bytes) < (65535 // 4):
-            server.send_msg('/d_recv', bytes, completion_msg) # BUG: falta implementar.
+        if len(bytes) < (65535 // 4): # BUG: acá hace dividido 4, en clumpBundles hace > 20000, en bytes se puede mandar más, ver que hace scsynth.
+            server.send_msg('/d_recv', bytes) # BUG: completion_msg) ninunga función send especifica ni documenta tener un completionMsg, tampco tiene efecto o sentido en las pruebas que hice
         else:
             if server.is_local():
                 msg = 'SynthDef {} too big for sending. Retrying via synthdef file'
                 warnings.warn(msg.format(self.name))
                 self.write_def_file(self.synthdef_dir)
-                server.send_msg('/d_load', self.synthdef_dir + '/' + self.name + '.scsyndef', completionMsg) # BUG: ver el separador de Path, falta implementar.
+                server.send_msg('/d_load', self.synthdef_dir + '/' + self.name + '.scsyndef') # BUG: ver el separador de Path, falta implementar. # BUG: , completionMsg)
             else:
                 msg = 'SynthDef {} too big for sending'
                 warnings.warn(msg.format(self.name))

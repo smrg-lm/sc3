@@ -67,8 +67,26 @@ class NetAddr():
     # es sclang new L009
     def __init__(self, hostname, port):
         self._addr = int(_ipaddress.IPv4Address(hostname)) # tira error si la dirección es inválida
-        self._hostname = hostname # es @property y sincroniza self.addr al setearla.
-        self.port = port
+        self._hostname = hostname # es @property y sincroniza self._addr y self._target al setearla.
+        self._port = port # es @property y sincroniza self._target al setearla
+        self._target = (hostname, port)
+
+    @property
+    def hostname(self):
+        return self._hostname
+    @hostname.setter
+    def hostname(self, value):
+        self._addr = int(_ipaddress.IPv4Address(value))
+        self._hostname = value
+        self._target = (self._hostnane, self._port)
+
+    @property
+    def port(self):
+        return self._port
+    @port.setter
+    def port(self, value):
+        self._port = value
+        self._target = (self._hostnane, self._port)
 
     @classmethod
     def local_addr(cls): # TODO: este método también es próximo a inútil
@@ -102,29 +120,14 @@ class NetAddr():
     #     for naddr in cls.connections: # es dict() itera sobre las llaves
     #         naddr.disconnect() # BUG: esto es para TCP, además, debería ir en la clase Client, o algo más global/general que las direcciones de red.
 
-    @property
-    def hostname(self):
-        return self._hostname
-
-    @hostname.setter
-    def hostname(self, value):
-        self._hostname = value
-        self.addr = int(_ipaddress.IPv4Address(value))
-
-    @hostname.deleter
-    def hostname(self):
-        del self._hostname
-
     # def send_raw(self, raw_bytes): # send a raw message without timestamp to the addr.
     #     cl.Client.default.send_raw((self.hostname, self.port), raw_bytes)
 
     def send_msg(self, *args):
-        cl.Client.default.send_msg((self.hostname, self.port), *args)
+        cl.Client.default.send_msg(self._target, *args)
 
-    # // warning: this primitive will fail to send if the bundle size is too large
-	# // but it will not throw an error.  this needs to be fixed
     def send_bundle(self, time, *args):
-        cl.Client.default.send_bundle((self.hostname, self.port), time, *args)
+        cl.Client.default.send_bundle(self._target, time, *args)
 
     # def send_status_msg(self): # TODO: esto es particular de la relación del cliente con el servidor
     #     cl.Client.default.send_msg('/status')

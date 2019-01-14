@@ -82,7 +82,7 @@ class SynthDesc():
 
     # // path is for metadata -- only this method has direct access to the new SynthDesc
     @classmethod
-    def _read_file(cls, stream, keep_defs=False, dictionary=None, path=None):
+    def _read_file(cls, stream, keep_defs=False, dictionary={}, path=None):
         stream.read(4) # getInt32 // SCgf # TODO: la verdad que podría comprobar que fuera un archivo válido.
         version = struct.unpack('>i', file.read(4))[0] # getInt32
         num_defs = struct.unpack('>h', file.read(2))[0] # getInt16
@@ -99,7 +99,8 @@ class SynthDesc():
             if path:
                 desc.metadata = AbstractMDPlugin.read_metadata(path)
             cls.populate_metadata_func(desc)
-            if desc.sdef is not None and { stream.isKindOf(CollStream).not }: # BUG, este es complicado, no explica qué es lo que quiere evitar, estoy intuyendo que se trata de (Unix)File pero no estoy seguro de qué significaría, incluso.
+            in_memory_stream = isinstance(stream, io.BytesIO) # TODO: entiendo que es sl significado de { stream.isKindOf(CollStream).not }: de la condición de abajo, porque expresión no explica la intención. Supongo que refiere a que no sea un stream en memoria sino un archivo del disco. En Python los streams en memoria son StringIO y BytesIO. TextIOWrapper y BufferReader se usa para archivos y son hermanas de aquellas en la jerarquía de clases, por lo tanto debería funcionar.
+            if desc.sdef is not None and not in_memory_stream:
                 if desc.sdef.metadata is None:
                     desc.sdef.metadata = dict()
                 desc.sdef.metadata['shouldNotSend'] = True # BUG/TODO: los nombres en metadata tienen que coincidir con las convenciones de sclang... (?)

@@ -250,7 +250,7 @@ class AbstractOut(ug.UGen):
         return len(self.inputs) - self.__class__.num_fixed_args() # TODO: es tupla, en sclang es nil si no hay inputs.
 
     def writes_to_bus(self):
-        pass # TODO: VER: ^this.subclassResponsibility(thisMethod)
+        pass # BUG: VER: ^this.subclassResponsibility(thisMethod) se usa en SynthDesc:outputData se implementa en varias out ugens. Es método de interfaz/protocolo de UGen, creo.
 
 
 class Out(AbstractOut):

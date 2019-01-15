@@ -3,6 +3,7 @@
 import io
 import glob # import pathlib.Path no es necesario, sclang usa glob
 import struct
+import warnings
 
 import supercollie._global as _gl
 import supercollie.synthdef as sd # BUG: cíclico
@@ -44,7 +45,7 @@ class SynthDesc():
         self.has_array_args = None
         self.has_variants = None
         self.can_free_synth = False
-        self.msg_func_keep_gate = False # TODO: solo tiene getter.
+        self._msg_func_keep_gate = False # @property
 
     @classmethod
     def new_from(cls, synthdef): # TODO: ver estos métodos constructores en general, posiblemente sea mejor llamar a __new__ con argumentos.
@@ -73,16 +74,13 @@ class SynthDesc():
     def read(cls, path, keep_defs=False, dictionary=None):
         dictionary = dictionary or dict()
         for filename in glob.glob(path):
-            file = open(filename, 'r+b')
-            try:
+            with open(filename, 'rb') as file:
                 dictionary = cls._read_file(file, keep_defs, dictionary)
-            finally:
-                if file: file.close()
         return dictionary
 
     # // path is for metadata -- only this method has direct access to the new SynthDesc
     @classmethod
-    def _read_file(cls, stream, keep_defs=False, dictionary={}, path=None):
+    def _read_file(cls, stream, keep_defs=False, dictionary=None, path=None):
         stream.read(4) # getInt32 // SCgf # TODO: la verdad que podría comprobar que fuera un archivo válido.
         version = struct.unpack('>i', file.read(4))[0] # getInt32
         num_defs = struct.unpack('>h', file.read(2))[0] # getInt16
@@ -194,7 +192,7 @@ class SynthDesc():
         aux_string = stream.read(aux_str_len) # getPascalString 02
         ugen_class = str(aux_string, 'ascii') # getPascalString 03
         try:
-            ugen_class = eval(ugen_class) # globals=None, locals=None) BUG: falta el contextoen el cuál buscar
+            ugen_class = eval(ugen_class) # globals=None, locals=None) BUG: falta el contexto en el cuál buscar
         except NameError as e:
             msg = 'no UGen class found for {} which was specified in synth def file: {}'
             raise Exception(msg.format(ugen_class, self.name)) from e
@@ -259,15 +257,119 @@ class SynthDesc():
                 self.can_free_synth = self.can_free_synth or ugen.can_free_synth() # BUG: también es una función implementadas por muchas ugens (true) y y Object (false). Es una propiedad solo en esta clase.
 
     def make_msg_func(self):
-        lalala
+        comma = False
+        names = set()
 
-    # L455
-    # msgFuncKeepGate_ { |bool = false|
-    # writeMetadata { arg path, mdPlugin;
-    # L467
+        # // if a control name is duplicated, the msgFunc will be invalid
+        # // that "shouldn't" happen but it might; better to check for it
+        # // and throw a proper error
+        for cname in self.controls:
+            if cname.name[0].isalpha(): # BUG: creo que cname.name siempre es str, pero usa asString, revisar.
+                name = cname.name
+                if name in names:
+                    msg = "could not build msg_func for this SynthDesc: duplicate control name '{}'"
+                    warnings.warn(msg.format(name))
+                    comma = True
+                else:
+                    names.add(name)
+
+        if len(names) > 255:
+            msg = "a SynthDef cannot have more than 255 control names ('{}')"
+            raise Exception(msg.format(self.name))
+
+        # // reusing variable to know if I should continue or not
+        if comma:
+            msg = "SynthDef '{}' has been saved in the library and loaded on the server, if running. Use of this synth in Patterns will not detect argument names automatically because of the duplicate name(s)."
+            warnings.warn(msg.format(self.name))
+            self.msg_func = None
+            return
+
+        comma = False
+        names = 0 # // now, count the args actually added to the func
+        suffix = hex(self.__hash__() & 0xFFFFFFFF) # 32 bits positive
+
+        string = 'def sdesc_' + suffix + '('
+        for i, cname in enumerate(self.controls):
+            name = cname.name
+            if name != '?':
+                if name == 'gate':
+                    self.has_gate = True
+                    if self.msg_func_keep_gate:
+                        if comma:
+                            string += ', '
+                        else:
+                            comma = True
+                        string += name
+                        names += 1
+                else:
+                    if name[1] == '_':
+                        name2 = name[2:]
+                    else:
+                        name2 = name
+                    if comma:
+                        string += ', '
+                    else:
+                        comma = True
+                    string += name2
+                    names += 1
+        string += '):\n'
+
+        comma = False
+
+        string += '    x_' + suffix + ' = []'
+        for i, cname in enumerate(self.controls):
+            name = cname.name
+            if name != '?':
+                if self.msg_func_keep_gate or name != 'gate':
+                    if name[1] == '_':
+                        name2 = name[2:]
+                    else:
+                        name2 = name
+                    string += '    if ' + name2 + ':'
+                    string += '        x_' + suffix + '.append(' + name + ')'
+                    string += '        x_' + suffix + '.append(' + name2 + ')\n'
+                    names += 1
+        string += '    x_' + suffix + '\n'
+        string += 'self.msg_func = sdesc_' + suffix'
+
+        # // do not compile the string if no argnames were added
+        if names > 0:
+            exec(string)
+
+    @property
+    def msg_func_keep_gate(self):
+        return self._msg_func_keep_gate
+    @msg_func_keep_gate.setter
+    def msg_func_keep_gate(self, value):
+        if value != self.msg_func_keep_gate:
+            self._msg_func_keep_gate = value
+            self.make_msg_func()
+
+    def write_metadata(self, path, md_plugin): # TODO: el nombre me resulta confuso en realación a lo que hace. En SynthDef writeDefFile y store llama a SynthDesc.populateMetadataFunc.value(desc) inmediatamente antes de esta función.
+        if self.metadata is None:
+            AbstractMDPlugin.clear_metadata(path)
+            return
+        if md_plugin is None:
+            self.__class__.md_plugin.write_metadata(self.metadata, self.sdef, path)
+
     # // parse the def name out of the bytes array sent with /d_recv
-    # *defNameFromBytes { arg int8Array;
-    # outputData
+    @classmethod
+    def def_name_from_bytes(cls, data: bytesarray): # TODO: posible BUG: Es el mismo type que devuelve SynthDef:as_bytes, si cambia allá cambia acá.
+        stream = io.BytesIO(data)
+
+        stream.read(4) # getInt32 SCgf
+        stream.read(4) # getInt32 version
+        struct.unpack('>h', file.read(2)) # getInt16 num_defs # BUG: typo: en sclang declara y asigna num_defs pero no la usa
+
+        aux_str_len = struct.unpack('B', stream.read(1))[0] # getPascalString 01
+        aux_string = stream.read(aux_str_len) # getPascalString 02
+        return str(aux_string, 'ascii') # getPascalString 03
+
+    def output_data(self): # TODO: no parece usar este método en ninguna parte
+        ugens = self.sdef.children
+        outs = [x for x in ugens if x.wirtes_to_bus()] # BUG: interfaz/protocolo, falta implementar
+        return [{'rate': x.rate, 'num_channels': x.num_audio_channels()} for x in outs]
+
 
 class SynthDescLib():
     all = dict()

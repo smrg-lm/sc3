@@ -10,6 +10,7 @@ import supercollie.synthdef as sd # BUG: cíclico
 import supercollie.inout as scio
 import supercollie.utils as ut
 import supercollie.ugens as ug
+import supercollie.server as sv
 
 
 class IODesc():
@@ -23,6 +24,19 @@ class IODesc():
         txt = str(self.rate) + ' ' + self.type.name + ' '\
               + self.starting_channel + ' ' + self.num_channels
         stream.write(txt)
+
+
+# TODO: Estas clases están ligadas al protocolo Archiving de Object.sc (L800).
+# Tengo que ver con qué recursos de Python representarlas.
+#
+# // Basic metadata plugins
+#
+# // to disable metadata read/write
+class AbstractMDPlugin():
+    pass
+# // simple archiving of the dictionary
+class TextArchiveMDPlugin(AbstractMDPlugin):
+    pass
 
 
 class SynthDesc():
@@ -330,7 +344,7 @@ class SynthDesc():
                     string += '        x_' + suffix + '.append(' + name2 + ')\n'
                     names += 1
         string += '    x_' + suffix + '\n'
-        string += 'self.msg_func = sdesc_' + suffix'
+        string += 'self.msg_func = sdesc_' + suffix
 
         # // do not compile the string if no argnames were added
         if names > 0:
@@ -345,7 +359,7 @@ class SynthDesc():
             self._msg_func_keep_gate = value
             self.make_msg_func()
 
-    def write_metadata(self, path, md_plugin): # TODO: el nombre me resulta confuso en realación a lo que hace. En SynthDef writeDefFile y store llama a SynthDesc.populateMetadataFunc.value(desc) inmediatamente antes de esta función.
+    def write_metadata(self, path, md_plugin): # BUG: no usar, no está implementado  # TODO: el nombre me resulta confuso en realación a lo que hace. En SynthDef writeDefFile y store llama a SynthDesc.populateMetadataFunc.value(desc) inmediatamente antes de esta función.
         if self.metadata is None:
             AbstractMDPlugin.clear_metadata(path)
             return
@@ -354,7 +368,7 @@ class SynthDesc():
 
     # // parse the def name out of the bytes array sent with /d_recv
     @classmethod
-    def def_name_from_bytes(cls, data: bytesarray): # TODO: posible BUG: Es el mismo type que devuelve SynthDef:as_bytes, si cambia allá cambia acá.
+    def def_name_from_bytes(cls, data: bytearray): # TODO: posible BUG: Es el mismo type que devuelve SynthDef:as_bytes, si cambia allá cambia acá.
         stream = io.BytesIO(data)
 
         stream.read(4) # getInt32 SCgf
@@ -371,20 +385,21 @@ class SynthDesc():
         return [{'rate': x.rate, 'num_channels': x.num_audio_channels()} for x in outs]
 
 
+@ut.initclass
 class SynthDescLib():
-    # initClass
-    all = dict()
-    default = SynthDescLib('global') # TODO era global en vez de default, pero el método default retornaba global. Es default, no global, el mismo patrón que server y client.
-    # // tryToLoadReconstructedDefs = false:
-    # // since this is done automatically, w/o user action,
-    # // it should not try to do things that will cause warnings
-    # // (or errors, if one of the servers is not local)
-    ServerBoot.add(lambda server: ServerDescLib.send(server, False)) # BUG: depende del orden de los imports # this.send(server, false) # this es la clase.
+    def __init_class__(cls): # TODO: es para no poner código fuera de la definición, es equivalente a scalng
+        cls.all = dict()
+        cls.default = cls('global') # TODO era global en vez de default, pero el método default retornaba global. Es default, no global, el mismo patrón que server y client.
+        # // tryToLoadReconstructedDefs = false:
+        # // since this is done automatically, w/o user action,
+        # // it should not try to do things that will cause warnings
+        # // (or errors, if one of the servers is not local)
+        xxx.ServerBoot.add(lambda server: cls.send(server, False)) # BUG: falta implementar, y depende del orden de los imports # this.send(server, false) # this es la clase.
 
     def __init__(self, name, servers=[]):
         self.name = name
         self.synth_descs = dict()
-        self.servers = set(servers or [Server.default])
+        self.servers = set(servers or [sv.Server.default])
 
     @classmethod
     def get_lib(cls, libname):
@@ -423,7 +438,7 @@ class SynthDescLib():
         else:
             return self.synth_descs[name] # BUG: tira KeyError, en sclang nil para la variable ~synthDesc puede significar otra cosa. La usa solo en PmonoStream.prInit al parecer.
 
-        if name[:dot_index] in self.synth_descs
+        if name[:dot_index] in self.synth_descs:
            desc = self.synth_descs[name[:dot_index]]
            if desc.has_variants:
                return desc # BUG: no me cierra que no compruebe que el nombre de la variente exista, ver PmonoStream.prInit
@@ -494,18 +509,3 @@ class SynthDescLib():
         if metadata: desc.metadata = metadata
         self.changed('synthDescAdded', desc) # BUG: Object Dependancy, lo mismo que en add de esta clase.
         return desc
-
-
-# TODO: Estas clases están ligadas a la arquitectura de Object en sclang.
-# Tengo que ver con qué recursos de Python representarlas.
-#
-# // Basic metadata plugins
-#
-# // to disable metadata read/write
-class AbstractMDPlugin():
-    pass
-
-
-# // simple archiving of the dictionary
-class TextArchiveMDPlugin(AbstractMDPlugin):
-    pass

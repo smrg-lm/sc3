@@ -2,6 +2,14 @@
 Utility classes and functions from sclang style.
 """
 
+
+# decorador
+class initclass():
+    def __new__(_, cls):
+        cls.__init_class__(cls) # TODO: solo para métodos comunes, ver test_init_class.py
+        return cls
+
+
 class UniqueID(): # TODO: en sclang está en Common/Collections/ObjectTable.sc
     _id = 1000
     @classmethod

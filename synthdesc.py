@@ -43,7 +43,7 @@ class SynthDesc():
         self.msg_func = None
         self.has_gate = False
         self.has_array_args = None
-        self.has_variants = None
+        self.has_variants = False
         self.can_free_synth = False
         self._msg_func_keep_gate = False # @property
 
@@ -80,7 +80,7 @@ class SynthDesc():
 
     # // path is for metadata -- only this method has direct access to the new SynthDesc
     @classmethod
-    def _read_file(cls, stream, keep_defs=False, dictionary=None, path=None):
+    def _read_file(cls, stream, keep_defs=False, dictionary=None, path=''):
         stream.read(4) # getInt32 // SCgf # TODO: la verdad que podría comprobar que fuera un archivo válido.
         version = struct.unpack('>i', file.read(4))[0] # getInt32
         num_defs = struct.unpack('>h', file.read(2))[0] # getInt16
@@ -372,31 +372,128 @@ class SynthDesc():
 
 
 class SynthDescLib():
+    # initClass
     all = dict()
-    glob = SynthDescLib('global')
+    default = SynthDescLib('global') # TODO era global en vez de default, pero el método default retornaba global. Es default, no global, el mismo patrón que server y client.
     # // tryToLoadReconstructedDefs = false:
     # // since this is done automatically, w/o user action,
     # // it should not try to do things that will cause warnings
     # // (or errors, if one of the servers is not local)
     ServerBoot.add(lambda server: ServerDescLib.send(server, False)) # BUG: depende del orden de los imports # this.send(server, false) # this es la clase.
 
-    def __new__(cls):
-        pass
-
-    def __init__(self):
-        pass
+    def __init__(self, name, servers=[]):
+        self.name = name
+        self.synth_descs = dict()
+        self.servers = set(servers or [Server.default])
 
     @classmethod
     def get_lib(cls, libname):
-        pass
+        try:
+            return cls.all[libname]
+        except KeyError as e:
+            msg = "library '{}' not found"
+            raise Exception(msg.format(libname)) from e
 
-    @classmethod
-    def default(cls):
-        return cls.glob
+    # Todos los métodos duplicados entre instancia y clase se volvieron
+    # solo de instancia. El atributo global pasó a ser default como en server
+    # y client. Las llamadas se deben hacer a través de SynthDescLib.default.
 
-    @classmethod
-    def send(cls, server, try_reconstructed=True):
-        pass
+    def add(self, synth_desc):
+        self.synth_descs[synth_desc.name] = synth_desc
+        self.changed('synthDescAdded', synth_desc) # BUG: Object Dependancy: changed/update/release/dependants/removeDependant/addDependant
+                                                   # No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
+
+    def remove(self, name): # BUG: era remove_at porque es un diccionario, pero es interfaz de esta clase que oculta eso, ver qué problemas puede traer.
+        self.synth_descs.pop(name) #, None) # BUG: igualmente self.servers es un set y tirar KeyError con remove
+
+    def add_server(self, server):
+        self.servers.add(server)
+
+    def remove_server(self, server):
+        self.servers.remove(server)
+
+    # Salvo anotación contraria, todos los métodos de clase no hacían
+    # mas que llamar a global con el método de instancia.
+    def at(self, name):
+        return self.synth_descs[name]
+
+    def match(self, name):
+        if '.' in name:
+            dot_index = name.index('.')
+        else:
+            return self.synth_descs[name] # BUG: tira KeyError, en sclang nil para la variable ~synthDesc puede significar otra cosa. La usa solo en PmonoStream.prInit al parecer.
+
+        if name[:dot_index] in self.synth_descs
+           desc = self.synth_descs[name[:dot_index]]
+           if desc.has_variants:
+               return desc # BUG: no me cierra que no compruebe que el nombre de la variente exista, ver PmonoStream.prInit
+
+        return self.synth_descs[name] # BUG: tira KeyError, en sclang nil para la variable ~synthDesc puede significar otra cosa. La usa solo en PmonoStream.prInit al parecer.
+
+    # @classmethod
+    # def send(cls, server=None, try_reconstructed=True): # BUG: este método se usa en la inicialización de esta clase con ServerBoot.add, la variante de instancia no comprueba si el servidor está corriendo.
+    #     if server.has_booted(): cls.default.send(server, try_reconstructed)
+    def send(self, server=None, try_reconstructed=True):
+        server_list = ut.as_list(server) or self.servers
+        for s in server_list:
+            # BUG: aún no entiendo por qué hace server = server.value, usa el método de Object que retorna this.
+            for desc in self.synth_descs:
+                if 'shouldNotSend' in desc.sdef.metadata and not desc.sdef.metadata['shouldNotSend']: # BUG: la notación camello.
+                    desc.send(s)
+                elif try_reconstructed:
+                    desc.sdef.load_reconstructed(s) # BUG: falta implementar en SynthDef
+
+    def read(self, path=None, keep_defs=True):
+        if path is None:
+            path = sd.SynthDef.synthdef_dir + '/*.scsyndef' # BUG: los separadores del path, no está implementado en SynthDef tampoco.
+            # BUG: typo: sclang declara result y no la usa
+        for filename in glob.glob(path):
+            with open(filename, 'rb') as file:
+                self.read_stream(file, keep_defs, filename)
+
+    def read_stream(self, stream, keep_defs=True, path=''):
+        stream.read(4) # getInt32 // SCgf # TODO: la verdad que podría comprobar que fuera un archivo válido.
+        version = struct.unpack('>i', file.read(4))[0] # getInt32
+        num_defs = struct.unpack('>h', file.read(2))[0] # getInt16
+        result_set = set()
+        for _ in range(num_defs):
+            if version >= 2:
+                desc = SynthDesc()
+                desc.read_synthdef2(stream, keep_defs)
+            else:
+                desc = SynthDesc()
+                desc.read_synthdef(stream, keep_defs)
+            self.synth_descs[desc.name] = desc
+            result_set.add(desc)
+            # // AbstractMDPlugin dynamically determines the md archive type
+            # // from the file extension
+            if path:
+                desc.metadata = AbstractMDPlugin.read_metadata(path)
+            SynthDesc.populate_metadata_func(desc)
+            in_memory_stream = isinstance(stream, io.BytesIO) # TODO: entiendo que es sl significado de { stream.isKindOf(CollStream).not }: de la condición de abajo, porque expresión no explica la intención. Supongo que refiere a que no sea un stream en memoria sino un archivo del disco. En Python los streams en memoria son StringIO y BytesIO. TextIOWrapper y BufferReader se usa para archivos y son hermanas de aquellas en la jerarquía de clases, por lo tanto debería funcionar.
+            if desc.sdef is not None and not in_memory_stream:
+                if desc.sdef.metadata is None:
+                    desc.sdef.metadata = dict()
+                desc.sdef.metadata['shouldNotSend'] = True # BUG/TODO: los nombres en metadata tienen que coincidir con las convenciones de sclang... (?)
+                desc.sdef.metadata['loadPath'] = path
+        for new_desc in result_set:
+            self.changed('synthDescAdded', new_desc); # BUG: Object Dependancy, lo mismo que en add de esta clase.
+        return result_set
+
+    def read_desc_from_def(self, keep_def, sdef, metadata=None):
+        stream.read(4) # getInt32 // SCgf # TODO: la verdad que podría comprobar que fuera un archivo válido.
+        version = struct.unpack('>i', file.read(4))[0] # getInt32
+        num_defs = struct.unpack('>h', file.read(2))[0] # getInt16 # // should be 1
+        if version >= 2:
+            desc = SynthDesc()
+            desc.read_synthdef2(stream, keep_defs)
+        else:
+            desc = SynthDesc()
+            desc.read_synthdef(stream, keep_defs)
+        if keep_def: desc.sdef = sdef
+        if metadata: desc.metadata = metadata
+        self.changed('synthDescAdded', desc) # BUG: Object Dependancy, lo mismo que en add de esta clase.
+        return desc
 
 
 # TODO: Estas clases están ligadas a la arquitectura de Object en sclang.

@@ -11,6 +11,7 @@ import supercollie.utils as ut
 import supercollie.ugens as ug
 import supercollie.server as sv
 import supercollie.systemactions as sa
+import supercollie.dependancy as dp
 from . import synthdef as sd # cíclico
 
 
@@ -34,10 +35,10 @@ class IODesc():
 #
 # // to disable metadata read/write
 class AbstractMDPlugin():
-    pass
+    pass # TODO
 # // simple archiving of the dictionary
 class TextArchiveMDPlugin(AbstractMDPlugin):
-    pass
+    pass # TODO
 
 
 class SynthDesc():
@@ -387,7 +388,7 @@ class SynthDesc():
 
 
 @ut.initclass
-class SynthDescLib():
+class SynthDescLib(dp.Dependancy):
     def __init_class__(cls): # TODO: es para no poner código fuera de la definición, es equivalente a scalng
         cls.all = dict()
         cls.default = cls('global') # TODO era global en vez de default, pero el método default retornaba global. Es default, no global, el mismo patrón que server y client.
@@ -416,7 +417,7 @@ class SynthDescLib():
 
     def add(self, synth_desc):
         self.synth_descs[synth_desc.name] = synth_desc
-        self.changed('synthDescAdded', synth_desc) # BUG: Object Dependancy: changed/update/release/dependants/removeDependant/addDependant
+        self.dependancy_changed('synthDescAdded', synth_desc) # BUG: Object Dependancy: changed/update/release/dependants/removeDependant/addDependant
                                                    # No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
 
     def remove_at(self, name): # BUG: es remove_at porque es un diccionario, pero es interfaz de esta clase que oculta eso, ver qué problemas puede traer.
@@ -493,7 +494,7 @@ class SynthDescLib():
                 desc.sdef.metadata['shouldNotSend'] = True # BUG/TODO: los nombres en metadata tienen que coincidir con las convenciones de sclang... (?)
                 desc.sdef.metadata['loadPath'] = path
         for new_desc in result_set:
-            self.changed('synthDescAdded', new_desc); # BUG: Object Dependancy, lo mismo que en add de esta clase.
+            self.dependancy_changed('synthDescAdded', new_desc); # BUG: Object Dependancy, lo mismo que en add de esta clase.
         return result_set
 
     def read_desc_from_def(self, keep_def, sdef, metadata=None):
@@ -508,5 +509,5 @@ class SynthDescLib():
             desc.read_synthdef(stream, keep_defs)
         if keep_def: desc.sdef = sdef
         if metadata: desc.metadata = metadata
-        self.changed('synthDescAdded', desc) # BUG: Object Dependancy, lo mismo que en add de esta clase.
+        self.dependancy_changed('synthDescAdded', desc) # BUG: Object Dependancy, lo mismo que en add de esta clase.
         return desc

@@ -6,11 +6,12 @@ import struct
 import warnings
 
 import supercollie._global as _gl
-import supercollie.synthdef as sd # BUG: cíclico
 import supercollie.inout as scio
 import supercollie.utils as ut
 import supercollie.ugens as ug
 import supercollie.server as sv
+import supercollie.systemactions as sa
+from . import synthdef as sd # cíclico
 
 
 class IODesc():
@@ -394,7 +395,7 @@ class SynthDescLib():
         # // since this is done automatically, w/o user action,
         # // it should not try to do things that will cause warnings
         # // (or errors, if one of the servers is not local)
-        xxx.ServerBoot.add(lambda server: cls.send(server, False)) # BUG: falta implementar, y depende del orden de los imports # this.send(server, false) # this es la clase.
+        sa.ServerBoot.add(lambda server: cls.send(server, False)) # BUG: falta implementar, y depende del orden de los imports # this.send(server, false) # this es la clase.
 
     def __init__(self, name, servers=[]):
         self.name = name
@@ -418,7 +419,7 @@ class SynthDescLib():
         self.changed('synthDescAdded', synth_desc) # BUG: Object Dependancy: changed/update/release/dependants/removeDependant/addDependant
                                                    # No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
 
-    def remove(self, name): # BUG: era remove_at porque es un diccionario, pero es interfaz de esta clase que oculta eso, ver qué problemas puede traer.
+    def remove_at(self, name): # BUG: es remove_at porque es un diccionario, pero es interfaz de esta clase que oculta eso, ver qué problemas puede traer.
         self.synth_descs.pop(name) #, None) # BUG: igualmente self.servers es un set y tirar KeyError con remove
 
     def add_server(self, server):

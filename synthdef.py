@@ -23,6 +23,8 @@ import supercollie.inout as scio
 import supercollie._global as _gl
 import supercollie.utils as ut
 import supercollie.ugens as ug
+import supercollie.server as sv
+from . import synthdesc as ds # cíclico
 
 
 class SynthDef():
@@ -435,9 +437,9 @@ class SynthDef():
     def add(self, libname, completion_msg, keep_def=True):
         desc = self.as_synthdesc(libname or 'global', keep_def)
         if libname is None:
-            servers = xxx.Server.all_booted_servers() # BUG: namespace (posible dependencia cíclica)
+            servers = sv.Server.all_booted_servers() # BUG: no está probado o implementado
         else:
-            servers = xxx.SynthDescLib.get_lib(libname).servers # BUG: namespace (posible dependencia cíclica)
+            servers = ds.SynthDescLib.get_lib(libname).servers # BUG: no está probado
         for server in servers:
             self.do_send(server.value(), completion_msg(server)) # BUG: completion_msg no se usa/recibe en do_send # TODO: server.value retorna el nombre del servidor, pj. 'localhost' es el método de Object, sin embargo. Tendríá que cambiarlo a 'name'?
 
@@ -446,8 +448,8 @@ class SynthDef():
         stream = io.BytesIO(self.as_bytes()) # TODO: El problema es que esto depende de server.send_msg (interfaz osc)
         if libname is None:
             libname = 'global'
-        lib = xxx.SynthDescLib.get_lib(libname) # BUG: namespace (posible dependencia cíclica)
-        desc = lib.read_desc_from_def(stream, keep_def, self, self.metadata) # TODO
+        lib = ds.SynthDescLib.get_lib(libname) # BUG: no está probado
+        desc = lib.read_desc_from_def(stream, keep_def, self, self.metadata) # BUG: no está probado
         return desc
 
     # L587
@@ -561,7 +563,7 @@ class SynthDef():
     # L561
     @classmethod
     def remove_at(cls, name, libname='global'): # TODO: Este método lo debe usar en SynthDesc.sc. Ojo que hay mil métodos removeAt.
-        lib = SynthDescLib.get_lib(libname)
+        lib = ds.SynthDescLib.get_lib(libname)
         lib.remove_at(name)
         for server in lib.servers:
             server.value().send_msg('/d_free', name) # BUG: send_msg es método de String en sclang (!)

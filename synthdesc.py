@@ -257,19 +257,19 @@ class SynthDesc():
                     b = control.name
             lst.append(IODesc(rate, nchan, b, ugen_class))
 
-        if ugen_class.is_control_ugen(): # BUG: otra de esas cosas de sclang, AudioControl y Control implementan y devuelve True, Object devuelve False, además en Object es método de instancia y no de calse como en las otras.
+        if ugen_class.is_control_ugen(): # TODO, revisar protocolo: otra de esas cosas de sclang, AudioControl y Control implementan y devuelve True, Object devuelve False, además en Object es método de instancia y no de calse como en las otras.
             # // Control.newFromDesc does not set the specialIndex, since it doesn't call Control-init.
             # // Therefore we fill it in here:
             ugen.special_index = special_index
             for i in range(num_outputs):
                 self.controls[i+special_index].rate = rate
         else:
-            if ugen_class.is_input_ugen(): # BUG: implementan AbstractIn (true) y Object (false) ídem is_control_ugen()
+            if ugen_class.is_input_ugen(): # TODO, revisar protocolo: implementan AbstractIn (true) y Object (false) ídem is_control_ugen()
                 add_io(self.inputs, len(ugen.channels))
-            elif ugen_class.is_output_ugen(): # BUG: implementan AbstractOut (true) y Object (false) ídem is_control_ugen()
+            elif ugen_class.is_output_ugen(): # TODO, revisar protocolo: implementan AbstractOut (true) y Object (false) ídem is_control_ugen()
                 add_io(self.outputs, ugen.num_audio_channels())
             else:
-                self.can_free_synth = self.can_free_synth or ugen.can_free_synth() # BUG: también es una función implementadas por muchas ugens (true) y y Object (false). Es una propiedad solo en esta clase.
+                self.can_free_synth = self.can_free_synth or ugen.can_free_synth() # TODO, revisar protocolo: también es una función implementadas por muchas ugens (true) y y Object (false). Es una propiedad solo en esta clase.
 
     def make_msg_func(self):
         comma = False

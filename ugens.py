@@ -240,15 +240,6 @@ class UGen(fn.AbstractFunction):
     def dump_name(self):
         return str(self.synth_index) + '_' + self.name()
 
-    # def output_index(self): # es una propiedad de OutputProxy, es método constante acá. No tiene otra implementación en la librería estandar. Se usa solo UGen.writeInputSpec y SynthDesc.readUGenSpec se obtiene de las inputs.
-    #     return 0
-
-    def writes_to_bus(self): # la implementan algunas out ugens, se usa en SynthDesc.outputData
-        return False
-
-    # def is_ugen(self): # Object devuelve false, UGen, true. No se usa en ninguna parte, y no tiene sentido (se hace isinstance(esto, UGen))
-    #     return True
-
     # VER: por qué estas no están más arriba con las matemáticas y mezcladas
     # acá, porque de alguna manera se relacoinan porque crean ugens, aunque
     # son para debuguing de la definición de síntesis en el servidor.
@@ -392,6 +383,28 @@ class UGen(fn.AbstractFunction):
             self.synthdef.remove_ugen(self)
             return True
         return False
+
+    # Interfaz/protocolo de UGen
+
+    # TODO: REVISAR TODAS LAS CLASES Y EXT, ESTOS MÉTODOS SE USAN EN SynthDesc-read_ugen_spec2
+    @classmethod
+    def is_control_ugen(cls): # AudioControl y Control implementan y devuelve True, Object devuelve False, además en Object es método de instancia y no de clase como en las otras dos.
+        return False
+    @classmethod
+    def is_input_ugen(cls): # implementan AbstractIn (true) y Object (false) ídem is_control_ugen()
+        return False
+    @classmethod
+    def is_output_ugen(cls): # implementan AbstractOut (true) y Object (false) ídem is_control_ugen()
+        return False
+    # def is_ugen(self): # Object devuelve false, UGen, true. No se usa en ninguna parte, y no tiene sentido (se hace isinstance(esto, UGen))
+    #     return True
+    # def output_index(self): # es una propiedad de OutputProxy, es método constante acá. No tiene otra implementación en la librería estandar. Se usa solo UGen.writeInputSpec y SynthDesc.readUGenSpec se obtiene de las inputs.
+    #     return 0
+    def writes_to_bus(self): # la implementan algunas out ugens, se usa en SynthDesc.outputData
+        return False
+    def can_free_synth(self): # BUG: tiene ext canFreeSynth.sc y es método de instancia (BUG: lo usa EnvGen!). También es una función implementadas por muchas ugens (true), SequenceableCollection (revisa any), SynthDef (childre.canFreeSynth (seq col)) y Object (false). Es una propiedad solo en esta clase.
+        return False
+    # BUG: puede faltar algún otro que se use en otro lado.
 
 
 # OC: ugen which has no side effect and can therefore be considered for a dead code elimination

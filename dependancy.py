@@ -34,7 +34,7 @@ class Dependancy():
     def dependancy_changed(self, what, *args): # BUG: nombre chambiado de 'changed' para evitar posibles colisiones.
         """Notify the receiver's dependants that the receiver has changed.
         The object making the change should be passed as the changer."""
-        for item in Dependancy.dependants_dict[self]: # TODO: hace copy.do, copy es shallowCopy de Object, en otros lugares hace lo mismo, pero shallowCopy no copy los elementos sobre los que se itera.
+        for item in Dependancy.dependants_dict[self].copy(): # RECORDAR: siempre que hace copy.do es porque la colección sobre la que itera puede ser alterada por las operaciones de la iteración.
             item.update_dependant(self, what, *args)
 
     # // respond to a change in a model

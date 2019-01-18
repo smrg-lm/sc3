@@ -431,7 +431,7 @@ class SynthDef():
     # L549
     # OC: make SynthDef available to all servers
     def add(self, libname=None, completion_msg=None, keep_def=True):
-        #desc = self.as_synthdesc(libname or 'global', keep_def) # BUG: no la usa en sclang
+        self.as_synthdesc(libname or 'global', keep_def) # BUG: ya está, pero en sclang declara y no usa la variable desc. La cuestión es que este método hay que llamarlo para agregar la desc a la librería. Otra cosa confusa.
         if libname is None:
             servers = sv.Server.all_booted_servers() # BUG: no está probado o implementado
         else:
@@ -442,8 +442,7 @@ class SynthDef():
     # L645
     def as_synthdesc(self, libname='global', keep_def=True): # Subido, estaba abajo, lo usa add.
         stream = io.BytesIO(self.as_bytes()) # TODO: El problema es que esto depende de server.send_msg (interfaz osc)
-        if libname is None:
-            libname = 'global'
+        libname = libname or 'global'
         lib = ds.SynthDescLib.get_lib(libname) # BUG: no está probado
         desc = lib.read_desc_from_def(stream, keep_def, self, self.metadata) # BUG: no está probado
         return desc
@@ -541,22 +540,22 @@ class SynthDef():
                 for varname, pairs in self.variants.items():
                     varname = self.name + '.' + varname
                     if len(varname) > 32:
-                        msg = 'variant {} name too log, not writing more variants'
+                        msg = "variant '{}' name too log, not writing more variants"
                         warnings.warn(msg.format(varname))
                         return False
 
                     varcontrols = self.controls[:]
                     for cname, values in pairs.items():
                         if allcns_map.keys().isdisjoint([cname]):
-                            msg = 'variant: {} control: {} not found, not writing more variants'
-                            warnings.warn(msg.format(varname, cname))
+                            msg = "control '{}' of variant '{}' not found, not writing more variants"
+                            warnings.warn(msg.format(cname, varname))
                             return False
 
                         cn = allcns_map[cname]
                         values = ut.as_list(values)
                         if len(values) > len(ut.as_list(cn.default_value)):
-                            msg = 'variant: {} control: {} size mismatch, not writing more variants'
-                            warnings.warn(msg.format(varname, cname))
+                            msg = "control: '{}' of variant: '{}' size mismatch, not writing more variants"
+                            warnings.warn(msg.format(cname, varname))
                             return False
 
                         index = cn.index

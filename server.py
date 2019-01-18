@@ -102,8 +102,9 @@ class Server(object):
         return True # BUG! falta implementar StatusWatcher
 
     # L1110
-    def all_booted_server(self):
-        return [x for x in self.all if x.has_booted()]
+    @classmethod
+    def all_booted_servers(cls):
+        return [x for x in cls.all if x.has_booted()]
 
 
 class _ServerProcesses(object):

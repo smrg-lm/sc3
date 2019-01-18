@@ -52,6 +52,7 @@ class TextArchiveMDPlugin(AbstractMDPlugin):
 class SynthDesc():
     md_plugin = TextArchiveMDPlugin # // override in your startup file
     populate_metadata_func = lambda *args: None # BUG: aún no sé quién/cómo setea esta función
+                                                # BUG: VER SynthDescs and SynthDef metadata en SynthDesc.schelp
 
     def __init__(self):
         self.name = None
@@ -408,8 +409,9 @@ class SynthDescLib(dp.Dependancy):
 
     def __init__(self, name, servers=[]):
         self.name = name
+        self.all[name] = self
         self.synth_descs = dict()
-        self.servers = set(servers or [sv.Server.default])
+        self.servers = set(servers or [sv.Server.default]) # BUG: para esto hay que asegurarse que Server se inicialice antes, tal vez con un import en __init_class__
 
     @classmethod
     def get_lib(cls, libname):
@@ -422,6 +424,7 @@ class SynthDescLib(dp.Dependancy):
     # Todos los métodos duplicados entre instancia y clase se volvieron
     # solo de instancia. El atributo global pasó a ser default como en server
     # y client. Las llamadas se deben hacer a través de SynthDescLib.default.
+    # BUG: ESTO AFECTA LAS LLAMADAS A LA CLASE DESDE OTRAS CLASES.
 
     def add(self, synth_desc):
         self.synth_descs[synth_desc.name] = synth_desc
@@ -439,6 +442,7 @@ class SynthDescLib(dp.Dependancy):
 
     # Salvo anotación contraria, todos los métodos de clase no hacían
     # mas que llamar a global con el método de instancia.
+    # BUG: ESTO AFECTA LAS LLAMADAS A LA CLASE DESDE OTRAS CLASES.
     def at(self, name):
         return self.synth_descs[name]
 
@@ -505,17 +509,17 @@ class SynthDescLib(dp.Dependancy):
             self.dependancy_changed('synthDescAdded', new_desc); # BUG: Object Dependancy, lo mismo que en add de esta clase.
         return result_set
 
-    def read_desc_from_def(self, keep_def, sdef, metadata=None):
+    def read_desc_from_def(self, stream, keep_def, sdef, metadata=None):
         stream.read(4) # getInt32 // SCgf # TODO: la verdad que podría comprobar que fuera un archivo válido.
-        version = struct.unpack('>i', file.read(4))[0] # getInt32
-        num_defs = struct.unpack('>h', file.read(2))[0] # getInt16 # // should be 1
+        version = struct.unpack('>i', stream.read(4))[0] # getInt32 // version
+        num_defs = struct.unpack('>h', stream.read(2))[0] # getInt16 # // should be 1
         if version >= 2:
             desc = SynthDesc()
-            desc.read_synthdef2(stream, keep_defs)
+            desc.read_synthdef2(stream, keep_def)
         else:
             desc = SynthDesc()
-            desc.read_synthdef(stream, keep_defs)
+            desc.read_synthdef(stream, keep_def)
         if keep_def: desc.sdef = sdef
         if metadata: desc.metadata = metadata
         self.dependancy_changed('synthDescAdded', desc) # BUG: Object Dependancy, lo mismo que en add de esta clase.
-        return desc
+        return desc # BUG: esta función se usa para agregar las descs a la libreríá pero el valor de retorno no se usa en SynthDef-add. Ver el resto de la librería de clases.

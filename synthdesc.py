@@ -1,9 +1,10 @@
 """SynthDesc.sc"""
 
 import io
-import glob # import pathlib.Path no es necesario, sclang usa glob
 import struct
 import warnings
+import glob # sclang usa glob y glob se encarga de '*' (que no lista los archivos ocultos), hace str(path) para poder usar Path en la interfaz
+#from pathlib import Path # BUG: no se si es necesario, se usa cuando sd.SynthDef.synthdef_dir devuelve un objeto Path en SynthDescLib:read.
 
 import supercollie._global as _gl
 import supercollie.inout as scio
@@ -89,7 +90,7 @@ class SynthDesc():
     @classmethod
     def read(cls, path, keep_defs=False, dictionary=None):
         dictionary = dictionary or dict()
-        for filename in glob.glob(path):
+        for filename in glob.glob(str(path)):
             with open(filename, 'rb') as file:
                 dictionary = cls._read_file(file, keep_defs, dictionary)
         return dictionary
@@ -462,9 +463,9 @@ class SynthDescLib(dp.Dependancy):
 
     def read(self, path=None, keep_defs=True):
         if path is None:
-            path = sd.SynthDef.synthdef_dir + '/*.scsyndef' # BUG: los separadores del path, no está implementado en SynthDef tampoco.
+            path = sd.SynthDef.synthdef_dir + '*.scsyndef'
             # BUG: typo: sclang declara result y no la usa
-        for filename in glob.glob(path):
+        for filename in glob.glob(str(path)):
             with open(filename, 'rb') as file:
                 self.read_stream(file, keep_defs, filename)
 

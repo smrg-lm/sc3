@@ -10,6 +10,8 @@ Se encarga de:
     heredan de AbstractSystemAction: StartUp, ShutDown, ServerBoot, ServerTree,
     CmdPeriod y seguramente otras más.
 
+    Y MAIN, CLIENT PODDRÍA SER UN MIEMBRO DE MAIN QUE ADEMÁS TIENE PLATFORM!
+
     VER DOCUMENTACIÓN: 'OSC COMMUNICATION'
 """
 

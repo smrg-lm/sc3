@@ -24,18 +24,13 @@ import supercollie._global as _gl
 import supercollie.utils as ut
 import supercollie.ugens as ug
 import supercollie.server as sv
+import supercollie.platform as pt
 from . import synthdesc as ds # cíclico
 
 
 class SynthDef():
-    synthdef_dir = None
-    @classmethod
-    def synthdef_dir(cls, dir): # es setter, usar @property, además se llama desde *initClass
-        pass
-
-    @classmethod
-    def init_class(cls): # ver cuál es el equivalente en Python
-        pass
+    synthdef_dir = pt.Platform.user_app_support_dir() / 'synthdefs'
+    synthdef_dir.mkdir(exist_ok=True) # // Ensure exists
 
     #*new L35
     #rates y prependeargs pueden ser anotaciones de tipo, ver variantes y metadata, le constructor hace demasiado...
@@ -434,14 +429,14 @@ class SynthDef():
 
     # L549
     # OC: make SynthDef available to all servers
-    def add(self, libname, completion_msg, keep_def=True):
+    def add(self, libname=None, completion_msg=None, keep_def=True):
         desc = self.as_synthdesc(libname or 'global', keep_def)
         if libname is None:
             servers = sv.Server.all_booted_servers() # BUG: no está probado o implementado
         else:
             servers = ds.SynthDescLib.get_lib(libname).servers # BUG: no está probado
         for server in servers:
-            self.do_send(server.value(), completion_msg(server)) # BUG: completion_msg no se usa/recibe en do_send # TODO: server.value retorna el nombre del servidor, pj. 'localhost' es el método de Object, sin embargo. Tendríá que cambiarlo a 'name'?
+            self.do_send(server) # , completion_msg(server)) # BUG: completion_msg no se usa/recibe en do_send # BUG: no sé por qué usa server.value() en sclang
 
     # L645
     def as_synthdesc(self, libname='global', keep_def=True): # Subido, estaba abajo, lo usa add.
@@ -462,7 +457,7 @@ class SynthDef():
                 msg = 'SynthDef {} too big for sending. Retrying via synthdef file'
                 warnings.warn(msg.format(self.name))
                 self.write_def_file(self.synthdef_dir)
-                server.send_msg('/d_load', self.synthdef_dir + '/' + self.name + '.scsyndef') # BUG: ver el separador de Path, falta implementar. # BUG: , completionMsg)
+                server.send_msg('/d_load', str(self.synthdef_dir / (self.name + '.scsyndef')) # BUG: , completionMsg)
             else:
                 msg = 'SynthDef {} too big for sending'
                 warnings.warn(msg.format(self.name))
@@ -566,7 +561,7 @@ class SynthDef():
         lib = ds.SynthDescLib.get_lib(libname)
         lib.remove_at(name)
         for server in lib.servers:
-            server.value().send_msg('/d_free', name) # BUG: send_msg es método de String en sclang (!)
+            server.send_msg('/d_free', name) # BUG: no entiendo por qué usa server.value (que retorna el objeto server). Además, send_msg también es método de String en sclang lo que resulta confuso.
 
     # L570
     # OC: Methods for special optimizations.

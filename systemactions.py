@@ -14,7 +14,9 @@ class CmdPeriod(AbstractSystemAction):
 
 # // things to do after startup file executed
 class StartUp(AbstractSystemAction):
-    pass
+    @classmethod
+    def defer(cls, obj):
+        pass # BUG: TEST para probar SynthDef
 
 
 # // things to do before system shuts down

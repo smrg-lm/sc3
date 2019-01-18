@@ -36,7 +36,14 @@ class IODesc():
 #
 # // to disable metadata read/write
 class AbstractMDPlugin():
-    pass # TODO
+    @classmethod
+    def clear_metadata(cls):
+        pass # BUG: Falta implementar, es test para SynthDef write_def_after_startup
+    @classmethod
+    def write_metadata(cls):
+        pass # BUG: Falta implementar, es test para SynthDef write_def_after_startup, acá se llama en la función homónima de SynthDesc
+    # TODO: todo...
+
 # // simple archiving of the dictionary
 class TextArchiveMDPlugin(AbstractMDPlugin):
     pass # TODO
@@ -44,7 +51,7 @@ class TextArchiveMDPlugin(AbstractMDPlugin):
 
 class SynthDesc():
     md_plugin = TextArchiveMDPlugin # // override in your startup file
-    populate_metadata_func = None
+    populate_metadata_func = lambda *args: None # BUG: aún no sé quién/cómo setea esta función
 
     def __init__(self):
         self.name = None
@@ -362,12 +369,12 @@ class SynthDesc():
             self._msg_func_keep_gate = value
             self.make_msg_func()
 
-    def write_metadata(self, path, md_plugin): # BUG: no usar, no está implementado  # TODO: el nombre me resulta confuso en realación a lo que hace. En SynthDef writeDefFile y store llama a SynthDesc.populateMetadataFunc.value(desc) inmediatamente antes de esta función.
+    def write_metadata(self, path, md_plugin): # BUG falta MDPlugin # TODO: el nombre me resulta confuso en realación a lo que hace. En SynthDef writeDefFile y store llama a SynthDesc.populateMetadataFunc.value(desc) inmediatamente antes de esta función.
         if self.metadata is None:
             AbstractMDPlugin.clear_metadata(path)
             return
-        if md_plugin is None:
-            self.__class__.md_plugin.write_metadata(self.metadata, self.sdef, path)
+        md_plugin = md_plugin or self.md_plugin
+        md_plugin.write_metadata(self.metadata, self.sdef, path)
 
     # // parse the def name out of the bytes array sent with /d_recv
     @classmethod

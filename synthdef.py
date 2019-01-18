@@ -18,6 +18,7 @@ import inspect
 import warnings
 import io
 import struct
+import pathlib
 
 import supercollie.inout as scio
 import supercollie._global as _gl
@@ -430,7 +431,7 @@ class SynthDef():
     # L549
     # OC: make SynthDef available to all servers
     def add(self, libname=None, completion_msg=None, keep_def=True):
-        desc = self.as_synthdesc(libname or 'global', keep_def)
+        #desc = self.as_synthdesc(libname or 'global', keep_def) # BUG: no la usa en sclang
         if libname is None:
             servers = sv.Server.all_booted_servers() # BUG: no está probado o implementado
         else:
@@ -453,11 +454,11 @@ class SynthDef():
         if len(bytes) < (65535 // 4): # BUG: acá hace dividido 4, en clumpBundles hace > 20000, en bytes se puede mandar más, ver que hace scsynth.
             server.send_msg('/d_recv', bytes) # BUG: completion_msg) ninunga función send especifica ni documenta tener un completionMsg, tampco tiene efecto o sentido en las pruebas que hice
         else:
-            if server.is_local():
+            if server.is_local:
                 msg = 'SynthDef {} too big for sending. Retrying via synthdef file'
                 warnings.warn(msg.format(self.name))
                 self.write_def_file(self.synthdef_dir)
-                server.send_msg('/d_load', str(self.synthdef_dir / (self.name + '.scsyndef')) # BUG: , completionMsg)
+                server.send_msg('/d_load', str(self.synthdef_dir / (self.name + '.scsyndef'))) # BUG: , completionMsg)
             else:
                 msg = 'SynthDef {} too big for sending'
                 warnings.warn(msg.format(self.name))
@@ -474,7 +475,31 @@ class SynthDef():
                                              # return [bytes(x) for x in stream] ?? pero esto no funciona con io.BytesIO(stream)
 
     def write_def_file(self, dir, overwrite=True, md_plugin=None):
-        pass # BUG: falta implementar.
+        if ('shouldNotSend' not in self.metadata)\
+        or ('shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']) : # BUG: ver condición, sclang usa metadata.tryPerform(\at, \shouldNotSend) y tryPerform devuelve nil si el método no existe. Supongo que synthdef.metadata *siempre* tiene que ser un diccionario y lo único que hay que comprobar es que la llave exista y -> # si shouldNotSend no existe TRUE # si shouldNotSend existe y es falso TRUE # si shouldNotSend existe y es verdadero FALSO
+            dir = dir or SynthDef.synthdef_dir # TODO: ver indentación, parece que se puede pero tal vez no sea muy PEP8
+            dir = pathlib.Path(dir) # dir puede ser str
+            file_existed_before = pathlib.Path(dir / (self.name + '.scsyndef'))
+            self.write_def_after_startup(self.name, dir, overwrite)
+            if overwrite or not file_existed_before:
+                desc = self.as_synthdesc()
+                desc.metadata = self.metadata
+                ds.SynthDesc.populate_metadata_func(desc) # BUG: (populate_metadata_func) aún no sé quién asigna la función a esta propiedad
+                desc.write_metadata(dir / self.name, md_plugin) # BUG: No está implementada del todo, faltan dependencias.
+
+    def write_def_after_startup(self, name, dir, overwrite=True): # TODO/BUG/WHATDA, este método es sclang Object:writeDefFile
+        def defer_func():
+            if name is None:
+                raise Exception('missing SynthDef file name')
+            else:
+                name = pathlib.Path(dir / (name + '.scsyndef'))
+                if overwrite or not name.exists():
+                    with open(name, 'wb') as file:
+                        ds.AbstractMDPlugin.clear_metadata(name) # BUG: No está implementado
+                        write_def([self], file)
+        # // make sure the synth defs are written to the right path
+        StartUp.defer(defer_func) # BUG: No está implementada
+
     # TODO: VER también #*writeOnce arriba de todo, la variante de instancia llama a writeDefFile.
 
     def write_def(self, file):

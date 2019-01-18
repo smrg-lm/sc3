@@ -52,6 +52,7 @@ USOS SE PUEDE USAR liblo QUE ES DEPENDENCIA.
 """
 
 import ipaddress as _ipaddress
+import socket as _socket
 
 import liblo as _lo
 import supercollie.client as cl
@@ -66,7 +67,10 @@ class NetAddr():
 
     # es sclang new L009
     def __init__(self, hostname, port):
-        self._addr = int(_ipaddress.IPv4Address(hostname)) # tira error si la dirección es inválida
+        if hostname is None:
+            self._addr = 0 # Server:in_process
+        else:
+            self._addr = int(_ipaddress.IPv4Address(hostname)) # tira error si la dirección es inválida
         self._hostname = hostname # es @property y sincroniza self._addr y self._target al setearla.
         self._port = port # es @property y sincroniza self._target al setearla
         self._target = (hostname, port)
@@ -79,6 +83,10 @@ class NetAddr():
         self._addr = int(_ipaddress.IPv4Address(value))
         self._hostname = value
         self._target = (self._hostnane, self._port)
+
+    @property
+    def addr(self):
+        return self._addr
 
     @property
     def port(self):
@@ -96,6 +104,21 @@ class NetAddr():
     def client_port(cls):
         return cl.Client.default.port
 
+    @staticmethod
+    def match_lang_ip(ipstring):
+        #if _ipaddress.IPv4Address(self._addr).is_loopback: # sclang compara solo con 127.0.0.1 como loopback
+        if ipstring == '127.0.0.1':
+            return True
+        addr_info = _socket.getaddrinfo(_socket.gethostname(), None,\
+                                       _socket.AddressFamily.AF_INET) # TODO/BUG: prMatchLangIP en OSCData.cpp incluye AF_INET6 aunque SuperCollider no soporta IPv6
+        for item in addr_info:
+            if item[4][0] == ipstring:
+                return True
+        return False
+
+    def is_local(self):
+        self.match_lang_ip(self._hostname) # BUG? no sé por qué sclang calcula hostname con addr.asIPString que lo que hace es volver a hostsname...
+
     # @classmethod
     # def from_ip(cls, i32addr, port): # TODO: no le veo uso a este método en la lógica reducida de usar NetAddr como interfaz de Client.
     #     hostname = str(_ipaddress.IPv4Address(addr))
@@ -107,12 +130,8 @@ class NetAddr():
                # BUG: ver las repuestas de abajo en: https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib
 
     # @classmethod
-    # def match_lang_ip(cls, ipstring): # TODO: match_client_ip? simplemente dice si la dirección ip es la misma, en la misma máquina es 127.0.0.1
-    #     pass # BUG: primitiva # Este método es casi inecesario.
-
-    # @classmethod
     # def local_end_point(cls):
-    #     return cls(cls.client_ip(), cls.client_port()) # BUG: depende de client_ip
+    #     return cls(cls.client_ip(), cls.client_port()) # depende de client_ip
 
     # @classmethod
     # def disconnect_all(cls):
@@ -132,8 +151,8 @@ class NetAddr():
     # def send_status_msg(self): # TODO: esto es particular de la relación del cliente con el servidor
     #     cl.Client.default.send_msg('/status')
 
-    # def send_clumped_bundles(self, time, *args): # TODO: importante, lo usa para enviar paquetes muy grandes como stream, ver que hace liblo.
-    # def sync(self, condition, bundles, latency): # TODO: importante, es la fuente de s.sync
+    # def send_clumped_bundles(self, time, *args): # TODO: pasada a client, ver que hace liblo.
+    # def sync(self, condition, bundles, latency): # TODO: pasada a client, es la fuente de s.sync
     # def make_sync_responder(self, condition): # TODO: funciona en realción al método de arriba.
     # def is_connected(self): # tcp
     # def connect(self, disconnect_handler): # tcp
@@ -147,7 +166,6 @@ class NetAddr():
     # // Asymmetric: "that" may be nil or have nil port (wildcards)
     # def matches(self, that): # TODO: no sé qué es esto.
 
-    # def is_local(self): # { ^this.class.matchLangIP(this.ip) } # TODO: un poco obvio, ver para qué se usa.
     # def ip(self): # TODO: ^addr.asIPString, addr es Integer as_ip_string(int), ver por dónde usa addr como entero.
 
     # def has_bundle(self): # TODO: No lo entiendo.

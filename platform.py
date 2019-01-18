@@ -25,7 +25,8 @@ class Platform():
     def help_dir(self): pass # BUG: TODO: ver la manera Python.
     def user_home_dir(self): return Path('~').expanduser()
     def system_app_support_dir(self): pass
-    def user_app_support_dir(self): return Path('~/.local/share/SuperCollider').expanduser()
+    @staticmethod
+    def user_app_support_dir(): return Path('~/.local/share/SuperCollider').expanduser()
     def system_extension_dir(self): pass # Alla Python
     def user_extension_dir(self): pass # Alla Python
     def user_config_dir(self): pass

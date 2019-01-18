@@ -13,6 +13,11 @@ Se encarga de:
     Y MAIN, CLIENT PODDRÍA SER UN MIEMBRO DE MAIN QUE ADEMÁS TIENE PLATFORM!
 
     VER DOCUMENTACIÓN: 'OSC COMMUNICATION'
+
+    pickle PUEDE SER ÚTIL para guardar la instancia de client y que se
+    puedan ejecutar distintas instancias de python con el mismo cliente
+    sin tener que tener las sesiones andando en paralelo, e.g. para ejecutar
+    scripst por separado desde la terminal.
 """
 
 import threading as _threading

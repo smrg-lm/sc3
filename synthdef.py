@@ -33,6 +33,20 @@ class SynthDef():
     synthdef_dir = pt.Platform.user_app_support_dir() / 'synthdefs'
     synthdef_dir.mkdir(exist_ok=True) # // Ensure exists
 
+    @classmethod
+    def dummy(cls, name):
+        # TODO: VER. Es Object:*prNew. Se usa para SynthDesc:read_synthdef2
+        # // creates a new instance that can hold up to maxSize
+        # // indexable slots. the indexed size will be zero.
+        # // to actually put things in the object you need to
+        # // add them.
+        # https://stackoverflow.com/questions/6383914/is-there-a-way-to-instantiate-a-class-without-calling-init
+        # BUG: peligroso, ver el link de arriba. Tal vez sea mejor agregar un parámetro 'dummy' a __init__(). Aunque no hay herencia en este caso hay que ver qué cosas no se inicializan pero funcionan como propiedades necesarias.
+        # BUG: Aunque creo que sclang crea un objeto totalmente vacío, ver si lo métodos son 'slots', pero le pasa name como argumento y en object prNew arg es maxSize = 0.
+        obj = cls.__new__(cls)
+        obj.name = name # BUG: tengo que ver qué hace realmente prNew con el parámetro name, parece que no lo usa...
+        return obj      # BUG: haciendo d = SynthDef.prNew("nombre"); d.dump; el valor "nombre" no está asignado a name, parece que sí crea los slots de las variables de instancia y le asigna el valor por defecto a d = SynthDef.prNew("nombre"), el resto es nil.
+
     #*new L35
     #rates y prependeargs pueden ser anotaciones de tipo, ver variantes y metadata, le constructor hace demasiado...
     def __init__(self, name, graph_func, rates=[], # ALGO HABÍA LEIDO SOBRE NO PONER ALGO POR DEFECTO Y CHECKAR NONE

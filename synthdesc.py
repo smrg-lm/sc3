@@ -146,7 +146,7 @@ class SynthDesc():
                 aux_string = stream.read(aux_str_len) # getPascalString 02
                 self.name = str(aux_string, 'ascii') # getPascalString 03
 
-                self.sdef = sd.SynthDef.dummy() # BUG: es dummy y se va llenando acá pero no se puede llamar a __init__ porque este llama a _build
+                self.sdef = sd.SynthDef.dummy(self.name) # BUG: Server:prNew es objeto vacía, dummy, y se va llenando acá pero no se puede llamar a __init__ porque este llama a _build
                 _gl.current_synthdef = self.sdef
 
                 num_constants = struct.unpack('>i', stream.read(4))[0] # getInt32
@@ -217,7 +217,8 @@ class SynthDesc():
         aux_string = stream.read(aux_str_len) # getPascalString 02
         ugen_class = str(aux_string, 'ascii') # getPascalString 03
         try:
-            ugen_class = eval(ugen_class) # globals=None, locals=None) BUG: falta el contexto en el cuál buscar
+            ugen_class = eval(ugen_class) # BUG: globals=None, locals=None) BUG: falta el contexto en el cuál buscar
+                                          # BUG: tendría que poder buscar una clase en las librerías e importar solo de ese módulo.
         except NameError as e:
             msg = 'no UGen class found for {} which was specified in synth def file: {}'
             raise Exception(msg.format(ugen_class, self.name)) from e

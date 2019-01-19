@@ -21,8 +21,13 @@ class ControlName():
     def num_channels(self):
         return len(ut.as_list(self.default_value))
 
-    def print_on(self, stream):
-        pass # TODO: VER, este método es de la librería de clases, define la representación para imprimir, acá puede que sea repr?
+    #def print_on(self, stream):
+    def __repr__(self):
+        repr = 'ControlName P ' + str(self.index)
+        if self.name: repr += ' ' + self.name
+        if self.rate: repr += ' ' + self.rate
+        if self.default_value: repr += ' ' + str(self.default_value)
+        return repr
 
 
 class Control(ug.MultiOutUGen):

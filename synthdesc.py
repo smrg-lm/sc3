@@ -6,6 +6,8 @@ import warnings
 import glob # sclang usa glob y glob se encarga de '*' (que no lista los archivos ocultos), hace str(path) para poder usar Path en la interfaz
 #from pathlib import Path # BUG: no se si es necesario, se usa cuando sd.SynthDef.synthdef_dir devuelve un objeto Path en SynthDescLib:read.
 
+import supercollie._hackprovisorio_borrar as _hkpb
+
 import supercollie._global as _gl
 import supercollie.inout as scio
 import supercollie.utils as ut
@@ -23,10 +25,13 @@ class IODesc():
         self.starting_channel = starting_channel or '?'
         self.type = type
 
-    def print_on(self, stream: io.StringIO):
-        txt = str(self.rate) + ' ' + self.type.name + ' '\
-              + self.starting_channel + ' ' + self.num_channels
-        stream.write(txt)
+    #def print_on(self, stream: io.StringIO):
+    def __repr__(self):
+        repr = str(self.rate) + ' '
+        repr += self.type.__name__ + ' '
+        repr += str(self.starting_channel) + ' '
+        repr += str(self.num_channels)
+        return repr
 
 
 # TODO: Estas clases están ligadas al protocolo Archiving de Object.sc (L800).
@@ -79,20 +84,16 @@ class SynthDesc():
     def send(self, server): #, completion_msg): # BUG: ver completion_msg que no se usa o recibe. Tal vez tenga que mirar a más bajo nivel, pero las funciones send_msg/bundle osc no tienen esa lógica.
         self.sdef.send(server) #, completion_msg) # parece ser una instancia de SynthDef
 
-    def print_on(self, stream: io.StringIO):
-        txt = "SynthDesc '" + self.name + "'\nControls:\n"
-        stream.write(txt)
+    #def print_on(self, stream: io.StringIO):
+    def __repr__(self):
+        repr = "SynthDesc '" + self.name + "'\nControls:\n"
         for control in self.controls:
-            control.print_on(stream)
-            stream.write('\n')
+            repr += control.__repr__() + '\n'
         for input in self.inputs:
-            stream.write('    I ')
-            input.print_on(stream)
-            stream.write('\n')
+            repr += '    I ' + input.__repr__() + '\n'
         for output in self.outputs:
-            stream.write('    O ')
-            output.print_on(stream)
-            stream.write('\n')
+            repr += '    O ' + output.__repr__()
+        return repr
 
     # // don't use *read or *readFile to read into a SynthDescLib. Use SynthDescLib:read or SynthDescLib:readStream instead
     @classmethod
@@ -146,7 +147,7 @@ class SynthDesc():
                 aux_string = stream.read(aux_str_len) # getPascalString 02
                 self.name = str(aux_string, 'ascii') # getPascalString 03
 
-                self.sdef = sd.SynthDef.dummy(self.name) # BUG: Server:prNew es objeto vacía, dummy, y se va llenando acá pero no se puede llamar a __init__ porque este llama a _build
+                self.sdef = sd.SynthDef.dummy(self.name) # BUG: Object:prNew es objeto vacío, dummy, y se va llenando acá pero no se puede llamar a __init__ porque este llama a _build
                 _gl.current_synthdef = self.sdef
 
                 num_constants = struct.unpack('>i', stream.read(4))[0] # getInt32
@@ -217,10 +218,9 @@ class SynthDesc():
         aux_string = stream.read(aux_str_len) # getPascalString 02
         ugen_class = str(aux_string, 'ascii') # getPascalString 03
         try:
-            ugen_class = eval(ugen_class) # BUG: globals=None, locals=None) BUG: falta el contexto en el cuál buscar
-                                          # BUG: tendría que poder buscar una clase en las librerías e importar solo de ese módulo.
+            ugen_class = _hkpb.installed_ugens[ugen_class] # Resuelto con hkpb por ahora, algo así no mucho más está bien. # eval(ugen_class) # BUG: globals=None, locals=None) BUG: falta el contexto en el cuál buscar. Tendría que poder buscar una clase en las librerías e importar solo de ese módulo.
         except NameError as e:
-            msg = 'no UGen class found for {} which was specified in synth def file: {}'
+            msg = "no UGen class found for '{}' which was specified in synth def file: {}"
             raise Exception(msg.format(ugen_class, self.name)) from e
 
         rate_index = struct.unpack('b', stream.read(1))[0] # getInt8
@@ -233,7 +233,7 @@ class SynthDesc():
         input_specs = list(aux_i32) # read Int32Array 03
 
         aux_i8 = stream.read(num_outputs) # read Int8Array 01
-        aux_i8 = struct.unpack('b' * num_outpus, aux_i8) # read Int8Array 02
+        aux_i8 = struct.unpack('b' * num_outputs, aux_i8) # read Int8Array 02
         output_specs = list(aux_i8) # read Int8Array 03
 
         ugen_inputs = []
@@ -250,9 +250,9 @@ class SynthDesc():
                     input = ugen
             ugen_inputs.append(input)
 
-        rate = ['scalar', 'control', 'audio'][rateIndex]
-        ugen = ugen_class.new_from_desc(rate, num_outputs, ugen_inputs, special_index) # BUG: implementar UGen.new_from_desc, está comentada.
-        if isinstance(input, ug.OutputProxy):
+        rate = ['scalar', 'control', 'audio'][rate_index]
+        ugen = ugen_class.new_from_desc(rate, num_outputs, ugen_inputs, special_index)
+        if isinstance(ugen, ug.OutputProxy):
             ugen = ugen.source_ugen # BUG: esta propiedad se llama source en sclang y la implementan todas las clases pero solo se usa para OutputProxy. Comentarios en UGen.init_topo_sort
         ugen.add_to_synth() # BUG: vaya a saber uno por qué en el código original se pasa a si mismo como parámetro si addToSynth no recibe en ninguna implementación, esto es porque sclang ignora los argumentos demás.
 
@@ -328,8 +328,8 @@ class SynthDesc():
                         string += name
                         names += 1
                 else:
-                    if name[1] == '_':
-                        name2 = name[2:]
+                    if len(name) > 2 and name[1] == '_':
+                        name2 = name[2:] # BUG: en sclang, no comprueba len, los índices y name2 puede ser un string vacío: x = "a_"[2..]; x.size == 0
                     else:
                         name2 = name
                     if comma:
@@ -342,17 +342,17 @@ class SynthDesc():
 
         comma = False
 
-        string += '    x_' + suffix + ' = []'
+        string += '    x_' + suffix + ' = []\n'
         for i, cname in enumerate(self.controls):
             name = cname.name
             if name != '?':
                 if self.msg_func_keep_gate or name != 'gate':
-                    if name[1] == '_':
-                        name2 = name[2:]
+                    if len(name) > 2 and name[1] == '_':
+                        name2 = name[2:] # BUG: en sclang, no comprueba len, los índices y name2 puede ser un string vacío: x = "a_"[2..]; x.size == 0
                     else:
                         name2 = name
-                    string += '    if ' + name2 + ':'
-                    string += '        x_' + suffix + '.append(' + name + ')'
+                    string += '    if ' + name2 + ':\n'
+                    string += '        x_' + suffix + '.append(' + name + ')\n'
                     string += '        x_' + suffix + '.append(' + name2 + ')\n'
                     names += 1
         string += '    x_' + suffix + '\n'
@@ -428,6 +428,7 @@ class SynthDescLib(dp.Dependancy):
     # BUG: ESTO AFECTA LAS LLAMADAS A LA CLASE DESDE OTRAS CLASES.
 
     def add(self, synth_desc):
+        print('***************def add(self, synth_desc):', self, synth_desc)
         self.synth_descs[synth_desc.name] = synth_desc
         self.dependancy_changed('synthDescAdded', synth_desc) # BUG: Object Dependancy: changed/update/release/dependants/removeDependant/addDependant
                                                    # No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
@@ -522,5 +523,6 @@ class SynthDescLib(dp.Dependancy):
             desc.read_synthdef(stream, keep_def)
         if keep_def: desc.sdef = sdef
         if metadata: desc.metadata = metadata
+        self.synth_descs[desc.name] = desc
         self.dependancy_changed('synthDescAdded', desc) # BUG: Object Dependancy, lo mismo que en add de esta clase.
         return desc # BUG: esta función se usa para agregar las descs a la libreríá pero el valor de retorno no se usa en SynthDef-add. Ver el resto de la librería de clases.

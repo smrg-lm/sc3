@@ -43,9 +43,32 @@ class SynthDef():
         # https://stackoverflow.com/questions/6383914/is-there-a-way-to-instantiate-a-class-without-calling-init
         # BUG: peligroso, ver el link de arriba. Tal vez sea mejor agregar un parámetro 'dummy' a __init__(). Aunque no hay herencia en este caso hay que ver qué cosas no se inicializan pero funcionan como propiedades necesarias.
         # BUG: Aunque creo que sclang crea un objeto totalmente vacío, ver si lo métodos son 'slots', pero le pasa name como argumento y en object prNew arg es maxSize = 0.
+        # BUG: tengo que ver qué hace realmente prNew con el parámetro name, parece que no lo usa...
+        # BUG: haciendo d = SynthDef.prNew("nombre"); d.dump; el valor "nombre" no está asignado a name, parece que sí crea los slots de las variables de instancia y le asigna el valor por defecto a d = SynthDef.prNew("nombre"), el resto es nil.
+        # ***** LE AGREGUÉ TODAS LAS PROPIEDADES, EN tODO CASO QUEDA IGUAL A UN OBJETO VACÍO (tener en cuenta que no hereda) ***
         obj = cls.__new__(cls)
-        obj.name = name # BUG: tengo que ver qué hace realmente prNew con el parámetro name, parece que no lo usa...
-        return obj      # BUG: haciendo d = SynthDef.prNew("nombre"); d.dump; el valor "nombre" no está asignado a name, parece que sí crea los slots de las variables de instancia y le asigna el valor por defecto a d = SynthDef.prNew("nombre"), el resto es nil.
+
+        obj.name = name
+        obj.func = None
+        obj.variants = dict()
+        obj.metadata = dict()
+        obj.desc = None
+
+        obj.controls = None
+        obj.control_names = []
+        obj.all_control_names = []
+        obj.control_index = 0
+        obj.children = []
+
+        obj.constants = dict()
+        obj.constant_set = set()
+        obj.max_local_bufs = None
+
+        obj.available = []
+        obj._width_first_ugens = []
+        obj._rewrite_in_progress = False
+
+        return obj
 
     #*new L35
     #rates y prependeargs pueden ser anotaciones de tipo, ver variantes y metadata, le constructor hace demasiado...
@@ -55,7 +78,7 @@ class SynthDef():
         self.func = graph_func # la inicializa en build luego de finishBuild
         self.variants = variants # # TODO: comprobar tipo, no es un valor que se genere internamente. No sé por qué está agrupada como propiedad junto con las variables de topo sort
         self.metadata = metadata
-        #self.desc # *** Aún no vi dónde inicializa
+        self.desc = None # *** Aún no vi dónde inicializa
 
         self.controls = None # [] es un array pero por defecto es nil # TODO: puede haber problema porque nil.add se relaciona en comportamiento con asArray. # inicializa en initBuild, esta propiedad la setean las ugens mediante _gl.current_synthdef agregando controles
         self.control_names = [] # en sclang se inicializan desde nil en addControlNames, en Python tienen que estar acá porque se pueden llamar desde wrap
@@ -445,11 +468,11 @@ class SynthDef():
     # L549
     # OC: make SynthDef available to all servers
     def add(self, libname=None, completion_msg=None, keep_def=True):
-        self.as_synthdesc(libname or 'global', keep_def) # BUG: ya está, pero en sclang declara y no usa la variable desc. La cuestión es que este método hay que llamarlo para agregar la desc a la librería. Otra cosa confusa.
+        self.as_synthdesc(libname or 'global', keep_def) # BUG: puede que sea self.desc que parece que no se usa? en sclang declara y no usa la variable local desc. La cuestión es que este método hay que llamarlo para agregar la desc a la librería. Otra cosa confusa.
         if libname is None:
             servers = sv.Server.all_booted_servers() # BUG: no está probado o implementado
         else:
-            servers = ds.SynthDescLib.get_lib(libname).servers # BUG: no está probado
+            servers = ds.SynthDescLib.get_lib(libname).servers
         for server in servers:
             self.do_send(server) # , completion_msg(server)) # BUG: completion_msg no se usa/recibe en do_send # BUG: no sé por qué usa server.value() en sclang
 

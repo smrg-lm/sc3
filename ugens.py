@@ -46,9 +46,13 @@ class UGen(fn.AbstractFunction):
         obj.add_to_synth()
         return obj.init_ugen(*args) # OJO: en sclang es init, init_ugen es mejor acá porque tiene que retornar el valor adecuado, siempre.
 
-    # @classmethod
-    # def new_from_desc(cls, rate, numOutputs, inputs, specialIndex):
-    #     pass
+    @classmethod
+    def new_from_desc(cls, rate, num_outputs, inputs, special_index):
+        obj = cls()
+        obj.rate = rate
+        obj.inputs = tuple(inputs)
+        obj.special_index = special_index
+        return obj
 
     @classmethod
     def multi_new(cls, *args): # VER: No entiendo para qué sirve este método que solo envuelve a multi_new_list. multi_new_list es 'como de' más bajo nivel, o es una implementación o tiene que ver con cómo se pueden pasar los argumentos, o no lo sé.
@@ -435,8 +439,12 @@ class MultiOutUGen(UGen):
         del self._synth_index
 
     @classmethod
-    def new_from_desc(cls, rate, num_outputs, inputs): # TODO
-        pass
+    def new_from_desc(cls, rate, num_outputs, inputs, special_index=None):
+        obj = cls()
+        obj.rate = rate
+        obj.inputs = inputs
+        obj.init_outputs(num_outputs, rate)
+        return obj
 
     def init_outputs(self, num_channels, rate):
         if not num_channels or num_channels < 1:

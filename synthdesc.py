@@ -401,7 +401,7 @@ class SynthDesc():
 class SynthDescLib(dp.Dependancy):
     def __init_class__(cls): # TODO: es para no poner código fuera de la definición, es equivalente a scalng
         cls.all = dict()
-        cls.default = cls('global') # TODO era global en vez de default, pero el método default retornaba global. Es default, no global, el mismo patrón que server y client.
+        cls.default = cls('global') # BUG era global en vez de default, pero el método default retornaba global. Es default, no global, el mismo patrón que server y client.
         # // tryToLoadReconstructedDefs = false:
         # // since this is done automatically, w/o user action,
         # // it should not try to do things that will cause warnings
@@ -476,7 +476,7 @@ class SynthDescLib(dp.Dependancy):
 
     def read(self, path=None, keep_defs=True):
         if path is None:
-            path = sd.SynthDef.synthdef_dir + '*.scsyndef'
+            path = sd.SynthDef.synthdef_dir / '*.scsyndef'
             # BUG: typo: sclang declara result y no la usa
         for filename in glob.glob(str(path)):
             with open(filename, 'rb') as file:

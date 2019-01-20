@@ -201,7 +201,7 @@ class SynthDef():
     def _apply_metadata_specs(self, names, values):
         # no veo una forma conscisa como en sclang
         new_values = []
-        if self.metadata and 'specs' in self.metadata:
+        if 'specs' in self.metadata:
             specs = self.metadata['specs']
             for i, value in enumerate(values):
                 if value is not None:
@@ -489,7 +489,7 @@ class SynthDef():
     def do_send(self, server): #, completion_msg): # BUG: parece que no existe un argumento que reciba completionMsg
         bytes = self.as_bytes()
         if len(bytes) < (65535 // 4): # BUG: acá hace dividido 4, en clumpBundles hace > 20000, en bytes se puede mandar más, ver que hace scsynth.
-            server.send_msg('/d_recv', bytes) # BUG: completion_msg) ninunga función send especifica ni documenta tener un completionMsg, tampco tiene efecto o sentido en las pruebas que hice
+            server.send_msg('/d_recv', bytes) # BUG: completion_msg) ninunga función send especifica ni documenta parece tener un completionMsg, tampoco tiene efecto o sentido en las pruebas que hice
         else:
             if server.is_local:
                 msg = 'SynthDef {} too big for sending. Retrying via synthdef file'
@@ -516,7 +516,7 @@ class SynthDef():
         or ('shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']) : # BUG: ver condición, sclang usa metadata.tryPerform(\at, \shouldNotSend) y tryPerform devuelve nil si el método no existe. Supongo que synthdef.metadata *siempre* tiene que ser un diccionario y lo único que hay que comprobar es que la llave exista y -> # si shouldNotSend no existe TRUE # si shouldNotSend existe y es falso TRUE # si shouldNotSend existe y es verdadero FALSO
             dir = dir or SynthDef.synthdef_dir # TODO: ver indentación, parece que se puede pero tal vez no sea muy PEP8
             dir = pathlib.Path(dir) # dir puede ser str
-            file_existed_before = pathlib.Path(dir / (self.name + '.scsyndef'))
+            file_existed_before = pathlib.Path(dir / (self.name + '.scsyndef')).exist()
             self.write_def_after_startup(self.name, dir, overwrite)
             if overwrite or not file_existed_before:
                 desc = self.as_synthdesc()
@@ -628,24 +628,88 @@ class SynthDef():
             server.send_msg('/d_free', name) # BUG: no entiendo por qué usa server.value (que retorna el objeto server). Además, send_msg también es método de String en sclang lo que resulta confuso.
 
     # L570
-    # OC: Methods for special optimizations.
-    # OC: Only send to servers.
-    #send
-    # OC: Send to server and write file.
-    #load
-    # OC: Write to file and make synth description.
-    #store
+    # // Methods for special optimizations
+
+    # // Only send to servers.
+    def send(self, server=None): # BUG: completion_msg) ninunga función send especifica ni documenta parece tener un completionMsg, tampoco tiene efecto o sentido en las pruebas que hice
+        servers = ut.as_list(server or sv.Server.all_booted_servers()) # BUG: no está probado o implementado
+        for each in servers:
+            if not each.has_booted(): # BUG: no está implementada, creo.
+                msg = "Server '{}' not running, could not send SynthDef"
+                warnings.warn(msg.format(each.name)) # BUG en sclang: imprime server.name en vez de each.name
+            if 'shouldNotSend' in self.metadata and self.metadata['shouldNotSend']:
+                self._load_reconstructed(each) # BUG: completion_msg)
+            else:
+                self.do_send(each) # BUG: completion_msg)
 
     # L653
-    # OC: This method warns and does not halt because
-    # loading existing def from disk is a viable
-    # alternative to get the synthdef to the server.
-    #loadReconstructed
+    # // This method warns and does not halt because
+    # // loading existing def from disk is a viable
+    # // alternative to get the synthdef to the server.
+    def _load_reconstructed(self, server): # *** BUG: completion_msg) ninunga función send especifica ni documenta parece tener un completionMsg, tampoco tiene efecto o sentido en las pruebas que hice
+        msg = "SynthDef '{}' was reconstructed from a .scsyndef file, "
+        msg += "it does not contain all the required structure to send back to the server"
+        warnings.warn(msg.format(self.name))
+        if server.is_local():
+            msg = "loading from disk instead for Server '{}'"
+            warnings.warn(msg.format(server))
+            bundle = ['/d_load', self.metadata['loadPath']] # BUG: completion_msg] # BUG: completion_msg) *** ACÁ SE USA COMPLETION_MSG ***
+            server.send_bundle(None, bundle)
+        else:
+            msg = "Server '{}' is remote, cannot load from disk"
+            raise Exception(msg.format(server))
 
-    # OC: This method needs a reconsideration
-    #storeOnce
+    # // Send to server and write file.
+    def load(self, server, completion_msg, dir=None): # *** BUG: completion_msg, parámetro intermedio
+        server = server or sv.Server.default
+        if 'shouldNotSend' in self.metadata and self.metadata['shouldNotSend']:
+            self._load_reconstructed(server) # BUG: completion_msg)
+        else:
+            # // should remember what dir synthDef was written to
+            dir = dir or SynthDef.synthdef_dir
+            dir = pathlib.Path(dir)
+            self.write_def_file(dir)
+            server.send_msg('/d_load', str(dir / (self.name + '.scsyndef'))) # BUG: completion_msg) tendría que ver cómo es que se usa acá, no parece funcionar en sclang pero es un msj osc... (?)
 
-    #play
+    # L615
+    # // Write to file and make synth description.
+    def store(self, libname='global', dir=None, completion_msg=None, md_plugin=None): # *** BUG: completion_msg, parámetro intermedio
+        lib = ds.SynthDescLib.get_lib(libname)
+        dir = dir or SynthDef.synthdef_dir
+        dir = pathlib.Path(dir)
+        path = dir / (self.name + '.scsyndef')
+        if 'shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']:
+            with open(path, 'wb') as file:
+                write_def([self], file)
+            lib.read(path)
+            for server in lib.servers:
+                self.do_send(server) # BUG: server.value y completion_msg
+            desc = lib.at(self.name)
+            desc.metadata = self.metadata
+            ds.SynthDesc.populate_metadata_func(desc) # BUG: (populate_metadata_func) aún no sé quién asigna la función a esta propiedad
+            desc.write_metadata(path, md_plugin)
+        else:
+            lib.read(path)
+            for server in lib.servers:
+                self._load_reconstructed(server) # BUG: completion_msg)
+
+    # L670
+    # // This method needs a reconsideration
+    def store_once(self, libname='global', dir=None, completion_msg=None, md_plugin=None): # *** BUG: completion_msg, parámetro intermedio
+        dir = dir or SynthDef.synthdef_dir
+        dir = pathlib.Path(dir)
+        path = dir / (self.name + '.scsyndef')
+        if not path.exists():
+            self.store(libname, dir, completion_msg, md_plugin)
+        else:
+            # // load synthdesc from disk
+            # // because SynthDescLib still needs to have the info
+            lib = ds.SynthDescLib.get_lib(libname)
+            lib.read(path)
+
+    # L683
+    def play(self, target, args, add_action='addToHead'):
+        raise Exception('SynthDef.play no está implementada') # BUG: esta función de deprecated y des-deprecated
 
 
 # Collection SynthDef support.

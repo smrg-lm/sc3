@@ -26,12 +26,12 @@ class IODesc():
         self.type = type
 
     #def print_on(self, stream: io.StringIO):
-    def __repr__(self):
-        repr = str(self.rate) + ' '
-        repr += self.type.__name__ + ' '
-        repr += str(self.starting_channel) + ' '
-        repr += str(self.num_channels)
-        return repr
+    def __str__(self):
+        string = str(self.rate) + ' '
+        string += self.type.__name__ + ' '
+        string += str(self.starting_channel) + ' '
+        string += str(self.num_channels)
+        return string
 
 
 # TODO: Estas clases están ligadas al protocolo Archiving de Object.sc (L800).
@@ -85,15 +85,15 @@ class SynthDesc():
         self.sdef.send(server) #, completion_msg) # parece ser una instancia de SynthDef
 
     #def print_on(self, stream: io.StringIO):
-    def __repr__(self):
-        repr = "SynthDesc '" + self.name + "'\nControls:\n"
+    def __str__(self):
+        string = "SynthDesc '" + self.name + "'\nControls:\n"
         for control in self.controls:
-            repr += control.__repr__() + '\n'
+            string += control.__str__() + '\n'
         for input in self.inputs:
-            repr += '    I ' + input.__repr__() + '\n'
+            string += '    I ' + input.__str__() + '\n'
         for output in self.outputs:
-            repr += '    O ' + output.__repr__()
-        return repr
+            string += '    O ' + output.__str__()
+        return string
 
     # // don't use *read or *readFile to read into a SynthDescLib. Use SynthDescLib:read or SynthDescLib:readStream instead
     @classmethod

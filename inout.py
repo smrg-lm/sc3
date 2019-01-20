@@ -22,12 +22,12 @@ class ControlName():
         return len(ut.as_list(self.default_value))
 
     #def print_on(self, stream):
-    def __repr__(self):
-        repr = 'ControlName P ' + str(self.index)
-        if self.name is not None: repr += ' ' + self.name
-        if self.rate is not None: repr += ' ' + self.rate
-        if self.default_value is not None: repr += ' ' + str(self.default_value)
-        return repr
+    def __str__(self):
+        string = 'ControlName P ' + str(self.index)
+        if self.name is not None: string += ' ' + self.name
+        if self.rate is not None: string += ' ' + self.rate
+        if self.default_value is not None: string += ' ' + str(self.default_value)
+        return string
 
 
 class Control(ug.MultiOutUGen):

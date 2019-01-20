@@ -75,16 +75,16 @@ class SynthDef():
     def __init__(self, name, graph_func, rates=[], # ALGO HABÍA LEIDO SOBRE NO PONER ALGO POR DEFECTO Y CHECKAR NONE
                 prepend_args=[], variants={}, metadata={}): # rates y prepend args pueden ser anotaciones, prepargs puede ser un tipo especial en las anotaciones, o puede ser otro decorador?
         self.name = name
-        self.func = graph_func # la inicializa en build luego de finishBuild
-        self.variants = variants # # TODO: comprobar tipo, no es un valor que se genere internamente. No sé por qué está agrupada como propiedad junto con las variables de topo sort
+        self.func = None # la inicializa en build luego de finishBuild de lo contrario no funciona wrap
+        self.variants = variants # # BUG: comprobar tipo, no es un valor que se genere internamente. No sé por qué está agrupada como propiedad junto con las variables de topo sort
         self.metadata = metadata
         self.desc = None # *** Aún no vi dónde inicializa
 
-        self.controls = None # [] es un array pero por defecto es nil # TODO: puede haber problema porque nil.add se relaciona en comportamiento con asArray. # inicializa en initBuild, esta propiedad la setean las ugens mediante _gl.current_synthdef agregando controles
+        #self.controls = None # inicializa en initBuild, esta propiedad la setean las ugens mediante _gl.current_synthdef agregando controles
         self.control_names = [] # en sclang se inicializan desde nil en addControlNames, en Python tienen que estar acá porque se pueden llamar desde wrap
         self.all_control_names = [] # en sclang se inicializan desde nil en addControlNames
-        self.control_index = 0 # lo inicializa cuando declara la propiedad y lo reinicializa al mismo valor en initBuild, no sé por qué porque wrap salta a después de initBuild, este valor lo incrementan las ugen, e.g. audiocontrol
-        self.children = [] # Array.new(64) # esta probablemente sea privada? pero se usa para ping pong
+        self.control_index = 0 # lo inicializa cuando declara la propiedad y lo reinicializa al mismo valor en initBuild
+        self.children = [] # Array.new(64) # esta probablemente sea privada pero se usa para ping pong
 
         #self.constants = dict() # inicializa en initBuild
         #self.constant_set = set() # inicializa en initBuild
@@ -93,11 +93,11 @@ class SynthDef():
         # topo sort
         self.available = [] # la inicializan las ugens con .makeAvailable() creando el array desde nil, initTopoSort la vuelve a nil.
         self._width_first_ugens = [] # se puebla desde nil con WidthFirstUGen.addToSynth (solo para IFFT)
-        self._rewrite_in_progress = False # = None, la inicializa a True en optimizeGraph L472 y luego la vuelve a nil, debe ser privada, tal vez sea major False?
+        self._rewrite_in_progress = False # = la inicializa a True en optimizeGraph L472 y luego la vuelve a nil, pero es mejor que sea false por los 'if'
 
         self._build(graph_func, rates, prepend_args)
 
-    # este es un método especial en varios tipos de clases tengo
+    # BUG: este es un método especial en varios tipos de clases tengo
     # que ver cuál es el alcance global dentro de la librería,
     # tal vez sea para serialización, no se usa en SynthDef/UGen.
     #def store_args(self):
@@ -120,11 +120,13 @@ class SynthDef():
                 raise e
 
     # L53
-    #*wrap # Tal vez podría ser un decorador en Python, ver la documentación de SynthDef.
-
-    # OC: Only write if no file exists
-    #*writeOnce
-    #writeOnce # ver por qué duplica la funcioanlidad entre clase e instancia
+    @classmethod
+    def wrap(cls, func, rates=[], prepend_args=[]): # TODO: podría ser, además, un decorador en Python pero para usar dentro de una @synthdef o graph_func
+        if _gl.current_synthdef is not None:
+            return _gl.current_synthdef._build_ugen_graph(func, rates, prepend_args)
+        else:
+            msg = 'SynthDef wrap should be called inside a SynthDef graph function'
+            raise Exception(msg)
 
     # L69
     def _init_build(self):
@@ -141,9 +143,8 @@ class SynthDef():
         save_ctl_names = self.control_names # aún no se inicializó self.control_names usando new, es para wrap que se llama desde dentro de otra SynthDef ya en construcción.
         self.control_names = [] # None # no puede ser None acá
         self.prepend_args = prepend_args # Acá es una lista, no hay asArray.
-        self._args_to_controls( # add_controls_from_args_of_func_please(
-            graph_func, rates, len(self.prepend_args)) # HAY QUE TOMAR DECISIONES.
-        result = self.func(*(prepend_args + self._build_controls())) # usa func.valueArray(prepend_args ++ this.buildControls) buildControls tiene que devolver una lista.
+        self._args_to_controls(graph_func, rates, len(self.prepend_args))
+        result = graph_func(*(prepend_args + self._build_controls())) # usa func.valueArray(prepend_args ++ this.buildControls) buildControls tiene que devolver una lista.
         self.control_names = save_ctl_names
         return result
 
@@ -171,7 +172,7 @@ class SynthDef():
                                     # **** Además, ver cómo es en Python porque no tendría las mismas restricciones que sclang
         values = self._apply_metadata_specs(names, values) # convierte Nones en ceros o valores por defecto
         rates += [0] * (len(names) - len(rates)) # VER: sclang extend, pero no trunca
-        rates = [x if x else 0.0 for x in rates]
+        rates = [x if x is not None else 0.0 for x in rates]
 
         for i, name in enumerate(names):
             prefix = name[:2]
@@ -203,23 +204,24 @@ class SynthDef():
         if self.metadata and 'specs' in self.metadata:
             specs = self.metadata['specs']
             for i, value in enumerate(values):
-                if value:
+                if value is not None:
                     new_values.append(value)
                 else:
                     if names[i] in specs:
-                        spec = as_spec(specs[names[i]]) # as_spec devuelve un objeto ControlSpec o None, implementan Array, Env, Nil, Spec y Symbol  **** FALTA no está hecha la clase Spec ni la función para los strings!
+                        spec = as_spec(specs[names[i]]) # BUG: as_spec devuelve un objeto ControlSpec o None, implementan Array, Env, Nil, Spec y Symbol  **** FALTA no está hecha la clase Spec ni la función para los strings!
                     else:
                         spec = as_spec(names[i])
-                    if spec:
-                        new_values.append(spec.default()) # **** FALTA no está hecha la clase Spec/ControlSpec, no sé si default es un método
+                    if spec is not None:
+                        new_values.append(spec.default()) # BUG **** FALTA no está hecha la clase Spec/ControlSpec, no sé si default es un método
                     else:
                         new_values.append(0.0)
         else:
-            new_values = [x if x else 0.0 for x in values]
+            new_values = [x if x is not None else 0.0 for x in values]
         return new_values # values no la reescribo acá por ser mutable
 
     # OC: Allow incremental building of controls.
     # estos métodos los usa solamente NamedControls desde afuera y no es subclase de SynthDef ni de UGen
+    # BUG, BUG: de cada parámetro value hace value.copy, ver posibles consecuencias...
     def add_non_control(self, name, values): # lo cambio por _add_nc _add_non? este método no se usa en ninguna parte de la librería estandar
         self.add_control_name(scio.ControlName(name, None, 'noncontrol', # IMPLEMENTAR CONTROLNAME
             values, len(self.control_names))) # values hace copy *** VER self.controls/control_names no pueden ser None
@@ -261,9 +263,8 @@ class SynthDef():
         lags = None
         val_size = None
 
-        if nn_cns:
-            for cn in nn_cns:
-                arguments[cn.arg_num] = cn.default_value
+        for cn in nn_cns:
+            arguments[cn.arg_num] = cn.default_value
 
         def build_ita_controls(ita_cns, ctrl_class, method):
             nonlocal arguments, values, index, ctrl_ugens
@@ -357,7 +358,7 @@ class SynthDef():
 
         # OC: Fixup removed ugens.
         old_size = len(self.children)
-        self.children = [x for x in self.children if x] #children.removeEvery(#[nil]);  *** por qué no es un reject?
+        self.children = [x for x in self.children if x is not None] #children.removeEvery(#[nil]);  *** por qué no es un reject?
         if old_size != len(self.children):
             self._index_ugens()
 
@@ -393,7 +394,7 @@ class SynthDef():
                 #err = ugen.class.asString + err;
                 #err.postln;
 				#ugen.dumpArgs; # *** OJO, no es dumpUGens
-                if not first_err: first_err = err
+                if first_err is None: first_err = err
         if first_err:
             #"SynthDef % build failed".format(this.name).postln;
             raise Exception(first_err)
@@ -438,7 +439,7 @@ class SynthDef():
         self.children[a.synth_index] = b
 
         for item in self.children: # tampoco usa el contador, debe ser una desprolijidad después de una refacción, uso la i para el loop interno
-            if item:
+            if item is not None:
                 for i, input in enumerate(item.inputs):
                     if input is a:
                         aux = list(item.inputs) # TODO: hasta ahora es el único lugar donde se modifica ugen.inputs
@@ -460,7 +461,7 @@ class SynthDef():
         print(self.name)
         for ugen in self.children: # tampoco terminó usando el índice
             inputs = None
-            if ugen.inputs:
+            if ugen.inputs is not None:
                 inputs = [x.dump_name() if isinstance(x, ug.UGen)\
                           else x for x in ugen.inputs] # ugen.inputs.collect {|in| if (in.respondsTo(\dumpName)) { in.dumpName }{ in }; }; # Las únicas clases que implementan dumpName son UGen, BasicOpUGen y OutputProxy, sería interfaz de UGen, sería if is UGen
             print([ugen.dump_name(), ugen.rate, inputs])
@@ -535,8 +536,6 @@ class SynthDef():
                         write_def([self], file)
         # // make sure the synth defs are written to the right path
         StartUp.defer(defer_func) # BUG: No está implementada
-
-    # TODO: VER también #*writeOnce arriba de todo, la variante de instancia llama a writeDefFile.
 
     def write_def(self, file):
         try:
@@ -616,6 +615,10 @@ class SynthDef():
         for item in arr:
             file.write(struct.pack('>f', item)) # putFloat
 
+    # // Only write if no file exists
+    def write_once(self, dir, md_plugin): # Nota: me quedo solo con el método de instancia, usar el método de clase es equivalente a crear una instancia sin llamar a add u otro método similar.
+        self.write_def_file(dir, False, md_plugin) # TODO: ver la documentación, este método es obsoleto.
+
     # L561
     @classmethod
     def remove_at(cls, name, libname='global'): # TODO: Este método lo debe usar en SynthDesc.sc. Ojo que hay mil métodos removeAt.
@@ -628,12 +631,10 @@ class SynthDef():
     # OC: Methods for special optimizations.
     # OC: Only send to servers.
     #send
-    #doSend PASADA ARRIBA.
     # OC: Send to server and write file.
     #load
     # OC: Write to file and make synth description.
     #store
-    #asSynthDesc PASADA ARRIBA.
 
     # L653
     # OC: This method warns and does not halt because

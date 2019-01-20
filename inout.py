@@ -24,9 +24,9 @@ class ControlName():
     #def print_on(self, stream):
     def __repr__(self):
         repr = 'ControlName P ' + str(self.index)
-        if self.name: repr += ' ' + self.name
-        if self.rate: repr += ' ' + self.rate
-        if self.default_value: repr += ' ' + str(self.default_value)
+        if self.name is not None: repr += ' ' + self.name
+        if self.rate is not None: repr += ' ' + self.rate
+        if self.default_value is not None: repr += ' ' + str(self.default_value)
         return repr
 
 
@@ -55,16 +55,16 @@ class Control(ug.MultiOutUGen):
 
     def init_ugen(self, *values):
         self.values = list(values)
-        if self.synthdef:
+        if self.synthdef is not None:
             self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
             self.synthdef.controls.extend(self.values)
 
             ctl_names = self.synthdef.control_names
-            if ctl_names:
-                # OC: current control is always the last added, so:
+            if len(ctl_names) > 0:
+                # // current control is always the last added, so:
                 last_control = ctl_names[len(ctl_names) - 1] # VER: si no hay un método como last o algo así.
-                if not last_control.default_value:
-                    # OC: only write if not there yet:
+                if last_control.default_value is None:
+                    # // only write if not there yet:
                     last_control.default_value = ut.unbubble(self.values)
 
             self.synthdef.control_index += len(self.values)
@@ -96,7 +96,7 @@ class AudioControl(ug.MultiOutUGen):
 
     def init_ugen(self, *values):
         self.values = list(values)
-        if self.synthdef:
+        if self.synthdef is not None:
             self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
             self.synthdef.controls.extend(self.values)
             self.synthdef.control_index += len(self.values)
@@ -150,7 +150,7 @@ class LagControl(Control):
         size = len(stuff)
         size2 = size >> 1 # size // 2
         self.values = list(stuff)[size2:size] # en Python es la cantidad de elementos desde, no el índice.
-        if self.synthdef:
+        if self.synthdef is not None:
             self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
             self.synthdef.controls.extend(self.values)
             self.synthdef.control_index += len(self.values)

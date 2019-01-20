@@ -188,7 +188,7 @@ class SynthDesc():
                         aux_ctrl = ctrl
                 # end of BUG: inject(nil), revisar
 
-                self.sdef.control_names = [x for x in self.controls if x.name] # select x.name.notNil
+                self.sdef.control_names = [x for x in self.controls if x.name is not None] # select x.name.notNil
                 self.has_array_args = any(cn.name == '?' for cn in self.controls)
 
                 num_variants = struct.unpack('>h', stream.read(2))[0] # getInt16
@@ -264,7 +264,7 @@ class SynthDesc():
                     if item.index == (b.output_index + b.source_ugen.special_index):
                         control = item
                         break
-                if control:
+                if control is not None:
                     b = control.name
             lst.append(IODesc(rate, nchan, b, ugen_class))
 
@@ -351,7 +351,7 @@ class SynthDesc():
                         name2 = name[2:] # BUG: en sclang, no comprueba len, los índices y name2 puede ser un string vacío: x = "a_"[2..]; x.size == 0
                     else:
                         name2 = name
-                    string += '    if ' + name2 + ':\n'
+                    string += '    if ' + name2 + ' is not None:\n'
                     string += '        x_' + suffix + '.append(' + name + ')\n'
                     string += '        x_' + suffix + '.append(' + name2 + ')\n'
                     names += 1
@@ -522,7 +522,7 @@ class SynthDescLib(dp.Dependancy):
             desc = SynthDesc()
             desc.read_synthdef(stream, keep_def)
         if keep_def: desc.sdef = sdef
-        if metadata: desc.metadata = metadata
+        if metadata is not None: desc.metadata = metadata
         self.synth_descs[desc.name] = desc
         self.dependancy_changed('synthDescAdded', desc) # BUG: Object Dependancy, lo mismo que en add de esta clase.
         return desc # BUG: esta función se usa para agregar las descs a la libreríá pero el valor de retorno no se usa en SynthDef-add. Ver el resto de la librería de clases.

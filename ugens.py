@@ -136,7 +136,7 @@ class UGen(fn.AbstractFunction):
     # L287
     def add_to_synth(self): # este método lo reimplementan OuputProxy y WidthFirstUGen
         self.synthdef = _gl.current_synthdef
-        if self.synthdef:
+        if self.synthdef is not None:
             self.synthdef.add_ugen(self)
 
     # L292
@@ -163,7 +163,7 @@ class UGen(fn.AbstractFunction):
         for i, input in enumerate(self.inputs): # TODO: es tupla, en sclang es nil si no hay inputs.
             if not is_valid_ugen_input(input):
                 arg_name = self.arg_name_for_input_at(i)
-                if not arg_name: arg_name = i
+                if arg_name is None: arg_name = i
                 return 'arg: {} has bad input: {}'.format(arg_name, input)
         return None
 
@@ -204,16 +204,16 @@ class UGen(fn.AbstractFunction):
         except AttributeError:
             return None
 
-    # VER: Si este método es necesario en Python.
+    # BUG: VER: Si este método es necesario en Python.
     # a = SinOsc.ar; a.class.class.findMethod(\ar).argNames; -> SymbolArray[ this, freq, phase, mul, add ]
     # arg_names como se extrae arriba omite el primer argumento que es self/cls, salvo para los métodos mágicos.
-    # TODO: Si se usa __init__ como new de sclang *sí* se necesita offset. Los métodos mágicos devuelven self/cls. VER los métodos de clase.
-    # TODO: Además, lo implementan muchas UGens (devuelven 2). Se usa solo en arg_name_for_input_at, de UGen y BasicOpUGenself.
+    # Si se usa __init__ como new de sclang *sí* se necesita offset. Los métodos mágicos devuelven self/cls. VER los métodos de clase.
+    # Además, lo implementan muchas UGens (devuelven 2). Se usa solo en arg_name_for_input_at, de UGen y BasicOpUGenself.
     # En todo caso sería una propiedad o un método?
     # def arg_names_inputs_offset(self): # lo implementan varias clases como intefaz, se usa solo acá y basicopugen en argNameForInputAt
     #     return 1
 
-    # def method_selector_for_rate(self): # **** TODO *** NO PUEDEN HABER MÉTODOS DE CLASE E INSTANCIA CON EL MISMO NOMBRE # SUBIDA de la sección write
+    # def method_selector_for_rate(self): # BUG: **** TODO *** NO PUEDEN HABER MÉTODOS DE CLASE E INSTANCIA CON EL MISMO NOMBRE # SUBIDA de la sección write
     #     return self.__class__.method_selector_for_rate(self.rate) # VER: este no tendría try/except en getattr? VER: repite el código porque comprueba con self.rate que cambia si se inicializa con ar/kr/ir, pero no es lo mismo así?? No lo implementa ninguna sub-clase.
 
     @classmethod
@@ -234,7 +234,7 @@ class UGen(fn.AbstractFunction):
         arg_name = None
         for i, input in enumerate(self.inputs): # TODO: es tupla, en sclang es nil si no hay inputs.
             arg_name = self.arg_name_for_input_at(i)
-            if not arg_name: arg_name = str(i)
+            if arg_name is None: arg_name = str(i)
             msg += tab + arg_name + ' ' + str(input)
             msg += ' ' + self.__class__.__name__ + '\n'
         print(msg, end='')
@@ -447,7 +447,7 @@ class MultiOutUGen(UGen):
         return obj
 
     def init_outputs(self, num_channels, rate):
-        if not num_channels or num_channels < 1:
+        if num_channels is None or num_channels < 1:
             msg = '{}: wrong number of channels ({})'\
                     .format(self.name(), num_channels)
             raise Exception(msg)

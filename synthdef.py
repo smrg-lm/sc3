@@ -26,6 +26,7 @@ import supercollie.utils as ut
 import supercollie.ugens as ug
 import supercollie.server as sv
 import supercollie.platform as pt
+import supercollie.systemactions as sa
 from . import synthdesc as ds # cíclico
 
 
@@ -513,10 +514,10 @@ class SynthDef():
 
     def write_def_file(self, dir, overwrite=True, md_plugin=None):
         if ('shouldNotSend' not in self.metadata)\
-        or ('shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']) : # BUG: ver condición, sclang usa metadata.tryPerform(\at, \shouldNotSend) y tryPerform devuelve nil si el método no existe. Supongo que synthdef.metadata *siempre* tiene que ser un diccionario y lo único que hay que comprobar es que la llave exista y -> # si shouldNotSend no existe TRUE # si shouldNotSend existe y es falso TRUE # si shouldNotSend existe y es verdadero FALSO
+        or ('shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']): # BUG: ver condición, sclang usa metadata.tryPerform(\at, \shouldNotSend) y tryPerform devuelve nil si el método no existe. Supongo que synthdef.metadata *siempre* tiene que ser un diccionario y lo único que hay que comprobar es que la llave exista y -> # si shouldNotSend no existe TRUE # si shouldNotSend existe y es falso TRUE # si shouldNotSend existe y es verdadero FALSO
             dir = dir or SynthDef.synthdef_dir # TODO: ver indentación, parece que se puede pero tal vez no sea muy PEP8
             dir = pathlib.Path(dir) # dir puede ser str
-            file_existed_before = pathlib.Path(dir / (self.name + '.scsyndef')).exist()
+            file_existed_before = pathlib.Path(dir / (self.name + '.scsyndef')).exists()
             self.write_def_after_startup(self.name, dir, overwrite)
             if overwrite or not file_existed_before:
                 desc = self.as_synthdesc()
@@ -526,6 +527,7 @@ class SynthDef():
 
     def write_def_after_startup(self, name, dir, overwrite=True): # TODO/BUG/WHATDA, este método es sclang Object:writeDefFile
         def defer_func():
+            nonlocal name
             if name is None:
                 raise Exception('missing SynthDef file name')
             else:
@@ -535,7 +537,7 @@ class SynthDef():
                         ds.AbstractMDPlugin.clear_metadata(name) # BUG: No está implementado
                         write_def([self], file)
         # // make sure the synth defs are written to the right path
-        StartUp.defer(defer_func) # BUG: No está implementada
+        sa.StartUp.defer(defer_func) # BUG: No está implementada
 
     def write_def(self, file):
         try:
@@ -650,7 +652,7 @@ class SynthDef():
         msg = "SynthDef '{}' was reconstructed from a .scsyndef file, "
         msg += "it does not contain all the required structure to send back to the server"
         warnings.warn(msg.format(self.name))
-        if server.is_local():
+        if server.is_local:
             msg = "loading from disk instead for Server '{}'"
             warnings.warn(msg.format(server))
             bundle = ['/d_load', self.metadata['loadPath']] # BUG: completion_msg] # BUG: completion_msg) *** ACÁ SE USA COMPLETION_MSG ***
@@ -678,7 +680,8 @@ class SynthDef():
         dir = dir or SynthDef.synthdef_dir
         dir = pathlib.Path(dir)
         path = dir / (self.name + '.scsyndef')
-        if 'shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']:
+        #if ('shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']): # BUG, y confuso en sclang. falseAt devuevle true si la llave no existe, trueAt es equivalente a comprobar 'in' porque si no está la llave es false, pero falseAt no es lo mismo porque si la llave no existe sería lo mismo que ubiese false.
+        if 'shouldNotSend' not in self.metadata or not self.metadata['shouldNotSend']: # BUG: esto es equivalente a falseAt solo si funciona en corto circuito.
             with open(path, 'wb') as file:
                 write_def([self], file)
             lib.read(path)

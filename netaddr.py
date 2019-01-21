@@ -117,7 +117,7 @@ class NetAddr():
         return False
 
     def is_local(self):
-        self.match_lang_ip(self._hostname) # BUG? no sé por qué sclang calcula hostname con addr.asIPString que lo que hace es volver a hostsname...
+        return self.match_lang_ip(self._hostname) # BUG? no sé por qué sclang calcula hostname con addr.asIPString que lo que hace es volver a hostsname...
 
     # @classmethod
     # def from_ip(cls, i32addr, port): # TODO: no le veo uso a este método en la lógica reducida de usar NetAddr como interfaz de Client.

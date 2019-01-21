@@ -16,7 +16,7 @@ class CmdPeriod(AbstractSystemAction):
 class StartUp(AbstractSystemAction):
     @classmethod
     def defer(cls, obj):
-        pass # BUG: TEST para probar SynthDef
+        obj() # BUG: TEST para probar SynthDef
 
 
 # // things to do before system shuts down

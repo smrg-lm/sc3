@@ -42,11 +42,14 @@ class IODesc():
 # // to disable metadata read/write
 class AbstractMDPlugin():
     @classmethod
-    def clear_metadata(cls):
+    def clear_metadata(cls, path):
         pass # BUG: Falta implementar, es test para SynthDef write_def_after_startup
     @classmethod
-    def write_metadata(cls):
+    def write_metadata(cls, metadata, synthdef, path):
         pass # BUG: Falta implementar, es test para SynthDef write_def_after_startup, acá se llama en la función homónima de SynthDesc
+    @classmethod
+    def read_metadata(cls, path):
+        return None # BUG: BUG: Falta implementar, hace varias cosas, retorna nil si no lo logra.
     # TODO: todo...
 
 # // simple archiving of the dictionary
@@ -428,7 +431,6 @@ class SynthDescLib(dp.Dependancy):
     # BUG: ESTO AFECTA LAS LLAMADAS A LA CLASE DESDE OTRAS CLASES.
 
     def add(self, synth_desc):
-        print('***************def add(self, synth_desc):', self, synth_desc)
         self.synth_descs[synth_desc.name] = synth_desc
         self.dependancy_changed('synthDescAdded', synth_desc) # BUG: Object Dependancy: changed/update/release/dependants/removeDependant/addDependant
                                                    # No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
@@ -484,8 +486,8 @@ class SynthDescLib(dp.Dependancy):
 
     def read_stream(self, stream, keep_defs=True, path=''):
         stream.read(4) # getInt32 // SCgf # TODO: la verdad que podría comprobar que fuera un archivo válido.
-        version = struct.unpack('>i', file.read(4))[0] # getInt32
-        num_defs = struct.unpack('>h', file.read(2))[0] # getInt16
+        version = struct.unpack('>i', stream.read(4))[0] # getInt32
+        num_defs = struct.unpack('>h', stream.read(2))[0] # getInt16
         result_set = set()
         for _ in range(num_defs):
             if version >= 2:

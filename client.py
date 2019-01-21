@@ -102,7 +102,7 @@ class Client(object):
     def send_msg(self, target, *args):
         """args es la lista de valores para crear un mensaje"""
         msg = _lo.Message(*args) # BUG: falta la conversión de tipos con tupla
-        self._osc_server_thread.send(target, msg)
+        self._osc_server_thread.send(target, msg) # BUG: AttributeError: 'Client' object has no attribute '_osc_server_thread'. Este error no es informativo de que el cliente no está en ejecusión (la variable de instsancia no existe)
 
     def send_bundle(self, target, time, *args): # // sclang warning: this primitive will fail to send if the bundle size is too large # // but it will not throw an error.  this needs to be fixed
         """args son listas de valores para crear varios mensajes"""

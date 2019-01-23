@@ -4,6 +4,7 @@ import subprocess as _subprocess
 import threading as _threading
 import atexit as _atexit
 import warnings as _warnings
+import os
 
 import liblo as _lo
 
@@ -12,35 +13,60 @@ import supercollie.netaddr as na
 import supercollie.client as cl
 
 
+# command line server exec default values
+_NUM_CONTROL_BUS_CHANNELS = 16384
+_NUM_AUDIO_BUS_CHANNELS = 1024 # esta no se usa, hace self.num_private_audio_bus_channels + self.num_input_bus_channels + self.num_output_bus_channels
+_NUM_INPUT_BUS_CHANNELS = 8
+_NUM_OUTPUT_BUS_CHANNELS = 8
+_NUM_BUFFERS = 1024
+
+_MAX_NODES = 1024
+_MAX_SYNTH_DEFS = 1024
+_BLOCK_SIZE = 64
+#_HARDWARE_BUFFER_SIZE = 0 (None) # BUG: ver abajo, la lógica de esto es endeble
+
+_MEM_SIZE = 8192
+_NUM_RGENS = 64
+_NUM_WIRE_BUFS = 64
+
+#_SAMPLE_RATE = 0 (None) # BUG: ver abajo, la lógica de esto es endeble
+#_LOAD_DEFS = 1 (True) # BUG: ver abajo, la lógica de esto es endeble
+
+_VERBOSITY = 0
+#_ZEROCONF = 1 (True) # BUG: ver abajo, la lógica de esto es endeble
+_MAX_LOGINS = 64
+
+
 class ServerOptions(object):
     def __init__(self):
-        self.num_audio_bus_channels = 1024 # solo getter # TODO: tiene setter especial
-        self.num_control_bus_channels = 16384 # getter/setter
-        self.num_input_bus_channels = 2 # solo getter # TODO: tiene setter especial
-        self.num_output_bus_channels = 2 # solo getter # TODO: tiene setter especial
-        self.num_buffers = 1026; # getter setter
+        self.num_control_bus_channels = _NUM_CONTROL_BUS_CHANNELS # getter/setter
+        self.num_audio_bus_channels = _NUM_AUDIO_BUS_CHANNELS # solo getter # TODO: tiene setter especial
+        self.num_input_bus_channels = 2 # solo getter # TODO: tiene setter especial, es 2 a propósito
+        self.num_output_bus_channels = 2 # solo getter # TODO: tiene setter especial, es 2 a propósito
+        self.num_private_audio_bus_channels = 1020 # solo getter # TODO: tiene setter especial
+        self.num_buffers = 1026; # getter setter, es 1026 a propósito
 
-        self.max_nodes = 1024 # Todos los métodos siguientes tiene getter y setter salvo indicación contraria
-        self.max_synth_defs = 1024
-        self.protocol = 'UDP'
-        self.block_size = 64
-        self.hardware_buffer_size = None
+        self.max_nodes = _MAX_NODES # Todos los métodos siguientes tiene getter y setter salvo indicación contraria
+        self.max_synth_defs = _MAX_SYNTH_DEFS
+        self.protocol = 'upd'
+        self.block_size = _BLOCK_SIZE
+        self.hardware_buffer_size = None # BUG: ver, la lógica de esto es endeble
 
-        self.mem_size = 8192
-        self.num_rgens = 64
-        self.num_wire_bufs = 64
+        self.mem_size = _MEM_SIZE
+        self.num_rgens = _NUM_RGENS
+        self.num_wire_bufs = _NUM_WIRE_BUFS
 
-        self.sample_rate = None
-        self.load_defs = True
+        self.sample_rate = None # BUG: ver, la lógica de esto es endeble
+        self.load_defs = True # BUG: ver, la lógica de esto es endeble
 
-        self.input_streams_enabled = # None/False # no inicializada por defecto
-        self.output_streams_enabled = # None/False # no inicializada por defecto
+        self.input_streams_enabled = None # es nil o un string, e.g. '0110000' # BUG: ver, la lógica de esto es endeble
+        self.output_streams_enabled = None # es nil o un string, e.g. '0110000' # BUG: ver, la lógica de esto es endeble
 
         self.in_device = None
         self.out_device = None
 
-        self.verbosity = 0
-        self.zeroconf = False # // Whether server publishes port to Bonjour, etc.
+        self.verbosity = _VERBOSITY
+        self.zeroconf = False # BUG: ver, la lógica de esto es endeble # // Whether server publishes port to Bonjour, etc.
 
         self.restricted_path = None
         self.ugen_plugins_path = None
@@ -50,9 +76,7 @@ class ServerOptions(object):
 
         self.memory_locking = False
         self.threads = None # // for supernova
-        self.use_system_clock = False # // for supernova
-
-        self.num_private_audio_bus_channels = 1020 # solo getter # TODO: tiene setter especial
+        self.use_system_clock = None # // for supernova # BUG semántico en sclang, lo inicializa en False, pero la lógica es que si no es None usa true/false para 1/0, entonces siempre pasa al valor por defecto (0)
 
         self.reserved_num_audio_bus_channels = 0
         self.reserved_num_control_bus_channels = 0
@@ -66,16 +90,114 @@ class ServerOptions(object):
         self.rec_channels = 2
         self.rec_buf_size = None
 
-        # @property
-        self._device = None # BUG: ver el valor por defecto.
-
     @property
-    def device(self): pass
+    def device(self):
+        if self.in_device == self.out_device:
+            return self.in_device
+        else:
+            return (self.in_device, self.out_device)
     @device.setter
-    def device(self, value): pass
+    def device(self, value):
+        self.in_device = self.out_device = value
     # TODO: esta propiedad también tiene un método de clase lo mismo que inDevices and outDevices
 
-    def as_options_string(self, port=57110): pass
+    def as_options_string(self, port=57110):
+        o = []
+
+        if self.protocol == 'tcp':
+            o.append('-t')
+        else:
+            o.append('-u')
+        o.append(str(port))
+
+        o.append('-a')
+        o.append(self.num_private_audio_bus_channels\
+                 + self.num_input_bus_channels\
+                 + self.num_output_bus_channels)
+
+        if self.num_control_bus_channels != _NUM_CONTROL_BUS_CHANNELS:
+            o.append('-c')
+            o.append(str(self.num_control_bus_channels))
+        if self.num_input_bus_channels != _NUM_INPUT_BUS_CHANNELS:
+            o.append('-i')
+            o.append(str(self.num_input_bus_channels))
+        if self.num_output_bus_channels != _NUM_OUTPUT_BUS_CHANNELS:
+            o.append('-o')
+            o.append(str(self.num_output_bus_channels))
+        if self.num_buffers != _NUM_BUFFERS:
+            o.append('-b')
+            o.append(str(self.num_buffers))
+        if self.max_nodes != _MAX_NODES:
+            o.append('-n')
+            o.append(str(self.max_nodes))
+        if self.max_synth_defs != _MAX_SYNTH_DEFS:
+            o.append('-d')
+            o.append(str(self.max_synth_defs))
+        if self.block_size != _BLOCK_SIZE:
+            o.append('-z')
+            o.append(str(self.block_size))
+        if self.hardware_buffer_size is not None: # BUG: ver, la lógica de esto es endeble
+            o.append('-Z')
+            o.append(str(self.hardware_buffer_size))
+        if self.mem_size != _MEM_SIZE:
+            o.append('-m')
+            o.append(str(self.mem_size))
+        if self.num_rgens != _NUM_RGENS:
+            o.append('-r')
+            o.append(str(self.num_rgens))
+        if self.num_wire_bufs != _NUM_WIRE_BUFS:
+            o.append('-w')
+            o.append(str(self.num_wire_bufs))
+        if self.sample_rate is not None: # BUG: ver, la lógica de esto es endeble
+            o.append('-S')
+            o.append(str(self.sample_rate))
+        if not self.load_defs: # BUG: ver, la lógica de esto es endeble
+            o.append('-D')
+            o.append('0')
+        if self.input_streams_enabled is not None: # BUG: ver, la lógica de esto es endeble
+            o.append('-I')
+            o.append(self.input_streams_enabled) # es un string
+        if self.output_streams_enabled is not None: # BUG: ver, la lógica de esto es endeble
+            o.append('-O')
+            o.append(self.output_streams_enabled) # es un string
+
+        if xxx.Main.singleton.platform.name != 'osx'\
+        or self.in_device == self.out_device: # BUG: no está implementado: thisProcess.platform.name
+            if self.in_device is not None:
+                o.append('-H')
+                o.append('"{}"'.format(self.in_device)) # BUG: comprobar que funciona en Python
+        else:
+            o.append('-H')
+            params = '"{}" "{}"'.format(str(self.in_device), str(self.out_device)) # BUG: comprobar que funciona en Python
+            o.append(params)
+
+        if self.verbosity != _VERBOSITY:
+            o.append('-V')
+            o.append(str(self.verbosity))
+        if not self.zeroconf: # BUG: ver, la lógica de esto es endeble
+            o.append('-R')
+            o.append('0')
+        if self.restricted_path is not None:
+            o.append('-P')
+            o.append(str(self.restricted_path)) # puede ser str o Path
+        if self.ugen_plugins_path is not None:
+            o.append('-U')
+            plist = ut.as_list(self.ugen_plugins_path)
+            plist = [os.path.normpath(x) for x in plist] # BUG: ensure platform format? # BUG: windows drive?
+            o.append(os.pathsep.join(plist))
+        if self.memory_locking:
+            o.append('-L')
+        if self.threads is not None:
+            if Server.program.endswith('supernova'):
+                o.append('-T')
+                o.append(str(self.threads))
+        if self.use_system_clock is not None:
+            o.append('-C')
+            o.append(int(self.use_system_clock))
+        if self.max_logins is not None:
+            o.append('-l')
+            o.append(str(self.max_logins))
+        return o
 
     def first_private_bus(self): pass
     def boot_in_process(self): pass

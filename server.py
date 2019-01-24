@@ -40,10 +40,10 @@ _MAX_LOGINS = 64
 class ServerOptions(object):
     def __init__(self):
         self.num_control_bus_channels = _NUM_CONTROL_BUS_CHANNELS # getter/setter
-        self.num_audio_bus_channels = _NUM_AUDIO_BUS_CHANNELS # solo getter # TODO: tiene setter especial
-        self.num_input_bus_channels = 2 # solo getter # TODO: tiene setter especial, es 2 a propósito
-        self.num_output_bus_channels = 2 # solo getter # TODO: tiene setter especial, es 2 a propósito
-        self.num_private_audio_bus_channels = 1020 # solo getter # TODO: tiene setter especial
+        self._num_audio_bus_channels = _NUM_AUDIO_BUS_CHANNELS # @property
+        self._num_input_bus_channels = 2 # @property, es 2 a propósito
+        self._num_output_bus_channels = 2 # @property, es 2 a propósito
+        self._num_private_audio_bus_channels = 1020 # @property
         self.num_buffers = 1026; # getter setter, es 1026 a propósito
 
         self.max_nodes = _MAX_NODES # Todos los métodos siguientes tiene getter y setter salvo indicación contraria
@@ -99,7 +99,6 @@ class ServerOptions(object):
     @device.setter
     def device(self, value):
         self.in_device = self.out_device = value
-    # TODO: esta propiedad también tiene un método de clase lo mismo que inDevices and outDevices
 
     def as_options_string(self, port=57110):
         o = []
@@ -199,16 +198,54 @@ class ServerOptions(object):
             o.append(str(self.max_logins))
         return o
 
-    def first_private_bus(self): pass
-    def boot_in_process(self): pass
-    # numPrivateAudioBusChannels_ { |numChannels = 112|
-    # numAudioBusChannels_ { |numChannels=1024|
-    # numInputBusChannels_ { |numChannels=8|
-    # numOutputBusChannels_ { |numChannels=8|
+    def first_private_bus(self):
+        return self.num_output_bus_channels + self.num_input_bus_channels
 
-    def recalc_channels(self): pass
+    def boot_in_process(self):
+        raise NotImplementedError('in process server is not available')
 
-    # *prListDevices { # TODO: llama a primitiva
+    @property
+    def num_private_audio_bus_channels(self):
+        return self._num_private_audio_bus_channels
+    @num_private_audio_bus_channels.setter
+    def num_private_audio_bus_channels(self, value=112): # TODO: no sé por qué 112
+        self._num_private_audio_bus_channels = value
+        self._recalc_channels()
+
+    @property
+    def num_audio_bus_channels(self):
+        return self._num_audio_bus_channels
+    @num_audio_bus_channels.setter
+    def num_audio_bus_channels(self, value=1024):
+        self._num_audio_bus_channels = value
+        self._num_private_audio_bus_channels = self._num_audio_bus_channels\
+             - self._num_input_bus_channels - self._num_output_bus_channels
+
+    @property
+    def num_input_bus_channels(self):
+        return self._num_input_bus_channels
+    @num_input_bus_channels.setter
+    def num_input_bus_channels(self, value=8):
+        self._num_input_bus_channels = value
+        self._recalc_channels()
+
+    @property
+    def num_output_bus_channels(self):
+        return self._num_output_bus_channels
+    @num_output_bus_channels.setter
+    def num_output_bus_channels(self, value=8):
+        self._num_output_bus_channels = value
+        self._recalc_channels()
+
+    def _recalc_channels(self):
+        self._num_audio_bus_channels = self._num_private_audio_bus_channels\
+            + self._num_input_bus_channels + self._num_output_bus_channels
+
+    # TODO: estas funciones están implementadas solo para CoreAudio en
+    # SC_CoreAudioPrim.cpp. Hay una función de port audio PaQa_ListAudioDevices
+    # en external_libraries con un nombre similar, server/scsynth/SC_PortAudio.cpp
+    # y server/supernova/audio_backend/portaudio_backend.hpp/cpp
+    # *prListDevices { # primitiva
     # *devices { # llama a *prListDevices
     # *inDevices { # llama a *prListDevices
     # *outDevices { # llama a *prListDevices
@@ -216,9 +253,9 @@ class ServerOptions(object):
 
 class ServerShmInterface():
     def __init__(self, port):
-        self.ptr = None # BUG variable de bajo nivel, depende de la implementación.
-        self.finalizer = None # BUG variable de bajo nivel, depende de la implementación.
-        self.connect(port) # BUG: llama a una primitiva y debe guardar port a bajo nivel
+        self.ptr = None # variable de bajo nivel, depende de la implementación.
+        self.finalizer = None # variable de bajo nivel, depende de la implementación.
+        self.connect(port) # llama a una primitiva y debe guardar port a bajo nivel
 
     # copy # // never ever copy! will cause duplicate calls to the finalizer!
     def connect(self, port): pass # primitiva

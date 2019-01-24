@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 libsc
-=======
-sclib
->>>>>>> 42f3a6c8d9fe32a0ade39e48cf14325e4f13dbe9
 -----
 
 This project is a translation of the core features of sclang to Python 3. The repository is private and comments and commits are in Spanish for now, it will be public and internationalized if I get to succed to some extent on this task.

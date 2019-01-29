@@ -11,6 +11,8 @@ import liblo as _lo
 import supercollie.utils as ut
 import supercollie.netaddr as na
 import supercollie.client as cl
+import supercollie.model as md
+import supercollie.engine as en
 
 
 # command line server exec default values
@@ -267,8 +269,9 @@ class ServerShmInterface():
 
 
 # TODO: TEST, acá uso una metaclase para definir propiedades de la
-# (sub)clase. revisar la construcción de UGen, aunque creo que no era
-# necesario emplear este tipo de mencanismos.
+# (sub)clase. revisar la construcción de UGen y otras, aunque creo
+# que no era necesario emplear este tipo de mencanismos. Me falta ver
+# bien cómo es que funcionan las metaclases y cuál es us uso habitual.
 class MetaServer(type):
     local = None
     internal = None
@@ -295,8 +298,8 @@ class MetaServer(type):
             global s
             s = value
         for server in self.all:
-            #server # .changed(\default, value) # BUG: usar NotificationCenter
-            raise Exception('Implementar la funcionalidad NotificationCenter en MetaServer @default.setter')
+            #server # .changed(\default, value) # BUG: usar md.NotificationCenter
+            raise Exception('Implementar la funcionalidad md.NotificationCenter en MetaServer @default.setter')
 
 
 @ut.initclass
@@ -321,7 +324,7 @@ class Server(metaclass=MetaServer):
         self.addr = addr # @property setter
         self.options = options or ServerOptions()
         # // make statusWatcher before clientID, so .serverRunning works
-        self.status_watcher = xxx.ServerStatusWatcher(server: this)
+        self.status_watcher = xxx.ServerStatusWatcher(server=self)
         # // go thru setter to test validity
         self.client_id = client_id or 0 # BUG: es @property y usa el setter
 
@@ -333,10 +336,17 @@ class Server(metaclass=MetaServer):
         self.__class__.all.add(self)
 
         self._pid_release_condition = # BUG: implementar Condition({ this.pid == nil });
-        self.__class__ # .changed(\serverAdded, self) # BUG: usar NotificationCenter
+        self.__class__ # .changed(\serverAdded, self) # BUG: usar md.NotificationCenter
 
-        self._max_num_clients # // maxLogins as sent from booted scsynth
+        self._max_num_clients = None # // maxLogins as sent from booted scsynth # la setea en _handle_client_login_info_from_server
         self.tree = None # lambda *args: None # ver dónde se inicializa, se usa en init_tree
+
+        self.node_allocator = None # se inicializa en new_node_allocators
+        self.control_bus_allocator = None # se inicializa en new_bus_allocators
+        self.audio_bus_allocator = None # se inicializa en new_bus_allocators
+        self.buffer_allocator = None # se inicializa en new_buffer_allocators
+        self.scope_buffer_allocator = None # se inicializa en new_scope_buffer_allocators
+
         # TODO: faltan variables de instancia, siempre revisar que no esté usando
         # las de clase porque no va a funcionar con metaclass sin llamar a __class__.
 
@@ -413,30 +423,134 @@ class Server(metaclass=MetaServer):
     # /* clientID-based id allocators */
 
     def new_allocators(self):
-        pass
+        self.new_node_allocators()
+        self.new_bus_allocators()
+        self.new_buffer_allocators()
+        self.new_scope_buffer_allocators()
+        md.NotificationCenter.notify(self, 'newAllocators');
+
     def new_node_allocators(self):
-        pass
+        self.node_allocator = self.__class__.node_alloc_class(
+            self.client_id,
+            self.options.initial_node_id,
+            self.max_num_clients
+        )
+        # // defaultGroup and defaultGroups depend on allocator,
+		# // so always make them here:
+        self.make_default_groups()
+
     def new_bus_allocators(self):
-        pass
+        audio_bus_io_offset = self.options.first_private_bus
+        num_ctrl_per_client = self.options.num_control_bus_channels\
+                              // self.max_num_clients
+        num_audio_per_client = (self.optiosn.num_audio_bus_channels\
+                               - audio_bus_io_offset) // self.max_num_clients
+        ctrl_reserved_offset = self.options.reserved_num_control_bus_channels
+        ctrl_bus_client_offset = num_ctrl_per_client * self.client_id
+        audio_reserved_offset = self.options.reserved_num_audio_bus_channels
+        audio_bus_client_offset = num_audio_per_client * self.client_id
+
+        self.control_bus_allocator = self.__class__.bus_alloc_class(
+            num_ctrl_per_client,
+            ctrl_reserved_offset,
+            ctrl_bus_client_offset
+        )
+        self.audio_bus_allocator = self.__class__.bus_alloc_class(
+            num_audio_per_client,
+            audio_reserved_offset,
+            audio_bus_client_offset + audio_bus_io_offset
+        )
+
     def new_buffer_allocators(self):
-        pass
+        num_buffers_per_client = self.options.num_buffers // self.max_num_clients
+        num_reserved_buffers = self.options.reserved_num_buffers
+        buffer_client_offset = num_buffers_per_client * self.client_id
+
+        self.buffer_allocator = self.__class__.buffer_alloc_class(
+            num_buffers_per_client,
+            num_reserved_buffers,
+            buffer_client_offset
+        )
+
     def new_scope_buffer_allocators(self):
-        pass
+        if self.is_local:
+            self.scope_buffer_allocator = en.StackNumberAllocator(0, 127)
+
     def next_buffer_number(self, n):
-        pass
+        bufnum = self.buffer_allocator.alloc(n)
+        if bufnum is None:
+            if n > 1:
+                msg = 'No block of {} consecutive buffer numbers is available'
+                raise Exception(msg.format(n))
+            else:
+                msg = 'No more buffer numbers, free some buffers before allocating more'
+                raise Exception(msg)
+        return bufnum
+
     def free_all_buffers(self):
-        pass
+        bundle = []
+        for block in self.buffer_allocator.blocks():
+            for i in range(block.address, block.address + block.size - 1):
+                bundle.append(['/b_free', i])
+            self.buffer_allocator.free(block.address)
+        self.send_bundle(None, *bundle) # BUG: comprobar que esté en formato correcto para client.send_bundle
+
     def next_node_id(self):
-        pass
+        return self.node_allocator.alloc()
+
     def next_perm_node_id(self):
-        pass
+        return self.node_allocator.alloc_perm()
+
     def free_perm_node_id(self, id):
-        pass
-    def _handle_client_login_info_from_server(self, new_client_id,
-                                              new_max_logins): # BUG: name!
-        pass
+        return self.node_allocator.free_perm(id)
+
+    # BUG: VER: esta función y la siguiente no parecen usarde desde sclang
+    def _handle_client_login_info_from_server(self, new_client_id=None,
+                                              new_max_logins=None): # BUG: name!
+        # // only set maxLogins if not internal server
+        if not self.in_process:
+            if new_max_logins is not None:
+                if new_max_logins != self.options.max_logins:
+                    msg = "{}: server process has max_logins {} - adjusting options accordingly"
+                    print(msg.format(self.name, new_max_logins)) # BUG: es log
+                else:
+                    msg = "{}: server process's max_logins ({}) matches current options"
+                    print(msg.format(self.name, new_max_logins)) # BUG: ídem
+                self.options.max_logins = self._max_num_clients = new_max_logins
+            else:
+                msg = "{}: no max_logins info from server process" # BUG: no entiendo por qué dice from si es un parámetro que se le pasa a esta función
+                print(msg.format(self.name, new_max_logins)) # BUG: ídem
+        if new_client_id is not None:
+            if new_client_id == self.client_id:
+                msg = "{}: keeping client_id ({}) as confirmed by server process"
+                print(msg.format(self.name, new_client_id)) # BUG: ídem
+            else:
+                msg = "{}: setting client_id to {}, as obtained from server process" # BUG: ídem no entiendo, no sé quién llama a esta función
+                print(msg.format(self.name, new_client_id))
+            self.client_id = new_client_id # usa el setter de @property
+
     def _handle_notify_fail_string(self, fail_string, msg): # TODO: yo usé msg en vez de failstr arriba.
-        pass
+        # // post info on some known error cases
+        if 'already registered' in fail_string: # TODO: es un poco cruda la comparación con el mensaje... y tiene que coincidir, no sé dónde se genera.
+            # // when already registered, msg[3] is the clientID by which
+			# // the requesting client was registered previously
+            log_msg = "{} - already registered with client_id {}"
+            print(log_msg.format(self.name, msg[3])) # BUG: es log
+            self.status_watcher._handle_login_when_already_registered(msg[3]); # BUG: falta implmementar, cuidado con el nombre
+        elif 'not registered' in fail_string:
+            # // unregister when already not registered:
+            log_msg = "{} - not registered"
+            print(log_msg.format(self.name)) # BUG: ídem
+            self.status_watcher.notified = False # BUG: falta implementar
+        elif 'too many users' in fail_string:
+            log_msg = "{} - could not register, too many users"
+            print(log_msg.format(self.name)) # BUG: ídem
+            self.status_watcher.notified = False # BUG: falta implementar
+        else:
+            # // throw error if unknown failure
+            e_msg = "Failed to register with server '{}' for notifications: {}\n"
+            e_msg += "To recover, please reboot the server"
+            raise Exception(e_msg.format(self.name, msg)) # BUG: el formato de msg y la nueva línea de e_msg
 
     # L571
     # /* network messages */

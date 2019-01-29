@@ -266,29 +266,87 @@ class ServerShmInterface():
     def set_control_bus_values(self, *values): pass # primitiva # BUG: desconozco los parámetros.
 
 
-@ut.initclass
-class Server(object):
-    # TODO: falta, está solo lo necesario para probar SynthDef.
+# TODO: TEST, acá uso una metaclase para definir propiedades de la
+# (sub)clase. revisar la construcción de UGen, aunque creo que no era
+# necesario emplear este tipo de mencanismos.
+class MetaServer(type):
+    local = None
+    internal = None
+    _default = None
+
     named = dict()
     all = set()
+    program = None
+    sync_s = True
 
+    node_alloc_class = en.NodeIDAllocator
+    # // node_alloc_class = ReadableNodeIDAllocator;
+    buffer_alloc_class = en.ContiguousBlockAllocator
+    bus_alloc_class = en.ContiguousBlockAllocator
+
+    @property
+    def default(self):
+        return self._default
+
+    @default.setter
+    def default(self, value):
+        self._default = value
+        if self.sync_s:
+            global s
+            s = value
+        for server in self.all:
+            #server # .changed(\default, value) # BUG: usar NotificationCenter
+            raise Exception('Implementar la funcionalidad NotificationCenter en MetaServer @default.setter')
+
+
+@ut.initclass
+class Server(metaclass=MetaServer):
     def __init_class__(cls):
-        cls.default = cls('localhost', na.NetAddr('127.0.0.1', 57110))
+        cls._default = cls.local = cls('localhost', na.NetAddr('127.0.0.1', 57110))
+        cls.internal = Server('internal', na.NetAddr(None, None));
 
-    def __init__(self, name, addr, options=None, clientID=None):
-        self.name = name # @property setter
-        self.addr = addr # @property setter, TODO
+    @classmethod
+    def from_name(cls, name):
+        return cls.named[name] or cls(name, na.NetAddr("127.0.0.1", 57110)) # BUG: en sclang, no tiene sentido llamar a ServerOptions.new, init provee una instancia por defecto
+
+    @classmethod
+    def remote(cls, name, addr, options, client_id):
+        result = cls(name, addr, options, client_id)
+        result.start_alive_thread()
+        return result
+
+    def __init__(self, name, addr, options=None, client_id=None):
+        # // set name to get readable posts from client_id set
+        self._name = name # no usa @property setter
+        self.addr = addr # @property setter
         self.options = options or ServerOptions()
-        # TODO...
-        self.all.add(self)
-        # TODO...
+        # // make statusWatcher before clientID, so .serverRunning works
+        self.status_watcher = xxx.ServerStatusWatcher(server: this)
+        # // go thru setter to test validity
+        self.client_id = client_id or 0 # BUG: es @property y usa el setter
 
-    # L349
-    # maxNumClients
+        self.volume = xxx.Volume(server=self, persist=True) # BUG: falta implementar
+        self.recorder = xxx.Recorder(server=self) # BUG: falta implementar
+        self.recorder.notify_server = True # BUG: falta implementar
+
+        self.name = name # ahora si usa @property setter
+        self.__class__.all.add(self)
+
+        self._pid_release_condition = # BUG: implementar Condition({ this.pid == nil });
+        self.__class__ # .changed(\serverAdded, self) # BUG: usar NotificationCenter
+
+        self._max_num_clients # // maxLogins as sent from booted scsynth
+        self.tree = None # lambda *args: None # ver dónde se inicializa, se usa en init_tree
+        # TODO: faltan variables de instancia, siempre revisar que no esté usando
+        # las de clase porque no va a funcionar con metaclass sin llamar a __class__.
+
+    @property
+    def max_num_clients(self):
+        return self._max_num_clients or self.options.max_logins
 
     def remove(self):
-        self.all.remove(self)
-        del self.named[self.name]
+        self.__class__.all.remove(self)
+        del self.__class__.named[self.name]
 
     # L357
     @property
@@ -313,31 +371,140 @@ class Server(object):
         else:
             self.named[value] = self
 
-    def boot(self):
-        # localserver
-        self.sproc = _ServerProcesses(self.options)
-        self.sproc.run()
+    # TODO: este método tal vez debería ir abajo de donde se llame por primera vez
+    def init_tree(self):
+        def init_task():
+            self.send_default_groups()
+            self.tree(self) # tree es una propiedad de instancia que contiene una función
+            self.sync()
+            xxx.ServerTree.run(self) # BUG: no está implementado
+            self.sync()
+        xxx.AppClock.sched(0, init_task) # BUG: no está implementado
 
-    def quit(self):
-        # check running
-        self.addr.send_msg('/quit')
-        self.sproc.finish()
+    # client ID
+
+    # clientID is settable while server is off, and locked while server is running
+    # called from prHandleClientLoginInfoFromServer once after booting.
+    @property
+    def client_id(self):
+        return self._client_id
+    @client_id.setter
+    def client_id(self, value):
+        msg = "Server {} couldn't set client_id to {} - {}. clientID is still {}"
+        if self.server_running:
+            _warnings.warn(msg.format(self.name, value,
+                                     'server is running', self.client_id))
+            return # BUG: los setters de la propiedades retornan el valor? qué pasa cuando falla un setter?
+        if not isinstance(value, int):
+            _warnings.warn(msg.format(self.name, value
+                                      'not an int', self.client_id))
+            return # BUG: idem
+        if value < 0 or value >= self.max_num_clients:
+            msg2 = '"outside max_num_clients range of 0 - {}"'
+            msg2 = msg2.format(self.max_num_clients - 1)
+            _warnings.warn(msg.format(self.name, value, msg2, self.client_id))
+            return # BUG: idem
+        if self._client_id != value:
+            print("{} : setting clientID to {}".format(self.name, value)) # TODO: es un LOG, probablemente hayan funciones para hacer logs!
+        self._client_id = value
+        self.new_allocators() # TODO: parece un método privado pero lo usan en UnitTest-bootServer
+
+    # L414
+    # /* clientID-based id allocators */
+
+    def new_allocators(self):
+        pass
+    def new_node_allocators(self):
+        pass
+    def new_bus_allocators(self):
+        pass
+    def new_buffer_allocators(self):
+        pass
+    def new_scope_buffer_allocators(self):
+        pass
+    def next_buffer_number(self, n):
+        pass
+    def free_all_buffers(self):
+        pass
+    def next_node_id(self):
+        pass
+    def next_perm_node_id(self):
+        pass
+    def free_perm_node_id(self, id):
+        pass
+    def _handle_client_login_info_from_server(self, new_client_id,
+                                              new_max_logins): # BUG: name!
+        pass
+    def _handle_notify_fail_string(self, fail_string, msg): # TODO: yo usé msg en vez de failstr arriba.
+        pass
+
+    # L571
+    # /* network messages */
+    # TODO
 
     def send_msg(self, *args):
-        self.addr.send_msg(*args)
-
+        #self.addr.send_msg(*args) # ver de nuevo
+        pass
     def send_bundle(self, time, *args):
-        self.addr.send_bundle(time, *args)
+        # self.addr.send_bundle(time, *args) # ver de nuevo
+        pass
+
+    # L659
+    # /* network message bundling */
+    # TODO
+
+    # L698
+    # /* scheduling */
+    # TODO
+
+    # L814
+    # /* recording formats */
+    # TODO
+
+    # L825
+    # /* server status */
+    # TODO
 
     # L835
     # hasBooted { ^statusWatcher.hasBooted }
     def has_booted(self):
-        return True # BUG! falta implementar StatusWatcher
-
+        #return True # BUG! falta implementar StatusWatcher
+        pass
+    # ...
+    # L868 REDO
+    def boot(self):
+        # localserver
+        #self.sproc = _ServerProcesses(self.options)
+        #self.sproc.run()
+        pass
+    # ...
+    # L1017 REDO
+    def quit(self):
+        # check running
+        # self.addr.send_msg('/quit')
+        # self.sproc.finish()
+        pass
+    # ...
     # L1110
     @classmethod
     def all_booted_servers(cls):
         return [x for x in cls.all if x.has_booted()]
+
+    # L1118
+    # /* volume control */
+    # TODO
+
+    # L1132
+    # /* recording output */
+    # TODO
+
+    # L1140
+    # /* internal server commands */
+    # TODO
+
+    # L1169
+    # /* CmdPeriod support for Server-scope and Server-record and Server-volume */
+    # TODO
 
 
 class _ServerProcesses(object):

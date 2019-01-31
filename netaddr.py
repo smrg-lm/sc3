@@ -152,8 +152,12 @@ class NetAddr():
     #     cl.Client.default.send_msg('/status')
 
     # def send_clumped_bundles(self, time, *args): # TODO: pasada a client, ver que hace liblo.
-    # def sync(self, condition, bundles, latency): # TODO: pasada a client, es la fuente de s.sync
+
+    def sync(self, condition=None, bundle=None, latency=0):
+        cl.Client.default.sync(self._target, condition, bundle, latency)
+
     # def make_sync_responder(self, condition): # TODO: funciona en realción al método de arriba.
+
     # def is_connected(self): # tcp
     # def connect(self, disconnect_handler): # tcp
     # def disconnect(self): # tcp

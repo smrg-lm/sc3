@@ -488,15 +488,15 @@ class SynthDef():
 
     # L587
     def do_send(self, server): #, completion_msg): # BUG: parece que no existe un argumento que reciba completionMsg
-        bytes = self.as_bytes()
-        if len(bytes) < (65535 // 4): # BUG: acá hace dividido 4, en clumpBundles hace > 20000, en bytes se puede mandar más, ver que hace scsynth.
-            server.send_msg('/d_recv', bytes) # BUG: completion_msg) ninunga función send especifica ni documenta parece tener un completionMsg, tampoco tiene efecto o sentido en las pruebas que hice
+        buffer = self.as_bytes()
+        if len(buffer) < (65535 // 4): # BUG: acá hace dividido 4, en clumpBundles hace > 20000, en bytes se puede mandar más, ver que hace scsynth.
+            server.send_msg('/d_recv', buffer) # BUG: completion_msg) ninunga función send especifica ni documenta parece tener un completionMsg, tampoco tiene efecto o sentido en las pruebas que hice
         else:
             if server.is_local:
                 msg = 'SynthDef {} too big for sending. Retrying via synthdef file'
                 warnings.warn(msg.format(self.name))
-                self.write_def_file(self.synthdef_dir)
-                server.send_msg('/d_load', str(self.synthdef_dir / (self.name + '.scsyndef'))) # BUG: , completionMsg)
+                self.write_def_file(SynthDef.synthdef_dir)
+                server.send_msg('/d_load', str(SynthDef.synthdef_dir / (self.name + '.scsyndef'))) # BUG: , completionMsg)
             else:
                 msg = 'SynthDef {} too big for sending'
                 warnings.warn(msg.format(self.name))
@@ -504,7 +504,7 @@ class SynthDef():
     def as_bytes(self):
         stream = io.BytesIO() #(b' ' * 256) # tamaño prealocado pero en sclang este no es un tamaño fijo de retorno sino una optimización para el llenado, luego descarta lo que no se usó.
         write_def([self], stream); # Es Array-writeDef, hace asArray que devuelve [ a SynthDef ] porque Array-writeDef puede escribir varias synthdef en un def file. Tiene que ser una función para list abajo.
-        return bytearray(stream.getbuffer()) # TODO: ver si hay conversiones posteriores. Arriba en as_synthdesc lo vuevle a convertir en CollStream...
+        return stream.getbuffer() # TODO: ver si hay conversiones posteriores. Arriba en as_synthdesc lo vuevle a convertir en CollStream...
                                              # el método asBytes se usa para enviar la data en NRT también, como array.
                                              # En do_send, arriba, está la llamada server.send_msg('/d_recv', self.as_bytes()), en sclang tiene que ser un array, ver implementación.
                                              # En sclang retorna un array de bytes (Int8Array)

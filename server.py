@@ -4,7 +4,8 @@ import subprocess as _subprocess
 import threading as _threading
 import atexit as _atexit
 import warnings as _warnings
-import os
+import os as _os
+import pathlib as _pathlib
 
 import liblo as _lo
 
@@ -13,8 +14,11 @@ import supercollie.netaddr as na
 import supercollie.client as cl
 import supercollie.model as md
 import supercollie.engine as en
+import supercollie.synthdef as sd
 
-
+# BUG: revisar porque hay un patch que cambió esto y otros que cambiaron un par
+# BUG: de cosas, el problema es que los patch se aplican meses después a master.
+# Esto de acá abajo lo hace con un diccionario en initClass, me parece mejor.
 # command line server exec default values
 _NUM_CONTROL_BUS_CHANNELS = 16384
 _NUM_AUDIO_BUS_CHANNELS = 1024 # esta no se usa, hace self.num_private_audio_bus_channels + self.num_input_bus_channels + self.num_output_bus_channels
@@ -184,8 +188,8 @@ class ServerOptions(object):
         if self.ugen_plugins_path is not None:
             o.append('-U')
             plist = ut.as_list(self.ugen_plugins_path)
-            plist = [os.path.normpath(x) for x in plist] # BUG: ensure platform format? # BUG: windows drive?
-            o.append(os.pathsep.join(plist))
+            plist = [_os.path.normpath(x) for x in plist] # BUG: ensure platform format? # BUG: windows drive?
+            o.append(_os.pathsep.join(plist))
         if self.memory_locking:
             o.append('-L')
         if self.threads is not None:
@@ -272,6 +276,12 @@ class ServerShmInterface():
 # (sub)clase. revisar la construcción de UGen y otras, aunque creo
 # que no era necesario emplear este tipo de mencanismos. Me falta ver
 # bien cómo es que funcionan las metaclases y cuál es us uso habitual.
+# Las propiedades de metaclass son propiedades de clase en la clase
+# derivada, ojo, no hay relación instancia/clase como en los
+# métodos comunes, en la metaclass todo es selfy, así funciona.
+# TODO: El único problema es que no aparecen en dir(Server)
+# TODO: Veo que se usa también type(self) para acceder a la clase en vez
+# de self.__class__, ver cuál es la diferencia.
 class MetaServer(type):
     local = None
     internal = None
@@ -304,7 +314,8 @@ class MetaServer(type):
 
 @ut.initclass
 class Server(metaclass=MetaServer):
-    def __init_class__(cls):
+    def __init_class__(cls): # BUG: ver: __new__ es un método estático tratado de manera especial por el intérprete, tal vez este se podría definir como tal, los métodos estáticos no están ligados ni a la clase ni a la instancia.
+                             # BUG: PERO __init_subclass___: "If defined as a normal instance method, this method is implicitly converted to a class method."
         cls._default = cls.local = cls('localhost', na.NetAddr('127.0.0.1', 57110))
         cls.internal = Server('internal', na.NetAddr(None, None));
 
@@ -326,7 +337,7 @@ class Server(metaclass=MetaServer):
         # // make statusWatcher before clientID, so .serverRunning works
         self.status_watcher = xxx.ServerStatusWatcher(server=self)
         # // go thru setter to test validity
-        self.client_id = client_id or 0 # BUG: es @property y usa el setter
+        self.client_id = client_id or 0 # es @property y usa el setter
 
         self.volume = xxx.Volume(server=self, persist=True) # BUG: falta implementar
         self.recorder = xxx.Recorder(server=self) # BUG: falta implementar
@@ -554,14 +565,69 @@ class Server(metaclass=MetaServer):
 
     # L571
     # /* network messages */
-    # TODO
 
     def send_msg(self, *args):
-        #self.addr.send_msg(*args) # ver de nuevo
-        pass
+        self.addr.send_msg(*args)
+
     def send_bundle(self, time, *args):
-        # self.addr.send_bundle(time, *args) # ver de nuevo
-        pass
+        self.addr.send_bundle(time, *args)
+
+    # def send_raw(self, raw_bytes): # send a raw message without timestamp to the addr.
+    #    self.addr.send_raw(raw_bytes)
+
+    def send_msg_sync(self, condition, *args): # este método no se usa en la libreríá de clases
+        condition = condition or _threading.Condition()
+        cmd_name = str(args[0]) # BUG: TODO: el método reorder de abajo envía con send_msg y el número de mensaje como int, VER que hace sclang a bajo nivel, pero puede que esta conversión esté puesta para convertir símbolos a strings en sclang?
+        if cmd_name[0] != '/':
+            cmd_name = '/' + cmd_name # BUG: ver reorder abajo, ver por qué agrega la barra acá y no en otras partes.
+            #args = list(args); args[0] = cmd_name # BUG: esto no está en sclang, supongo que se encarga luego no sé liblo depende de ella.
+        # BUG: usa OSCFunc, pero es toda una parafernalia que tengo que ponerme a ver
+        # cambiar por OSCFunc luego en todo caso.
+        def responder(*msg):
+            if msg[1] == cmd_name:
+                cl.Client.default._osc_server_thread.del_method('/done', None) # BUG: no se cómo funciona liblo, None acepta mensajes /done con cualquier typespec, borra todos los responder? qué pasa si hay dos iguales?
+                with condition:
+                    condition.notify()
+        cl.Client.default._osc_server_thread.add_method('/done', None, responder) # BUG: no se cómo funciona liblo, None hacepta mensajes /done con cualquier typespec, borra todos los responder? qué pasa si hay dos iguales?
+        self.addr.send_bundle(0, *args)
+        with condition:
+            condition.wait()
+
+    def sync(self, condition, bundles, latency): # BUG: dice bundles, tengo que ver el nivel de anidamiento
+        self.addr.sync(condition, bundles, latency)
+
+    def sched_sync(self, func): # este método no se usa en la libreríá de clases
+        raise Exception('implementar Server sched_sync con @routine') # BUG
+
+    # def list_send_msg(self, msg): # TODO: creo que es un método de conveniencia que genera confusión sobre la interfaz, acá msg es una lista no más.
+    #     pass
+    # def list_send_bundle(self, time, msgs):# TODO: creo que es un método de conveniencia que genera confusión sobre la interfaz, acá msgs es una lista no más.
+    #     pass
+
+    def reorder(self, node_list, target, add_action='addToHead'): # BUG: ver los comandos en notación camello, creo que el servidor los usa así, no se puede cambiar.
+        raise Exception('implementar Server reorder con asTarget, ver el 62') # BUG
+
+    # // load from disk locally, send remote
+    def send_synthdef(self, name, dir=None):
+        dir = dir or sd.SynthDef.synthdef_dir
+        dir = _pathlib.Path(dir)
+        try:
+            with open(dir / (name + '.scsyndef'), 'rb') as file:
+                buffer = file.read()
+                self.send_msg('/d_recv', buffer)
+        except FileNotFoundError:
+            pass # falla silenciosamente
+
+    # // tell server to load from disk
+    def load_synthdef(self, name, completion_msg=None, dir=None): # BUG: creo que completion_msg no tiene efecto, nota listSendMsg no hace nada.
+        dir = dir or sd.SynthDef.synthdef_dir
+        dir = _pathlib.Path(dir)
+        path = str(dir / (name + '.scsyndef'))
+        self.send_msg('/d_load', path) # BUG: completion_msg BUG: puede ser que se invoque a bajo nivel en sclang?
+
+    # // /d_loadDir
+    def load_directory(self, dir, completion_msg=None): # BUG: completion_msg
+        self.send_msg('/d_loadDir', dir) # BUG: completion_msg
 
     # L659
     # /* network message bundling */

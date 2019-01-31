@@ -2,6 +2,9 @@
 Utility classes and functions from sclang style.
 """
 
+# VER Itertools Recipes
+# ver https://docs.python.org/3/library/itertools.html#itertools-recipes
+
 
 # decorador
 class initclass():
@@ -40,12 +43,28 @@ def flat(inlist):
     def _(inlist, outlist):
         for item in inlist:
             if isinstance(item, list):
-                _(item, outlist)
+                _(item[:], outlist) # TODO: no estoy seguro si es copia, la dejo por si las dudas
             else:
                 outlist.append(item)
     outlist = []
     _(inlist, outlist)
     return outlist
+
+def flatten(inlist, n_levels=1):
+    def _(inlist, outlist, n):
+        for item in inlist:
+            if n < n_levels:
+                if isinstance(item, list):
+                    _(item[:], outlist, n+1) # TODO: no estoy seguro si es copia, la dejo por si las dudas
+                else:
+                    outlist.append(item)
+            else:
+                outlist.append(item)
+    outlist = []
+    _(inlist, outlist, 0)
+    return outlist
+
+# nota: también hay flatten2 y flatBelow
 
 def reshape_like(one, another):
     index = 0
@@ -98,6 +117,16 @@ def wrap_extend(inlist, n):
 # pero no es nada compacto, tal vez haya un truco
 
 # clump [l[i:i + n] for i in range(0, len(l), n)] https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
+# ver también grouper en Itertools Recipes
+# def gen_clumps(l, n=1):
+#    return (l[i:i + n] for i in range(0, len(l), n))
+
+# para pairsDo:
+def gen_cclumps(l, n=1):
+    '''return pairs as pairsDo does for iteration,
+    cclumps stands for complete clumps'''
+    return (l[i:i + n] for i in range(0, len(l), n) if len(l[i:i + n]) == n)
+
 # dup [UGen] * n
 # collect if else ['todo' if isinstance(x, A) else 'nada' for x in arr]
 #[0] * (len(names) - len(rates)) # VER: sclang extend, pero no trunca

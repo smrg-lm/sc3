@@ -4,6 +4,7 @@ Utility classes and functions from sclang style.
 
 # VER Itertools Recipes
 # ver https://docs.python.org/3/library/itertools.html#itertools-recipes
+import itertools as _itertools
 
 
 # decorador
@@ -126,6 +127,13 @@ def gen_cclumps(l, n=1):
     '''return pairs as pairsDo does for iteration,
     cclumps stands for complete clumps'''
     return (l[i:i + n] for i in range(0, len(l), n) if len(l[i:i + n]) == n)
+
+# para doAdjacentPairs, de Python Itertools Recipes: https://docs.python.org/3/library/itertools.html#itertools-recipes
+def pairwise(iterable):
+    "s -> (s0,s1), (s1,s2), (s2, s3), ..."
+    a, b = _itertools.tee(iterable)
+    next(b, None)
+    return zip(a, b)
 
 # dup [UGen] * n
 # collect if else ['todo' if isinstance(x, A) else 'nada' for x in arr]

@@ -1,10 +1,12 @@
 """Node.sc"""
 
 import threading as _threading
+import warnings as _warnings
 
 import supercollie.utils as ut
 import supercollie.ugens as ug
 import supercollie.server as sv
+import supercollie.synthdesc as ds
 
 # Node:asTarget se implementa para Integer, Nil, y Server
 # como extensión en el archivo Common/Control/asTarget.sc
@@ -68,7 +70,7 @@ class Node():
         kr_values = []
         ar_values = []
         result = []
-        for control, bus in ut.gen_cclumps(args):
+        for control, bus in ut.gen_cclumps(args, 2):
             bus = xxx.as_bus(bus) # BUG usa asBus que se implementa en Bus, Integer, Nil y Server.
             if bus.rate == 'control':
                 kr_values.extend([
@@ -120,7 +122,7 @@ class Node():
     def setn_msg_args(cls, *args):
         nargs = []
         args = ug.as_control_input(list(args)) # BUG: args es tupla, tengo que ver porque no están implementadas estas funciones.
-        for control, more_vals in ut.gen_cclumps(args):
+        for control, more_vals in ut.gen_cclumps(args, 2):
             if isinstance(more_vals, list): # BUG: ídem acá arriba, more_vals TIENE QUE SER LISTA
                 nargs.extend([control, len(more_vals)] + more_vals)
             else:
@@ -225,7 +227,111 @@ class Node():
 
 # // common base for Group and ParGroup classes
 class AbstractGroup(Node):
-    # TODO
+    # /** immediately sends **/
+    def __new__(cls, target, add_action='addToHead'):
+        target = xxx.as_target(target)
+        server = target.server
+        group = cls.basic_new(server)
+        add_action_id = cls.add_actions[add_action]
+        if add_action_id < 2:
+            group.group = target
+        else:
+            group.group = target.group
+        self.server.send_msg(
+            cls.creation_cmd(), group.node_id,
+            add_action_id, target.node_id
+        )
+        return group
+
+    def new_msg(self, target=None, add_action='addToHead'):
+        # // if target is nil set to default group of server specified when basicNew was called
+        target = xxx.as_target(target) # BUG: acá es un caso de asTarget sobre Nil
+        add_action_id = self.add_actions[add_action]
+        if add_action_id < 2:
+            self.group = target
+        else:
+            self.group = target.group
+        return [self.creation_cmd(), self.node_id,\
+               add_action_id, target.node_id]
+
+    # // for bundling
+    def add_to_head_msg(self, group=None):
+        # // if group is nil set to default group of server specified when basicNew was called
+        self.group = group or self.server.default_group
+        return [self.creation_cmd(), self.node_id, 0, self.group.node_id]
+
+    def add_to_tail_msg(self, group=None):
+        # // if group is nil set to default group of server specified when basicNew was called
+        self.group = group or self.server.default_group
+        return [self.creation_cmd(), self.node_id, 1, self.group.node_id]
+
+    def add_after_msg(self, node):
+        self.group = node.group
+        return [self.creation_cmd(), self.node_id, 3, self.group.node_id]
+
+    def add_before_msg(self, node):
+        self.group = node.group
+        return [self.creation_cmd(), self.node_id, 2, self.group.node_id]
+
+    def add_replace_msg(self, node_to_replace):
+        self.group = node_to_replace.group
+        return [self.creation_cmd(), self.node_id, 4, node_to_replace.node_id]
+
+    @classmethod
+    def after(cls, node):
+        return cls(node, 'addAfter')
+    @classmethod
+    def before(cls, node):
+        return cls(node, 'addBefore')
+    @classmethod
+    def head(cls, group):
+        return cls(group, 'addToHead')
+    @classmethod
+    def tail(cls, group):
+        return cls(group, 'addToTail')
+    @classmethod
+    def replace(cls, node_to_replace):
+        return cls(node_to_replace, 'addReplace')
+
+    # // move Nodes to this group
+
+    def move_node_to_head(self, node):
+        node.group = self
+        self.server.send_msg('/g_head', self.node_id, node.node_id) # 22
+
+    def move_node_to_head_msg(self, node):
+        node.group = self
+        return ['/g_head', self.node_id, node.node_id] # 22
+
+    def move_node_to_tail(self, node):
+        node.group = self
+        self.server.send_msg('/g_tail', self.node_id, node.node_id) # 23
+
+    def move_node_to_tail_msg(self, node):
+        node.group = self
+        return ['/g_tail', self.node_id, node.node_id] # 23
+
+    def free_all(self):
+        # // free my children, but this node is still playing
+        self.server.send_msg('/g_freeAll', self.node_id) # 24
+
+    def free_all_msg(self):
+        # // free my children, but this node is still playing
+        return ['/g_freeAll', self.node_id] # 24
+
+    def deep_free(self):
+        self.server.send_msg('/g_deepFree', self.node_id) # 50
+
+    def deep_free_msg(self):
+        return ['/g_deepFree', self.node_id] # 50
+
+    # // Introspection
+
+    def dump_tree(self, post_controls=False):
+        self.server.send_msg('/g_dumpTree', self.node_id, int(post_controls))
+
+    def query_tree(self):
+        raise Exception('implementar AbstractGroup:query_tree con OSCFunc y SystemClock') # BUG
 
     @staticmethod
     def creation_cmd():
@@ -244,9 +350,210 @@ class ParGroup(AbstractGroup):
         return 63 # '/p_new'
 
 
-class Synth(Node):
-    pass
-
-
 class RootNode(Group):
-    pass
+    roots = dict()
+
+    def __new__(cls, server):
+        server = server or sv.Server.default
+        if server.name in cls.roots:
+            return cls.roots[server.name]
+        else:
+            return cls.basic_new(server, 0).rninit() # BUG: no entiendo por qué sclang llama con super, creo que es lo mismo, en Python es lo mismo
+
+    def rninit(self):
+        self.roots[self.server.name] = self
+        self.is_playing = self.is_running = True
+        self.group = self
+
+    def run(self):
+        _warnings.warn('run has no effect on RootNode')
+    def free(self):
+        _warnings.warn('free has no effect on RootNode')
+    def move_before(self):
+        _warnings.warn('moveBefore has no effect on RootNode')
+    def move_after(self):
+        _warnings.warn('move_after has no effect on RootNode')
+    def move_to_head(self):
+        _warnings.warn('move_to_head has no effect on RootNode')
+    def move_to_tail(self):
+        _warnings.warn('move_to_tail has no effect on RootNode')
+
+    @classmethod
+    def free_all(cls):
+        for rn in cls.roots.values():
+            rn.free_all()
+
+
+class Synth(Node):
+    # /** immediately sends **/
+    def __new__(cls, def_name, args=[], target=None, add_action='addToHead'):
+        target = xxx.as_target(target)
+        server = target.server
+        add_action_id = cls.add_actions[add_action]
+        synth = cls.basic_new(def_name, server)
+        if add_action_id < 2:
+            synth.group = target
+        else:
+            synth.group = target.group
+        synth.server.send_msg(
+            '/s_new', # 9
+            synth.def_name, synth.node_id,
+            add_action_id, target.node_id,
+            *xxx.as_osc_arg_list(args)
+        )
+        return synth
+
+    # // does not send (used for bundling)
+    @classmethod
+    def basic_new(cls, def_name, server, node_id):
+        obj = super().basic_new(server, node_id)
+        obj.def_name = def_name
+        return obj
+
+    @classmethod
+    def new_paused(cls, def_name, args=[], target=None, add_action='addToHead'):
+        target = xxx.as_target(target)
+        server = target.server
+        add_action_id = cls.add_actions[add_action]
+        synth = cls.basic_new(def_name, server)
+        if add_action_id < 2:
+            synth.group = target
+        else:
+            synth.group = target.group
+        synth.server.send_bundle(0,
+            [
+                '/s_new', # 9
+                synth.def_name, synth.node_id,
+                add_action_id, target.node_id
+                *xxx.as_osc_arg_list(args)
+            ],
+            [
+                '/n_run', # 12
+                synth.node_id, 0
+            ]
+        )
+        return synth
+
+    @classmethod
+    def new_replace(cls, node_to_replace, def_name, args=[], same_id=False): # BUG: renombrado porque no pueden haber métodos de instancia y clase con el mismo nombre.
+        if same_id:
+            new_node_id = node_to_replace.node_id
+        else:
+            new_node_id = None
+        server = node_to_replace.server
+        synth = cls.basic_new(def_name, server, new_node_id)
+        synth.server.send_msg(
+            '/s_new', # 9
+            synth.def_name, synth.node_id,
+            4, node_to_replace.node_id, # 4 -> 'addReplace'
+            *xxx.as_osc_arg_list(args)
+        )
+        return synth
+
+    # node_id -1
+    @classmethod # TODO: este tal vez debería ir arriba
+    def grain(cls, def_name, args=[], target=None, add_action='addToHead'):
+        target = xxx.as_target(target)
+        server = target.server
+        server.send_msg(
+            '/s_new', # 9
+            def_name.as_def_name(), -1, # BUG: as_def_name no está implementado puede ser método de Object
+            cls.add_actions[add_action], target.node_id,
+            *xxx.as_osc_arg_list(args)
+        )
+
+    def new_msg(self, target=None, args=[], add_action='addToHead'):
+        add_action_id = self.add_actions[add_action]
+        target = xxx.as_target(target)
+        if add_action_id < 2:
+            self.group = target
+        else:
+            self.group = target.group
+        return ['/s_new', self.def_name, self.node_id, add_action_id,\
+               target.node_id, *xxx.as_osc_arg_list(args)] # 9
+
+    @classmethod
+    def after(cls, node, def_name, args=[]):
+        return cls(def_name, args, node, 'addAfter')
+    @classmethod
+    def before(cls, node, def_name, args=[]):
+        return cls(def_name, args, node, 'addBefore')
+    @classmethod
+    def head(cls, group, def_name, args=[]):
+        return cls(def_name, args, group, 'addToHead')
+    @classmethod
+    def tail(cls, group, def_name, args=[]):
+        return cls(def_name, args, group, 'addToTail')
+
+    def replace(self, def_name, args=[], same_id=False):
+        return type(self).new_replace(self, def_name, args, same_id)
+
+    # // for bundling
+    def add_to_head_msg(self, group, args):
+        # // if aGroup is nil set to default group of server specified when basicNew was called
+        if group is not None:
+            self.group = group
+        else:
+            self.group = self.server.default_group
+        return ['/s_new', self.def_name, self.node_id, 0,\
+               self.group.node_id, *xxx.as_osc_arg_list(args)] # 9
+
+    def add_to_tail_msg(self, group, args):
+        # // if aGroup is nil set to default group of server specified when basicNew was called
+        if group is not None:
+            self.group = group
+        else:
+            self.group = self.server.default_group
+        return ['/s_new', self.def_name, self.node_id, 1,\
+               self.group.node_id, *xxx.as_osc_arg_list(args)] # 9
+
+    def add_after_msg(self, node, args=[]):
+        self.group = node.group
+        return ['/s_new', self.def_name, self.node_id, 3,\
+               node.node_id, *xxx.as_osc_arg_list(args)] # 9
+
+    def add_before_msg(self, node, args=[]):
+        self.group = node.group
+        return ['/s_new', self.def_name, self.node_id, 2,\
+               node.node_id, *xxx.as_osc_arg_list(args)] # 9
+
+    def add_replace_msg(self, node_to_replace, args):
+        self.group = node_to_replace.group
+        return ['/s_new', self.def_name, self.node_id, 4,\
+               node_to_replace.node_id, *xxx.as_osc_arg_list(args)] # 9
+
+    def get(self, index, action):
+        raise Exception('implementar Synth:get con OSCFunc') # BUG
+
+    def get_msg(self, index):
+        return ['/s_get', self.node_id, index] # 44
+
+    def getn(self, index, count, action):
+        raise Exception('implementar Synth:getn con OSCFunc') # BUG
+
+    def getn_msg(self, index, count):
+        return ['/s_getn', self.node_id, index, count] # 45
+
+    def seti(self, *args): # // args are [key, index, value, key, index, value ...]
+        osc_msg = []
+        synth_desc = ds.SynthDescLib.at(self.def_name)
+        if synth_desc is None:
+            msg = 'message seti failed, because SynthDef {} was not added'
+            _warning.warn(msg.format(self.def_name))
+            return
+        for key, offset, value in ut.gen_cclumps(args, 3):
+            if key in synth_desc.control_dict:
+                cname = synth_desc.control_dict[key]
+                if offset < cname.num_channels:
+                    osc_msg.append(cname.index + offset)
+                    if isinstance(value, list):
+                        osc_msg.append(value[:cname.num_channels - offset]) # keep
+                    else:
+                        osc_msg.append(value)
+        self.server.send_msg(
+            '/n_set', self.node_id,
+            *xxx.as_osc_arg_list(osc_msg)
+        )
+
+    # TODO, VER
+    #printOn

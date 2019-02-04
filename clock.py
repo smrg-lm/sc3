@@ -174,10 +174,10 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
     def osc_time(self) -> int: # L309, devuleve elapsed_time_to_osc(elapsed_time())
         return self.elapsed_time_to_osc(self.elapsed_time())
 
-    def sched_add(self, secs, task): # L353, ver los otros sched_ y cuáles son parte de la interfaz
+    def _sched_add(self, secs, task): # L353, ver los otros sched_ y cuáles son parte de la interfaz
         # gLangMutex must be locked # es self._sched_cond y bloquea acá, luego ver quién llama en sclang
         with self._sched_cond:
-            item = (elapsed, secs, task) # BUG, BUG: elapsed? ver qué hice...
+            item = (secs, task)
 
             if self._task_queue.empty():
                 prev_time = -1e10
@@ -255,7 +255,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                                     # si acá se usa simplemente next sobre un generador.
                     if isinstance(delta, _Real) and not isinstance(delta, bool): # ver si los generadores retornan None cuando terminan, y ver como se escríbe "is not"
                         time = sched_time + delta
-                        self.sched_add(time, task)
+                        self._sched_add(time, task)
                 except StopIteration:
                     pass
                 except Exception:
@@ -280,14 +280,14 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         if seconds == _math.inf:
             msg = "won't schedule {} to infinity, clock time: {}, delta: {}"
             raise Exception(msg.format(item, seconds, delta))
-        cls._instance.sched_add(seconds, item)
+        cls._instance._sched_add(seconds, item)
 
     @classmethod
     def sched_abs(cls, time, item):
         if time == _math.inf:
             msg = "sched_abs won't schedule {} to infinity"
             raise Exception(msg.format(item, time))
-        cls._instance.sched_add(time, item)
+        cls._instance._sched_add(time, item)
 
     # L542 y L588 setea las prioridades 'rt' para mac o linux, es un parámetro de los objetos Thread
     # ver qué hace std::move(thread)

@@ -1,4 +1,4 @@
-"""Clock.sc""" # BUG: renombrar con git sin la s al final
+"""Clock.sc"""
 
 import threading as _threading
 import time as _time

@@ -1,5 +1,4 @@
-# PyrSched.cpp clone try
-# ver cómo llamar a este módulo, tal vez schedulers/sched(hay uno en python)? no sé
+"""Clock.sc""" # BUG: renombrar con git sin la s al final
 
 import threading as _threading
 import time as _time
@@ -11,20 +10,52 @@ from numbers import Real as _Real
 #import sched tal vez sirva para AppClock (ver scd)
 #Event = collections.namedtuple('Event', []) podría servir pero no se pueden agregar campos dinámicamente, creo, VER
 
-class AbstractClock(_threading.Thread): # ver std::copy y std::bind
-    # def play(): pass
-    # def seconds(): pass
-    # def beats(): pass
-    # # ver nombres :-/
-    # def beats2secs: pass
-    # def secs2beats: pass
-    # def beats2bars: pass
-    # def bars2beats: pass
-    # def timeToNextBeat: pass
-    # def nextTimeOnGrid: pass
-    pass
+import supercollie._global as _gl
+import supercollie.builtins as bi
 
-class SystemClock(AbstractClock):
+
+# // clocks for timing threads.
+
+class Clock(_threading.Thread): # ver std::copy y std::bind
+    def __new__(cls):
+        raise NotImplementedError('Clock is an abstract class')
+
+    @classmethod
+    def play(cls, task):
+        cls.sched(0, task)
+    @classmethod
+    def seconds(cls): # Process.elapsedTime es el tiempo físico (desde que se inició la aplicación), seconds es el tiempo lógico que puede ser el mismo si es mainThread (?)
+        return _gl.this_thread.seconds() # BUG: no me quedan claras las explicaciones dispersas en al documentación Process, Thread, Clock(s)
+
+    # // tempo clock compatibility
+    @classmethod
+    def beats(cls):
+        return _gl.this_thread.seconds()
+    @classmethod
+    def beats2secs(cls, beats):
+        return beats
+    @classmethod
+    def secs2beats(cls secs):
+        return secs
+    @classmethod
+    def beats2bars(cls):
+        return 0
+    @classmethod
+    def bars2beats(cls):
+        return 0
+    @classmethod
+    def time_to_next_beat(cls):
+        return 0
+    @classmethod
+    def next_time_on_grid(cls, quant=1, phase=0):
+        if quant == 0:
+            return cls.beats() + phase
+        if phase < 0:
+            phase = bi.mod(phase, quant)
+        return bi.roundup(cls.beats() - bi.mod(phase, quant), quant)
+
+
+class SystemClock(Clock):
     _SECONDS_FROM_1900_TO_1970 = 2208988800 # (int32)UL # 17 leap years
     _NANOS_TO_OSC = 4.294967296 # PyrSched.h: const double kNanosToOSC  = 4.294967296; // pow(2,32)/1e9
     _MICROS_TO_OSC = 4294.967296 # PyrSched.h: const double kMicrosToOSC = 4294.967296; // pow(2,32)/1e6
@@ -233,14 +264,20 @@ class SystemClock(AbstractClock):
     # L651, comentario importante sobre qué maneja cada reloj
     # luego ver también las funciones que exporta a sclang al final de todo
 
-class TempoClock(AbstractClock): # se crean desde SystemClock?
+
+class TempoClock(Clock): # se crean desde SystemClock?
     pass
 
-class AppClock(AbstractClock): # ?
+
+class AppClock(Clock): # ?
     pass
 
-class NRTClock(AbstractClock): # ?
-    pass
 
-# los patterns temporales tienen que generar una rutina que
-# corra en el mismo reloj.
+class NRTClock(Clock):
+    # Los patterns temporales tienen que generar una rutina que
+    # corra en el mismo reloj. El probleam es que el tiempo no
+    # avanza si no se llama a yield/wait. El reloj de Jonathan
+    # captura la cola y usa un servidor dummy, pero si el pattern
+    # usa el reloj en 'tiempo real' eso no queda registrado.
+    # Además, en nrt todas las acciones son sincrónicas.
+    pass

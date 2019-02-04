@@ -4,6 +4,7 @@ import threading as _threading
 import time as _time
 import sys as _sys
 import traceback as _traceback
+import math as _math
 from queue import PriorityQueue as _PriorityQueue
 from queue import Full as _Full
 from numbers import Real as _Real
@@ -24,7 +25,7 @@ class Clock(_threading.Thread): # ver std::copy y std::bind
     def play(cls, task):
         cls.sched(0, task)
     @classmethod
-    def seconds(cls): # Process.elapsedTime es el tiempo físico (desde que se inició la aplicación), seconds es el tiempo lógico que puede ser el mismo si es mainThread (?)
+    def seconds(cls): # seconds es el tiempo lógico de cada thread
         return _gl.this_thread.seconds() # BUG: no me quedan claras las explicaciones dispersas en al documentación Process, Thread, Clock(s)
 
     # // tempo clock compatibility
@@ -55,7 +56,7 @@ class Clock(_threading.Thread): # ver std::copy y std::bind
         return bi.roundup(cls.beats() - bi.mod(phase, quant), quant)
 
 
-class SystemClock(Clock):
+class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singletona
     _SECONDS_FROM_1900_TO_1970 = 2208988800 # (int32)UL # 17 leap years
     _NANOS_TO_OSC = 4.294967296 # PyrSched.h: const double kNanosToOSC  = 4.294967296; // pow(2,32)/1e9
     _MICROS_TO_OSC = 4294.967296 # PyrSched.h: const double kMicrosToOSC = 4294.967296; // pow(2,32)/1e6
@@ -63,7 +64,9 @@ class SystemClock(Clock):
     _OSC_TO_NANOS = 0.2328306436538696# PyrSched.h: const double kOSCtoNanos  = 0.2328306436538696; // 1e9/pow(2,32)
     _OSC_TO_SECONDS =  2.328306436538696e-10 # PyrSched.h: const double kOSCtoSecs = 2.328306436538696e-10;  // 1/pow(2,32)
 
-    def __init__(self):
+    _instance = None # singleton instance
+
+    def __new__(cls):
         #_host_osc_offset = 0 # int64
         #_host_start_nanos = 0 # int64
         #_elapsed_osc_offset = 0 # int64
@@ -72,13 +75,19 @@ class SystemClock(Clock):
         #monotonic_clock es _time.monotonic()? usa el de mayor resolución
         #def dur_to_float, ver
         #_run_sched # gRunSched es condición para el loop de run
-        _threading.Thread.__init__(self)
-        self._task_queue = _PriorityQueue() # inQueue infinite by default, ver cómo y donde setea la pila sclang
-        self._sched_cond = _threading.Condition() # VER, tal vez no debería ser reentrante
-        self.start()
-        self.sched_init()
+        if cls._instance is None:
+            obj = cls()
+            _threading.Thread.__init__(obj)
+            obj._task_queue = _PriorityQueue() # BUG: inQueue infinite by default, ver cómo y donde setea el tamaño de la pila sclang, put(block=False) puede tierar Full igualmente
+            obj._sched_cond = _threading.Condition() # VER, tal vez no debería ser reentrante
+            obj.start()
+            obj._sched_init()
+            cls._instance = obj
+            return obj
+        else:
+            raise Exception('there is one SystemClock instance already') # BUG: sclang devuelve otras instancias lo que es confuso, no tiene sentido
 
-    def sched_init(self): # L253 inicia los atributos e.g. _time_of_initialization
+    def _sched_init(self): # L253 inicia los atributos e.g. _time_of_initialization
         #time.gmtime(0).tm_year # must be unix time
         self._time_of_initialization = _time.time()
         self._host_osc_offset = 0 # int64
@@ -88,7 +97,7 @@ class SystemClock(Clock):
         self._elapsed_osc_offset = int(
             self._host_start_nanos * SystemClock._NANOS_TO_OSC) + self._host_osc_offset
 
-        print('sched_init fork thread')
+        print('_sched_init fork thread')
 
         # same every 20 secs
         self._resync_cond = _threading.Condition() # VER, aunque el uso es muy simple (gResyncThreadSemaphore)
@@ -143,7 +152,7 @@ class SystemClock(Clock):
             self._elapsed_osc_offset = int(
                 self._host_start_nanos * SystemClock._NANOS_TO_OSC) + self._host_osc_offset
 
-    def sched_cleanup(self): # L265 es para rsync_thread join, la exporta como interfaz, pero no sé si no está mal llamada 'sched', tengo que ver quién la llama y cuándo
+    def _sched_cleanup(self): # L265 es para rsync_thread join, la exporta como interfaz, pero no sé si no está mal llamada 'sched'
         with self._resync_cond:
             self._run_resync = False
             self._resync_cond.notify() # tiene que interrumpir el wait
@@ -168,7 +177,7 @@ class SystemClock(Clock):
     def sched_add(self, secs, task): # L353, ver los otros sched_ y cuáles son parte de la interfaz
         # gLangMutex must be locked # es self._sched_cond y bloquea acá, luego ver quién llama en sclang
         with self._sched_cond:
-            item = (elapsed, secs, task)
+            item = (elapsed, secs, task) # BUG, BUG: elapsed? ver qué hice...
 
             if self._task_queue.empty():
                 prev_time = -1e10
@@ -176,9 +185,9 @@ class SystemClock(Clock):
                 prev_time = self._task_queue.queue[0][0] # queue.queue no está documentado?
 
             try:
-                self._task_queue.put(item, block=False) # Full exception
+                self._task_queue.put(item, block=False) # Full exception BUG: put de PriorityQueue es infinita por defecto, pero put(block=False) solo agrega si hay espacio libre inmediatamente o tira Full.
                 self._task_queue.task_done() # se necesita siendo el mismo thread?
-                #if type(task) is supercollie.Coroutine # no está definida *************************
+                #if type(task) is supercollie.Coroutine # no está definida BUG: *************************
                 #    task.next_beat = secs
                 if self._task_queue.queue[0][0] != prev_time:
                     with self._sched_cond:
@@ -195,10 +204,10 @@ class SystemClock(Clock):
         self.join() # VER esto, la función sched_stop se llama desde otro hilo y es sincrónica allí
         # tal vez debería juntar con _resync_thread
 
-    def sched_clear(self): # L387, llama a schedClearUnsafe() con gLangMutex locks
+    def sched_clear(self): # L387, llama a schedClearUnsafe() con gLangMutex locks, esta función la exporta con SCLANG_DLLEXPORT_C
         with self._sched_cond:
             if _self._run_sched:
-                del self._task_queue
+                del self._task_queue # BUG: en realidad tiene un tamaño que reusa y no borra, pero no sé dónde se usa esta función, desde sclang usa *clear
                 self._task_queue = _PriorityQueue()
                 self._sched_cond.notify() #_all()
 
@@ -232,7 +241,7 @@ class SystemClock(Clock):
                 item = self._task_queue.get()
                 sched_time = item[0]
                 task = item[1]
-                #if type(task) is supercollie.Coroutine # no está definida *********************************
+                #if type(task) is supercollie.Coroutine # no está definida  BUG *********************************
                 #    task.next_beat = None
                 try:
                     delta = task.__next__() # creo que setea en nil el valor de retorno anterior,
@@ -254,6 +263,31 @@ class SystemClock(Clock):
                     # imprimir las demás excepciones pero seguir, ahora, no se tiene que poder producir ningún otro error en try
                     # no sé bien cómo es.
                     _traceback.print_exception(*_sys.exc_info())
+
+    # sclang methods
+
+    @classmethod
+    def clear(cls): # método de SystemClock en sclang, llama a schedClearUnsafe() mediante prClear/_SystemClock_Clear después de vaciar la cola prSchedulerQueue que es &g->process->sysSchedulerQueue
+        if cls._instance is None: return
+        while not cls._instance._task_queue.empty():
+            cls._instance._task_queue.get() # de por sí PriorityQueue es thread safe, la implementación de SuperCollider es distinta
+        cls._instance._sched_cond.notify() #_all()
+
+    @classmethod
+    def sched(cls, delta, item): # Process.elapsedTime es el tiempo físico (desde que se inició la aplicación), que también es elapsedTime de SystemClock (elapse_time acá) [Process.elapsedTime, SystemClock.seconds, thisThread.seconds] thisThread sería mainThread si se llama desde fuera de una rutina, thisThread.clock === SystemClock, es la clase singleton
+        seconds = cls._instance.elapse_time()
+        seconds += delta
+        if seconds == _math.inf:
+            msg = "won't schedule {} to infinity, clock time: {}, delta: {}"
+            raise Exception(msg.format(item, seconds, delta))
+        cls._instance.sched_add(seconds, item)
+
+    @classmethod
+    def sched_abs(cls, time, item):
+        if time == _math.inf:
+            msg = "sched_abs won't schedule {} to infinity"
+            raise Exception(msg.format(item, time))
+        cls._instance.sched_add(time, item)
 
     # L542 y L588 setea las prioridades 'rt' para mac o linux, es un parámetro de los objetos Thread
     # ver qué hace std::move(thread)

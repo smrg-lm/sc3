@@ -11,7 +11,6 @@ from numbers import Real as _Real
 #import sched tal vez sirva para AppClock (ver scd)
 #Event = collections.namedtuple('Event', []) podría servir pero no se pueden agregar campos dinámicamente, creo, VER
 
-import supercollie._global as _gl
 import supercollie.builtins as bi
 
 
@@ -26,12 +25,12 @@ class Clock(_threading.Thread): # ver std::copy y std::bind
         cls.sched(0, task)
     @classmethod
     def seconds(cls): # seconds es el tiempo lógico de cada thread
-        return _gl.this_thread.seconds() # BUG: no me quedan claras las explicaciones dispersas en al documentación Process, Thread, Clock(s)
+        return xxx.this_thread.seconds() # BUG: no me quedan claras las explicaciones dispersas en al documentación Process, Thread, Clock(s)
 
     # // tempo clock compatibility
     @classmethod
     def beats(cls):
-        return _gl.this_thread.seconds()
+        return xxx.this_thread.seconds()
     @classmethod
     def beats2secs(cls, beats):
         return beats
@@ -215,13 +214,13 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
     def run(self):
         self._run_sched = True
         while True:
-            # wait until there is something in scheduler
+            # // wait until there is something in scheduler
             while self._task_queue.empty():
                 with self._sched_cond:
                     self._sched_cond.wait() # ver qué pasa con los wait en el mismo hilo, si se produce
                 if not self._run_sched: return
 
-            # wait until an event is ready
+            # // wait until an event is ready
             now = 0
             sched_secs = 0
             sched_point = 0
@@ -236,7 +235,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                     self._sched_cond.wait(sched_secs) # **** !!!!!!!! **** (sched_point) # notify lo tiene que interrumpir cuando se agrega otra tarea, ver por qué usa wait_until en c++ que usa tod (probable drift)
                 if not self._run_sched: return
 
-            # perform all events that are ready
+            # // perform all events that are ready
             while not self._task_queue.empty() and (now >= self._time_of_initialization + self._task_queue.queue[0][0]): # **** si está vacía va a tirar error o hace corto?
                 item = self._task_queue.get()
                 sched_time = item[0]

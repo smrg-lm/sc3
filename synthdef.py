@@ -152,8 +152,8 @@ class SynthDef():
     #addControlsFromArgsOfFunc (llamada desde buildUGenGraph)
     def _args_to_controls(self, func, rates, skip_args=0):
         # var def, names, values,argNames, specs;
-        if not inspect.isfunction(func) or inspect.isgeneratorfunction(func):
-            raise TypeError('@synthdef only apply to function')
+        if not inspect.isfunction(func):
+            raise TypeError('@synthdef only apply to functions')
 
         sig = inspect.signature(func)
         params = list(sig.parameters.values())

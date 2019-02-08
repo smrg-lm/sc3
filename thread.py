@@ -177,9 +177,21 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
     def __next__(self): # BUG: ver cómo sería la variante pitónica, luego.
         pass # TODO: es _RoutineResume
 
-    # TODO
+    # TODO: es _RoutineResume
     def next(self, inval=None):
+        # Si el estado de self es Init
+        # prRoutineResume
+        # TODO: setea nowExecutingPath, creo que no lo voy a hacer.
+        # TODO: setea parent al thread que llama este método, e.g. parent...
+        # TODO: le asigna los valores de parent a beats, seconds, clock de este hilo.
+        # switchToThread
+        # TODO: switchea rand data (g->rgen = (RGen*)(slotRawObject(&newthread->randData)->slots);)
+        # TODO: setea el entorno de este hilo, eso no lo voy a hacer.
+        # prRoutineResume
+        # TODO: hace esto que no sé qué es: sendMessage(g, s_prstart, 2);
+        # Luego hace para state == tSuspended, y breve para Done (creo que devuelve terminalValue), Running (error), else error.
         try:
+            # TODO: creo que antes de que retorne acá tengo que hacer las operaciones que hace en prRoutineYield
             return self._iterator.send(inval) # BUG: _iterator.send es solo para iteradores generadores
         except AttributeError as e:
             # Todo esto es para imitar la funcionalidad/comportamiento de las

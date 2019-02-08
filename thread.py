@@ -174,14 +174,30 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
 
     def __iter__(self):
         return self
-    def __next__(self):
-        pass # TODO: ver cómo hago con send, es _RoutineResume
+    def __next__(self): # BUG: ver cómo sería la variante pitónica, luego.
+        pass # TODO: es _RoutineResume
+
+    # TODO
+    def next(self, inval=None):
+        try:
+            return self._iterator.send(inval) # BUG: _iterator.send es solo para iteradores generadores
+        except AttributeError as e:
+            # Todo esto es para imitar la funcionalidad/comportamiento de las
+            # corrutinas en sclang. Pero se vuelve poco pitónico, por ejemplo,
+            # no se pueden usar next() y for, e implica un poco más de carga.
+            if len(inspect.trace()) > 1: # sigue solo si la excepción es del frame actual
+                raise e
+            if len(inspect.signature(self.func).parameters) == 0: # esto funciona porque es solo para la primera llamada, cuando tampoco existe _iterator, luego no importa si la función tenía argumentos.
+                self._iterator = self.func()
+            else:
+                self._iterator = self.func(inval)
+            return next(self._iterator)
 
     # reset # _RoutineReset
     # stop # _RoutineStop con otros detalles
 
     # // resume, next, value, run are synonyms
-    # next
+    # next, ver arriba
     # value
     # resume
     # run (de instancia, no se puede)

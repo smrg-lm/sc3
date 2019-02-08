@@ -164,5 +164,34 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
     # checkCanArchive { "cannot archive Threads".warn }
 
 
-class Routine(Stream, TimeThread): # BUG: Stream no está definida, ver qué se pisa entre Stream y TimeThread y mro.
-    pass
+class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeThread y mro.
+    # TODO: como Routine es un envoltorio tengo que ver qué haga con
+    # la relación entre generador e iterador y cuándo es una función normal.
+
+    @classmethod
+    def run(cls, func, clock, quant):
+        pass # TODO
+
+    def __iter__(self):
+        return self
+    def __next__(self):
+        pass # TODO: ver cómo hago con send, es _RoutineResume
+
+    # reset # _RoutineReset
+    # stop # _RoutineStop con otros detalles
+
+    # // resume, next, value, run are synonyms
+    # next
+    # value
+    # resume
+    # run (de instancia, no se puede)
+
+    # valueArray se define como ^this.value(inval), opuesto a Stream valueArray que no recibe inval... BUG del tipo desprolijidad? o hay una razón?
+
+    # p ^Prout(func)
+    # storeArgs
+    # storeOn
+
+    # // PRIVATE
+    # awake, llama a next(inBeats)
+    # prStart

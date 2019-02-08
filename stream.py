@@ -4,10 +4,39 @@ import supercollie.functions as fn
 
 
 class Stream(fn.AbstractFunction):
-    # TODO: esta clase implementa:
-    #     * el comportamiento de yield en las TimeThread y Routines (que está a bajo nivel)
-    #     * la interfaz de los generadores de Python
-    pass
+    # TODO:
+    #     * Stream actúa como conotenedor e iterador en sclang
+    #     * los generadores implementan __iter__, los iteradores además implementan __next__
+    #     * No me queda claro cómo deberían ser los equivalentes, Stream,
+    #       al ser AbstractFunction implementa las operaciones matemáticas y eso
+    #       iría sobre los iteradores o los generadores?
+    #     * Por lo que veo no es necesario implementar Stream para que funcione
+    #       lo básico de Routine.
+    # TODO: OK, la cosa será así, al menos por ahora, Stream es un iterador
+    # y Pattern es un generador, es lo que hace sclang en su explicación teórica.
+    # La gracia de ambos es que son AbstractFunctions.
+    # Tengo que ver, después, por qué Stream implementa la funcionalidad de los
+    # contenedores, pero la idea es no agregar funcionalidad demás.
+    # Tengo que ver cuándo sirve el método send de Python, tal vez para
+    # embedInStream.
+
+    # @property
+    # def parent(self): return None # TODO: entiendo que esta propiedad, que no se puede declarar como atributo, es por parent de Thread
+    # iter
+    # next
+    # reset
+    # streamArg
+    # value (llama a next(inval))
+    # valueArray (llama a next sin inval)
+
+    # iterator protocol
+    def __iter__(self): # TODO: tal vez también convenga definir iter y next no mágicos
+        return self
+    def __next__(self): # TODO: tal vez sí convenga definir next no mágico, además, next en sclang es como send en Python
+        raise self # TODO: en Python no son infinitos por defecto
+
+    # TODO: todos los métodos el comportamiento de AbstractFunction
+    # TODO: ver embedInStream que se puede usar en las operaciones entre Streams
 
 
 class FuncStream(Stream):

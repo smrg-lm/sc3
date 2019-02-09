@@ -7,35 +7,36 @@ import traceback as _traceback
 import math as _math
 from queue import PriorityQueue as _PriorityQueue
 from queue import Full as _Full
-from numbers import Real as _Real
 #import sched tal vez sirva para AppClock (ver scd)
 #Event = collections.namedtuple('Event', []) podría servir pero no se pueden agregar campos dinámicamente, creo, VER
 
+from . import main as _main
+from . import thread as thr
 import supercollie.builtins as bi
 
 
 # // clocks for timing threads.
 
 class Clock(_threading.Thread): # ver std::copy y std::bind
-    def __new__(cls):
-        raise NotImplementedError('Clock is an abstract class')
+    # def __new__(cls): # BUG: necesito hacer super().__new__(cls) para SystemClock... ver cómo es esto en Python.
+    #     raise NotImplementedError('Clock is an abstract class')
 
     @classmethod
     def play(cls, task):
         cls.sched(0, task)
     @classmethod
     def seconds(cls): # seconds es el tiempo lógico de cada thread
-        return xxx.this_thread.seconds() # BUG: no me quedan claras las explicaciones dispersas en al documentación Process, Thread, Clock(s)
+        return _main.Main.current_TimeThread.seconds() # BUG: no me quedan claras las explicaciones dispersas en al documentación Process, Thread, Clock(s)
 
     # // tempo clock compatibility
     @classmethod
     def beats(cls):
-        return xxx.this_thread.seconds()
+        return _main.Main.current_TimeThread.seconds()
     @classmethod
     def beats2secs(cls, beats):
         return beats
     @classmethod
-    def secs2beats(cls secs):
+    def secs2beats(cls, secs):
         return secs
     @classmethod
     def beats2bars(cls):
@@ -75,7 +76,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         #def dur_to_float, ver
         #_run_sched # gRunSched es condición para el loop de run
         if cls._instance is None:
-            obj = cls()
+            obj = super().__new__(cls)
             _threading.Thread.__init__(obj)
             obj._task_queue = _PriorityQueue() # BUG: inQueue infinite by default, ver cómo y donde setea el tamaño de la pila sclang, put(block=False) puede tierar Full igualmente
             obj._sched_cond = _threading.Condition() # VER, tal vez no debería ser reentrante
@@ -175,31 +176,28 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
 
     def _sched_add(self, secs, task): # L353, ver los otros sched_ y cuáles son parte de la interfaz
         # gLangMutex must be locked # es self._sched_cond y bloquea acá, luego ver quién llama en sclang
-        with self._sched_cond:
-            item = (secs, task)
-
-            if self._task_queue.empty():
-                prev_time = -1e10
-            else:
-                prev_time = self._task_queue.queue[0][0] # queue.queue no está documentado?
-
-            try:
-                self._task_queue.put(item, block=False) # Full exception BUG: put de PriorityQueue es infinita por defecto, pero put(block=False) solo agrega si hay espacio libre inmediatamente o tira Full.
-                self._task_queue.task_done() # se necesita siendo el mismo thread?
-                #if type(task) is supercollie.Coroutine # no está definida BUG: *************************
-                #    task.next_beat = secs
-                if self._task_queue.queue[0][0] != prev_time:
-                    with self._sched_cond:
-                        self._sched_cond.notify() #_all()
-            except _Full:
-                print('SystemClock ERROR: scheduler queue is full')
+        item = (secs, task)
+        if self._task_queue.empty():
+            prev_time = -1e10
+        else:
+            prev_time = self._task_queue.queue[0][0]
+        #try:
+        self._task_queue.put(item) #, block=False) # Full exception BUG: put de PriorityQueue es infinita por defecto, pero put(block=False) solo agrega si hay espacio libre inmediatamente o tira Full.
+        self._task_queue.task_done() # puede que se llame o no del mismo hilo
+        if isinstance(task, thr.TimeThread):
+            task.next_beat = secs
+        if self._task_queue.queue[0][0] != prev_time:
+            with self._sched_cond:
+                self._sched_cond.notify_all()
+        # except _Full:
+        #     print('SystemClock ERROR: scheduler queue is full') # BUG: TEST si block no es false creo que esto no es necesario, VER.
 
     def sched_stop(self):
         # usa gLangMutex locks
         with self._sched_cond:
             if self._run_sched:
                 self._run_sched = False
-                self._sched_cond.notify() #_all()
+                self._sched_cond.notify_all()
         self.join() # VER esto, la función sched_stop se llama desde otro hilo y es sincrónica allí
         # tal vez debería juntar con _resync_thread
 
@@ -208,7 +206,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             if _self._run_sched:
                 del self._task_queue # BUG: en realidad tiene un tamaño que reusa y no borra, pero no sé dónde se usa esta función, desde sclang usa *clear
                 self._task_queue = _PriorityQueue()
-                self._sched_cond.notify() #_all()
+                self._sched_cond.notify_all()
 
     #def sched_run_func(self): # L422, es la función de este hilo, es una función estática, es run acá (salvo que no subclasee)
     def run(self):
@@ -217,7 +215,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             # // wait until there is something in scheduler
             while self._task_queue.empty():
                 with self._sched_cond:
-                    self._sched_cond.wait() # ver qué pasa con los wait en el mismo hilo, si se produce
+                    self._sched_cond.wait()
                 if not self._run_sched: return
 
             # // wait until an event is ready
@@ -226,42 +224,33 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             sched_point = 0
             while not self._task_queue.empty():
                 now = _time.time()
-                sched_secs = self._task_queue.queue[0][0] # no documentado
+                sched_secs = self._task_queue.queue[0][0]
                 sched_point = self._time_of_initialization + sched_secs # sched_secs (el retorno del generador) se tiene que setear desde afuera con + elapsed_time()
-                print('sched_secs, now and point:', sched_secs, now, sched_point)
                 if now > sched_point: break # va directo al loop siguiente
-                print('wait sched_secs:', sched_secs)
                 with self._sched_cond:
-                    self._sched_cond.wait(sched_secs) # **** !!!!!!!! **** (sched_point) # notify lo tiene que interrumpir cuando se agrega otra tarea, ver por qué usa wait_until en c++ que usa tod (probable drift)
+                    self._sched_cond.wait(sched_secs) # ver por qué usa wait_until en c++ que usa tod (probable drift)
                 if not self._run_sched: return
 
             # // perform all events that are ready
-            while not self._task_queue.empty() and (now >= self._time_of_initialization + self._task_queue.queue[0][0]): # **** si está vacía va a tirar error o hace corto?
+            # BUG: CREO QUE ESTÁ MAL LA CONDICIÓN TEMPORAL DEL AND, O EL PARÁMETRO SECONDS EN *SCHED_ADD
+            while not self._task_queue.empty()\
+            and (now >= self._time_of_initialization + self._task_queue.queue[0][0]):
                 item = self._task_queue.get()
                 sched_time = item[0]
                 task = item[1]
-                #if type(task) is supercollie.Coroutine # no está definida  BUG *********************************
-                #    task.next_beat = None
+                if isinstance(task, thr.TimeThread):
+                    task.next_beat = None
                 try:
-                    delta = task.__next__() # creo que setea en nil el valor de retorno anterior,
-                                    # vuelve a poner la rutina en la pila de sclang y
-                                    # la ejecuta, para retomar desde donde estaba y tener
-                                    # el nuevo valor de retorno que, si es número,
-                                    # se convierte en el nuevo valor de espera, por
-                                    # eso setea en Nil el valor de retorno en la pila
-                                    # de sclang y llama a runAwakeMessage. Tengo que
-                                    # ver cómo se comporta la propiedad next_beat y
-                                    # si acá se usa simplemente next sobre un generador.
-                    if isinstance(delta, _Real) and not isinstance(delta, bool): # ver si los generadores retornan None cuando terminan, y ver como se escríbe "is not"
+                    # PyrSched llama a runAwakeMessage, ver qué hace, o con los punteros globales, alguien tiene que cambiar el thread para ejecutar _sched_add de nuevo
+                    delta = task.next() # BUG: VER: es next estilo sclang
+                    #delta = task.__next__() # creo que setea en nil el valor de retorno anterior, vuelve a poner la rutina en la pila de sclang y la ejecuta, para retomar desde donde estaba y tener el nuevo valor de retorno que, si es número, se convierte en el nuevo valor de espera, por eso setea en Nil el valor de retorno en la pila de sclang y llama a runAwakeMessage. Tengo que ver cómo se comporta la propiedad next_beat y si acá se usa simplemente next sobre un generador.
+                    if isinstance(delta, (int, float)) and not isinstance(delta, bool): # ver si los generadores retornan None cuando terminan, y ver como se escríbe "is not"
                         time = sched_time + delta
                         self._sched_add(time, task)
                 except StopIteration:
                     pass
                 except Exception:
-                    # hay que poder recuperar el loop ante cualquier otra excepción...
-                    # imprimir las demás excepciones pero seguir, ahora, no se tiene que poder producir ningún otro error en try
-                    # no sé bien cómo es.
-                    _traceback.print_exception(*_sys.exc_info())
+                    _traceback.print_exception(*_sys.exc_info()) # hay que poder recuperar el loop ante cualquier otra excepción, imprimir las demás excepciones pero seguir, ahora, no se tiene que poder producir ningún otro error en try, no sé bien cómo es.
 
     # sclang methods
 
@@ -270,16 +259,19 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         if cls._instance is None: return
         while not cls._instance._task_queue.empty():
             cls._instance._task_queue.get() # de por sí PriorityQueue es thread safe, la implementación de SuperCollider es distinta
-        cls._instance._sched_cond.notify() #_all()
+        with cls._instance._sched_cond:
+            cls._instance._sched_cond.notify_all()
 
     @classmethod
-    def sched(cls, delta, item): # Process.elapsedTime es el tiempo físico (desde que se inició la aplicación), que también es elapsedTime de SystemClock (elapse_time acá) [Process.elapsedTime, SystemClock.seconds, thisThread.seconds] thisThread sería mainThread si se llama desde fuera de una rutina, thisThread.clock === SystemClock, es la clase singleton
-        seconds = cls._instance.elapse_time()
+    def sched(cls, delta, item): # Process.elapsedTime es el tiempo físico (desde que se inició la aplicación), que también es elapsedTime de SystemClock (elapsed_time acá) [Process.elapsedTime, SystemClock.seconds, thisThread.seconds] thisThread sería mainThread si se llama desde fuera de una rutina, thisThread.clock === SystemClock, es la clase singleton
+        seconds = _main.Main.current_TimeThread.seconds
         seconds += delta
         if seconds == _math.inf:
             msg = "won't schedule {} to infinity, clock time: {}, delta: {}"
             raise Exception(msg.format(item, seconds, delta))
         cls._instance._sched_add(seconds, item)
+        with cls._instance._sched_cond:
+            cls._instance._sched_cond.notify_all()
 
     @classmethod
     def sched_abs(cls, time, item):
@@ -287,6 +279,8 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             msg = "sched_abs won't schedule {} to infinity"
             raise Exception(msg.format(item, time))
         cls._instance._sched_add(time, item)
+        with cls._instance._sched_cond:
+            cls._instance._sched_cond.notify_all()
 
     # L542 y L588 setea las prioridades 'rt' para mac o linux, es un parámetro de los objetos Thread
     # ver qué hace std::move(thread)

@@ -23,6 +23,9 @@ import inspect
 import threading
 import random
 
+from . import clock as clk
+from . import main as _main
+import supercollie.stream as stm
 
 class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, pero acá puede haber herencia múltiple. Además, me puse poético con el nombre.
     # ./lang/LangSource/PyrKernel.h: enum { tInit, tStart, tReady, tRunning, tSleeping, tSuspended, tDone };
@@ -32,11 +35,28 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         'Init', 'Start', 'Ready', 'Running',
         'Sleeping', 'Suspended', 'Done'
     ])
+    _instance = None
+
+    @classmethod
+    def singleton(cls):
+        if cls._instance is not None:
+            return cls._instance
+        obj = cls.__new__(cls)
+        obj.parent = None # BUG: o será mejor main._Main?
+        obj.func = None # BUG, TODO: esta función se tiene que encargar de evaluar el código cuando los relojes lo dispongan y volver a poner las Routinas en la cola cuando corresponda
+        # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al quere comparar tasks.
+        obj.state = cls.State.Init # ver qué estado tiene, sclang thisThread.isPlaying devuelve false desde arriba de todo
+        obj._beats = 0 # ver dónde setea en sclang
+        obj._seconds = 0
+        obj._clock = clk.SystemClock
+        obj._thread_player = None
+        obj._rand_state = random.getstate()
+        return obj
 
     def __init__(self, func):
         # _Thread_Init -> prThreadInit -> initPyrThread
         if not inspect.isfunction(func):
-            raise TypeError('Thread function arg is not a function')
+            raise TypeError('Thread func arg is not a function')
 
         # TODO: Python tiene threading._MainThread, que es el thread del intérprete o como se llame,
         # TODO: se accede mediante threading.main_thread(), también tiene threading.current_thread()
@@ -54,8 +74,8 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         # se sobreescribe el reloj por TempoClock.default en Stream:play
         # y Routine:run vuelve a escribir SystemClock (cuando ya lo hizo en
         # PyrPrimitive). La única manera de usar el reloj heredado es llamando a next.
-        self._beats = current_TimeThread.beats # BUG: no se de dónde sacar parent, PyrPrimitive usa &g->thread->beats, BUG: PERO NUNCA SETEA ESA PROPIEDAD! si pasarlo como argumento o como una propiedad current_thread de la clase
-        self._seconds = current_TimeThread.seconds # BUG: creo que tienen setters porque son dependientes...
+        self._beats = _main.Main.current_TimeThread.beats
+        self._seconds = _main.Main.current_TimeThread.seconds # ojo que tienen setters porque son dependientes...
 
         # BUG: ver qué pasa con terminalValue <nextBeat, <>endBeat, <>endValue;
         # se usan en la implementación a bajo nivel de los relojes.
@@ -63,12 +83,10 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         self.func = func
         self.state = self.State.Init
 
-        self.rand_data = current_TimeThread.rand_data # BUG: no se de dónde sacar parent, rgenArray -> PyrInt32Array y qué pasa cuando es el MainThread de Python. rand_data es una tupla usando random module.
-
-        if current_TimeThread.clock is None:
-            self._clock = xxx.SystemClock
+        if _main.Main.current_TimeThread.clock is None:
+            self._clock = clk.SystemClock
         else:
-            self._clock = current_TimeThread.clock # hace slotCopy y lo registra en GC, puede que solo esté marcando una referencia más, más arriba a GCWriteNew con el array de la pila que es nuevo
+            self._clock = _main.Main.current_TimeThread.clock # hace slotCopy y lo registra en GC, puede que solo esté marcando una referencia más, más arriba a GCWriteNew con el array de la pila que es nuevo
 
         # NOTA: No guarda la propiedad <parent cuando crea el thread, es
         # &g->thread que la usa para setear beats y seconds pero no la guarda,
@@ -76,6 +94,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         # y tiene valor solo mientras la rutina está en ejecusión. Ver test_clock_thread.scd
         self.parent = None
         self._thread_player = None
+        self._rand_state = random.getstate()
 
         # TODO: No vamos a usar entornos como en sclang, a lo sumo se podrían pasar diccionarios
         #self.environment = current_Environment # acá llama al slot currentEnvironment de Object y lo setea al del hilo
@@ -122,7 +141,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
             return self._thread_player
         else:
             if self.parent is not None\
-            and self.parent is not threading.main_thread(): # BUG: ESTO NO ESTÁ DECIDIDO
+            and self.parent is not _main.Main.main_TimeThread:
                 return self.parent.thread_player()
             else:
                 return self
@@ -138,13 +157,23 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         # // SuperCollider uses the taus88 random number generator which has a
         # // period of 2**88, and passes all standard statistical tests.
         # // Normally Threads inherit the randData state vector from the Thread that created it.
-        random.seed(seed) # BUG, BUG: sclang setea g->rgen, que es el generador global, porque mainThread es un hilo sclang, acá se pierde el estado de MainThread de Python, tal vez tenga que envolver MainThread o usar un estado global en main de libsc
+        if _main.Main.current_TimeThread is self:
+            random.seed(seed) # BUG solo hay un generador random por intancia del intérprete, setear la semilla es lo mismo que setear el estado, no?
+        else:
+            tmp = random.getstate()
+            random.seed(seed)
+            self._rand_state = random.getstate()
+            random.setstate(tmp)
     @property
-    def rand_data(self):
-        return random.getstate()
-    @rand_data.setter
-    def rand_data(self, data):
-        random.setstate(data)
+    def rand_state(self):
+        if _main.Main.current_TimeThread is self:
+            return random.getstate()
+        else:
+            return self._rand_state
+    @rand_state.setter
+    def rand_state(self, data):
+        self._rand_state = data
+        #random.setstate(data) # BUG: esto hay que hacerlo desde fuera??
 
     # TODO: ver el manejo de excpeiones, se implementa junto con los relojes
     # failedPrimitiveName
@@ -164,7 +193,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
     # checkCanArchive { "cannot archive Threads".warn }
 
 
-class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeThread y mro.
+class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y TimeThread y mro.
     # TODO: como Routine es un envoltorio tengo que ver qué haga con
     # la relación entre generador e iterador y cuándo es una función normal.
 
@@ -182,16 +211,18 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
         # Si el estado de self es Init
         # prRoutineResume
         # TODO: setea nowExecutingPath, creo que no lo voy a hacer.
-        # TODO: setea parent al thread que llama este método, e.g. parent...
+        previous_rand_state = random.getstate()
+        random.setstate(self._rand_state) # hay que llamarlo ANTES de setear current_TimeThread o usar el atributo privado _rand_state
+        self.parent = _main.Main.current_TimeThread
+        _main.Main.current_TimeThread = self
         # TODO: le asigna los valores de parent a beats, seconds, clock de este hilo.
-        # switchToThread
-        # TODO: switchea rand data (g->rgen = (RGen*)(slotRawObject(&newthread->randData)->slots);)
+        # switchToThread(g, parent, tSuspended, &numArgsPushed);
+        # TODO: switchea rand data, pasado acá ARRIBA
         # TODO: setea el entorno de este hilo, eso no lo voy a hacer.
         # prRoutineResume
         # TODO: hace esto que no sé qué es: sendMessage(g, s_prstart, 2);
         # Luego hace para state == tSuspended, y breve para Done (creo que devuelve terminalValue), Running (error), else error.
         try:
-            # TODO: creo que antes de que retorne acá tengo que hacer las operaciones que hace en prRoutineYield
             return self._iterator.send(inval) # BUG: _iterator.send es solo para iteradores generadores
         except AttributeError as e:
             # Todo esto es para imitar la funcionalidad/comportamiento de las
@@ -204,6 +235,22 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
             else:
                 self._iterator = self.func(inval)
             return next(self._iterator)
+        finally:
+            # prRoutineYield # BUG: ver qué pasa con las otras excepciones dentro de send, si afectan este comportamiento
+            self._rand_state = random.getstate()
+            random.setstate(previous_rand_state)
+            _main.Main.current_TimeThread = self.parent
+            self.parent = None
+            # TODO: setea nowExecutingPath, creo que no lo voy a hacer: slotCopy(&g->process->nowExecutingPath, &g->thread->oldExecutingPath);
+            # switchToThread(g, parent, tSuspended, &numArgsPushed);
+            # TODO: switchea rand data, pasado acá ARRIBA
+            # TODO: setea el entorno de este hilo, eso no lo voy a hacer.
+
+    # TODO:
+    # prRoutineAlwaysYield además setea terminalValue y hace switchToThread(g, parent, tDone, &numArgsPushed);
+    # prRoutineReset
+    # prRoutineStop
+    # prRoutineYieldAndReset simplifica cosas que no son necesarias cuando yield va a reset
 
     # reset # _RoutineReset
     # stop # _RoutineStop con otros detalles

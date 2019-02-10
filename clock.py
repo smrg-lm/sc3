@@ -161,19 +161,22 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             self._resync_cond.notify() # tiene que interrumpir el wait
         self._resync_thread.join()
 
+    # PASADAS A PROCESS, van ahí
     # ver si estas funciones no serían globales y cuales no usa en esta clase, ver PyrSched.h
-    def elapsed_time(self) -> float: # devuelve el tiempo del reloj de mayor precisión menos _time_of_initialization
-        return _time.time() - self._time_of_initialization
+    # def elapsed_time(self) -> float: # devuelve el tiempo del reloj de mayor precisión menos _time_of_initialization
+    #     return _time.time() - self._time_of_initialization
+    # def monotonic_clock_time(self) -> float: # monotonic_clock::now().time_since_epoch(), no sé dónde usa esto
+    #     return _time.monotonic() # en linux es hdclock es time.perf_counter(), no se usa la variable que declara
 
-    def monotonic_clock_time(self) -> float: # monotonic_clock::now().time_since_epoch(), no sé dónde usa esto
-        return _time.monotonic() # en linux es hdclock es time.perf_counter(), no se usa la variable que declara
-
+    # se llama en OSCData.cpp makeSynthBundle y otras funciones de PyrSched.cpp
     def elapsed_time_to_osc(self, elapsed: float) -> int: # retorna int64
         return int(elapsed * SystemClock._SECONDS_TO_OSC) + self._elapsed_osc_offset
 
+    # se llama en OSCData.cpp también en funciones relacionadas a bundles/osc
     def osc_to_elapsed_time(self, osctime: int) -> float: # L286
         return float(osctime - self._elapsed_osc_offset) * SystemClock._OSC_TO_SECONDS
 
+    # se llama en las funciones de los servidores a bajo nivel
     def osc_time(self) -> int: # L309, devuleve elapsed_time_to_osc(elapsed_time())
         return self.elapsed_time_to_osc(self.elapsed_time())
 
@@ -193,6 +196,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                 #print('_sched_add llama a notify_all')
                 self._sched_cond.notify_all()
 
+    # TODO: se llama en PyrLexer shutdownLibrary
     def sched_stop(self):
         # usa gLangMutex locks
         with self._sched_cond:
@@ -202,6 +206,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         self.join() # VER esto, la función sched_stop se llama desde otro hilo y es sincrónica allí
         # tal vez debería juntar con _resync_thread
 
+    # TODO: se declara como sclang export en SCBase.h pero no se usa en ninguna parte
     def sched_clear(self): # L387, llama a schedClearUnsafe() con gLangMutex locks, esta función la exporta con SCLANG_DLLEXPORT_C
         with self._sched_cond:
             if _self._run_sched:
@@ -229,7 +234,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                 now = _time.time()
                 sched_secs = self._task_queue.queue[0][0]
                 sched_point = self._time_of_initialization + sched_secs # sched_secs (el retorno del generador) se tiene que setear desde afuera con + elapsed_time()
-                print('now: {}, sched_point: {}'.format(now, sched_point))
+                #print('now: {}, sched_point: {}'.format(now, sched_point))
                 if now > sched_point: break # va directo al loop siguiente
                 with self._sched_cond:
                     #print('clock no empty wait sched_secs:', sched_secs)
@@ -246,7 +251,10 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                     task.next_beat = None
                 try:
                     try:
-                        delta = task.next() # BUG: VER: es next estilo sclang y qué pasa cuando se programan otros objetos... BUG: interesante que se puede SystemClock.sched(0, 0) para clavar sclang
+                        # BUG: VER: es next estilo sclang y qué pasa cuando se programan otros objetos
+                        # BUG: interesante que se puede SystemClock.sched(0, 0) para clavar sclang
+                        #delta = task.next()
+                        delta = getattr(task, 'next', task)() # routine y callable
                         if isinstance(delta, (int, float)) and not isinstance(delta, bool):
                             time = sched_time + delta # BUG, TODO: sclang usa wait until que espera en tiempo absoluto y no en offset como acá, no hay esa función en Python
                             self._sched_add(time, task)
@@ -272,7 +280,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         # BUG: En Routine se queda con los valores de inicialización en __init__
         # BUG: El problema es que no funicona para SystemClock que usa main_TimeThread
         # BUG: y si tiene un tiempo que no es el actual los eventos se atoran.
-        seconds = cls._instance.elapsed_time() # _main.Main.current_TimeThread.seconds
+        seconds = _main.Main.elapsed_time() # _main.Main.current_TimeThread.seconds
         seconds += delta
         if seconds == _math.inf: return # // return nil OK, just don't schedule
         with cls._instance._sched_cond:
@@ -282,7 +290,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
     def sched_abs(cls, time, item):
         if time == _math.inf:
             msg = "sched_abs won't schedule {} to infinity"
-            raise Exception(msg.format(item, time)) # BUG: para test, sclang no programa el evento y ya
+            raise Exception(msg.format(item)) # BUG: para test, sclang no programa el evento y ya
         with cls._instance._sched_cond:
             cls._instance._sched_add(time, item)
 

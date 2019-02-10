@@ -2,6 +2,7 @@
 
 import threading
 import atexit
+import time
 
 from . import clock as clk
 from . import thread as thr
@@ -14,6 +15,7 @@ class Process(type):
 
     def __init__(cls, name, bases, dict):
         # clk.SystemClock() # BUG; PASADA ABAJO DEL MÓDULO PARA PROBAR. Main y Main._main_lock tiene que definirse antes
+        cls._time_of_initialization = time.time()
         cls.main_TimeThread = thr.TimeThread.singleton()
         cls.current_TimeThread = cls.main_TimeThread
         cls._main_lock = threading.Condition()
@@ -42,6 +44,8 @@ class Process(type):
         pass
     def shutdown(cls):
         pass
+        # TODO: VER: PyrLexer shutdownLibrary, ahí llama sched_stop de SystemClock (acá) y TempoClock stop all entre otras cosas.
+        # TODO: sched_stop tiene join, no se puede usasr con atexit?
         #cls._run_thread = False
         # BUG: no me acuerdo cuál era el problema con atexit y los locks, una solución es demonizarlas.
         # with cls._main_lock:
@@ -50,8 +54,14 @@ class Process(type):
         # BUG: probablemente tenga que hacer lo mismo con todos los relojes.
     def tick(cls):
         pass
+
     # *elapsedTime _ElapsedTime
+    def elapsed_time(cls) -> float: # devuelve el tiempo del reloj de mayor precisión menos _time_of_initialization
+        return time.time() - cls._time_of_initialization
+
     # *monotonicClockTime _monotonicClockTime
+    def monotonic_clock_time(cls) -> float: # monotonic_clock::now().time_since_epoch(), no sé dónde usa esto
+        return time.monotonic() # en linux es hdclock es time.perf_counter(), no se usa la variable que declara
 
 # Main.sc
 class Main(metaclass=Process):

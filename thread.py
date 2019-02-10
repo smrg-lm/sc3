@@ -43,7 +43,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
             return cls._instance
         obj = cls.__new__(cls)
         obj.parent = None # BUG: o será mejor main._Main?
-        obj.func = None # BUG, TODO: esta función se tiene que encargar de evaluar el código cuando los relojes lo dispongan y volver a poner las Routinas en la cola cuando corresponda
+        obj.func = None
         # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al quere comparar tasks.
         obj.state = cls.State.Init # ver qué estado tiene, sclang thisThread.isPlaying devuelve false desde arriba de todo
         obj._beats = 0 # ver dónde setea en sclang
@@ -57,18 +57,6 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         # _Thread_Init -> prThreadInit -> initPyrThread
         if not inspect.isfunction(func):
             raise TypeError('Thread func arg is not a function')
-
-        # TODO: Python tiene threading._MainThread, que es el thread del intérprete o como se llame,
-        # TODO: se accede mediante threading.main_thread(), también tiene threading.current_thread()
-        # TODO: Tengo que estudiarlo un poco más y ver Process de nuevo, pero lo más probable es que
-        # TODO: cree SystemClock como el thread base de todos los tempoclock. El thread principal
-        # TODO: de sclang mainThread es thisThread at top y tiene SystemClock como singleton.
-        # TODO: Ojo, igual, que los thread reales son los relojes, por eso tengo que ver
-        # TODO: cómo cambia y quién guarda current_TimeThread, que es un corutina temporal,
-        # TODO: con threading.current_thread() se accede al reloj. Lo que me pregunto es
-        # TODO: qué pasa si se ejecuta todo en un proceso distinto al repl original, en
-        # TODO: Conclusión: no importa, toda esta lógica tiene que funcionar para un solo
-        # TODO: proceso y luego puede ser escalada, tal vez sin iniciar el servidor osc o midi, etc.
 
         # BUG: ver test_clock_thread.scd, estos valores no tienen efecto porque
         # se sobreescribe el reloj por TempoClock.default en Stream:play
@@ -118,6 +106,8 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
 
     @property
     def seconds(self):
+        # BUG: Los segundos de Thread en sclang avanzan constantemente, no encuentro cómo está definido eso
+        # BUG: En Routine se queda con los valores de inicialización en __init__
         return self._seconds
     @seconds.setter
     def seconds(self, seconds):

@@ -46,11 +46,8 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         obj.func = None
         # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al quere comparar tasks.
         obj.state = cls.State.Init # ver qué estado tiene, sclang thisThread.isPlaying devuelve false desde arriba de todo
-        obj._beats = 0 # ver dónde setea en sclang
-        obj._seconds = 0
-        obj._clock = clk.SystemClock
         obj._thread_player = None
-        obj._rand_state = random.getstate()
+        obj._rand_state = random.getstate() # Esto es para que funcione el getter pero creoq que no es necesario para TimeThread
         return obj
 
     def __init__(self, func):
@@ -98,32 +95,23 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
 
     @property
     def clock(self):
-        return self._clock
-    @clock.setter
-    def clock(self, clock):
-        self._clock = clock
-        self._beats = clock.secs2beats(self.seconds) # no llama al setter de beats, convierte los valores en sesgundos de este thread según el nuevo clock
+        # Ídem seconds
+        return clk.SystemClock
 
     @property
     def seconds(self):
-        # BUG: Los segundos de Thread en sclang avanzan constantemente, no encuentro cómo está definido eso
-        # BUG: En Routine se queda con los valores de inicialización en __init__
-        return self._seconds
-    @seconds.setter
-    def seconds(self, seconds):
-        self._seconds = seconds
-        self._beats = self.clock.secs2beats(seconds)
+        # Los segundos de Thread (NO DE ROUTINE) en sclang avanzan constantemente, no encuentro cómo está definido eso
+        # En Routine se queda con los valores de inicialización en __init__
+        # Esta propiedad se sebreescribe y tiene setter
+        return _main.Main.elapsed_time()
 
     @property
     def beats(self):
-        return self._beats
-    @beats.setter
-    def beats(self, beats):
-        self._beats = beats
-        self._seconds = self.clock.beats2secs(beats)
+        # Ídem seconds.
+        return _main.Main.elapsed_time()
 
     def is_playing(self):
-        return self.state == State.Suspended
+        return self.state == self.State.Suspended
 
     @property
     def thread_player(self):
@@ -191,6 +179,36 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     def run(cls, func, clock, quant):
         pass # TODO
 
+    def play(self, clock=None, quant=None): # BUG: quant no está implementado
+        clock = clock or _main.Main.current_TimeThread.clock # BUG: perooooooo! esto no es así en sclang! es self.clock que el el reloj de la creación del objeto
+        self.clock = clock # BUG: esto es porque cambién la línea de arriba, NO ESTOY RESPETANDO LA PROPIEDAD DE CIERRE!
+        clock.sched(0, self)
+
+    @property
+    def clock(self):
+        return self._clock
+    @clock.setter
+    def clock(self, clock):
+        self._clock = clock
+        self._beats = clock.secs2beats(self.seconds) # no llama al setter de beats, convierte los valores en sesgundos de este thread según el nuevo clock
+
+    @property
+    def seconds(self):
+        # En Routine se queda con los valores de inicialización en __init__
+        return self._seconds
+    @seconds.setter
+    def seconds(self, seconds):
+        self._seconds = seconds
+        self._beats = self.clock.secs2beats(seconds)
+
+    @property
+    def beats(self):
+        return self._beats
+    @beats.setter
+    def beats(self, beats):
+        self._beats = beats
+        self._seconds = self.clock.beats2secs(beats)
+
     def __iter__(self):
         return self
     def __next__(self): # BUG: ver cómo sería la variante pitónica, luego.
@@ -198,22 +216,29 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
 
     # TODO: es _RoutineResume
     def next(self, inval=None):
-        # Si el estado de self es Init
+        # BUG: ESTO LO VOY A REVISAR Y REHACER LUEGO.
         # prRoutineResume
         # TODO: setea nowExecutingPath, creo que no lo voy a hacer.
         previous_rand_state = random.getstate()
         random.setstate(self._rand_state) # hay que llamarlo ANTES de setear current_TimeThread o usar el atributo privado _rand_state
         self.parent = _main.Main.current_TimeThread
         _main.Main.current_TimeThread = self
-        # TODO: le asigna los valores de parent a beats, seconds, clock de este hilo.
-        # switchToThread(g, parent, tSuspended, &numArgsPushed);
-        # TODO: switchea rand data, pasado acá ARRIBA
-        # TODO: setea el entorno de este hilo, eso no lo voy a hacer.
+        # BUG: le asigna los valores de parent a beats, seconds, clock de este hilo.
+        # si el estado del thread es tInit o tSuspended. Es correcto que le pase
+        # el reloj? no me doy cuenta cómo, pero en sclang el reloj no se lo cambia
+        # cuando con/next/play/value. Realmente no lo entiendo, además ya se están
+        # ejecutando en un reloj y no va a cambiar por esto pero si me cambiaría
+        # el dato en la estructura, pero en sclang no cambia... (!) en: prRoutineResume
+        # hace slotCopy(&thread->clock,&g->thread->clock); L3315. Me faltan cosas.
+        #self._clock = self.parent.clock
+        self.seconds = self.parent.seconds # seconds setea beats también
+        self.state = self.State.Running # lo define en switchToThread al final
         # prRoutineResume
-        # TODO: hace esto que no sé qué es: sendMessage(g, s_prstart, 2);
-        # Luego hace para state == tSuspended, y breve para Done (creo que devuelve terminalValue), Running (error), else error.
+        #     Llama a sendMessage(g, s_prstart, 2), creo que simplemente es una llamada al intérprete que ejecuta prStart definido de Routine
+        # TODO: Luego hace para state == tSuspended, y breve para Done (creo que devuelve terminalValue), Running (error), else error.
         try:
-            return self._iterator.send(inval) # BUG: _iterator.send es solo para iteradores generadores
+            return self._iterator.send(inval) # BUG: _iterator.send es solo para iteradores generadores, pero en clock está puesto para que evalúe como función lo que no tenga el método next()
+            self.state = self.State.Suspended
         except AttributeError as e:
             # Todo esto es para imitar la funcionalidad/comportamiento de las
             # corrutinas en sclang. Pero se vuelve poco pitónico, por ejemplo,
@@ -225,16 +250,22 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
             else:
                 self._iterator = self.func(inval)
             return next(self._iterator)
+        except StopIteration as e:
+            if len(inspect.trace()) > 1:
+                raise e
+            else:
+                self.state = self.State.Done
+                return None # BUG: creo que va a ser necesario retornar None si se pueden anidar las rutinas.
         finally:
             # prRoutineYield # BUG: ver qué pasa con las otras excepciones dentro de send, si afectan este comportamiento
             self._rand_state = random.getstate()
             random.setstate(previous_rand_state)
             _main.Main.current_TimeThread = self.parent
             self.parent = None
-            # TODO: setea nowExecutingPath, creo que no lo voy a hacer: slotCopy(&g->process->nowExecutingPath, &g->thread->oldExecutingPath);
+            # Setea nowExecutingPath, creo que no lo voy a hacer: slotCopy(&g->process->nowExecutingPath, &g->thread->oldExecutingPath);
             # switchToThread(g, parent, tSuspended, &numArgsPushed);
-            # TODO: switchea rand data, pasado acá ARRIBA
-            # TODO: setea el entorno de este hilo, eso no lo voy a hacer.
+            #     Switchea rand data, pasado acá ARRIBA
+            #     Setea el entorno de este hilo, eso no lo voy a hacer.
 
     # TODO:
     # prRoutineAlwaysYield además setea terminalValue y hace switchToThread(g, parent, tDone, &numArgsPushed);

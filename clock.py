@@ -28,12 +28,12 @@ class Clock(_threading.Thread): # ver std::copy y std::bind
         cls.sched(0, task)
     @classmethod
     def seconds(cls): # seconds es el tiempo lógico de cada thread
-        return _main.Main.current_TimeThread.seconds() # BUG: no me quedan claras las explicaciones dispersas en al documentación Process, Thread, Clock(s)
+        return _main.Main.current_TimeThread.seconds # BUG: no me quedan claras las explicaciones dispersas en al documentación Process, Thread, Clock(s)
 
     # // tempo clock compatibility
     @classmethod
     def beats(cls):
-        return _main.Main.current_TimeThread.seconds()
+        return _main.Main.current_TimeThread.seconds
     @classmethod
     def beats2secs(cls, beats):
         return beats
@@ -280,7 +280,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         # BUG: En Routine se queda con los valores de inicialización en __init__
         # BUG: El problema es que no funicona para SystemClock que usa main_TimeThread
         # BUG: y si tiene un tiempo que no es el actual los eventos se atoran.
-        seconds = _main.Main.elapsed_time() # _main.Main.current_TimeThread.seconds
+        seconds = _main.Main.current_TimeThread.seconds # _main.Main.elapsed_time()
         seconds += delta
         if seconds == _math.inf: return # // return nil OK, just don't schedule
         with cls._instance._sched_cond:

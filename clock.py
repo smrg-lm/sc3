@@ -253,6 +253,14 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                     try:
                         # BUG: VER: es next estilo sclang y qué pasa cuando se programan otros objetos
                         # BUG: interesante que se puede SystemClock.sched(0, 0) para clavar sclang
+                        # BUG: Entiendo que la llamada a next se produce en este mismo hilo, no veo que
+                        # Interpret tenga un lock. Ver si esto salva de que se ejecuten cambios
+                        # entre hilos usando distintos relojes. También está loa posibilidad de implementar
+                        # esta parte en el hilo de TimeThread enviando la función a una cola y esta
+                        # lógica al loop de allá, sería mejor de por sí? todo corre en el mismo
+                        # procesador, pero los hilos se pueden interrumpir en el medio?
+                        # TODO: Reproducir test_concurrente.scd cuando implemente TempoClock,
+                        # y puede que usando una cola en otro proceso afecte menos el timming.
                         #delta = task.next()
                         delta = getattr(task, 'next', task)() # routine y callable
                         if isinstance(delta, (int, float)) and not isinstance(delta, bool):
@@ -260,7 +268,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                             self._sched_add(time, task)
                     except StopIteration as e:
                         # BUG: ver los anidamietnos válidos...
-                        if len(_inspect.trace()) > 2:
+                        if len(_inspect.trace()) > 1: # Volvió a 1 porque Routine devuelve None ahora.
                             raise e
                 except Exception:
                     _traceback.print_exception(*_sys.exc_info()) # hay que poder recuperar el loop ante cualquier otra excepción

@@ -27,6 +27,8 @@ from . import clock as clk
 from . import main as _main
 import supercollie.stream as stm
 
+# TODO: TimeThread podría implementar __new__ como singleton y se
+# pasa la implementación de __init__ a Routine.
 class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, pero acá puede haber herencia múltiple. Además, me puse poético con el nombre.
     # ./lang/LangSource/PyrKernel.h: enum { tInit, tStart, tReady, tRunning, tSleeping, tSuspended, tDone };
     # ./lang/LangSource/PyrKernel.h: struct PyrThread : public PyrObjectHdr
@@ -180,8 +182,15 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
         pass # TODO
 
     def play(self, clock=None, quant=None): # BUG: quant no está implementado
+        '''el argumento clock pordía soportar un string además de un objeto
+        clock, 'clojure', para el reloj en que se creó el objeto Routine,
+        'parent' para el reloj de la rutina desde la que se llama a play y
+        'default' para TempoClock.default (global), pero hay que comprobar
+        que en la creación o antes de llamar a play no se haya seteado
+        un reloj 'custom'. El reloj no se puede cambiar una vez que se llamó
+        a run o play.'''
         clock = clock or _main.Main.current_TimeThread.clock # BUG: perooooooo! esto no es así en sclang! es self.clock que el el reloj de la creación del objeto
-        self.clock = clock # BUG: esto es porque cambién la línea de arriba, NO ESTOY RESPETANDO LA PROPIEDAD DE CIERRE!
+        self.clock = clock
         clock.sched(0, self)
 
     @property
@@ -237,6 +246,10 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
         #     Llama a sendMessage(g, s_prstart, 2), creo que simplemente es una llamada al intérprete que ejecuta prStart definido de Routine
         # TODO: Luego hace para state == tSuspended, y breve para Done (creo que devuelve terminalValue), Running (error), else error.
         try:
+            # NOTA: entiendo que esta llamada se ejecuta en el hilo del reloj,
+            # no veo que el uso del intérprete tenga un lock. Pero tengo
+            # que estar seguro y probar qué pasa con el acceso a los datos.
+            # TODO: Reproducir test_concurrente.scd cuando implemente TempoClock.
             return self._iterator.send(inval) # BUG: _iterator.send es solo para iteradores generadores, pero en clock está puesto para que evalúe como función lo que no tenga el método next()
             self.state = self.State.Suspended
         except AttributeError as e:

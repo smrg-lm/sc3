@@ -10,7 +10,7 @@
 # ^ CREO QUE NINGUNO DE ESOS RECURSOS ME SIRVE ^
 
 # TODO: Process y Main (juntas o por separado, o solo Process) serían
-# TODO: el entorno de ejecusión de SuperCollider dentro de Python.
+# TODO: el entorno de ejecución de SuperCollider dentro de Python.
 # TODO: Probablemente sea lo mejor usar Process/Main para el manejo
 # TODO: de los Threads como controlador global. No sé si no lo mismo
 # TODO: con las cosas de synthdef en _global.py. Process es un nombre
@@ -79,7 +79,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         # NOTA: No guarda la propiedad <parent cuando crea el thread, es
         # &g->thread que la usa para setear beats y seconds pero no la guarda,
         # la setea luego en algún lugar, con el cambio de contexto, supongo,
-        # y tiene valor solo mientras la rutina está en ejecusión. Ver test_clock_thread.scd
+        # y tiene valor solo mientras la rutina está en ejecución. Ver test_clock_thread.scd
         self.parent = None
         self._thread_player = None
         self._rand_state = random.getstate()

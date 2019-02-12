@@ -262,7 +262,18 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                         # lógica al loop de allá, sería mejor de por sí? todo corre en el mismo
                         # procesador, pero los hilos se pueden interrumpir en el medio?
                         # TODO: Reproducir test_concurrente.scd cuando implemente TempoClock,
-                        # y puede que usando una cola en otro proceso afecte menos el timming.
+                        # y puede que usando una cola en otro proceso afecte menos el timming,
+                        # el único problema en realidad es no crashear el intérprete Python, entonces:
+                        # NOTE: Ahora pienso, si el código de las rutinas que se programan en distintos
+                        # relojes se corren distintos hilos del os se puede considerar que es
+                        # responsabilidad del músico-programador coordinar su ejecución y no del
+                        # lenguaje/librería. Igualmente, proveer un mecanismo que facilite
+                        # las cosas sin tener que acceder a constructos de programación demasiado
+                        # alejados del dominio musical puede ser más productivo para el usuario
+                        # común, siempre está ese tire y afloje. Reveer el módulo threading nativo
+                        # y pensar en mainThread como el punto de ingreso de la librería, será quién
+                        # llama a tick. Luego osc/midi y otras cosas tal vez puedan correr en otros hilos
+                        # aunque en sclang no estoy seguro de cómo se maneja eso.
                         #delta = task.next()
                         delta = getattr(task, 'next', task)() # routine y callable
                         if isinstance(delta, (int, float)) and not isinstance(delta, bool):

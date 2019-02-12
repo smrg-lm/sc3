@@ -5,7 +5,7 @@ BORRAR Y REEMPLAZAR CUANDO SE HAGA LA ESTRUCTURA DE PAQUETE.
 ESTE ARCHIVO ES SOLO PARA TENER DISPONIBLES LAS UGENS EN SYNTHDESCLIB.
 
 Pienso: Hay que implementar un mecanismo en UGen que permita registrar
-automáticamente las UGens que se agregan en tiempo de ejecusión.
+automáticamente las UGens que se agregan en tiempo de ejecución.
 Está bien que el servidor no puede cargar plugins dinámicamente,
 pero eso podría cambiar.
 """

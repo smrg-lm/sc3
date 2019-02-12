@@ -124,7 +124,7 @@ def wrap_extend(inlist, n):
 
 # para pairsDo:
 def gen_cclumps(l, n=1):
-    '''return pairs as pairsDo does for iteration, cclump stands
+    '''return n items as pairsDo does (with n=2) for iteration, cclump stands
     for complete clump, it discards possible non full clump at the end'''
     return (l[i:i + n] for i in range(0, len(l), n) if len(l[i:i + n]) == n)
 

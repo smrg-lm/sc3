@@ -15,6 +15,7 @@ from queue import Full as _Full
 from . import main as _main
 from . import thread as thr
 import supercollie.builtins as bi
+import supercollie.utils as ut
 
 
 # // clocks for timing threads.
@@ -56,6 +57,7 @@ class Clock(_threading.Thread): # ver std::copy y std::bind
         if phase < 0:
             phase = bi.mod(phase, quant)
         return bi.roundup(cls.beats() - bi.mod(phase, quant), quant) + phase
+
 
 # TODO: Usar init class para hacer singletons
 class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singletona
@@ -276,11 +278,17 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
     # sclang methods
 
     @classmethod
-    def clear(cls): # la diferencia con sched_clear es que aquel libera y crea un nuevo objeto, este método sería menos rápido pero es el que se usa # método de SystemClock en sclang, llama a schedClearUnsafe() mediante prClear/_SystemClock_Clear después de vaciar la cola prSchedulerQueue que es &g->process->sysSchedulerQueue
-        with cls._instance._sched_cond:
+    def clear(cls): # la diferencia con sched_clear es que aquel libera y crea un nuevo objeto # método de SystemClock en sclang, llama a schedClearUnsafe() mediante prClear/_SystemClock_Clear después de vaciar la cola prSchedulerQueue que es &g->process->sysSchedulerQueue
+        with cls._instance._sched_cond: # BUG: VER SI USA COND!
+            item = None
+            # BUG: NO SÉ QUE ESTABA PENSANDO CUANOD HICE ESTE, FALTA:
+            # BUG: queue es thisProcess.prSchedulerQueue, VER!
             while not cls._instance._task_queue.empty():
-                cls._instance._task_queue.get() # de por sí PriorityQueue es thread safe, la implementación de SuperCollider es distinta
+                item = cls._instance._task_queue.get()[1] # de por sí PriorityQueue es thread safe, la implementación de SuperCollider es distinta
+                if isinstance(item, (xxx.EventStreamPlayer, xxx.PauseStream)):
+                    item.removed_from_scheduler()
             cls._instance._sched_cond.notify_all()
+            # BUG: llama a prClear, VER!
 
     @classmethod
     def sched(cls, delta, item): # Process.elapsedTime es el tiempo físico (desde que se inició la aplicación), que también es elapsedTime de SystemClock (elapsed_time acá) [Process.elapsedTime, SystemClock.seconds, thisThread.seconds] thisThread sería mainThread si se llama desde fuera de una rutina, thisThread.clock === SystemClock, es la clase singleton
@@ -288,7 +296,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         # BUG: En Routine se queda con los valores de inicialización en __init__
         # BUG: El problema es que no funicona para SystemClock que usa main_TimeThread
         # BUG: y si tiene un tiempo que no es el actual los eventos se atoran.
-        seconds = _main.Main.current_TimeThread.seconds # _main.Main.elapsed_time()
+        seconds = _main.Main.current_TimeThread.seconds
         seconds += delta
         if seconds == _math.inf: return # // return nil OK, just don't schedule
         with cls._instance._sched_cond:
@@ -329,25 +337,34 @@ class Scheduler():
         self._expired = []
         def wakeup(item):
             try:
-                delta = item.awake(self._beats, self.seconds, self._clock) # BUG: awake la implementan Function, Nil, Object, PauseStream y Routine,
+                delta = item.awake(self._beats, self._seconds, self._clock) # BUG: awake la implementan Function, Nil, Object, PauseStream y Routine,
                 if isinstance(delta, (int, float))\
                 and not isinstance(delta, bool):
-                    cls.sched(delta, item) # BUG: ver awake
+                    self.sched(delta, item) # BUG: ver awake
             except Exception:
                 _traceback.print_exception(*_sys.exc_info())
         self._wakeup = wakeup
 
     def play(self, task):
-        pass
+        self.sched(0, task)
+
+    def sched(self, delta, item): # delta no puede ser None
+        if self._drift:
+            from_time = _main.Main.elapsed_time()
+        else:
+            from_time = self.seconds
+        self._queue.put((from_time + delta, item))
 
     def sched_abs(self, time, item):
-        pass
-
-    def sched(self, delta, item): # no sé por qué no las ponene siempre en el mismo orden, va arriba
-        pass
+        self._queue.put((time, item))
+        #self._queue.task_done() # es una anotación por si es útil luego
 
     def clear(self):
-        pass
+        item = None
+        while not self._queue.empty():
+            item = self._queue.get()
+            if isinstance(item, (xxx.EventStreamPlayer, xxx.PauseStream)):
+                item.removed_from_scheduler() # NOTE: cambié el orden, en sclang primero se llama a este método y luego se vacía la cola.
 
     def empty(self): # pythonique
         return self._queue.empty()
@@ -360,13 +377,37 @@ class Scheduler():
         return self._seconds
     @seconds.setter
     def seconds(self, value):
-        pass
-
+        self._seconds = self._queue.queue[0][0] # topPriority(), usa los atributos por el cierre de wakeup
+        if self.recursive:
+            while self._seconds <= value: # seconds no puede ser None, sí la primera iteración es igual valor.
+                self._beats = self._clock.secs2beats(self._seconds)
+                self._wakeup(self._queue.get())
+                if self._queue.empty():
+                    break
+                else:
+                    self._seconds = self._queue.queue[0][0]
+        else:
+            # // First pop all the expired items and only then wake
+            # // them up, in order for control to return to the caller
+            # // before any tasks scheduled as a result of this call are
+            # // awaken.
+            while self._seconds <= value:
+                self._expired.append(self._seconds)
+                self._expired.append(self._queue.get())
+                if self._queue.empty():
+                    break
+                else:
+                    self._seconds = self._queue.queue[0][0]
+            for time, item in ut.gen_cclumps(self._expired):
+                self._seconds = time
+                self._beats = self._clock.secs2beats(self._seconds)
+                self._wakeup(self._queue.get())
+            self._expired.clear()
+        self._seconds = value
+        self._beats = self._clock.secs2beats(value)
 
 @ut.initclass
 class AppClock(Clock): # ?
-    _scheduler = None
-
     def __init_class__(cls):
         cls._scheduler = Scheduler(cls, drift=True, recursive=False)
 
@@ -385,7 +426,7 @@ class AppClock(Clock): # ?
         _main.Main.current_TimeThread.clock = cls # BUG: supongo que porque puede que scheduler evalue una Routine con play/run? Igual no me cierra del todo, pero también porque sclang tiene un bug con los relojes heredados.
         cls._scheduler.seconds = _main.Main.elapsed_time()
         _main.Main.current_TimeThread.clock = tmp
-        return cls._scheduler.queue.top_priority() # BUG: ver, no será simplemente pop?
+        return cls._scheduler.queue.queue[0][0] # topPriority()
 
     @classmethod
     def _sched_notify(cls):

@@ -404,8 +404,8 @@ class Server(metaclass=MetaServer):
 
     # client ID
 
-    # clientID is settable while server is off, and locked while server is running
-    # called from prHandleClientLoginInfoFromServer once after booting.
+    # // clientID is settable while server is off, and locked while server is running
+    # // called from prHandleClientLoginInfoFromServer once after booting.
     @property
     def client_id(self):
         return self._client_id

@@ -55,9 +55,9 @@ class Clock(_threading.Thread): # ver std::copy y std::bind
             return cls.beats() + phase
         if phase < 0:
             phase = bi.mod(phase, quant)
-        return bi.roundup(cls.beats() - bi.mod(phase, quant), quant)
+        return bi.roundup(cls.beats() - bi.mod(phase, quant), quant) + phase
 
-
+# TODO: Usar init class para hacer singletons
 class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singletona
     _SECONDS_FROM_1900_TO_1970 = 2208988800 # (int32)UL # 17 leap years
     _NANOS_TO_OSC = 4.294967296 # PyrSched.h: const double kNanosToOSC  = 4.294967296; // pow(2,32)/1e9
@@ -80,7 +80,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         if cls._instance is None:
             obj = super().__new__(cls)
             _threading.Thread.__init__(obj)
-            # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al quere comparar tasks, hacer que '<' devuelva el id del objeto
+            # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al querer comparar tasks, hacer que '<' devuelva el id del objeto
             obj._task_queue = _PriorityQueue()
             obj._sched_cond = _main.Main._main_lock
             obj.start()
@@ -186,7 +186,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             prev_time = -1e10
         else:
             prev_time = self._task_queue.queue[0][0]
-        # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al quere comparar tasks, hacer que '<' devuelva el id del objeto
+        # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al querer comparar tasks, hacer que '<' devuelva el id del objeto
         self._task_queue.put(item) #, block=False) Full exception, put de PriorityQueue es infinita por defecto, pero put(block=False) solo agrega si hay espacio libre inmediatamente o tira Full.
         self._task_queue.task_done() # se puede llamar concurrentemente o con _sched_cond ya está?
         if isinstance(task, thr.TimeThread):
@@ -316,8 +316,85 @@ class TempoClock(Clock): # se crean desde SystemClock?
     pass
 
 
+class Scheduler():
+    def __init__(self, clock, drift=False, recursive=True):
+        self._clock = clock
+        self._drift = drift
+        self.recursive = recursive
+        # init
+        self._beats = _main.Main.current_TimeThread.beats
+        self._seconds = 0.0
+        # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al querer comparar tasks, hacer que '<' devuelva el id del objeto
+        self.queue = PriorityQueue()
+        self._expired = []
+        def wakeup(item):
+            try:
+                delta = item.awake(self._beats, self.seconds, self._clock) # BUG: awake la implementan Function, Nil, Object, PauseStream y Routine,
+                if isinstance(delta, (int, float))\
+                and not isinstance(delta, bool):
+                    cls.sched(delta, item) # BUG: ver awake
+            except Exception:
+                _traceback.print_exception(*_sys.exc_info())
+        self._wakeup = wakeup
+
+    def play(self, task):
+        pass
+
+    def sched_abs(self, time, item):
+        pass
+
+    def sched(self, delta, item): # no sé por qué no las ponene siempre en el mismo orden, va arriba
+        pass
+
+    def clear(self):
+        pass
+
+    def empty(self): # pythonique
+        return self._queue.empty()
+
+    def advance(self, delta):
+        self.seconds = self.seconds + delta
+
+    @property
+    def seconds(self):
+        return self._seconds
+    @seconds.setter
+    def seconds(self, value):
+        pass
+
+
+@ut.initclass
 class AppClock(Clock): # ?
-    pass
+    _scheduler = None
+
+    def __init_class__(cls):
+        cls._scheduler = Scheduler(cls, drift=True, recursive=False)
+
+    @classmethod
+    def clear(cls):
+        cls._scheduler.clear()
+
+    @classmethod
+    def sched(cls, delta, item):
+        cls._scheduler.sched(delta, item):
+        cls._sched_notify()
+
+    @classmethod
+    def tick(cls):
+        tmp = _main.Main.current_TimeThread.clock
+        _main.Main.current_TimeThread.clock = cls # BUG: supongo que porque puede que scheduler evalue una Routine con play/run? Igual no me cierra del todo, pero también porque sclang tiene un bug con los relojes heredados.
+        cls._scheduler.seconds = _main.Main.elapsed_time()
+        _main.Main.current_TimeThread.clock = tmp
+        return cls._scheduler.queue.top_priority() # BUG: ver, no será simplemente pop?
+
+    @classmethod
+    def _sched_notify(cls):
+        # _AppClock_SchedNotify
+        # En PyrPrimitive.cpp -> prAppClockSchedNotify
+        # // NOTE: the _AppClock_SchedNotify primitive shall be redefined by language clients
+        # // if they wish to respond to AppClock scheduling notifications
+        # return errNone;
+        return NotImplemented # BUG: pero el mecanismo tampoco está implementado acá porque creo que llama en terminal_client, por ejemplo, hay que ver dónde se llama a tick
 
 
 class NRTClock(Clock):

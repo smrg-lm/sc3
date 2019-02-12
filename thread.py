@@ -28,7 +28,8 @@ from . import main as _main
 import supercollie.stream as stm
 
 # TODO: TimeThread podría implementar __new__ como singleton y se
-# pasa la implementación de __init__ a Routine.
+# pasa la implementación de __init__ a Routine, pero ver qué pasa
+# con AppClock y el posbile NRTClock (NrtClock?)
 class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, pero acá puede haber herencia múltiple. Además, me puse poético con el nombre.
     # ./lang/LangSource/PyrKernel.h: enum { tInit, tStart, tReady, tRunning, tSleeping, tSuspended, tDone };
     # ./lang/LangSource/PyrKernel.h: struct PyrThread : public PyrObjectHdr
@@ -96,9 +97,12 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         return self
 
     @property
-    def clock(self):
+    def clock(self): # mainThread clock (SystemClock) no se puede setear y siempre devuelve elapsedTime en seconds
         # Ídem seconds
         return clk.SystemClock
+    @clock.setter
+    def clock(self, value): # definido por compatibilidad, se comporta igual y no hace nada
+        pass
 
     @property
     def seconds(self):
@@ -106,11 +110,17 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         # En Routine se queda con los valores de inicialización en __init__
         # Esta propiedad se sebreescribe y tiene setter
         return _main.Main.elapsed_time()
+    @seconds.setter
+    def seconds(self, value): # definido por compatibilidad, se comporta igual y no hace nada
+        pass
 
     @property
     def beats(self):
         # Ídem seconds.
         return _main.Main.elapsed_time()
+    @beats.setter
+    def beats(self, value): # definido por compatibilidad, se comporta igual y no hace nada
+        pass
 
     def is_playing(self):
         return self.state == self.State.Suspended

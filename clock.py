@@ -68,7 +68,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
     _OSC_TO_NANOS = 0.2328306436538696# PyrSched.h: const double kOSCtoNanos  = 0.2328306436538696; // 1e9/pow(2,32)
     _OSC_TO_SECONDS =  2.328306436538696e-10 # PyrSched.h: const double kOSCtoSecs = 2.328306436538696e-10;  // 1/pow(2,32)
 
-    _instance = None # singleton instance
+    _instance = None # singleton instance of Thread
 
     def __new__(cls):
         #_host_osc_offset = 0 # int64
@@ -85,16 +85,15 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al querer comparar tasks, hacer que '<' devuelva el id del objeto
             obj._task_queue = _PriorityQueue()
             obj._sched_cond = _main.Main._main_lock
+            obj.daemon = True # TODO: tengo que ver si siendo demonios se pueden terminar
             obj.start()
             obj._sched_init()
             cls._instance = obj
-            return obj
-        else:
-            raise Exception('there is one SystemClock instance already') # BUG: sclang devuelve otras instancias lo que es confuso, no tiene sentido
+        return cls # no llama a __init__
 
     def _sched_init(self): # L253 inicia los atributos e.g. _time_of_initialization
         #time.gmtime(0).tm_year # must be unix time
-        self._time_of_initialization = _time.time()
+        self._time_of_initialization = _time.time() # TODO: ver time.perf_counter() que no es time since epoch pero garantiza que sea el reloj con mayor resolución y se puede sacar un coeficiente en relación a time.time()
         self._host_osc_offset = 0 # int64
 
         self._sync_osc_offset_with_tod()
@@ -275,6 +274,18 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                         # llama a tick. Luego osc/midi y otras cosas tal vez puedan correr en otros hilos
                         # aunque en sclang no estoy seguro de cómo se maneja eso.
                         #delta = task.next()
+                        # NOTE: otra cosa que se puede hacer es usar sched_cond en esta llamada
+                        # para que sí sean atómicas las ejecuciones de cada rutina. Lo que
+                        # puede pasar es que si dos funciones iguales se ejecutan al mismo tiempo, en
+                        # vez de distribuir el tiempo entre ambas, pj. que lleguen tarde al mismo tiempo,
+                        # va a pasar que una va a llegar seguro más tarde que la otra, pj. perdiendo sincronía,
+                        # pero p3 sys.getswitchinterval() / sys.setswitchinterval(n) (default es 5ms,
+                        # un montón)
+                        # NOTE: otra cosa que se puede hacer es probar esto mismo pero con
+                        # relojes (opcionales) que sean procesos python, habrá que sincronizar
+                        # elapsed_time entre procesos, supongo.
+                        # NOTE: deshabilitar y rehabilitar gc podría ayudar o la operación es
+                        # costosa de por sí? gc.isenabled() gc.disable() gc.enable().
                         delta = getattr(task, 'next', task)() # routine y callable
                         if isinstance(delta, (int, float)) and not isinstance(delta, bool):
                             time = sched_time + delta # BUG, TODO: sclang usa wait until que espera en tiempo absoluto y no en offset como acá, no hay esa función en Python
@@ -344,11 +355,11 @@ class Scheduler():
         self._beats = _main.Main.current_TimeThread.beats
         self._seconds = 0.0
         # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al querer comparar tasks, hacer que '<' devuelva el id del objeto
-        self.queue = PriorityQueue()
+        self.queue = _PriorityQueue()
         self._expired = []
         def wakeup(item):
             try:
-                delta = item.awake(self._beats, self._seconds, self._clock) # BUG: awake la implementan Function, Nil, Object, PauseStream y Routine,
+                delta = item() # BUG: item.awake(self._beats, self._seconds, self._clock) # BUG: awake la implementan Function, Nil, Object, PauseStream y Routine,
                 if isinstance(delta, (int, float))\
                 and not isinstance(delta, bool):
                     self.sched(delta, item) # BUG: ver awake
@@ -364,21 +375,21 @@ class Scheduler():
             from_time = _main.Main.elapsed_time()
         else:
             from_time = self.seconds
-        self._queue.put((from_time + delta, item))
+        self.queue.put((from_time + delta, item))
 
     def sched_abs(self, time, item):
-        self._queue.put((time, item))
-        #self._queue.task_done() # es una anotación por si es útil luego
+        self.queue.put((time, item))
+        #self.queue.task_done() # es una anotación por si es útil luego
 
     def clear(self):
         item = None
-        while not self._queue.empty():
-            item = self._queue.get()
+        while not self.queue.empty():
+            item = self.queue.get()
             if isinstance(item, (xxx.EventStreamPlayer, xxx.PauseStream)):
                 item.removed_from_scheduler() # NOTE: cambié el orden, en sclang primero se llama a este método y luego se vacía la cola.
 
     def empty(self): # pythonique
-        return self._queue.empty()
+        return self.queue.empty()
 
     def advance(self, delta):
         self.seconds = self.seconds + delta
@@ -388,65 +399,100 @@ class Scheduler():
         return self._seconds
     @seconds.setter
     def seconds(self, value):
-        self._seconds = self._queue.queue[0][0] # topPriority(), usa los atributos por el cierre de wakeup
+        if self.queue.empty():
+            self._seconds = value
+            self._beats = self._clock.secs2beats(value)
+            return
+        self._seconds = self.queue.queue[0][0] # topPriority(), usa los atributos por el cierre de wakeup
         if self.recursive:
             while self._seconds <= value: # seconds no puede ser None, sí la primera iteración es igual valor.
                 self._beats = self._clock.secs2beats(self._seconds)
-                self._wakeup(self._queue.get())
-                if self._queue.empty():
+                self._wakeup(self.queue.get())
+                if self.queue.empty():
                     break
                 else:
-                    self._seconds = self._queue.queue[0][0]
+                    self._seconds = self.queue.queue[0][0]
         else:
             # // First pop all the expired items and only then wake
             # // them up, in order for control to return to the caller
             # // before any tasks scheduled as a result of this call are
             # // awaken.
             while self._seconds <= value:
-                self._expired.append(self._seconds)
-                self._expired.append(self._queue.get())
-                if self._queue.empty():
+                self._expired.append(self.queue.get())
+                if self.queue.empty():
                     break
                 else:
-                    self._seconds = self._queue.queue[0][0]
-            for time, item in ut.gen_cclumps(self._expired):
+                    self._seconds = self.queue.queue[0][0]
+            for time, item in self._expired:
                 self._seconds = time
-                self._beats = self._clock.secs2beats(self._seconds)
-                self._wakeup(self._queue.get())
+                self._beats = self._clock.secs2beats(time)
+                self._wakeup(item)
             self._expired.clear()
         self._seconds = value
         self._beats = self._clock.secs2beats(value)
 
-@ut.initclass
+
 class AppClock(Clock): # ?
-    def __init_class__(cls):
-        cls._scheduler = Scheduler(cls, drift=True, recursive=False)
+    _instance = None # singleton instance of Thread
+
+    def __new__(cls):
+        if cls._instance is None:
+            obj = super().__new__(cls)
+            _threading.Thread.__init__(obj)
+            obj._sched_cond = _main.Main._main_lock
+            obj._tick_cond = _threading.Condition()
+            obj._scheduler = Scheduler(cls, drift=True, recursive=False)
+            cls._instance = obj # tiene que estar antes de start porque hace un tick de gracia
+            obj.daemon = True # TODO: tengo que ver si siendo demonios se pueden terminar, no recuerdo.
+            obj.start()
+        return cls # no llama a __init__
+
+    def run(self): # TODO: queda un poco desprolijo el método de instancia en la clase teniendo en cuenta que se puede evitar pero si no se hereda de threading.Thread
+        self._run_sched = True
+        seconds = None
+        while True:
+            with self._sched_cond: # es Main._main_lock
+                seconds = type(self).tick() # el primer tick es gratis y retorna None
+                print('tick return seconds:', seconds)
+                if isinstance(seconds, (int, float))\
+                and not isinstance(seconds, bool):
+                    seconds = seconds - self._scheduler.seconds # tick retorna abstime (elapsed)
+                    print('tick dalta seconds:', seconds)
+                else:
+                    seconds = None
+            with self._tick_cond: # la relación es muchas notifican una espera, tal vez no sea Condition el objeto adecuado, VER threading
+                self._tick_cond.wait(seconds) # si seconds es None espera indefinidamente a notify
+            if not self._run_sched: return
 
     @classmethod
     def clear(cls):
-        cls._scheduler.clear()
+        cls._instance._scheduler.clear()
 
     @classmethod
     def sched(cls, delta, item):
-        cls._scheduler.sched(delta, item):
-        cls._sched_notify()
+        with cls._instance._sched_cond:
+            cls._instance._scheduler.sched(delta, item)
+        with cls._instance._tick_cond:
+            cls._instance._tick_cond.notify() # cls.tick() pasada a run
 
     @classmethod
     def tick(cls):
         tmp = _main.Main.current_TimeThread.clock
-        _main.Main.current_TimeThread.clock = cls # BUG: supongo que porque puede que scheduler evalue una Routine con play/run? Igual no me cierra del todo, pero también porque sclang tiene un bug con los relojes heredados.
-        cls._scheduler.seconds = _main.Main.elapsed_time()
+        _main.Main.current_TimeThread.clock = cls # BUG: supongo que porque puede que scheduler evalue una Routine con play/run? Debe ser para defer. Igual no me cierra del todo, pero también porque sclang tiene un bug con los relojes heredados.
+        cls._instance._scheduler.seconds = _main.Main.elapsed_time()
         _main.Main.current_TimeThread.clock = tmp
-        return cls._scheduler.queue.queue[0][0] # topPriority()
+        if cls._instance._scheduler.queue.empty():
+            return None # BUG: es un valor que se comprueba para saber si client::tick deja de llamarse a sí mismo.
+        else:
+            return cls._instance._scheduler.queue.queue[0][0] # topPriority()
 
-    @classmethod
-    def _sched_notify(cls):
-        # _AppClock_SchedNotify
-        # En PyrPrimitive.cpp -> prAppClockSchedNotify
-        # // NOTE: the _AppClock_SchedNotify primitive shall be redefined by language clients
-        # // if they wish to respond to AppClock scheduling notifications
-        # return errNone;
-        return NotImplemented # BUG: pero el mecanismo tampoco está implementado acá porque creo que llama en terminal_client, por ejemplo, hay que ver dónde se llama a tick
+    # NOTE: Este comentario es un recordatorio.
+    # def _sched_notify(cls):
+    # _AppClock_SchedNotify
+    # En SC_TerminalClient _AppClock_SchedNotify es SC_TerminalClient::prScheduleChanged
+    # que llama a la instancia del cliente (de sclang), que llama a su método
+    # sendSignal(sig_sched) con la opción sig_sched que llama a SC_TerminalClient::tick
+    # Acá podría ir todo dentro de sched(), ergo sum chin pum: cls.tick()
 
 
 class NRTClock(Clock):

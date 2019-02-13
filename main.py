@@ -16,7 +16,7 @@ class Process(type):
     def __init__(cls, name, bases, dict):
         # clk.SystemClock() # BUG; PASADA ABAJO DEL MÓDULO PARA PROBAR. Main y Main._main_lock tiene que definirse antes
         cls._time_of_initialization = time.time()
-        cls.main_TimeThread = thr.TimeThread.singleton()
+        cls.main_TimeThread = thr.TimeThread.singleton() # el reloj en el que corre Process sería AppClock es un threading.Thread con un modelo diferente de programación de eventos, pero la verdad es que no estoy seguro.
         cls.current_TimeThread = cls.main_TimeThread
         cls._main_lock = threading.Condition()
         atexit.register(cls.shutdown)

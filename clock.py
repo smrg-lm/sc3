@@ -314,10 +314,6 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
 
     @classmethod
     def sched(cls, delta, item): # Process.elapsedTime es el tiempo físico (desde que se inició la aplicación), que también es elapsedTime de SystemClock (elapsed_time acá) [Process.elapsedTime, SystemClock.seconds, thisThread.seconds] thisThread sería mainThread si se llama desde fuera de una rutina, thisThread.clock === SystemClock, es la clase singleton
-        # BUG: Los segundos de Thread en sclang avanzan constantemente, no encuentro cómo está definido eso
-        # BUG: En Routine se queda con los valores de inicialización en __init__
-        # BUG: El problema es que no funicona para SystemClock que usa main_TimeThread
-        # BUG: y si tiene un tiempo que no es el actual los eventos se atoran.
         seconds = _main.Main.current_TimeThread.seconds
         seconds += delta
         if seconds == _math.inf: return # // return nil OK, just don't schedule

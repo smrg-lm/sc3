@@ -9,12 +9,14 @@ import pathlib as _pathlib
 
 import liblo as _lo
 
-import supercollie.utils as ut
-import supercollie.netaddr as na
-import supercollie.client as cl
-import supercollie.model as md
-import supercollie.engine as en
-import supercollie.synthdef as sd
+import supercollie.utils as utl
+import supercollie.netaddr as nad
+import supercollie.client as clt
+import supercollie.model as mdl
+import supercollie.engine as eng
+import supercollie.synthdef as sdf
+import supercollie.clock as clk
+import supercollie.serveractions as act
 
 # BUG: revisar porque hay un patch que cambió esto y otros que cambiaron un par
 # BUG: de cosas, el problema es que los patch se aplican meses después a master.
@@ -187,7 +189,7 @@ class ServerOptions(object):
             o.append(str(self.restricted_path)) # puede ser str o Path
         if self.ugen_plugins_path is not None:
             o.append('-U')
-            plist = ut.as_list(self.ugen_plugins_path)
+            plist = utl.as_list(self.ugen_plugins_path)
             plist = [_os.path.normpath(x) for x in plist] # BUG: ensure platform format? # BUG: windows drive?
             o.append(_os.pathsep.join(plist))
         if self.memory_locking:
@@ -292,10 +294,10 @@ class MetaServer(type):
     program = None
     sync_s = True
 
-    node_alloc_class = en.NodeIDAllocator
+    node_alloc_class = eng.NodeIDAllocator
     # // node_alloc_class = ReadableNodeIDAllocator;
-    buffer_alloc_class = en.ContiguousBlockAllocator
-    bus_alloc_class = en.ContiguousBlockAllocator
+    buffer_alloc_class = eng.ContiguousBlockAllocator
+    bus_alloc_class = eng.ContiguousBlockAllocator
 
     @property
     def default(self):
@@ -308,20 +310,20 @@ class MetaServer(type):
             global s
             s = value
         for server in self.all:
-            #server # .changed(\default, value) # BUG: usar md.NotificationCenter
-            raise Exception('Implementar la funcionalidad md.NotificationCenter en MetaServer @default.setter')
+            #server # .changed(\default, value) # BUG: usar mdl.NotificationCenter
+            raise Exception('Implementar la funcionalidad mdl.NotificationCenter en MetaServer @default.setter')
 
 
-@ut.initclass
+@utl.initclass
 class Server(metaclass=MetaServer):
     def __init_class__(cls): # BUG: ver: __new__ es un método estático tratado de manera especial por el intérprete, tal vez este se podría definir como tal, los métodos estáticos no están ligados ni a la clase ni a la instancia.
                              # BUG: PERO __init_subclass___: "If defined as a normal instance method, this method is implicitly converted to a class method."
-        cls._default = cls.local = cls('localhost', na.NetAddr('127.0.0.1', 57110))
-        cls.internal = Server('internal', na.NetAddr(None, None));
+        cls._default = cls.local = cls('localhost', nad.NetAddr('127.0.0.1', 57110))
+        cls.internal = Server('internal', nad.NetAddr(None, None));
 
     @classmethod
     def from_name(cls, name):
-        return cls.named[name] or cls(name, na.NetAddr("127.0.0.1", 57110)) # BUG: en sclang, no tiene sentido llamar a ServerOptions.new, init provee una instancia por defecto
+        return cls.named[name] or cls(name, nad.NetAddr("127.0.0.1", 57110)) # BUG: en sclang, no tiene sentido llamar a ServerOptions.new, init provee una instancia por defecto
 
     @classmethod
     def remote(cls, name, addr, options, client_id):
@@ -347,7 +349,7 @@ class Server(metaclass=MetaServer):
         self.__class__.all.add(self)
 
         self._pid_release_condition = # BUG: implementar Condition({ this.pid == nil });
-        self.__class__ # .changed(\serverAdded, self) # BUG: usar md.NotificationCenter
+        self.__class__ # .changed(\serverAdded, self) # BUG: usar mdl.NotificationCenter
 
         self._max_num_clients = None # // maxLogins as sent from booted scsynth # la setea en _handle_client_login_info_from_server
         self.tree = None # lambda *args: None # ver dónde se inicializa, se usa en init_tree
@@ -375,7 +377,7 @@ class Server(metaclass=MetaServer):
         return self._addr
     @addr.setter
     def addr(self, value):
-        self._addr = value or na.NetAddr("127.0.0.1", 57110) # TODO: podría hacer que se pueda pasar también una tupla como en liblo
+        self._addr = value or nad.NetAddr("127.0.0.1", 57110) # TODO: podría hacer que se pueda pasar también una tupla como en liblo
         self.in_process = self._addr.addr == 0
         self.is_local = self.in_process or self._addr.is_local()
         self.remote_controlled = not self.is_local
@@ -387,7 +389,7 @@ class Server(metaclass=MetaServer):
     def name(self, value):
         self._name = value
         if value in self.named:
-            msg = "Server name already exists: '{}'. Please use a unique name"
+            msg = "Server name '{}' already exists. Please use a unique name"
             _warnings.warn(msg.format(value)) # BUG: en sclang, pasa dos parámetros a format # TODO: por qué no es una excepción?
         else:
             self.named[value] = self
@@ -398,9 +400,9 @@ class Server(metaclass=MetaServer):
             self.send_default_groups()
             self.tree(self) # tree es una propiedad de instancia que contiene una función
             self.sync()
-            xxx.ServerTree.run(self) # BUG: no está implementado
+            act.ServerTree.run(self)
             self.sync()
-        xxx.AppClock.sched(0, init_task) # BUG: no está implementado
+        clk.AppClock.sched(0, init_task)
 
     # client ID
 
@@ -438,7 +440,7 @@ class Server(metaclass=MetaServer):
         self.new_bus_allocators()
         self.new_buffer_allocators()
         self.new_scope_buffer_allocators()
-        md.NotificationCenter.notify(self, 'newAllocators');
+        mdl.NotificationCenter.notify(self, 'newAllocators');
 
     def new_node_allocators(self):
         self.node_allocator = self.__class__.node_alloc_class(
@@ -485,7 +487,7 @@ class Server(metaclass=MetaServer):
 
     def new_scope_buffer_allocators(self):
         if self.is_local:
-            self.scope_buffer_allocator = en.StackNumberAllocator(0, 127)
+            self.scope_buffer_allocator = eng.StackNumberAllocator(0, 127)
 
     def next_buffer_number(self, n):
         bufnum = self.buffer_allocator.alloc(n)
@@ -494,7 +496,7 @@ class Server(metaclass=MetaServer):
                 msg = 'No block of {} consecutive buffer numbers is available'
                 raise Exception(msg.format(n))
             else:
-                msg = 'No more buffer numbers, free some buffers before allocating more'
+                msg = 'No more buffer numbers, free some buffers before allocating'
                 raise Exception(msg)
         return bufnum
 
@@ -585,10 +587,10 @@ class Server(metaclass=MetaServer):
         # cambiar por OSCFunc luego en todo caso.
         def responder(*msg):
             if msg[1] == cmd_name:
-                cl.Client.default._osc_server_thread.del_method('/done', None) # BUG: no se cómo funciona liblo, None acepta mensajes /done con cualquier typespec, borra todos los responder? qué pasa si hay dos iguales?
+                clt.Client.default._osc_server_thread.del_method('/done', None) # BUG: no se cómo funciona liblo, None acepta mensajes /done con cualquier typespec, borra todos los responder? qué pasa si hay dos iguales?
                 with condition:
                     condition.notify()
-        cl.Client.default._osc_server_thread.add_method('/done', None, responder) # BUG: no se cómo funciona liblo, None hacepta mensajes /done con cualquier typespec, borra todos los responder? qué pasa si hay dos iguales?
+        clt.Client.default._osc_server_thread.add_method('/done', None, responder) # BUG: no se cómo funciona liblo, None hacepta mensajes /done con cualquier typespec, borra todos los responder? qué pasa si hay dos iguales?
         self.addr.send_bundle(0, *args)
         with condition:
             condition.wait()
@@ -609,18 +611,20 @@ class Server(metaclass=MetaServer):
 
     # // load from disk locally, send remote
     def send_synthdef(self, name, dir=None):
-        dir = dir or sd.SynthDef.synthdef_dir
+        dir = dir or sdf.SynthDef.synthdef_dir
         dir = _pathlib.Path(dir)
+        full_path = dir / (name + '.scsyndef')
         try:
-            with open(dir / (name + '.scsyndef'), 'rb') as file:
+            with open(full_path, 'rb') as file:
                 buffer = file.read()
                 self.send_msg('/d_recv', buffer)
         except FileNotFoundError:
-            pass # falla silenciosamente
+            msg = "Server: send_synthdef FileNotFoundError: {}"
+            _warnings.warn(msg.format(full_path))
 
     # // tell server to load from disk
     def load_synthdef(self, name, completion_msg=None, dir=None): # BUG: creo que completion_msg no tiene efecto, nota listSendMsg no hace nada.
-        dir = dir or sd.SynthDef.synthdef_dir
+        dir = dir or sdf.SynthDef.synthdef_dir
         dir = _pathlib.Path(dir)
         path = str(dir / (name + '.scsyndef'))
         self.send_msg('/d_load', path) # BUG: completion_msg BUG: puede ser que se invoque a bajo nivel en sclang?

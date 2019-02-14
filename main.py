@@ -71,3 +71,4 @@ class Main(metaclass=Process):
 
 # BUG: TEST, luego va a ser necesario organizar todo
 clk.SystemClock()
+clk.AppClock()

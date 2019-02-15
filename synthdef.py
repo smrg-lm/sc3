@@ -74,7 +74,7 @@ class SynthDef():
     #*new L35
     #rates y prependeargs pueden ser anotaciones de tipo, ver variantes y metadata, le constructor hace demasiado...
     def __init__(self, name, graph_func, rates=[], # ALGO HABÍA LEIDO SOBRE NO PONER ALGO POR DEFECTO Y CHECKAR NONE
-                prepend_args=[], variants={}, metadata={}): # rates y prepend args pueden ser anotaciones, prepargs puede ser un tipo especial en las anotaciones, o puede ser otro decorador?
+                 prepend_args=[], variants={}, metadata={}): # rates y prepend args pueden ser anotaciones, prepargs puede ser un tipo especial en las anotaciones, o puede ser otro decorador?
         self.name = name
         self.func = None # la inicializa en build luego de finishBuild de lo contrario no funciona wrap
         self.variants = variants # # BUG: comprobar tipo, no es un valor que se genere internamente. No sé por qué está agrupada como propiedad junto con las variables de topo sort
@@ -161,9 +161,9 @@ class SynthDef():
         if len(arg_names) < 1: return None
 
         # OC: OK what we do here is separate the ir, tr and kr rate arguments,
-		# create one Control ugen for all of each rate,
-		# and then construct the argument array from combining
-		# the OutputProxies of these two Control ugens in the original order.
+        # create one Control ugen for all of each rate,
+        # and then construct the argument array from combining
+        # the OutputProxies of these two Control ugens in the original order.
         names = arg_names[skip_args:]
         arg_values = [x.default for x in params] # list(map(lambda x: x.default, params))
         values = [x if x != inspect.Signature.empty else None for x in arg_values] # any replace method?
@@ -209,9 +209,9 @@ class SynthDef():
                     new_values.append(value)
                 else:
                     if names[i] in specs:
-                        spec = as_spec(specs[names[i]]) # BUG: as_spec devuelve un objeto ControlSpec o None, implementan Array, Env, Nil, Spec y Symbol  **** FALTA no está hecha la clase Spec ni la función para los strings!
+                        spec = xxx.as_spec(specs[names[i]]) # BUG: as_spec devuelve un objeto ControlSpec o None, implementan Array, Env, Nil, Spec y Symbol  **** FALTA no está hecha la clase Spec ni la función para los strings!
                     else:
-                        spec = as_spec(names[i])
+                        spec = xxx.as_spec(names[i])
                     if spec is not None:
                         new_values.append(spec.default()) # BUG **** FALTA no está hecha la clase Spec/ControlSpec, no sé si default es un método
                     else:
@@ -262,7 +262,7 @@ class SynthDef():
         index = None
         ctrl_ugens = None
         lags = None
-        val_size = None
+        valsize = None
 
         for cn in nn_cns:
             arguments[cn.arg_num] = cn.default_value
@@ -293,7 +293,7 @@ class SynthDef():
                 values.append(cn.default_value)
                 valsize = len(ut.as_list(cn.default_value))
                 if valsize > 1:
-                    lags.append(wrap_extend(ut.as_list(cn.lag), valsize))
+                    lags.append(ut.wrap_extend(ut.as_list(cn.lag), valsize))
                 else:
                     lags.append(cn.lag)
             index = self.control_index # TODO: esto puede ir abajo si los kr no cambian el índice.
@@ -311,7 +311,7 @@ class SynthDef():
                 arguments[cn.arg_num] = ctrl_ugens[i]
                 self._set_control_names(ctrl_ugens[i], cn)
 
-        self.control_names = [x for x in self.control_names\
+        self.control_names = [x for x in self.control_names
                               if x.rate != 'noncontrol']
         return arguments
 
@@ -339,7 +339,7 @@ class SynthDef():
     def _add_copies_if_needed(self):
         # OC: could also have PV_UGens store themselves in a separate collection
         for child in self._width_first_ugens: # _width_first_ugens aún no lo inicializó porque lo hace en WithFirstUGen.addToSynth (solo para IFFT) en este caso, es una lista que agrego en __init__.
-            if isinstance(child, PV_ChainUGen):
+            if isinstance(child, xxx.PV_ChainUGen):
                 child._add_copies_if_needed() # pong
 
     # L468
@@ -392,9 +392,9 @@ class SynthDef():
         for ugen in self.children: # *** Itera sobre self.children por enésima vez.
             err = ugen.check_inputs() # pong, en sclang devuelve nil o un string, creo que esos serían todos los casos según la lógica de este bloque.
             if err: # *** HACER *** EN SCLANG ES ASIGNA A err Y COMPRUEBA notNil, acá puede ser none, pero ver qué retornan de manera sistemática, ver return acá abajo.
-                #err = ugen.class.asString + err;
-                #err.postln;
-				#ugen.dumpArgs; # *** OJO, no es dumpUGens
+                # err = ugen.class.asString + err;
+                # err.postln;
+                # ugen.dumpArgs; # *** OJO, no es dumpUGens
                 if first_err is None: first_err = err
         if first_err:
             #"SynthDef % build failed".format(this.name).postln;
@@ -407,7 +407,7 @@ class SynthDef():
         out_stack = []
         while len(self.available) > 0:
             ugen = self.available.pop()
-            ugen.schedule(out_stack); # puebla out_stack. ugen.schedule() se remueve de los antecedentes, se agrega a out_stack y devuelve out_stack. Acá no es necesaria la reasignación.
+            ugen.schedule(out_stack) # puebla out_stack. ugen.schedule() se remueve de los antecedentes, se agrega a out_stack y devuelve out_stack. Acá no es necesaria la reasignación.
         self.children = out_stack
         self._cleanup_topo_sort()
 
@@ -428,7 +428,7 @@ class SynthDef():
 
     def remove_ugen(self, ugen): # # lo usan UGen y BinaryOpUGen para optimizaciones
         # OC: Lazy removal: clear entry and later remove all None entries # Tiene un typo, dice enties
-        self.children[ugen.synth_index] = None;
+        self.children[ugen.synth_index] = None
 
     def replace_ugen(self, a, b): # lo usa BinaryOpUGen para optimizaciones
         if not isinstance(b, ug.UGen):
@@ -463,7 +463,7 @@ class SynthDef():
         for ugen in self.children: # tampoco terminó usando el índice
             inputs = None
             if ugen.inputs is not None:
-                inputs = [x.dump_name() if isinstance(x, ug.UGen)\
+                inputs = [x.dump_name() if isinstance(x, ug.UGen)
                           else x for x in ugen.inputs] # ugen.inputs.collect {|in| if (in.respondsTo(\dumpName)) { in.dumpName }{ in }; }; # Las únicas clases que implementan dumpName son UGen, BasicOpUGen y OutputProxy, sería interfaz de UGen, sería if is UGen
             print([ugen.dump_name(), ugen.rate, inputs])
 
@@ -503,7 +503,7 @@ class SynthDef():
 
     def as_bytes(self):
         stream = io.BytesIO() #(b' ' * 256) # tamaño prealocado pero en sclang este no es un tamaño fijo de retorno sino una optimización para el llenado, luego descarta lo que no se usó.
-        write_def([self], stream); # Es Array-writeDef, hace asArray que devuelve [ a SynthDef ] porque Array-writeDef puede escribir varias synthdef en un def file. Tiene que ser una función para list abajo.
+        write_def([self], stream) # Es Array-writeDef, hace asArray que devuelve [ a SynthDef ] porque Array-writeDef puede escribir varias synthdef en un def file. Tiene que ser una función para list abajo.
         return stream.getbuffer() # TODO: ver si hay conversiones posteriores. Arriba en as_synthdesc lo vuevle a convertir en CollStream...
                                              # el método asBytes se usa para enviar la data en NRT también, como array.
                                              # En do_send, arriba, está la llamada server.send_msg('/d_recv', self.as_bytes()), en sclang tiene que ser un array, ver implementación.
@@ -551,16 +551,16 @@ class SynthDef():
             for item in self.controls:
                 file.write(struct.pack('>f', item)) # putFloat
 
-            allcns_tmp = [x for x in self.all_control_names\
+            allcns_tmp = [x for x in self.all_control_names
                           if x.rate != 'noncontrol'] # reject
             file.write(struct.pack('>i', len(allcns_tmp))) # putInt32
             for item in allcns_tmp:
                 # comprueba if (item.name.notNil) # TODO: posible BUG? (ver arriba _set_control_names). Pero no debería poder agregarse items sin no son ControlNames. Arrays anidados como argumentos, de más de un nivel, no están soportados porque fallar _set_control_names según analicé.
                 #if item.name: # TODO: y acá solo comprueba que sea un string no vacío, pero no comprueba el typo ni de name ni de item.
                 if not isinstance(item, scio.ControlName): # TODO: test para debugear luego.
-                    raise Error('** Falla Test ** SynthDef self.all_control_names contiene un objeto no ControlName')
+                    raise Exception('** Falla Test ** SynthDef self.all_control_names contiene un objeto no ControlName')
                 elif not item.name: # ídem.
-                    raise Error('** Falla Test ** SynthDef self.all_control_names contiene un ControlName con name vacío = {}'.format(item.name))
+                    raise Exception('** Falla Test ** SynthDef self.all_control_names contiene un ControlName con name vacío = {}'.format(item.name))
                 file.write(struct.pack('B', len(item.name))) # 01 putPascalString, unsigned int8 -> bytes
                 file.write(bytes(item.name, 'ascii')) # 02 putPascalString
                 file.write(struct.pack('>i', item.index))
@@ -721,7 +721,7 @@ def write_def(lst, file):
     '''Escribe las SynthDefs contenidas en la lista lst en el archivo file.
     file es un stream en el que se puede escribir.'''
 
-    file.write(b'SCgf'); # BUG: es putString y dice: 'a null terminated String', parece estar correcto porque muestra los nombres bien. # 'all data is stored big endian' Synth Definition File Format. En este caso no afecta porque son bytes. Todos los enteros son con signo.
+    file.write(b'SCgf') # BUG: es putString y dice: 'a null terminated String', parece estar correcto porque muestra los nombres bien. # 'all data is stored big endian' Synth Definition File Format. En este caso no afecta porque son bytes. Todos los enteros son con signo.
     file.write(struct.pack('>i', 2)) # file.putInt32(2); // file version
     file.write(struct.pack('>h', len(lst))) # file.putInt16(this.size); // number of defs in file.
     for synthdef in lst:

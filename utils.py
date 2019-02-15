@@ -22,7 +22,8 @@ class UniqueID(): # TODO: en sclang está en Common/Collections/ObjectTable.sc
         return cls._id
 
 
-# lists
+# Lists
+
 
 def as_list(obj):
     '''Bubble the object in a list unless it is a list.
@@ -32,6 +33,7 @@ def as_list(obj):
     else:
         return obj if isinstance(obj, list) else [obj]
 
+
 def unbubble(obj): # only one level
     '''If obj is a list of one item or any other object unbubble(obj)
     returns the item, otherwise returns the list or object unchanged.'''
@@ -39,6 +41,7 @@ def unbubble(obj): # only one level
         return obj[0]
     else:
         return obj
+
 
 def flat(inlist):
     def _(inlist, outlist):
@@ -51,12 +54,14 @@ def flat(inlist):
     _(inlist, outlist)
     return outlist
 
+
+# nota: también hay flatten2 y flatBelow
 def flatten(inlist, n_levels=1):
     def _(inlist, outlist, n):
         for item in inlist:
             if n < n_levels:
                 if isinstance(item, list):
-                    _(item[:], outlist, n+1) # TODO: no estoy seguro si es copia, la dejo por si las dudas
+                    _(item[:], outlist, n + 1) # TODO: no estoy seguro si es copia, la dejo por si las dudas
                 else:
                     outlist.append(item)
             else:
@@ -65,17 +70,18 @@ def flatten(inlist, n_levels=1):
     _(inlist, outlist, 0)
     return outlist
 
-# nota: también hay flatten2 y flatBelow
 
 def reshape_like(one, another):
     index = 0
     one_flat = flat(one)
+
     def func(*discard):
         nonlocal index
         item = one_flat[index % len(one_flat)] # indexing='wrapAt'
         index += 1
         return item
     return deep_collect(another, 0x7FFFFFFF, func)
+
 
 def deep_collect(inlist, depth, func, index=0, rank=0):
     if depth is None:
@@ -96,10 +102,12 @@ def deep_collect(inlist, depth, func, index=0, rank=0):
     else:
         return func(inlist, index, rank)
 
+
 def wrap_extend(inlist, n):
     '''Create a new list by extending inlist with its
     own elements cyclically.'''
     return [inlist[i % len(inlist)] for i in range(n)]
+
 
 #def reshape_like(this, that); # or that this like sclang?
 
@@ -122,11 +130,13 @@ def wrap_extend(inlist, n):
 # def gen_clumps(l, n=1):
 #    return (l[i:i + n] for i in range(0, len(l), n))
 
+
 # para pairsDo:
 def gen_cclumps(l, n=1):
     '''return n items as pairsDo does (with n=2) for iteration, cclump stands
     for complete clump, it discards possible non full clump at the end'''
     return (l[i:i + n] for i in range(0, len(l), n) if len(l[i:i + n]) == n)
+
 
 # para doAdjacentPairs, de Python Itertools Recipes: https://docs.python.org/3/library/itertools.html#itertools-recipes
 def pairwise(iterable):
@@ -134,6 +144,7 @@ def pairwise(iterable):
     a, b = _itertools.tee(iterable)
     next(b, None)
     return zip(a, b)
+
 
 # dup [UGen] * n
 # collect if else ['todo' if isinstance(x, A) else 'nada' for x in arr]

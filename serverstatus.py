@@ -62,15 +62,14 @@ class ServerStatusWatcher():
     @notify.setter
     def notify(self, value):
         self._notify = value
-        self.send_notify_request(flag)
+        self.send_notify_request(value)
 
     # // flag true requests notification, false turns it off
     def send_notify_request(self, flag=True):
         self._send_notify_request(flag, False)
 
     def do_when_booted(self, on_complete, limit=100, on_failure=None):
-        m_bnf = self._boot_notify_first
-        post_err = True
+        # m_bnf = self._boot_notify_first # for not yet implemented
         self._boot_notify_first = False
 
         def rtn_func():
@@ -81,11 +80,12 @@ class ServerStatusWatcher():
                 # // and: { server.applicationRunning.not }
                 yield 0.2
             if not self.server.server_running(): # NOTE: esto debe ser así por el comentario original de arriba
+                post_err = True
                 if on_failure is not None:
-                    post_err = on_failure(self.server) == False
+                    post_err = on_failure(self.server) is False
                 if post_err:
                     msg = "Server '{}' on failed to start. You may need to kill all servers"
-                    warnigns.warn(msg.format(self.server.name))
+                    warnings.warn(msg.format(self.server.name))
                 self.server_booting = False
                 mdl.NotificationCenter.notify(self.server, 'server_running')
             else:
@@ -108,7 +108,7 @@ class ServerStatusWatcher():
                         server_really_quit = True
                         really_quit_watcher.free()
                         on_complete()
-                really_quit_watcher = rdf.OSCFunc(osc_func, '/done', self.server.addr)
+                really_quit_watcher = xxx.OSCFunc(osc_func, '/done', self.server.addr)
 
                 def sched_func():
                     if not server_really_quit:
@@ -132,13 +132,15 @@ class ServerStatusWatcher():
                     self._send_notify_request(True, True)
                 self._alive = True
                 cmd, one, self.num_ugens, self.num_synths, self.num_groups,\
-                self.num_synthdefs, self.avg_cpu, self.peak_cpu,\
-                self.sample_rate, self.actual_sample_rate = msg
+                    self.num_synthdefs, self.avg_cpu, self.peak_cpu,\
+                    self.sample_rate, self.actual_sample_rate = msg
+
                 def defer_func():
                     self.update_running_state(True)
                     mdl.NotificationCenter.notify(self.server, 'counts')
                 clk.defer(defer_func)
-            osc_func = rdf.OSCFunc(osc_func, '/status.reply', self.server.addr)
+
+            osc_func = xxx.OSCFunc(osc_func, '/status.reply', self.server.addr)
             osc_func.permanent = True
         else:
             self._status_watcher.enable()
@@ -230,7 +232,7 @@ class ServerStatusWatcher():
     def _handle_login_when_already_registered(self, client_id_from_process):
         pass # TODO: Luego, no se usa en la librería estándar
 
-    def _send_notify_request(flag=True, adding_status_watcher=False): # BUG: ver este segundo valor por defecto agregado por mi.
+    def _send_notify_request(self, flag=True, adding_status_watcher=False): # BUG: ver este segundo valor por defecto agregado por mi.
         if not self.has_booted:
             return
 
@@ -255,7 +257,7 @@ class ServerStatusWatcher():
                     self.notified = True
             else:
                 self.notified = False
-        done_osc_func = rdf.OSCFunc(
+        done_osc_func = xxx.OSCFunc(
             _done, '/done', self.server.addr,
             arg_template=['/notify', None]
         )
@@ -264,7 +266,7 @@ class ServerStatusWatcher():
         def _fail(msg):
             done_osc_func.free()
             self.server._handle_notify_fail_string(msg[2], msg)
-        fail_osc_func = rdf.OSCFunc(
+        fail_osc_func = xxx.OSCFunc(
             _fail, '/fail', self.server.addr,
             arg_template=['/notify', None, None]
         )

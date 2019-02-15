@@ -11,6 +11,9 @@ import collections
 class dendrite():
     # TODO: no tiene toda la funcionalidad de MultiLevelIdentityDictionary
     # solo lo necesario para guardar y recuperar llaves como paths.
+    # TODO: VER SI SE PUEDE IMPLEMENTAR CON WEAKREFERECE PARA QUE
+    # NotificationCenter NO RETENGA OBJETOS QUE ESTÁ PARA LIBERAR,
+    # DESDE ACÁ A EN NotificationCenter, NO LO PENSÉ AÚN.
 
     def __init__(self):
         self.dictionary = dict()

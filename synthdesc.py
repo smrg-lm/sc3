@@ -52,6 +52,7 @@ class AbstractMDPlugin():
         return None # BUG: BUG: Falta implementar, hace varias cosas, retorna nil si no lo logra.
     # TODO: todo...
 
+
 # // simple archiving of the dictionary
 class TextArchiveMDPlugin(AbstractMDPlugin):
     pass # TODO
@@ -111,9 +112,9 @@ class SynthDesc():
     @classmethod
     def _read_file(cls, stream, keep_defs=False, dictionary=None, path=''):
         stream.read(4) # getInt32 // SCgf # TODO: la verdad que podría comprobar que fuera un archivo válido.
-        version = struct.unpack('>i', file.read(4))[0] # getInt32
-        num_defs = struct.unpack('>h', file.read(2))[0] # getInt16
-        for _ in num_def:
+        version = struct.unpack('>i', stream.read(4))[0] # getInt32
+        num_defs = struct.unpack('>h', stream.read(2))[0] # getInt16
+        for _ in num_defs:
             if version >= 2:
                 desc = SynthDesc()
                 desc.read_synthdef2(stream, keep_defs)
@@ -163,7 +164,7 @@ class SynthDesc():
                 aux_f = struct.unpack('>' + 'f' * num_controls, aux_f) # read FloatArray 02
                 self.sdef.controls = list(aux_f) # read FloatArray 03
                 self.controls = [
-                    scio.ControlName('?', i, '?', self.sdef.controls[i], None)\
+                    scio.ControlName('?', i, '?', self.sdef.controls[i], None)
                     for i in range(num_controls)]
 
                 num_control_names = struct.unpack('>i', stream.read(4))[0] # getInt32
@@ -237,12 +238,12 @@ class SynthDesc():
 
         aux_i8 = stream.read(num_outputs) # read Int8Array 01
         aux_i8 = struct.unpack('b' * num_outputs, aux_i8) # read Int8Array 02
-        output_specs = list(aux_i8) # read Int8Array 03
+        # output_specs = list(aux_i8) # read Int8Array 03 # NOTE: leyó para avanzar pero no se usa
 
         ugen_inputs = []
         for i in range(0, len(input_specs), 2):
             ugen_index = input_specs[i]
-            output_index = input_specs[i+1]
+            output_index = input_specs[i + 1]
             if ugen_index < 0:
                 input = self.constants[output_index]
             else:
@@ -276,7 +277,7 @@ class SynthDesc():
             # // Therefore we fill it in here:
             ugen.special_index = special_index
             for i in range(num_outputs):
-                self.controls[i+special_index].rate = rate
+                self.controls[i + special_index].rate = rate
         else:
             if ugen_class.is_input_ugen(): # TODO, revisar protocolo: implementan AbstractIn (true) y Object (false) ídem is_control_ugen()
                 add_io(self.inputs, len(ugen.channels))
@@ -388,7 +389,7 @@ class SynthDesc():
 
         stream.read(4) # getInt32 SCgf
         stream.read(4) # getInt32 version
-        struct.unpack('>h', file.read(2)) # getInt16 num_defs # BUG: typo: en sclang declara y asigna num_defs pero no la usa
+        struct.unpack('>h', stream.read(2)) # getInt16 num_defs # BUG: typo: en sclang declara y asigna num_defs pero no la usa
 
         aux_str_len = struct.unpack('B', stream.read(1))[0] # getPascalString 01
         aux_string = stream.read(aux_str_len) # getPascalString 02
@@ -433,7 +434,7 @@ class SynthDescLib(dp.Dependancy):
     def add(self, synth_desc):
         self.synth_descs[synth_desc.name] = synth_desc
         self.dependancy_changed('synthDescAdded', synth_desc) # BUG: Object Dependancy: changed/update/release/dependants/removeDependant/addDependant
-                                                   # No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
+                                                              # No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
 
     def remove_at(self, name): # BUG: es remove_at porque es un diccionario, pero es interfaz de esta clase que oculta eso, ver qué problemas puede traer.
         self.synth_descs.pop(name) #, None) # BUG: igualmente self.servers es un set y tirar KeyError con remove
@@ -457,9 +458,9 @@ class SynthDescLib(dp.Dependancy):
             return self.synth_descs[name] # BUG: tira KeyError, en sclang nil para la variable ~synthDesc puede significar otra cosa. La usa solo en PmonoStream.prInit al parecer.
 
         if name[:dot_index] in self.synth_descs:
-           desc = self.synth_descs[name[:dot_index]]
-           if desc.has_variants:
-               return desc # BUG: no me cierra que no compruebe que el nombre de la variente exista, ver PmonoStream.prInit
+            desc = self.synth_descs[name[:dot_index]]
+            if desc.has_variants:
+                return desc # BUG: no me cierra que no compruebe que el nombre de la variente exista, ver PmonoStream.prInit
 
         return self.synth_descs[name] # BUG: tira KeyError, en sclang nil para la variable ~synthDesc puede significar otra cosa. La usa solo en PmonoStream.prInit al parecer.
 
@@ -510,13 +511,13 @@ class SynthDescLib(dp.Dependancy):
                 desc.sdef.metadata['shouldNotSend'] = True # BUG/TODO: los nombres en metadata tienen que coincidir con las convenciones de sclang... (?)
                 desc.sdef.metadata['loadPath'] = path
         for new_desc in result_set:
-            self.dependancy_changed('synthDescAdded', new_desc); # BUG: Object Dependancy, lo mismo que en add de esta clase.
+            self.dependancy_changed('synthDescAdded', new_desc) # BUG: Object Dependancy, lo mismo que en add de esta clase.
         return result_set
 
     def read_desc_from_def(self, stream, keep_def, sdef, metadata=None):
         stream.read(4) # getInt32 // SCgf # TODO: la verdad que podría comprobar que fuera un archivo válido.
         version = struct.unpack('>i', stream.read(4))[0] # getInt32 // version
-        num_defs = struct.unpack('>h', stream.read(2))[0] # getInt16 # // should be 1
+        num_defs = struct.unpack('>h', stream.read(2))[0] # getInt16 # // should be 1 # NOTE: avanza el cabezal pero no usa el resultado.
         if version >= 2:
             desc = SynthDesc()
             desc.read_synthdef2(stream, keep_def)

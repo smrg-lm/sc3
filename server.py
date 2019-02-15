@@ -52,7 +52,7 @@ class ServerOptions(object):
         self._num_input_bus_channels = 2 # @property, es 2 a propósito
         self._num_output_bus_channels = 2 # @property, es 2 a propósito
         self._num_private_audio_bus_channels = 1020 # @property
-        self.num_buffers = 1026; # getter setter, es 1026 a propósito
+        self.num_buffers = 1026 # getter setter, es 1026 a propósito
 
         self.max_nodes = _MAX_NODES # Todos los métodos siguientes tiene getter y setter salvo indicación contraria
         self.max_synth_defs = _MAX_SYNTH_DEFS
@@ -118,8 +118,8 @@ class ServerOptions(object):
         o.append(str(port))
 
         o.append('-a')
-        o.append(self.num_private_audio_bus_channels\
-                 + self.num_input_bus_channels\
+        o.append(self.num_private_audio_bus_channels
+                 + self.num_input_bus_channels
                  + self.num_output_bus_channels)
 
         if self.num_control_bus_channels != _NUM_CONTROL_BUS_CHANNELS:
@@ -227,7 +227,7 @@ class ServerOptions(object):
     def num_audio_bus_channels(self, value=1024):
         self._num_audio_bus_channels = value
         self._num_private_audio_bus_channels = self._num_audio_bus_channels\
-             - self._num_input_bus_channels - self._num_output_bus_channels
+            - self._num_input_bus_channels - self._num_output_bus_channels
 
     @property
     def num_input_bus_channels(self):
@@ -319,7 +319,7 @@ class Server(metaclass=MetaServer):
     def __init_class__(cls): # BUG: ver: __new__ es un método estático tratado de manera especial por el intérprete, tal vez este se podría definir como tal, los métodos estáticos no están ligados ni a la clase ni a la instancia.
                              # BUG: PERO __init_subclass___: "If defined as a normal instance method, this method is implicitly converted to a class method."
         cls._default = cls.local = cls('localhost', nad.NetAddr('127.0.0.1', 57110))
-        cls.internal = Server('internal', nad.NetAddr(None, None));
+        cls.internal = Server('internal', nad.NetAddr(None, None))
 
     @classmethod
     def from_name(cls, name):
@@ -416,7 +416,7 @@ class Server(metaclass=MetaServer):
         msg = "Server {} couldn't set client_id to {} - {}. clientID is still {}"
         if self.server_running:
             _warnings.warn(msg.format(self.name, value,
-                                     'server is running', self.client_id))
+                                      'server is running', self.client_id))
             return # BUG: los setters de la propiedades retornan el valor? qué pasa cuando falla un setter?
         if not isinstance(value, int):
             _warnings.warn(msg.format(self.name, value
@@ -440,7 +440,7 @@ class Server(metaclass=MetaServer):
         self.new_bus_allocators()
         self.new_buffer_allocators()
         self.new_scope_buffer_allocators()
-        mdl.NotificationCenter.notify(self, 'newAllocators');
+        mdl.NotificationCenter.notify(self, 'newAllocators')
 
     def new_node_allocators(self):
         self.node_allocator = self.__class__.node_alloc_class(
@@ -449,15 +449,15 @@ class Server(metaclass=MetaServer):
             self.max_num_clients
         )
         # // defaultGroup and defaultGroups depend on allocator,
-		# // so always make them here:
+        # // so always make them here:
         self.make_default_groups()
 
     def new_bus_allocators(self):
         audio_bus_io_offset = self.options.first_private_bus
-        num_ctrl_per_client = self.options.num_control_bus_channels\
-                              // self.max_num_clients
-        num_audio_per_client = (self.optiosn.num_audio_bus_channels\
-                               - audio_bus_io_offset) // self.max_num_clients
+        num_ctrl_per_client = (self.options.num_control_bus_channels
+                               // self.max_num_clients)
+        num_audio_per_client = (self.options.num_audio_bus_channels
+                                - audio_bus_io_offset) // self.max_num_clients
         ctrl_reserved_offset = self.options.reserved_num_control_bus_channels
         ctrl_bus_client_offset = num_ctrl_per_client * self.client_id
         audio_reserved_offset = self.options.reserved_num_audio_bus_channels
@@ -546,10 +546,10 @@ class Server(metaclass=MetaServer):
         # // post info on some known error cases
         if 'already registered' in fail_string: # TODO: es un poco cruda la comparación con el mensaje... y tiene que coincidir, no sé dónde se genera.
             # // when already registered, msg[3] is the clientID by which
-			# // the requesting client was registered previously
+            # // the requesting client was registered previously
             log_msg = "{} - already registered with client_id {}"
             print(log_msg.format(self.name, msg[3])) # BUG: es log
-            self.status_watcher._handle_login_when_already_registered(msg[3]); # BUG: falta implmementar, cuidado con el nombre
+            self.status_watcher._handle_login_when_already_registered(msg[3]) # BUG: falta implmementar, cuidado con el nombre
         elif 'not registered' in fail_string:
             # // unregister when already not registered:
             log_msg = "{} - not registered"

@@ -134,6 +134,7 @@ _binops_list = [
     #opNumBinarySelectors
 ]
 
+
 def _build_op_dict(oplist):
     ret = dict()
     for i, item in enumerate(oplist):
@@ -141,8 +142,10 @@ def _build_op_dict(oplist):
             ret[name] = [i, item[0]] # key: [special_index, sc_name]
     return ret
 
+
 _unops = _build_op_dict(_unops_list)
 _binops = _build_op_dict(_binops_list)
+
 
 # Interface
 
@@ -157,10 +160,12 @@ def sc_spindex_opname(operator):
     except KeyError: pass
     return [-1, None]
 
+
 def special_index(operator):
     'Returns server operators special index or -1.'
     ret = sc_spindex_opname(operator)
     return ret[0]
+
 
 def sc_opname(operator):
     'Returns server operator name or None.'

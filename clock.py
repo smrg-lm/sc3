@@ -277,7 +277,9 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                         # vez de distribuir el tiempo entre ambas, pj. que lleguen tarde al mismo tiempo,
                         # va a pasar que una va a llegar seguro más tarde que la otra, pj. perdiendo sincronía,
                         # pero p3 sys.getswitchinterval() / sys.setswitchinterval(n) (default es 5ms,
-                        # un montón)
+                        # un montón). Posible BUG, si sclang llama con gLangMutex a next las rutinas
+                        # ya de por sí aplican esta lógica y tendría que aplicar main_lock acá,
+                        # main_lock sería simplemente un lock del cual no se esperan notificaciones.
                         # NOTE: otra cosa que se puede hacer es probar esto mismo pero con
                         # relojes (opcionales) que sean procesos python, habrá que sincronizar
                         # elapsed_time entre procesos, supongo.

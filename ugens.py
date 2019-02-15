@@ -12,6 +12,7 @@ en otra clase que actúe como protocolo.
 from math import isnan
 import struct
 from functools import singledispatch
+import inspect
 
 import supercollie.functions as fn
 import supercollie._global as _gl
@@ -111,8 +112,8 @@ class UGen(fn.AbstractFunction):
         self.inputs = inputs # or None # TODO: VER: en sclang es nil pero habría que comprobar acá porque iterar sobre nil es nada en sclang. VER para todos los casos (otras ugens)
         return self # OJO: Tiene que retornarse sí o sí porque es el valor de retorno de new1
 
-    # OC: You can't really copy a UGen without disturbing the Synth.
-	# Usually you want the same object. This makes .dup work.
+    # // You can't really copy a UGen without disturbing the Synth.
+    # // Usually you want the same object. This makes .dup work.
     # L45
     # def copy(self): # se usa con dup en sclang SinOsc.ar!2 opuesto a { SinOsc.ar }!2
     #     return self
@@ -174,14 +175,14 @@ class UGen(fn.AbstractFunction):
             for i in range(n):
                 if as_ugen_rate(self.inputs[i]) != 'audio': # *** VER VALORES POSIBLES PARA self.inputs[i]:: IMPLEMENTADO ARRIBA COMO SINGLE DISPATCH
                     msg = 'input {} is not audio rate: {} {}'\
-                            .format(i, self.inputs[i], self.inputs[0].rate)
+                          .format(i, self.inputs[i], self.inputs[0].rate)
                     return msg
         return self.check_valid_inputs() # comprueba is_valid_ugen_input no el rate.
 
     def check_sr_as_first_input(self): # checkSameRateAsFirstInput ídem anterior, deben ser interfaz protejida
         if self.rate != as_ugen_rate(self.inputs[0]): # *** VER VALORES POSIBLES PARA self.inputs[0]: IMPLEMENTADO ARRIBA COMO SINGLE DISPATCH
             msg = 'first input is not {} rate: {} {}'\
-                    .format(self.rate, self.inputs[0], self.inputs[0].rate)
+                  .format(self.rate, self.inputs[0], self.inputs[0].rate)
             return msg
         return self.check_valid_inputs()
 
@@ -449,10 +450,10 @@ class MultiOutUGen(UGen):
     def init_outputs(self, num_channels, rate):
         if num_channels is None or num_channels < 1:
             msg = '{}: wrong number of channels ({})'\
-                    .format(self.name(), num_channels)
+                  .format(self.name(), num_channels)
             raise Exception(msg)
-        self.channels = [OutputProxy.new(rate, self, i)\
-                        for i in range(num_channels)]
+        self.channels = [OutputProxy.new(rate, self, i)
+                         for i in range(num_channels)]
         if num_channels == 1:
             return self.channels[0]
         return self.channels
@@ -491,7 +492,7 @@ class OutputProxy(UGen):
 
     def dump_name(self):
         return self.source_ugen.dump_name() + '['\
-                + str(self.output_index) + ']'
+               + str(self.output_index) + ']'
 
 
 # Estos métodos no sé cómo implementarlos. El problema es que serían un
@@ -502,6 +503,7 @@ class OutputProxy(UGen):
 # así podría andar y simplemente hay que agregar el register en cada módulo
 # y no acá.
 
+
 class Buffer(): pass  # TODO DEFINICIONES SOLO PARA TEST!
 class Bus(): pass     # TODO VER CÓMO HACER PARA NO IMPORTAR TODO LO INNECESARIO
 class Dunique(): pass #
@@ -511,18 +513,22 @@ class Node(): pass    #
 
 import supercollie.opugens as op # TODO: acá evita el problema cíclico y no hay que declararlo 20 veces. Ver.
 
+
 # madd
+
 
 @singledispatch
 def madd(obj, mul=1.0, add=0.0):
     msg = "'{}' is not a valid type for madd"
     raise TypeError(msg.format(obj.__class__.__name__))
 
+
 @madd.register(list)
 @madd.register(tuple)
 @madd.register(UGen)
 def _(obj, mul=1.0, add=0.0):
     return op.MulAdd.new(obj, mul, add) # TODO: Tiene que hacer expansión multicanal, es igual a UGen. VER: qué pasa con MulAdd args = ug.as_ugen_input([input, mul, add], cls)
+
 
 @madd.register(float)
 @madd.register(int)
@@ -532,9 +538,11 @@ def _(obj, mul=1.0, add=0.0):
 
 # is_valid_ugen_input
 
+
 @singledispatch
 def is_valid_ugen_input(obj):
     return False
+
 
 @is_valid_ugen_input.register(fn.AbstractFunction)
 @is_valid_ugen_input.register(UGen)
@@ -543,6 +551,7 @@ def is_valid_ugen_input(obj):
 @is_valid_ugen_input.register(bool)
 def _(obj):
     return True
+
 
 #@is_valid_ugen_input.register con numbers.py? Para casos especiales lo mejor sería que cada módulo agregue su propio dispatch
 @is_valid_ugen_input.register(float)
@@ -553,42 +562,52 @@ def _(obj):
 
 # as_ugen_input
 
+
 @singledispatch #Este método es implementado por varias clases y extensiones. Cada clase prepara los datos para que sea una entrada válida.
 def as_ugen_input(obj, *ugen_cls): # ugen_cls (*** VER ABAJO ***) es opt_arg, solo AbstractFunction y Array lo usan, Array porque itera sobre. Si la llamada recibe una tupla estrella vacía '*()' no pasa nada. EL PROBLEMA ES QUE SCLANG IGNORA LOS PARÁMETROS SI LA FUNCIÓN NO RECIBE ARGUMENTOS Y LA TUPLA PUEDE NO ESTAR VACÍA.
     return obj
+
 
 @as_ugen_input.register(fn.AbstractFunction) # Es la única clase que usa ugen_cls en sclang
 def _(obj, *ugen_cls):
     return obj(*ugen_cls) # BUG: Cuando se use va a tirar error porque a obj lo castea a AbstractFunction
 
+
 @as_ugen_input.register(UGen) # Es necesario porque AbstractFunction responde distsinto y UGen es subclass, todas las subclases que cambian lo tiene que volver a implementar (pasa con Ref también en sclang)
 def _(obj, *ugen_cls):
     return obj
+
 
 @as_ugen_input.register(tuple) # las tuplas se convierten en listas, no sé si podría ser al revés.
 @as_ugen_input.register(list)
 def _(obj, *ugen_cls):
     return list(map(lambda x: as_ugen_input(x, *ugen_cls), obj)) # de Array: ^this.collect(_.asUGenInput(for))
 
+
 @as_ugen_input.register(Buffer) # TODO: prefijo
 def _(obj, *ugen_cls): # si la llamada recibe una tupla estrella vacía '*()' no pasa nada. Pero si es genérica como en multi_new_list sí pasa, porque la tupla no está vacía. Solo AbstractFunction usa el parámetro realmente, no se si se usó en algún momento de la historia.
     return obj.bufnum
+
 
 @as_ugen_input.register(Bus) # TODO: prefijo
 def _(obj, *ugen_cls):
     return obj.index
 
+
 @as_ugen_input.register(Dunique) # TODO: prefijo
 def _(obj, *ugen_cls):
     raise NotImplementedError('Dunique as ugen input is not implemente yet.') # TODO, es complicado para ahora.
+
 
 @as_ugen_input.register(Event) # TODO: prefijo
 def _(obj, *ugen_cls): # sc Event, VER
     return as_control_input(obj) # es otro método de interfaz
 
+
 @as_ugen_input.register(Node) # TODO: prefijo
 def _(obj, *ugen_cls): # sc Node
     raise NotImplementedError('Should not use a Node inside a SynthDef') # dice esto pero implmente as_control_input
+
 
 #@as_ugen_input.register
 # def _(obj: Point): # qué point?
@@ -598,9 +617,11 @@ def _(obj, *ugen_cls): # sc Node
 
 # as_control_input
 
+
 @singledispatch
 def as_control_input(obj):
     return obj
+
 
 @as_control_input.register(UGen)
 def _(obj):
@@ -613,10 +634,12 @@ def _(obj):
 
 # num_channels
 
+
 @singledispatch
 def num_channels(obj):
     '''Idem anteriores.'''# TODO
     return obj
+
 
 @num_channels.register(UGen)
 def _(obj):
@@ -624,6 +647,7 @@ def _(obj):
 
 
 # as_ugen_rate
+
 
 # Agregado por la propiedad rate de las UGens que está implementada a nivel
 # de la librería de clases. Nil retorna nil, SimpleNumber devuelve 'scalar'.
@@ -640,19 +664,23 @@ def _(obj):
 def as_ugen_rate(obj):
     return None
 
+
 @as_ugen_rate.register(str)
 def _(obj): # TODO OJO, porque en sclang es tanto una función como una propiedad, RawArray retorna 'scalar' ("audio".rate -> 'scalar'), ver el caso list
     return obj
+
 
 @as_ugen_rate.register(UGen)
 @as_ugen_rate.register(Bus)
 def _(obj):
     return obj.rate
 
+
 @as_ugen_rate.register(float)
 @as_ugen_rate.register(int)
 def _(obj):
     return 'scalar'
+
 
 @as_ugen_rate.register(list)
 @as_ugen_rate.register(tuple)
@@ -670,6 +698,7 @@ def _(obj):
                         # Acá debería estar cubierto el caso porque primero se llama a as_ugen_rate y luego comprueba None.
                         # TODO: Si agrego una enum tengo que cuidar el orden. Y RawArray.rate retorna 'scalar' ("audio".rate -> 'scalar'),
                         # pero en la comparación original es una propiedad str (que puede ser un método por polimorfismo)
+
 
 # @as_ugen_rate.register # pero asi también habría que hacerlo para set y dict, no tienen clase base con list y tuple?
 # def _(obj: tuple):
@@ -695,7 +724,7 @@ def _(obj):
 @singledispatch
 def perform_binary_op_on_ugen(input, selector, thing):
     # // catch binary operators failure
-	# Object llama a performBinaryOpOnSomething { arg aSelector, thing, adverb;
+    # Object llama a performBinaryOpOnSomething { arg aSelector, thing, adverb;
     # BUG: ADEMÁS, ESTA FUNCIÓN NUNCA SE LLAMA PARA UGENS PORQUE LOS MÉTODOS
     # BUG: '==' Y '!=' NO ESTÁN IMPLEMENTADOS POR ABSTRACTFUNCTION EN SCLANG.
     # BUG: VER LA LLAMADA ARRIBA. EN EL GRAFO QUEDA EL VALOR DE RETORNO DE
@@ -709,6 +738,7 @@ def perform_binary_op_on_ugen(input, selector, thing):
     msg = "operations between ugens and '{}' ('{}') are not implemented"
     raise NotImplementedError(msg.format(type(input).__name__, input))
 
+
 @perform_binary_op_on_ugen.register(complex) # También Polar y Spherical en sclang. No hay nada implementado para Python complex aún.
 def _(input, selector, thing):
     pass
@@ -716,15 +746,18 @@ def _(input, selector, thing):
 
 # write_input_spec
 
+
 @singledispatch
 def write_input_spec(obj, file, synthdef):
     msg = "write_input_spec can't be performed on {}, possible BUG"
     raise TypeError(msg.format(obj))
 
+
 @write_input_spec.register(UGen)
 def _(obj, file, synthdef):
     file.write(struct.pack('>i', obj.synth_index)) # putInt32
     file.write(struct.pack('>i', obj.output_index)) # putInt32
+
 
 @write_input_spec.register(float)
 @write_input_spec.register(int)
@@ -736,6 +769,7 @@ def _(obj, file, synthdef):
     except KeyError as e:
         msg = 'write_input_spec constant not found: {}'
         raise Exception(msg.format(float(obj))) from e
+
 
 @write_input_spec.register(list)
 @write_input_spec.register(tuple)

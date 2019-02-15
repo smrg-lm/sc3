@@ -63,22 +63,22 @@ class AbstractServerAction(AbstractSystemAction):
 
     @classmethod
     def perform_function(cls, server: (str, srv.Server), function):
-        if self.objects is not None:
-            if server in self.objects:
-                for item in self.objects[server][:]:
+        if cls.objects is not None:
+            if server in cls.objects:
+                for item in cls.objects[server][:]:
                     function(item)
             else:
                 msg = "{} server '{}' not added"
                 warnings.warn(msg.format(cls, server))
             if server is srv.Server.default:
-                if 'default' in self.objects:
-                    for item in self.objects['default'][:]:
+                if 'default' in cls.objects:
+                    for item in cls.objects['default'][:]:
                         function(item)
                 else:
                     msg = "{} key 'default' not initialized"
                     warnings.warn(msg.format(cls))
-            if 'all' in self.objects:
-                for item in self.objects['all'][:]:
+            if 'all' in cls.objects:
+                for item in cls.objects['all'][:]:
                     function(item)
             else:
                 msg = "{} key 'all' not initialized"

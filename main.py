@@ -63,11 +63,13 @@ class Process(type):
     def monotonic_clock_time(cls) -> float: # monotonic_clock::now().time_since_epoch(), no sé dónde usa esto
         return time.monotonic() # en linux es hdclock es time.perf_counter(), no se usa la variable que declara
 
+
 # Main.sc
 class Main(metaclass=Process):
     # TODO: REVISAR: Process (__init__) se instancia en Main cuando se compila la clase (en el primer import, supongo)
     # BUG: Al ser una librería esto es debatible...
     pass
+
 
 # BUG: TEST, luego va a ser necesario organizar todo
 clk.SystemClock()

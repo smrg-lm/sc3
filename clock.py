@@ -7,7 +7,6 @@ import inspect as _inspect
 import traceback as _traceback
 import math as _math
 from queue import PriorityQueue as _PriorityQueue
-from queue import Full as _Full
 
 #import sched tal vez sirva para AppClock (ver scd)
 #Event = collections.namedtuple('Event', []) podría servir pero no se pueden agregar campos dinámicamente, creo, VER
@@ -15,7 +14,6 @@ from queue import Full as _Full
 from . import main as _main
 from . import thread as thr
 import supercollie.builtins as bi
-import supercollie.utils as ut
 
 
 # // clocks for timing threads.
@@ -66,7 +64,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
     _MICROS_TO_OSC = 4294.967296 # PyrSched.h: const double kMicrosToOSC = 4294.967296; // pow(2,32)/1e6
     _SECONDS_TO_OSC = 4294967296. # PyrSched.h: const double kSecondsToOSC  = 4294967296.; // pow(2,32)/1
     _OSC_TO_NANOS = 0.2328306436538696# PyrSched.h: const double kOSCtoNanos  = 0.2328306436538696; // 1e9/pow(2,32)
-    _OSC_TO_SECONDS =  2.328306436538696e-10 # PyrSched.h: const double kOSCtoSecs = 2.328306436538696e-10;  // 1/pow(2,32)
+    _OSC_TO_SECONDS = 2.328306436538696e-10 # PyrSched.h: const double kOSCtoSecs = 2.328306436538696e-10;  // 1/pow(2,32)
 
     _instance = None # singleton instance of Thread
 
@@ -111,15 +109,14 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         self._resync_thread.start()
 
     def _sync_osc_offset_with_tod(self): # L314, esto se hace en _rsync_thread
-    	# Original comment:
-        # generate a value gHostOSCoffset such that
-    	# (gHostOSCoffset + systemTimeInOSCunits)
-    	# is equal to gettimeofday time in OSCunits.
-    	# Then if this machine is synced via NTP, we are synced with the world.
-    	# more accurate way to do this??
+        # // generate a value gHostOSCoffset such that
+        # // (gHostOSCoffset + systemTimeInOSCunits)
+        # // is equal to gettimeofday time in OSCunits.
+        # // Then if this machine is synced via NTP, we are synced with the world.
+        # // more accurate way to do this??
         number_of_tries = 1
         diff = 0 # int64
-        min_diff = 0x7fffFFFFffffFFFF; # int64, a big number to miss
+        min_diff = 0x7fffFFFFffffFFFF # int64, a big number to miss
         new_offset = self._host_osc_offset
 
         for i in range(0, number_of_tries):
@@ -210,7 +207,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
     # TODO: se declara como sclang export en SCBase.h pero no se usa en ninguna parte
     def sched_clear(self): # L387, llama a schedClearUnsafe() con gLangMutex locks, esta función la exporta con SCLANG_DLLEXPORT_C
         with self._sched_cond:
-            if _self._run_sched:
+            if self._run_sched:
                 del self._task_queue # BUG: en realidad tiene un tamaño que reusa y no borra, pero no sé dónde se usa esta función, desde sclang usa *clear
                 self._task_queue = _PriorityQueue()
                 self._sched_cond.notify_all()
@@ -353,6 +350,7 @@ class Scheduler():
         # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al querer comparar tasks, hacer que '<' devuelva el id del objeto
         self.queue = _PriorityQueue()
         self._expired = []
+
         def wakeup(item):
             try:
                 delta = item() # BUG: item.awake(self._beats, self._seconds, self._clock) # BUG: awake la implementan Function, Nil, Object, PauseStream y Routine,

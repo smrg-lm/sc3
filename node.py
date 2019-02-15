@@ -102,7 +102,7 @@ class Node():
 
     def mapn_msg(self, *args):
         return ['/n_mapn', self.node_id]\
-               + ug.as_control_input(list(args)) # 48
+            + ug.as_control_input(list(args)) # 48
 
     def set(self, *args):
         self.server.send_msg(
@@ -113,7 +113,7 @@ class Node():
 
     def set_msg(self, *args):
         return ['/n_set', self.node_id]\
-               + xxx.as_osc_arg_list(list(args)) # 15
+            + xxx.as_osc_arg_list(list(args)) # 15
 
     def setn(self, *args):
         self.server.send_msg(*self.setn_msg(*args))
@@ -141,7 +141,7 @@ class Node():
 
     def fill_msg(self, cname, num_controls, value, *args):
         return ['n_fill', self.node_id, cname, num_controls, value]\
-               + ug.as_control_input(list(args)) # 17
+            + ug.as_control_input(list(args)) # 17
 
     def release(self, release_time=None):
         self.server.send_msg(*self.release_msg(release_time))
@@ -171,10 +171,12 @@ class Node():
 
     def wait_for_free(self):
         condition = _threading.Condition()
+
         def unhang():
             with condition:
                 condition.notify()
         self.on_free(unhang)
+
         with condition:
             condition.wait()
 
@@ -237,7 +239,7 @@ class AbstractGroup(Node):
             group.group = target
         else:
             group.group = target.group
-        self.server.send_msg(
+        group.server.send_msg(
             cls.creation_cmd(), group.node_id,
             add_action_id, target.node_id
         )
@@ -251,8 +253,8 @@ class AbstractGroup(Node):
             self.group = target
         else:
             self.group = target.group
-        return [self.creation_cmd(), self.node_id,\
-               add_action_id, target.node_id]
+        return [self.creation_cmd(), self.node_id,
+                add_action_id, target.node_id]
 
     # // for bundling
     def add_to_head_msg(self, group=None):
@@ -346,7 +348,7 @@ class Group(AbstractGroup):
 
 class ParGroup(AbstractGroup):
     @staticmethod
-	def creation_cmd():
+    def creation_cmd():
         return 63 # '/p_new'
 
 
@@ -420,11 +422,12 @@ class Synth(Node):
             synth.group = target
         else:
             synth.group = target.group
-        synth.server.send_bundle(0,
+        synth.server.send_bundle(
+            0,
             [
                 '/s_new', # 9
                 synth.def_name, synth.node_id,
-                add_action_id, target.node_id
+                add_action_id, target.node_id,
                 *xxx.as_osc_arg_list(args)
             ],
             [
@@ -469,8 +472,8 @@ class Synth(Node):
             self.group = target
         else:
             self.group = target.group
-        return ['/s_new', self.def_name, self.node_id, add_action_id,\
-               target.node_id, *xxx.as_osc_arg_list(args)] # 9
+        return ['/s_new', self.def_name, self.node_id, add_action_id,
+                target.node_id, *xxx.as_osc_arg_list(args)] # 9
 
     @classmethod
     def after(cls, node, def_name, args=[]):
@@ -495,8 +498,8 @@ class Synth(Node):
             self.group = group
         else:
             self.group = self.server.default_group
-        return ['/s_new', self.def_name, self.node_id, 0,\
-               self.group.node_id, *xxx.as_osc_arg_list(args)] # 9
+        return ['/s_new', self.def_name, self.node_id, 0,
+                self.group.node_id, *xxx.as_osc_arg_list(args)] # 9
 
     def add_to_tail_msg(self, group, args):
         # // if aGroup is nil set to default group of server specified when basicNew was called
@@ -504,23 +507,23 @@ class Synth(Node):
             self.group = group
         else:
             self.group = self.server.default_group
-        return ['/s_new', self.def_name, self.node_id, 1,\
-               self.group.node_id, *xxx.as_osc_arg_list(args)] # 9
+        return ['/s_new', self.def_name, self.node_id, 1,
+                self.group.node_id, *xxx.as_osc_arg_list(args)] # 9
 
     def add_after_msg(self, node, args=[]):
         self.group = node.group
-        return ['/s_new', self.def_name, self.node_id, 3,\
-               node.node_id, *xxx.as_osc_arg_list(args)] # 9
+        return ['/s_new', self.def_name, self.node_id, 3,
+                node.node_id, *xxx.as_osc_arg_list(args)] # 9
 
     def add_before_msg(self, node, args=[]):
         self.group = node.group
-        return ['/s_new', self.def_name, self.node_id, 2,\
-               node.node_id, *xxx.as_osc_arg_list(args)] # 9
+        return ['/s_new', self.def_name, self.node_id, 2,
+                node.node_id, *xxx.as_osc_arg_list(args)] # 9
 
     def add_replace_msg(self, node_to_replace, args):
         self.group = node_to_replace.group
-        return ['/s_new', self.def_name, self.node_id, 4,\
-               node_to_replace.node_id, *xxx.as_osc_arg_list(args)] # 9
+        return ['/s_new', self.def_name, self.node_id, 4,
+                node_to_replace.node_id, *xxx.as_osc_arg_list(args)] # 9
 
     def get(self, index, action):
         raise Exception('implementar Synth:get con OSCFunc') # BUG
@@ -539,7 +542,7 @@ class Synth(Node):
         synth_desc = ds.SynthDescLib.at(self.def_name)
         if synth_desc is None:
             msg = 'message seti failed, because SynthDef {} was not added'
-            _warning.warn(msg.format(self.def_name))
+            _warnings.warn(msg.format(self.def_name))
             return
         for key, offset, value in ut.gen_cclumps(args, 3):
             if key in synth_desc.control_dict:

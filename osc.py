@@ -25,6 +25,7 @@ class Osc(ug.PureUGen):
     def kr(cls, bufnum, freq=440.0, phase=0.0, mul=1.0, add=0.0):
         return ug.madd(cls.multi_new('control', bufnum, freq, phase), mul, add)
 
+
 class SinOsc(ug.PureUGen):
     @classmethod
     def ar(cls, freq=440.0, phase=0.0, mul=1.0, add=0.0):

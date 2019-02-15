@@ -54,7 +54,6 @@ USOS SE PUEDE USAR liblo QUE ES DEPENDENCIA.
 import ipaddress as _ipaddress
 import socket as _socket
 
-import liblo as _lo
 import supercollie.client as cl
 
 
@@ -109,8 +108,10 @@ class NetAddr():
         #if _ipaddress.IPv4Address(self._addr).is_loopback: # sclang compara solo con 127.0.0.1 como loopback
         if ipstring == '127.0.0.1':
             return True
-        addr_info = _socket.getaddrinfo(_socket.gethostname(), None,\
-                                       _socket.AddressFamily.AF_INET) # TODO/BUG: prMatchLangIP en OSCData.cpp incluye AF_INET6 aunque SuperCollider no soporta IPv6
+        addr_info = _socket.getaddrinfo(
+            _socket.gethostname(), None,
+            _socket.AddressFamily.AF_INET
+        ) # TODO/BUG: prMatchLangIP en OSCData.cpp incluye AF_INET6 aunque SuperCollider no soporta IPv6
         for item in addr_info:
             if item[4][0] == ipstring:
                 return True

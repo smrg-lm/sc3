@@ -145,6 +145,7 @@ class Client(object):
 
     def make_sync_responder(self, condition): # TODO: funciona en realación al método de arriba.
         id = ut.UniqueID.next()
+
         def responder(*msg):
             print(' ****** added method argument *msg:', msg)
             if msg[1][0] == id: # TODO: msg es ('/synced', [1001], 'i', <liblo.Address object at 0x7f56c88b3d80>, None)

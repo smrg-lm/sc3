@@ -17,6 +17,7 @@ class DC(ug.PureMultiOutUGen):
         self.inputs = inputs # TODO: es tupla. En sclang es nil si no hay inputs.
         return self.init_outputs(len(inputs), self.rate)
 
+
 class Silent(): # No es una UGen.
     @classmethod
     def ar(cls, num_channels=1):

@@ -90,25 +90,25 @@ class AbstractFunction(object):
         return self.compose_unop(bi.log10)
     # def log1p(self):
     #     return self.compose_unop(bi.log1p)
-    def exp(x):
+    def exp(self):
         return self.compose_unop(bi.exp)
-    def sin(x):
+    def sin(self):
         return self.compose_unop(bi.sin)
-    def cos(x):
+    def cos(self):
         return self.compose_unop(bi.cos)
-    def tan(x):
+    def tan(self):
         return self.compose_unop(bi.tan)
-    def asin(x):
+    def asin(self):
         return self.compose_unop(bi.asin)
-    def acos(x):
+    def acos(self):
         return self.compose_unop(bi.acos)
-    def atan(x):
+    def atan(self):
         return self.compose_unop(bi.atan)
-    def sinh(x):
+    def sinh(self):
         return self.compose_unop(bi.sinh)
-    def cosh(x):
+    def cosh(self):
         return self.compose_unop(bi.cosh)
-    def tanh(x):
+    def tanh(self):
         return self.compose_unop(bi.tanh)
     # def asinh(x):
     #     return self.compose_unop(bi.asinh)
@@ -254,6 +254,7 @@ class UnaryOpFunction(AbstractFunction):
             return self.selector(self.a(*args))
         else:
             return getattr(self.a(*args), self.selector)() # TODO: qué pasa con los tipos de retorno de a() ... (ver NotImplementedError)
+
 
 class BinaryOpFunction(AbstractFunction):
     def __init__(self, selector, a, b):

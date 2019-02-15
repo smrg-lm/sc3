@@ -142,7 +142,7 @@ class BinaryOpUGen(BasicOpUGen):
         and len(a.descendants) == 1:
             self.synthdef.remove_ugen(a)
             replacement = Sum3.new(a.inputs[0], a.inputs[1], b) # .descendants_(descendants);
-            replacements.descendants = self.descendants
+            replacement.descendants = self.descendants
             self.optimize_update_descendants(replacement, a)
             return replacement
 
@@ -357,10 +357,10 @@ class Sum4(ug.UGen):
 
     @classmethod
     def new1(cls, in0, in1, in2, in3):
-        if in0 == 0.0: return Sum3.new1(nil, in1, in2, in3)
-        if in1 == 0.0: return Sum3.new1(nil, in0, in2, in3)
-        if in2 == 0.0: return Sum3.new1(nil, in0, in1, in3)
-        if in3 == 0.0: return Sum3.new1(nil, in0, in1, in2)
+        if in0 == 0.0: return Sum3.new1(None, in1, in2, in3)
+        if in1 == 0.0: return Sum3.new1(None, in0, in2, in3)
+        if in2 == 0.0: return Sum3.new1(None, in0, in1, in3)
+        if in3 == 0.0: return Sum3.new1(None, in0, in1, in2)
 
         arg_array = [in0, in1, in2, in3]
         rate = ug.as_ugen_rate(arg_array)

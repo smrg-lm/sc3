@@ -42,8 +42,11 @@ class Control(ug.MultiOutUGen):
         names = ut.as_list(names)
         for i, name in enumerate(names):
             synthdef.add_control_name(
-                ControlName(name, index + i, 'control',
-                    None, synthdef.all_control_names))
+                ControlName(
+                    name, index + i, 'control',
+                    None, synthdef.all_control_names
+                )
+            )
 
     @classmethod
     def ir(cls, values):
@@ -87,8 +90,11 @@ class AudioControl(ug.MultiOutUGen):
         names = ut.as_list(names)
         for i, name in enumerate(names):
             synthdef.add_control_name(
-                ControlName(name, index + i, 'audio',
-                    None, synthdef.all_control_names))
+                ControlName(
+                    name, index + i, 'audio',
+                    None, synthdef.all_control_names
+                )
+            )
 
     @classmethod
     def ar(cls, values):
@@ -130,7 +136,7 @@ class LagControl(Control):
 
         if len(values) != len(lags):
             msg = '{} len(values) is not len(lags), {}.kr returns None'
-            warning.warn(msg.format(cls.__name__, cls.__name__))
+            warnings.warn(msg.format(cls.__name__, cls.__name__))
             return None
 
         n = 16
@@ -218,7 +224,7 @@ class InTrig(AbstractIn):
     def kr(cls, bus=0, num_channels=1):
         return cls.multi_new('control', num_channels, bus)
 
-    def init_ugen():
+    def init_ugen(self, num_channels, *arg_bus):
         self.inputs = arg_bus # TODO: es tupla, en sclang es nil si no hay inputs.
         return self.init_outputs(num_channels, self.rate)
 
@@ -287,6 +293,7 @@ class OffsetOut(Out):
     def kr(cls, bus, channels_list):
         msg = '{} should not implemet kr constructor' # TODO: ver en qué casos se puede llamar, porque acá le agregué los argumentos si no tira error.
         raise NotImplementedError(msg.format(cls.__name__))
+
 
 class LocalOut(AbstractOut):
     @classmethod

@@ -13,7 +13,7 @@ class NodeIDAllocator():
             raise Exception("NodeIDAllocator user id > 31")
         self.user = user
         self._init_temp = init_temp
-        self.num_ids = 0x04000000; # // 2 ** 26 # // support 32 users
+        self.num_ids = 0x04000000 # // 2 ** 26 # // support 32 users
         self.reset()
 
     def id_offset(self):
@@ -28,7 +28,7 @@ class NodeIDAllocator():
     def alloc(self):
         x = self._temp
         self._temp = bi.wrap(x + 1, self._init_temp, 0x03FFFFFF)
-        return x | mask
+        return x | self._mask
 
     def alloc_perm(self):
         if len(self._perm_freed) > 0:
@@ -37,7 +37,7 @@ class NodeIDAllocator():
         else:
             x = self._perm
             self._perm = min(x + 1, self._init_temp - 1)
-        return x | mask
+        return x | self.mask
 
     def free_perm(self, id):
         # // should not add a temp node id to the freed-permanent collection
@@ -128,12 +128,12 @@ class StackNumberAllocator():
 
     def _init(self):
         self._free_list = []
-        self._next = lo - 1
+        self._next = self._lo - 1
 
     def alloc(self):
         if len(self._free_list) > 0:
             return self._free_list.pop()
-        if self._next < hi:
+        if self._next < self._hi:
             self._next += 1
             return self._next
         return None
@@ -240,7 +240,7 @@ class ContiguousBlockAllocator():
         if block is not None and block.used and block.start + block.size > addr:
             if warn:
                 msg = 'The block at ({}, {}) is already in use and cannot be reserved'
-                warning.warn(msg.format(addr, size))
+                warnings.warn(msg.format(addr, size))
         else:
             return self._reserve(addr, size, None, block)
 

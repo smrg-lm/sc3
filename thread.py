@@ -20,12 +20,12 @@
 
 import enum
 import inspect
-import threading
 import random
 
 from . import clock as clk
 from . import main as _main
 import supercollie.stream as stm
+
 
 # TODO: TimeThread podría implementar __new__ como singleton y se
 # pasa la implementación de __init__ a Routine, pero ver qué pasa
@@ -85,11 +85,11 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         self._rand_state = random.getstate()
 
         # TODO: No vamos a usar entornos como en sclang, a lo sumo se podrían pasar diccionarios
-        #self.environment = current_Environment # acá llama al slot currentEnvironment de Object y lo setea al del hilo
+        # self.environment = current_Environment # acá llama al slot currentEnvironment de Object y lo setea al del hilo
 
         # BUG: acá setea nowExecutingPath de la instancia de Process (Main) si es que no la estamos creando con este hilo.
         # if(g->process) { // check we're not just starting up
-    	# 	slotCopy(&thread->executingPath,&g->process->nowExecutingPath);
+        #     slotCopy(&thread->executingPath,&g->process->nowExecutingPath);
 
     def __copy__(self):
         return self
@@ -163,7 +163,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
     @rand_state.setter
     def rand_state(self, data):
         self._rand_state = data
-        #random.setstate(data) # BUG: esto hay que hacerlo desde fuera??
+        # random.setstate(data) # BUG: esto hay que hacerlo desde fuera??
 
     # TODO: ver el manejo de excpeiones, se implementa junto con los relojes
     # failedPrimitiveName
@@ -251,7 +251,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
         # ejecutando en un reloj y no va a cambiar por esto pero si me cambiaría
         # el dato en la estructura, pero en sclang no cambia... (!) en: prRoutineResume
         # hace slotCopy(&thread->clock,&g->thread->clock); L3315. Me faltan cosas.
-        #self._clock = self.parent.clock
+        # self._clock = self.parent.clock
         self.seconds = self.parent.seconds # seconds setea beats también
         self.state = self.State.Running # lo define en switchToThread al final
         # prRoutineResume

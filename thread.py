@@ -188,10 +188,12 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     # la relación entre generador e iterador y cuándo es una función normal.
 
     @classmethod
-    def run(cls, func, clock, quant):
-        pass # TODO
+    def run(cls, func, clock=None, quant=None):
+        obj = cls(func)
+        obj.play(clock, quant)
+        return obj
 
-    def play(self, clock=None, quant=None): # BUG: quant no está implementado
+    def play(self, clock=None, quant=None): # BUG: quant no está implementado ni la lógica acá
         '''el argumento clock pordía soportar un string además de un objeto
         clock, 'clojure', para el reloj en que se creó el objeto Routine,
         'parent' para el reloj de la rutina desde la que se llama a play y

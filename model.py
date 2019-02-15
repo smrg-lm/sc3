@@ -85,7 +85,7 @@ class dendrite():
                 return False
 
     def __repr__(self):
-        msg = self.__class__.__name__ + '('
+        msg = type(self).__name__ + '('
         msg += self.dictionary.__repr__() + ')'
         return msg
 

@@ -499,3 +499,15 @@ class NRTClock(Clock):
     # usa el reloj en 'tiempo real' eso no queda registrado.
     # Además, en nrt todas las acciones son sincrónicas.
     pass
+
+
+def defer(item, delta=None):
+    # BUG: creo que canCallOS no va a ser necesario en Python, pero tengo que ver
+    # BUG: esta función tal vez haya que implementarla en AbstractFunction por completitud, pero tengo que ver.
+    if callable(item):
+        def df():
+            item()
+            # NOTE: se envuelve porque lambda retorna el valor de la sentencia que contiene
+    else:
+        raise TypeError('item is not callable')
+    AppClock.sched(delta or 0, df)

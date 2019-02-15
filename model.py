@@ -108,7 +108,7 @@ class SimpleController():
     def __init__(self, model):
         self.model = model
         self.model.add_dependant(self)
-        self.actions = dic()
+        self.actions = dict()
 
     def put(self, what, action):
         self.actions[what] = action
@@ -125,7 +125,7 @@ class SimpleController():
             del self.actions[what]
 
 
-#class TestDependant(): pass # BUG: no sé para qué es esta clase.
+# class TestDependant(): pass # BUG: no sé para qué es esta clase.
 
 
 class NotificationCenter():

@@ -67,20 +67,20 @@ class BinaryOpUGen(BasicOpUGen):
     @classmethod
     def new1(cls, rate, selector, a, b):
         # OC: eliminate degenerate cases
-        if selector is '*':
+        if selector == '*':
             if a == 0.0: return 0.0
             if b == 0.0: return 0.0
             if a == 1.0: return b
             if a == -1.0: return -b #.neg() # TODO: esto sería neg(b) si los operatores unarios se convierten en funciones.
             if b == 1.0: return a
             if b == -1.0: return -a #.neg() # TODO: ídem. Además, justo este es neg. UGen usa AbstractFunction __neg__ para '-'
-        if selector is '+':
+        if selector == '+':
             if a == 0.0: return b
             if b == 0.0: return a
-        if selector is '-':
+        if selector == '-':
             if a == 0.0: return b.neg() # TODO: Ídem -a, -b, VER
             if b == 0.0: return a
-        if selector is '/':
+        if selector == '/':
             if b == 1.0: return a
             if b == -1.0: return a.neg()
         return super().new1(rate, selector, a, b)
@@ -97,22 +97,22 @@ class BinaryOpUGen(BasicOpUGen):
 
     def determine_rate(self, a, b):
         # El orden es importante.
-        if ug.as_ugen_rate(a) is 'demand': return 'demand'
-        if ug.as_ugen_rate(b) is 'demand': return 'demand'
-        if ug.as_ugen_rate(a) is 'audio': return 'audio'
-        if ug.as_ugen_rate(b) is 'audio': return 'audio'
-        if ug.as_ugen_rate(a) is 'control': return 'control'
-        if ug.as_ugen_rate(b) is 'control': return 'control'
+        if ug.as_ugen_rate(a) == 'demand': return 'demand'
+        if ug.as_ugen_rate(b) == 'demand': return 'demand'
+        if ug.as_ugen_rate(a) == 'audio': return 'audio'
+        if ug.as_ugen_rate(b) == 'audio': return 'audio'
+        if ug.as_ugen_rate(a) == 'control': return 'control'
+        if ug.as_ugen_rate(b) == 'control': return 'control'
         return 'scalar'
 
     def optimize_graph(self):
         # OC: this.constantFolding;
         if self.perform_dead_code_elimination(): # llama a super, pero no sobreescribe, y en Python no es necesario tampoco práctico.
             return self
-        if self.operator is '+':
+        if self.operator == '+':
             self.optimize_add()
             return self
-        if self.operator is '-':
+        if self.operator == '-':
             self.optimize_sub()
             return self
 
@@ -135,11 +135,11 @@ class BinaryOpUGen(BasicOpUGen):
     # L239
     def optimize_to_sum3(self):
         a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
-        if ug.as_ugen_rate(a) is 'demand' or ug.as_ugen_rate(b) is 'demand':
+        if ug.as_ugen_rate(a) == 'demand' or ug.as_ugen_rate(b) == 'demand':
             return None
 
-        if isinstance(a, BinaryOpUGen) and a.operator is '+'\
-            and len(a.descendants) is 1:
+        if isinstance(a, BinaryOpUGen) and a.operator == '+'\
+        and len(a.descendants) == 1:
             self.synthdef.remove_ugen(a)
             replacement = Sum3.new(a.inputs[0], a.inputs[1], b) # .descendants_(descendants);
             replacements.descendants = self.descendants
@@ -147,8 +147,8 @@ class BinaryOpUGen(BasicOpUGen):
             return replacement
 
         # Ídem b... lo único que veo es que retornan y que la función debería devolver un valor comprobable para luego retornoar.
-        if isinstance(b, BinaryOpUGen) and b.operator is '+'\
-            and len(b.descendants) is 1:
+        if isinstance(b, BinaryOpUGen) and b.operator == '+'\
+        and len(b.descendants) == 1:
             self.synthdef.remove_ugen(b)
             replacement = Sum3.new(b.inputs[0], b.inputs[1], a)
             replacement.descendants = self.descendants
@@ -160,17 +160,17 @@ class BinaryOpUGen(BasicOpUGen):
     # L262
     def optimize_to_sum4(self):
         a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
-        if ug.as_ugen_rate(a) is 'demand' or ug.as_ugen_rate(b) is 'demand':
+        if ug.as_ugen_rate(a) == 'demand' or ug.as_ugen_rate(b) == 'demand':
             return None
 
-        if isinstance(a, Sum3) and len(a.descendants) is 1:
+        if isinstance(a, Sum3) and len(a.descendants) == 1:
             self.synthdef.remove_ugen(a)
             replacement = Sum4.new(a.inputs[0], a.inputs[1], a.inputs[2], b)
             replacement.descendants = self.descendants
             self.optimize_update_descendants(replacement, a)
             return replacement
 
-        if isinstance(b, Sum3) and len(b.descendants) is 1:
+        if isinstance(b, Sum3) and len(b.descendants) == 1:
             self.synthdef.remove_ugen(b)
             replacement = Sum4.new(b.inputs[0], b.inputs[1], b.inputs[2], a)
             replacement.descendants = self.descendants
@@ -183,8 +183,8 @@ class BinaryOpUGen(BasicOpUGen):
     def optimize_to_muladd(self):
         a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
 
-        if isinstance(a, BinaryOpUGen) and a.operator is '*'\
-            and len(a.descendants) is 1:
+        if isinstance(a, BinaryOpUGen) and a.operator == '*'\
+        and len(a.descendants) == 1:
 
             if MulAdd.can_be_muladd(a.inputs[0], a.inputs[1], b):
                 self.synthdef.remove_ugen(a)
@@ -201,8 +201,8 @@ class BinaryOpUGen(BasicOpUGen):
                 return replacement
 
         # does optimization code need to be optimized?
-        if isinstance(b, BinaryOpUGen) and b.operator is '*'\
-            and len(b.descendants) is 1:
+        if isinstance(b, BinaryOpUGen) and b.operator == '*'\
+        and len(b.descendants) == 1:
 
             if MulAdd.can_be_muladd(b.inputs[0], b.inputs[1], a):
                 self.synthdef.remove_ugen(b)
@@ -224,8 +224,8 @@ class BinaryOpUGen(BasicOpUGen):
     def optimize_addneg(self):
         a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
 
-        if isinstance(b, UnaryOpUGen) and b.operator is 'neg'\
-            and len(b.descendants) is 1:
+        if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
+        and len(b.descendants) == 1:
             # OC: a + b.neg -> a - b
             self.synthdef.remove_ugen(b)
             replacement = a - b.inputs[0]
@@ -238,8 +238,8 @@ class BinaryOpUGen(BasicOpUGen):
             self.optimize_update_descendants(replacement, b)
             return replacement
 
-        if isinstance(a, UnaryOpUGen) and a.operator is 'neg'\
-            and len(a.descendants) is 1:
+        if isinstance(a, UnaryOpUGen) and a.operator == 'neg'\
+        and len(a.descendants) == 1:
             # OC: a.neg + b -> b - a
             self.synthdef.remove_ugen(a)
             replacement = b - a.inputs[0]
@@ -253,8 +253,8 @@ class BinaryOpUGen(BasicOpUGen):
     def optimize_sub(self):
         a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
 
-        if isinstance(b, UnaryOpUGen) and b.operator is 'neg'\
-            and len(b.descendants) is 1:
+        if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
+        and len(b.descendants) == 1:
             # OC: a - b.neg -> a + b
             self.synthdef.remove_ugen(b)
             replacement = BinaryOpUGen.new('+', a, b.inputs[0])
@@ -320,14 +320,14 @@ class MulAdd(ug.UGen):
 
     @classmethod
     def can_be_muladd(cls, input, mul, add):
-        # OC: see if these inputs satisfy the constraints of a MulAdd ugen.
-        if input.rate is 'audio': # TODO: ES POSIBLE QUE PUEDA NO SER UNA UGEN? ug.as_ugen_rate?
+        # // see if these inputs satisfy the constraints of a MulAdd ugen.
+        if input.rate == 'audio': # TODO: ES POSIBLE QUE PUEDA NO SER UNA UGEN? ug.as_ugen_rate?
             return True
         mul_rate = ug.as_ugen_rate(mul)
         add_rate = ug.as_ugen_rate(add)
-        if input.rate is 'control'\
-            and (mul_rate is 'control' or mul_rate is 'scalar')\
-            and (add_rate is 'control' or add_rate is 'scalar'):
+        if input.rate == 'control'\
+        and (mul_rate == 'control' or mul_rate == 'scalar')\
+        and (add_rate == 'control' or add_rate == 'scalar'):
             return True
         return False
 

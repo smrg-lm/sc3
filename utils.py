@@ -35,7 +35,7 @@ def as_list(obj):
 def unbubble(obj): # only one level
     '''If obj is a list of one item or any other object unbubble(obj)
     returns the item, otherwise returns the list or object unchanged.'''
-    if isinstance(obj, list) and len(obj) is 1:
+    if isinstance(obj, list) and len(obj) == 1:
         return obj[0]
     else:
         return obj

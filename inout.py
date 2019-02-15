@@ -233,7 +233,7 @@ class AbstractOut(ug.UGen):
         pass # Se define como no hacer nada porque las ugens que escriben a buses no tienen señales de salida (cables internos). Es interfaz de polimorfismo desde UGen.
 
     def check_inputs(self):
-        if self.rate is 'audio':
+        if self.rate == 'audio':
             for i in range(self.__class__.num_fixed_args(), len(self.inputs)): # TODO: es tupla, en sclang es nil si no hay inputs.
                 if ug.as_ugen_rate(self.inputs[i]) != 'audio':
                     msg = '{}:'.format(self.__class__.__name__)

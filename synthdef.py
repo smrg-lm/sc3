@@ -251,11 +251,11 @@ class SynthDef():
 
     # L178
     def _build_controls(self): # llama solo desde _build_ugen_graph, retorna una lista
-        nn_cns = [x for x in self.control_names if x.rate is 'noncontrol']
-        ir_cns = [x for x in self.control_names if x.rate is 'scalar']
-        tr_cns = [x for x in self.control_names if x.rate is 'trigger']
-        ar_cns = [x for x in self.control_names if x.rate is 'audio']
-        kr_cns = [x for x in self.control_names if x.rate is 'control']
+        nn_cns = [x for x in self.control_names if x.rate == 'noncontrol']
+        ir_cns = [x for x in self.control_names if x.rate == 'scalar']
+        tr_cns = [x for x in self.control_names if x.rate == 'trigger']
+        ar_cns = [x for x in self.control_names if x.rate == 'audio']
+        kr_cns = [x for x in self.control_names if x.rate == 'control']
 
         arguments = [0] * len(self.control_names)
         values = []

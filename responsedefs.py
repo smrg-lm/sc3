@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 
 import supercollie.systemactions as sac
 import supercollie.model as mdl
+import supercollie.main as main
 
 
 class AbstractResponderFunc(ABC):
@@ -283,7 +284,77 @@ class OSCMessagePatternDispatcher(OSCMessageDispatcher):
 
 
 class OSCFunc(AbstractResponderFunc):
-    pass
+    default_dispatcher = OSCMessageDispatcher()
+    default_matching_dispatcher = OSCMessagePatternDispatcher()
+
+    @staticmethod
+    def _trace_func_show_status(msg, time, addr, recv_port):
+        msg = 'OSC Message Received:\n'
+        msg += '    time: {}\n'
+        msg += '    address: {}\n'
+        msg += '    recv_port: {}\n'
+        msg += '    msg: {}'
+        print(msg.format(time, addr, recv_port, msg)) # BUG: log
+
+    @staticmethod
+    def _trace_func_hide_status(msg, time, addr, recv_port):
+        if msg[0] == '/status.reply'\
+        and any(x.addr == self.addr for x in srv.Server.all):
+            return
+        OSCFunc._trace_func_show_status(msg, time, addr, recv_port)
+
+    _trace_func = _trace_func_show_status
+    _trace_running = False
+
+    def __init__(self, func, path, src_id=None, recv_port=None,
+                 arg_template=None, dispatcher=None):
+        super().__init__()
+        if path[0] != '/':
+            path = '/' + path
+        self.path = path
+        self.src_id = src_id
+        self.recv_port = recv_port
+        if recv_port is not None\
+        and main.Main.current_TimeThread.open_udp_port(recv_port): # BUG: implementar, ver por qué: thisProcess openUDPPort(recvPort).not
+            raise Exception('could not open UDP port {}'.format(recv_port))
+        self.arg_template = arg_template
+        self._func = func
+        self.dispatcher = dispatcher or type(self).default_dispatcher
+        self.enable()
+        type(self)._all_func_proxies.add(self)
+
+    @classmethod
+    def matching(cls, func, path, src_id=None,
+                 recv_port=None, arg_template=None):
+        obj = cls.__new__()
+        obj.__init__(func, path, src_id, recv_port, arg_template,
+                     cls.default_matching_dispatcher)
+        return obj
+
+    @classmethod
+    def cmd_period(cls):
+        cls.trace(False)
+
+    @classmethod
+    def trace(cls, flag=True, hide_status_msg=False):
+        if flag:
+            if not cls._trace_running:
+                if hide_status_msg:
+                    cls._trace_func = cls._trace_func_hide_status
+                else:
+                    cls._trace_func = cls._trace_func_show_status
+                # thisProcess.addOSCRecvFunc(traceFunc) # BUG: implementar
+                sac.CmdPeriod.add(cls)
+                cls._trace_running = True
+        else:
+            # thisProcess.removeOSCRecvFunc(traceFunc) # BUG: implementar
+            sac.CmdPeriod.remove(cls)
+            cls._trace_running = False
+
+    def __repr__(self):
+        string = '{}({}, {}, {}, {})'
+        return string.format(type(self).__name__, self.path, self.src_id,
+                             self.recv_port, self.arg_template)
 
 
 class OSCDef(OSCFunc):

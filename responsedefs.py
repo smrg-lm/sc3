@@ -11,7 +11,7 @@ class AbstractResponderFunc(ABC):
 
     def __init__(self):
         # tienen solo getter
-        self._func_list = [] # no inicializa, func es/se convierte en FunctionList
+        self._func = None # @property, no inicializa
         self.src_id = None # no inicializa
         self.enabled = False
         self.dispatcher = None # no inicializa
@@ -32,33 +32,24 @@ class AbstractResponderFunc(ABC):
         self.enabled = False
 
     @property
-    def func_list(self):
-        return self._func_list
+    def func(self):
+        return self._func
 
-    @func_list.setter
-    def func_list(self, value):  # prFunc_
-        self._func_list = list(value)  # se asegura que sea un iterable compatible y hace una copia si es una lista
-        mdl.NotificationCenter.notify(self, 'function', self)
-
-    def add(self, func):
-        self._func_list.append(func)
-        mdl.NotificationCenter.notify(self, 'function', self)
-
-    def remove(self, func):
-        self._func_list.remove(func)
+    @func.setter
+    def func(self, value):  # prFunc_
+        self._func = value
         mdl.NotificationCenter.notify(self, 'function', self)
 
     def cmd_period(self):
         self.free()
 
     def one_shot(self):
-        wrapped_func_list = self._func_list
+        wrapped_func = self._func
 
         def one_shot_func(*args):
             self.free()
-            for func in self._func_list:
-                func(*args)
-        self.func_list = [one_shot_func]
+            wrapped_func(*args)
+        self.func = one_shot_func
 
     @property
     def permanent(self):
@@ -77,7 +68,7 @@ class AbstractResponderFunc(ABC):
         self.disable()
 
     def clear(self):
-        self.func_list = []
+        self.func = None
 
     @classmethod
     def all_func_proxies(cls):
@@ -113,7 +104,6 @@ class AbstractResponderFunc(ABC):
             except KeyError:
                 result[key] = [func_proxy]
         return result
-
 
 
 class AbstractDispatcher(ABC):
@@ -228,7 +218,7 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
 # // These are for use when more than just the 'most significant' argument needs to be matched
 class AbstractMessageMatcher(ABC):
     def __init__(self):
-        self.func = None # BUG: no se si será func_list
+        self.func = None
 
     @abstractmethod
     def value(self):
@@ -243,22 +233,53 @@ class OSCMessageDispatcher(AbstractWrappingDispatcher):
         super().__init__()
 
     def wrap_func(self, func_proxy):
-        func_list = func_proxy.func_list
+        func = func_proxy.func
         src_id = func_proxy.src_id
         recv_port = getattr(func_proxy, 'recv_port', None)
         arg_template = getattr(func_proxy, 'arg_template', None)
         if arg_template is not None:
-            # BUG: NOTE: TODO: FIXME: STOP:
-            # func'_list' REALMENTE ES NECESARIO QUE FUNCIONE PARA FUNCTIONLIST?
-            # Creo que se pueden declarar OSCFunc distintas para el mismo
-            # mensaje OSC, funclist tal vez sea una extravagancia de sclang.
-            # VER PRUEBAS EN SCLANG PREFIERO NO PONERLA SI ES ASÍ.
+            func = OSCArgsMatcher(arg_template, func)
+        if src_id is not None and recv_port is not None:
+            return OSCFuncBothMessageMatcher(src_id, recv_port, func)
+        elif src_id is not None:
+            return OSCFuncAddrMessageMatcher(src_id, func)
+        elif recv_port is not None:
+            return OSCFuncRecvPortMessageMatcher(recv_port, func)
+        else:
+            return func
 
-            # HACER PARA FUNCIÓN SIMPLE, NO HAY FUNCTIONLIST AQUÍ
+    def get_keys_for_func_proxy(self, func_proxy):
+        return [func_proxy.path]
+
+    def value(self, msg, time, addr, recv_port):
+        for func in self.active[msg[0]]:
+            func(msg, time, addr, recv_port)
+
+    def register(self):
+        # thisProcess.addOSCRecvFunc(this) # BUG: TODO liblo, Main, y ver por qué llama desde thisProcess porque Main no se relaciona con Thread
+        self.registered = True
+
+    def unregister(self):
+        # thisProcess.removeOSCRecvFunc(this) # BUG: TODO liblo, Main
+        self.registered = False
+
+    def type_key(self):
+        return 'OSC unmatched'
 
 
 class OSCMessagePatternDispatcher(OSCMessageDispatcher):
-    pass
+    def __init__(self):
+        super().__init__()
+
+    def value(self, msg, time, addr, recv_port):
+        pattern = msg[0]
+        for key, funcs in self.active.items():
+            if match_osc_address_pattern(key, patter): # BUG: implementar
+                for func in funcs:
+                    func(msg, time, addr, recv_port)
+
+    def type_key(self):
+        return 'OSC matched'
 
 
 class OSCFunc(AbstractResponderFunc):

@@ -176,7 +176,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
 
     # se llama en las funciones de los servidores a bajo nivel
     def osc_time(self) -> int: # L309, devuleve elapsed_time_to_osc(elapsed_time())
-        return self.elapsed_time_to_osc(self.elapsed_time())
+        return self.elapsed_time_to_osc(_main.Main.elapsed_time()) # BUG: REVER qué elapsedTime llama (self.elapsed_time())
 
     def _sched_add(self, secs, task): # L353
         item = (secs, task)

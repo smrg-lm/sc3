@@ -127,7 +127,7 @@ class AbstractDispatcher(ABC):
         pass
 
     @abstractmethod
-    def value(self):
+    def __call__(self):
         pass
 
     @abstractmethod
@@ -252,16 +252,16 @@ class OSCMessageDispatcher(AbstractWrappingDispatcher):
     def get_keys_for_func_proxy(self, func_proxy):
         return [func_proxy.path]
 
-    def value(self, msg, time, addr, recv_port):
+    def __call__(self, msg, time, addr, recv_port):
         for func in self.active[msg[0]]:
             func(msg, time, addr, recv_port)
 
     def register(self):
-        # thisProcess.addOSCRecvFunc(this) # BUG: TODO liblo, Main, y ver por qué llama desde thisProcess porque Main no se relaciona con Thread
+        main.Main.add_osc_recv_func(self) # thisProcess.addOSCRecvFunc(this)
         self.registered = True
 
     def unregister(self):
-        # thisProcess.removeOSCRecvFunc(this) # BUG: TODO liblo, Main
+        main.Main.remove_osc_recv_func(self) # thisProcess.removeOSCRecvFunc(this)
         self.registered = False
 
     def type_key(self):
@@ -315,7 +315,7 @@ class OSCFunc(AbstractResponderFunc):
         self.src_id = src_id
         self.recv_port = recv_port
         if recv_port is not None\
-        and main.Main.current_TimeThread.open_udp_port(recv_port): # BUG: implementar, ver por qué: thisProcess openUDPPort(recvPort).not
+        and main.Main.open_udp_port(recv_port): # BUG: implementar, thisProcess openUDPPort(recvPort).not
             raise Exception('could not open UDP port {}'.format(recv_port))
         self.arg_template = arg_template
         self._func = func

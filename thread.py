@@ -45,7 +45,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         if cls._instance is not None:
             return cls._instance
         obj = cls.__new__(cls)
-        obj.parent = None # BUG: o será mejor main._Main?
+        obj.parent = None
         obj.func = None
         # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al quere comparar tasks.
         obj.state = cls.State.Init # ver qué estado tiene, sclang thisThread.isPlaying devuelve false desde arriba de todo

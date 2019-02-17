@@ -348,7 +348,7 @@ class Server(metaclass=MetaServer):
         self.name = name # ahora si usa @property setter
         self.__class__.all.add(self)
 
-        self._pid_release_condition = # BUG: implementar Condition({ this.pid == nil });
+        self._pid_release_condition = None # BUG: implementar Condition({ this.pid == nil });
         self.__class__ # .changed(\serverAdded, self) # BUG: usar mdl.NotificationCenter
 
         self._max_num_clients = None # // maxLogins as sent from booted scsynth # la setea en _handle_client_login_info_from_server
@@ -419,7 +419,7 @@ class Server(metaclass=MetaServer):
                                       'server is running', self.client_id))
             return # BUG: los setters de la propiedades retornan el valor? qué pasa cuando falla un setter?
         if not isinstance(value, int):
-            _warnings.warn(msg.format(self.name, value
+            _warnings.warn(msg.format(self.name, value,
                                       'not an int', self.client_id))
             return # BUG: idem
         if value < 0 or value >= self.max_num_clients:

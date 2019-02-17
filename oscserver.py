@@ -1,61 +1,46 @@
-"""
-Se encarga de:
-    * configuración
-    * loop liblo para server
-    * otras cosas globales
-    * midi?
 
-    En sclang existen LanguageConfig, w/r archivos yaml. Las opciones sclang -h.
-    Sclang Startup File. La clase Main que hereda de Process. Las clases que
-    heredan de AbstractSystemAction: StartUp, ShutDown, ServerBoot, ServerTree,
-    CmdPeriod y seguramente otras más.
-
-    Y MAIN, CLIENT PODDRÍA SER UN MIEMBRO DE MAIN QUE ADEMÁS TIENE PLATFORM!
-
-    VER DOCUMENTACIÓN: 'OSC COMMUNICATION'
-
-    pickle PUEDE SER ÚTIL para guardar la instancia de client y que se
-    puedan ejecutar distintas instancias de python con el mismo cliente
-    sin tener que tener las sesiones andando en paralelo, e.g. para ejecutar
-    scripst por separado desde la terminal.
-"""
-
-import threading as _threading
-import atexit as _atexit
+import threading
+import atexit
+import time as _time # BUG: ver qué time es abajos
 
 import liblo as _lo
-import supercollie.utils as ut
+
+import supercollie.utils as utl
+import supercollie.netaddr as nad
+from . import main # hack para que importe clock
+import supercollie.clock as clk
 
 
 DEFAULT_CLIENT_PORT = 57120
 DEFAULT_CLIENT_PROTOCOL = _lo.UDP
 
 
-class Client(object):
-    default = None
-
-    def __init__(self, port=DEFAULT_CLIENT_PORT, proto=DEFAULT_CLIENT_PROTOCOL):
+class OSCServer():
+    def __init__(self, port=DEFAULT_CLIENT_PORT,
+                 proto=DEFAULT_CLIENT_PROTOCOL):
         self.port = port
         self._starting_port = port
         self._port_range = 10
         self.proto = proto
-        self.client_id = 0 # BUG: ver cómo se manejan los client id
-        self.servers = []
-        self._is_running = False
-        # TODO: Imita a Server, pero ver si no hay otra forma mejor, si pueden haber varias instancias, etc. Lo están usan NetAddr y Server para sus send.
-        if Client.default is None:
-            Client.default = self
+        self._running = False
+        self._recv_funcs = set()
+        self._bundle_timestamp = None
 
     def start(self):
-        if self._is_running: return
-        self._init_osc() # BUG: hay que capturar la excepción si falla y cambiar el puerto, si es por eso.
-        self._is_running = True
-        _atexit.register(self.stop) # BUG: no compruebo que no se agreguen más si se reinicia el cliente.
+        if self._running:
+            return
+        self._init_osc()
+        self._running = True
+        atexit.register(self.stop)
 
     def _init_osc(self):
         try:
             self._osc_server_thread = _lo.ServerThread(self.port, self.proto)
             self._osc_server_thread.start()
+            self._osc_server_thread.add_method(None, None, self._recv, self)
+            self._osc_server_thread.add_bundle_handlers(self._start_handler,
+                                                        self._end_handler,
+                                                        self)
         except _lo.ServerError as e:
             if e.num == 9904: # b'cannot find free port'
                 if self.port < self.port + self._port_range:
@@ -64,29 +49,60 @@ class Client(object):
             else:
                 raise e
 
+    @staticmethod
+    def _recv(*msg):
+        obj = msg[4]
+        if obj._bundle_timestamp is not None:
+            time = obj._bundle_timestamp # BUG: lo tiene otra referencia temporal
+        else:
+            time = _time.time() # BUG: ver qué time es
+        addr = nad.NetAddr(msg[3].hostname, msg[3].port)
+        arr = [msg[0]]
+        arr.extend(msg[1])
+        print('OSCServer._recv:', arr, time, addr, obj.port)
+        obj._bundle_timestamp = None
+
+        def sched_func():
+            print('OSCServer._recv en AppClock')
+            for func in obj._recv_funcs:
+                 func(arr, time, addr, obj.port)
+        clk.AppClock.sched(0, sched_func)  # NOTE: Lo envía al thread de AppClock que es seguro.
+
+    @staticmethod
+    def _start_handler(*msg):
+        print('start handler')
+        msg[1]._bundle_timestamp = msg[0]
+
+    @staticmethod
+    def _end_handler(*msg):
+        pass  # No le veo uso por ahora.
+
+    def add_recv_func(self, func):
+        self._recv_funcs.add(func)
+
+    def remove_recv_func(self, func):
+        self._recv_funcs.remove(func)
+
+    # por lo que hace es redundante
+    # def replace_recv_func(self, func, new_func):
+    #     self._recv_funcs.remove(func)
+    #     self._recv_funcs.add(func)
+
+    # openPorts y openUDPPort(portNum) irían en Main
+    # creo que con liblo tengo que crear un server por puerto
+
     def stop(self):
-        if not self._is_running: return
+        if not self._running: return
         self._stop_osc()
-        self._is_running = False
+        self._running = False
+        atexit.unregister(self.stop)
 
     def _stop_osc(self):
         self._osc_server_thread.stop()
         self._osc_server_thread.free()
 
-    def restart(self):
-        self.stop()
-        self.start()
-
-    def add_server(self, server):
-        # TODO: El cliente no puede tener varios servidores iguales
-        # creo que habían decoradores para las propiedades
-        self.servers.append(server)
-
-    def remove_server(self, server):
-        pass # TODO
-
-    def is_running(self):
-        return self._is_running
+    def running(self):
+        return self._running
 
     # *** Métodos de NetAddr ***
 
@@ -116,7 +132,7 @@ class Client(object):
         self.send_msg('/status')
 
     def sync(self, condition=None, bundle=None, latency=0): # BUG: dice array of bundles, los métodos bundle_size y send_bundle solo pueden enviar uno. No me cierra/me confunde en sclang porque usa send bundle agregándole latencia.
-        condition = condition or _threading.Condition()
+        condition = condition or threading.Condition()
         if bundle is None:
             id = self.make_sync_responder(condition)
             self.send_bundle(('127.0.0.1', 57120), latency, ['/sync', id]) # TEST BUG: falta default target que creo que sería el servidor por defecto, está puesto sclang
@@ -124,7 +140,7 @@ class Client(object):
                 condition.wait() # BUG: poner timeout y lanzar una excepción?
         else:
             # BUG: esto no está bien testeado, y acarreo el problema del tamaño exacto de los mensajes.
-            sync_size = self.msg_size(['/sync', ut.UniqueID.next()])
+            sync_size = self.msg_size(['/sync', utl.UniqueID.next()])
             max_size = 65500 - sync_size # BUG: 65500 es un límite práctico que puede estar mal si las cuentas de abajo están mal.
             if self.bundle_size(bundle) > max_size:
                 clumped_bundles = self.clump_bundle(bundle, max_size)
@@ -144,7 +160,7 @@ class Client(object):
                     condition.wait() # BUG: poner timeout y lanzar una excepción?
 
     def make_sync_responder(self, condition): # TODO: funciona en realación al método de arriba.
-        id = ut.UniqueID.next()
+        id = utl.UniqueID.next()
 
         def responder(*msg):
             print(' ****** added method argument *msg:', msg)

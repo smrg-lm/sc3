@@ -1,4 +1,19 @@
-"""Kernel.sc y Main.sc"""
+"""Kernel.sc y Main.sc
+
+En sclang existen LanguageConfig, w/r archivos yaml. Las opciones sclang -h.
+Sclang Startup File. La clase Main que hereda de Process. Las clases que
+heredan de AbstractSystemAction: StartUp, ShutDown, ServerBoot, ServerTree,
+CmdPeriod y seguramente otras más.
+
+Y MAIN, CLIENT PODDRÍA SER UN MIEMBRO DE MAIN QUE ADEMÁS TIENE PLATFORM!
+
+VER DOCUMENTACIÓN: 'OSC COMMUNICATION'
+
+pickle PUEDE SER ÚTIL para guardar la instancia de client y que se
+puedan ejecutar distintas instancias de python con el mismo cliente
+sin tener que tener las sesiones andando en paralelo, e.g. para ejecutar
+scripst por separado desde la terminal.
+"""
 
 import threading
 import atexit
@@ -6,6 +21,8 @@ import time
 
 from . import clock as clk
 from . import thread as thr
+from . import oscserver as osr
+from . import responsedefs as rdf
 
 
 # Kernel.sc
@@ -16,9 +33,13 @@ class Process(type):
     def __init__(cls, name, bases, dict):
         # clk.SystemClock() # BUG; PASADA ABAJO DEL MÓDULO PARA PROBAR. Main y Main._main_lock tiene que definirse antes
         cls._time_of_initialization = time.time()
+        cls._main_lock = threading.Condition() # ver, pasada desde abajo
+
         cls.main_TimeThread = thr.TimeThread.singleton() # el reloj en el que corre Process sería AppClock es un threading.Thread con un modelo diferente de programación de eventos, pero la verdad es que no estoy seguro.
         cls.current_TimeThread = cls.main_TimeThread
-        cls._main_lock = threading.Condition()
+
+        cls._osc_server = osr.OSCServer() # BUG: options, y ver si se pueden crear más servidores, ver abajo
+
         atexit.register(cls.shutdown)
 
     # def _create_mtt_func(cls):
@@ -52,8 +73,27 @@ class Process(type):
         #     cls._main_lock.notify_all()
         #cls._thread.join()
         # BUG: probablemente tenga que hacer lo mismo con todos los relojes.
-    def tick(cls):
+    def tick(cls): # BUG: este tick?
         pass
+
+
+    # BUG: en sclang hay un solo servidor osc que abre varios puertos
+    # acá se puede hacer un servidor por puerto con distinto protocolo,
+    # que es algo que sclang maneja desde NetAddr. Tengo que ver.
+    # def open_osc_port(cls, port, protocol=osr.DEFAULT_CLIENT_PROTOCOL):
+    #     self._osc_servers.append(osr.OSCServer(port, protocol))
+    # def open_ports
+
+    def add_osc_recv_func(cls, func):
+        cls._osc_server.add_recv_func(func)
+
+    def add_osc_recv_func(cls, func):
+        cls._osc_server.remove_recv_func(func)
+
+    # por lo que hace es redundante
+    # def replace_osc_recv_func(cls, func):
+    #     cls._osc_server.replace_recv_func(func)
+
 
     # *elapsedTime _ElapsedTime
     def elapsed_time(cls) -> float: # devuelve el tiempo del reloj de mayor precisión menos _time_of_initialization

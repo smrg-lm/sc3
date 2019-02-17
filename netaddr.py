@@ -187,7 +187,12 @@ class NetAddr():
     def recover(self): # TODO: VER: se usa en el homónimo de BundleNetAddr y en Server-cmdPeriod
         return self
 
+    def __repr__(self):
+        string = type(self).__name__
+        string += '({}, {})'.format(self.hostname, self.port)
+        return string
 
-# Esta clase no tiene sentido.
+
+# BUG: hay que implementar para server
 # class BundleNetAddr(NetAddr):
 #     pass

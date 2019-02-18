@@ -3,7 +3,7 @@
 from abc import ABC, abstractclassmethod
 import warnings
 
-import supercollie.server as srv
+from . import server as srv
 
 
 class AbstractSystemAction(ABC):
@@ -62,7 +62,7 @@ class AbstractServerAction(AbstractSystemAction):
         cls.objects = dict()
 
     @classmethod
-    def perform_function(cls, server: (str, srv.Server), function):
+    def perform_function(cls, server, function): # server es str o srv.Server
         if cls.objects is not None:
             if server in cls.objects:
                 for item in cls.objects[server][:]:

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 import supercollie.systemactions as sac
 import supercollie.model as mdl
-import supercollie.main as main
+from . import main as main
 
 
 class AbstractResponderFunc(ABC):

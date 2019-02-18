@@ -9,14 +9,15 @@ import pathlib as _pathlib
 
 import liblo as _lo
 
+from . import main
 import supercollie.utils as utl
 import supercollie.netaddr as nad
-import supercollie.client as clt
 import supercollie.model as mdl
 import supercollie.engine as eng
-import supercollie.synthdef as sdf
+from . import synthdef as sdf
 import supercollie.clock as clk
 import supercollie.systemactions as sac
+import supercollie.serverstatus as sst
 
 # BUG: revisar porque hay un patch que cambió esto y otros que cambiaron un par
 # BUG: de cosas, el problema es que los patch se aplican meses después a master.
@@ -168,7 +169,7 @@ class ServerOptions(object):
             o.append('-O')
             o.append(self.output_streams_enabled) # es un string
 
-        if xxx.Main.singleton.platform.name != 'osx'\
+        if main.Main.singleton.platform.name != 'osx'\
         or self.in_device == self.out_device: # BUG: no está implementado: thisProcess.platform.name
             if self.in_device is not None:
                 o.append('-H')
@@ -314,7 +315,7 @@ class MetaServer(type):
             raise Exception('Implementar la funcionalidad mdl.NotificationCenter en MetaServer @default.setter')
 
 
-@utl.initclass
+#@utl.initclass # BUG: esto es un problema por lo cíclico
 class Server(metaclass=MetaServer):
     def __init_class__(cls): # BUG: ver: __new__ es un método estático tratado de manera especial por el intérprete, tal vez este se podría definir como tal, los métodos estáticos no están ligados ni a la clase ni a la instancia.
                              # BUG: PERO __init_subclass___: "If defined as a normal instance method, this method is implicitly converted to a class method."
@@ -332,17 +333,20 @@ class Server(metaclass=MetaServer):
         return result
 
     def __init__(self, name, addr, options=None, client_id=None):
+        self._max_num_clients = None # BUG: subida, se necesita antes de setear self.client_id # // maxLogins as sent from booted scsynth # la setea en _handle_client_login_info_from_server
+        self._client_id = None # BUG: se necesita antes de setear self.client_id
+
         # // set name to get readable posts from client_id set
         self._name = name # no usa @property setter
         self.addr = addr # @property setter
         self.options = options or ServerOptions()
         # // make statusWatcher before clientID, so .serverRunning works
-        self.status_watcher = xxx.ServerStatusWatcher(server=self)
+        self.status_watcher = sst.ServerStatusWatcher(server=self)
         # // go thru setter to test validity
         self.client_id = client_id or 0 # es @property y usa el setter
 
-        self.volume = xxx.Volume(server=self, persist=True) # BUG: falta implementar
-        self.recorder = xxx.Recorder(server=self) # BUG: falta implementar
+        #self.volume = xxx.Volume(server=self, persist=True) # BUG: falta implementar
+        #self.recorder = xxx.Recorder(server=self) # BUG: falta implementar
         self.recorder.notify_server = True # BUG: falta implementar
 
         self.name = name # ahora si usa @property setter
@@ -351,7 +355,7 @@ class Server(metaclass=MetaServer):
         self._pid_release_condition = None # BUG: implementar Condition({ this.pid == nil });
         self.__class__ # .changed(\serverAdded, self) # BUG: usar mdl.NotificationCenter
 
-        self._max_num_clients = None # // maxLogins as sent from booted scsynth # la setea en _handle_client_login_info_from_server
+        #self._max_num_clients = None # // maxLogins as sent from booted scsynth # la setea en _handle_client_login_info_from_server
         self.tree = None # lambda *args: None # ver dónde se inicializa, se usa en init_tree
 
         self.node_allocator = None # se inicializa en new_node_allocators
@@ -414,7 +418,7 @@ class Server(metaclass=MetaServer):
     @client_id.setter
     def client_id(self, value):
         msg = "Server {} couldn't set client_id to {} - {}. clientID is still {}"
-        if self.server_running:
+        if self.server_running():
             _warnings.warn(msg.format(self.name, value,
                                       'server is running', self.client_id))
             return # BUG: los setters de la propiedades retornan el valor? qué pasa cuando falla un setter?
@@ -587,10 +591,10 @@ class Server(metaclass=MetaServer):
         # cambiar por OSCFunc luego en todo caso.
         def responder(*msg):
             if msg[1] == cmd_name:
-                clt.Client.default._osc_server_thread.del_method('/done', None) # BUG: no se cómo funciona liblo, None acepta mensajes /done con cualquier typespec, borra todos los responder? qué pasa si hay dos iguales?
+                main.Main.osc_server._osc_server_thread.del_method('/done', None) # BUG: usar OSCFunc
                 with condition:
                     condition.notify()
-        clt.Client.default._osc_server_thread.add_method('/done', None, responder) # BUG: no se cómo funciona liblo, None hacepta mensajes /done con cualquier typespec, borra todos los responder? qué pasa si hay dos iguales?
+        main.Main.osc_server._osc_server_thread.add_method('/done', None, responder) # BUG: usar OSCFunc
         self.addr.send_bundle(0, *args)
         with condition:
             condition.wait()
@@ -647,6 +651,8 @@ class Server(metaclass=MetaServer):
 
     # L825
     # /* server status */
+    def server_running(self):
+        self.status_watcher.server_running
     # TODO
 
     # L835

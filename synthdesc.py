@@ -12,7 +12,7 @@ import supercollie._global as _gl
 import supercollie.inout as scio
 import supercollie.utils as ut
 import supercollie.ugens as ug
-import supercollie.server as sv
+from . import server as sv # cíclico con server a través de synthdef
 import supercollie.systemactions as sa
 import supercollie.dependancy as dp
 from . import synthdef as sd # cíclico
@@ -416,7 +416,7 @@ class SynthDescLib(dp.Dependancy):
         self.name = name
         self.all[name] = self
         self.synth_descs = dict()
-        self.servers = set(servers or [sv.Server.default]) # BUG: para esto hay que asegurarse que Server se inicialice antes, tal vez con un import en __init_class__
+        #self.servers = set(servers or [sv.Server.default]) # BUG: para esto hay que asegurarse que Server se inicialice antes, tal vez con un import en __init_class__
 
     @classmethod
     def get_lib(cls, libname):

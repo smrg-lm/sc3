@@ -19,6 +19,7 @@ import threading
 import atexit
 import time
 
+from . import server as srv
 from . import clock as clk
 from . import thread as thr
 from . import oscserver as osr
@@ -38,7 +39,7 @@ class Process(type):
         cls.main_TimeThread = thr.TimeThread.singleton() # el reloj en el que corre Process sería AppClock es un threading.Thread con un modelo diferente de programación de eventos, pero la verdad es que no estoy seguro.
         cls.current_TimeThread = cls.main_TimeThread
 
-        cls._osc_server = osr.OSCServer() # BUG: options, y ver si se pueden crear más servidores, ver abajo
+        cls.osc_server = osr.OSCServer() # BUG: options, y ver si se pueden crear más servidores, ver abajo
 
         atexit.register(cls.shutdown)
 
@@ -85,14 +86,14 @@ class Process(type):
     # def open_ports
 
     def add_osc_recv_func(cls, func):
-        cls._osc_server.add_recv_func(func)
+        cls.osc_server.add_recv_func(func)
 
     def add_osc_recv_func(cls, func):
-        cls._osc_server.remove_recv_func(func)
+        cls.osc_server.remove_recv_func(func)
 
     # por lo que hace es redundante
     # def replace_osc_recv_func(cls, func):
-    #     cls._osc_server.replace_recv_func(func)
+    #     cls.osc_server.replace_recv_func(func)
 
 
     # *elapsedTime _ElapsedTime
@@ -112,5 +113,5 @@ class Main(metaclass=Process):
 
 
 # BUG: TEST, luego va a ser necesario organizar todo
-clk.SystemClock()
-clk.AppClock()
+# clk.SystemClock()
+# clk.AppClock()

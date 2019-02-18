@@ -24,7 +24,7 @@ import supercollie.inout as scio
 import supercollie._global as _gl
 import supercollie.utils as ut
 import supercollie.ugens as ug
-import supercollie.server as sv
+from . import server as sv
 import supercollie.platform as pt
 import supercollie.systemactions as sa
 from . import synthdesc as ds # cíclico

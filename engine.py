@@ -4,7 +4,7 @@ import math
 import random
 import warnings
 
-import supercollie.builtins as bi
+from . import builtins as bi
 
 
 class NodeIDAllocator():

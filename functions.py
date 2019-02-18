@@ -16,7 +16,7 @@ por ejemplo (#object.__rmul__)
 
 import inspect
 
-import supercollie.builtins as bi # TODO: TEST, ver abajo.
+from . import builtins as bi # TODO: TEST, ver abajo.
 
 
 # ver abstract base clases in python

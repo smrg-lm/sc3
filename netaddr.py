@@ -54,7 +54,7 @@ USOS SE PUEDE USAR liblo QUE ES DEPENDENCIA.
 import ipaddress as _ipaddress
 import socket as _socket
 
-import supercollie.client as cl
+from . import main as main
 
 
 class NetAddr():
@@ -101,7 +101,7 @@ class NetAddr():
 
     @classmethod
     def client_port(cls):
-        return cl.Client.default.port
+        return main.Main.osc_server.port
 
     @staticmethod
     def match_lang_ip(ipstring):
@@ -141,21 +141,21 @@ class NetAddr():
     #         naddr.disconnect() # BUG: esto es para TCP, además, debería ir en la clase Client, o algo más global/general que las direcciones de red.
 
     # def send_raw(self, raw_bytes): # send a raw message without timestamp to the addr.
-    #     cl.Client.default.send_raw((self.hostname, self.port), raw_bytes)
+    #     main.Main.osc_server.send_raw((self.hostname, self.port), raw_bytes)
 
     def send_msg(self, *args):
-        cl.Client.default.send_msg(self._target, *args)
+        main.Main.osc_server.send_msg(self._target, *args)
 
     def send_bundle(self, time, *args):
-        cl.Client.default.send_bundle(self._target, time, *args)
+        main.Main.osc_server.send_bundle(self._target, time, *args)
 
     # def send_status_msg(self): # TODO: esto es particular de la relación del cliente con el servidor
-    #     cl.Client.default.send_msg('/status')
+    #     main.Main.osc_server.send_msg('/status')
 
     # def send_clumped_bundles(self, time, *args): # TODO: pasada a client, ver que hace liblo.
 
     def sync(self, condition=None, bundle=None, latency=0):
-        cl.Client.default.sync(self._target, condition, bundle, latency)
+        main.Main.osc_server.sync(self._target, condition, bundle, latency)
 
     # def make_sync_responder(self, condition): # TODO: funciona en realción al método de arriba.
 

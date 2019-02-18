@@ -17,8 +17,7 @@ import inspect
 import supercollie.functions as fn
 import supercollie._global as _gl
 import supercollie.utils as ut
-#import supercollie.opugens as op # TODO: TEST, pasado abajo antes de los singledispatch, es una desgracia que no se puedan hacer imports cíclicos de manera fácil.
-                                  # TODO: en opugens.py se usa from . import ugens as ug
+import supercollie._specialindex as si
 
 
 class UGen(fn.AbstractFunction):
@@ -125,8 +124,8 @@ class UGen(fn.AbstractFunction):
     # Desde L51 hasta L284 son, más que nada, métodos de operaciones
     # mátemáticas que aplican las ugens correspondientes, el mismo
     # principio de AbstractFunction aplicados a los ugengraphs.
-    def madd(self, mul=1.0, add=0.0): # TODO: tal vez, estos op métodos tendría que ponerlos abajo de todo en la clase, o en un helper?, para que quede separada y junta la lógica de UGens.
-        return op.MulAdd.new(self, mul, add) # TODO: TEST NOTA, el import de op se define luego antes de los singledispatch por problema cíclico.
+    def madd(self, mul=1.0, add=0.0): # NOTE: madd pordría ser una función funcional (sic), pero esto es una vieja idea que tengo que ver
+        return MulAdd.new(self, mul, add)
 
     # L284
     def signal_range(self):
@@ -277,10 +276,8 @@ class UGen(fn.AbstractFunction):
     # OC: function composition
     # Son la interfaz de AbstractFunction
     def compose_unop(self, selector): # composeUnaryOp
-        from supercollie.opugens import UnaryOpUGen # TODO: import cíclico, en este caso las OPUGENS podrían estar en este archivo como sucede con AbstractFunction.
         return UnaryOpUGen.new(selector, self)
     def compose_binop(self, selector, input): #composeBinaryOp
-        from supercollie.opugens import BinaryOpUGen # TODO: import cíclico, en este caso las OPUGENS podrían estar en este archivo como sucede con AbstractFunction.
         if is_valid_ugen_input(input):
             return BinaryOpUGen.new(selector, self, input)
         else:
@@ -495,6 +492,375 @@ class OutputProxy(UGen):
                + str(self.output_index) + ']'
 
 
+### BasicOpUGens.sc ###
+
+
+class BasicOpUGen(UGen):
+    def __init__(self):
+        super().__init__()
+        self._operator = None
+
+    # TODO: El método writeName está comentado en el original. Agregar comentado.
+
+    @property
+    def operator(self):
+        return self._operator
+
+    @operator.setter
+    def operator(self, value):
+        index, operator = si.sc_spindex_opname(value)
+        self._operator = operator
+        self.special_index = index # TODO: en inout.py hace: self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
+        if self.special_index < 0:
+            msg = "Operator '{}' applied to a UGen is not supported by the server" # TODO: ver cuáles son los soportados por el servidor porque Symbol responde a muchos más. # Cambié scsynth por server
+            raise Exception(msg.format(value))
+
+    @operator.deleter
+    def operator(self):
+        del self._operator
+
+    #argNamesInputsOffset # VER: estos métodos no se cambian acá porque estoy usando *new* que no es __init__ en Python y no incluye this/self como primer argumento. sclang hace lo mismo que Python con new, argNames devuevle [this, ...] para Meta_Object*new
+    #argNameForInputAt
+
+    def dump_args(self):
+        msg = 'ARGS:\n'
+        tab = ' ' * 4
+        msg += tab + 'operator: ' + self.operator + '\n'
+        arg_name = None
+        for i, input in enumerate(self.inputs): # TODO: es tupla, en sclang es nil si no hay inputs.
+            arg_name = self.arg_name_for_input_at(i)
+            if not arg_name: arg_name = str(i)
+            msg += tab + arg_name + ' ' + str(input)
+            msg += ' ' + self.__class__.__name__ + '\n'
+        print(msg, end='')
+
+    def dump_name(self):
+        return str(self.synth_index) + '_' + self.operator
+
+
+class UnaryOpUGen(BasicOpUGen):
+    @classmethod
+    def new(cls, selector, a):
+        return cls.multi_new('audio', selector, a)
+
+    def init_ugen(self, operator, input):
+        self.operator = operator
+        self.rate = input.rate
+        self.inputs = tuple(ut.as_array(input)) # TODO: es tupla, en sclang es nil si no hay inputs.
+        return self # TIENEN QUE DEVOLVER SELF
+
+    def optimize_graph(self):
+        self.perform_dead_code_elimination() # VER: creo que no es necesario llamar a super, lo mismo que en ugens.PureUGen.
+
+
+class BinaryOpUGen(BasicOpUGen):
+    @classmethod
+    def new1(cls, rate, selector, a, b):
+        # OC: eliminate degenerate cases
+        if selector == '*':
+            if a == 0.0: return 0.0
+            if b == 0.0: return 0.0
+            if a == 1.0: return b
+            if a == -1.0: return -b #.neg() # TODO: esto sería neg(b) si los operatores unarios se convierten en funciones.
+            if b == 1.0: return a
+            if b == -1.0: return -a #.neg() # TODO: ídem. Además, justo este es neg. UGen usa AbstractFunction __neg__ para '-'
+        if selector == '+':
+            if a == 0.0: return b
+            if b == 0.0: return a
+        if selector == '-':
+            if a == 0.0: return b.neg() # TODO: Ídem -a, -b, VER
+            if b == 0.0: return a
+        if selector == '/':
+            if b == 1.0: return a
+            if b == -1.0: return a.neg()
+        return super().new1(rate, selector, a, b)
+
+    @classmethod
+    def new(cls, selector, a, b):
+        return cls.multi_new('audio', selector, a, b)
+
+    def init_ugen(self, operator, a, b):
+        self.operator = operator
+        self.rate = self.determine_rate(a, b)
+        self.inputs = (a, b) # TODO: es tupla, en sclang es nil si no hay inputs.
+        return self # TIENEN QUE DEVOLVER SELF
+
+    def determine_rate(self, a, b):
+        # El orden es importante.
+        if as_ugen_rate(a) == 'demand': return 'demand'
+        if as_ugen_rate(b) == 'demand': return 'demand'
+        if as_ugen_rate(a) == 'audio': return 'audio'
+        if as_ugen_rate(b) == 'audio': return 'audio'
+        if as_ugen_rate(a) == 'control': return 'control'
+        if as_ugen_rate(b) == 'control': return 'control'
+        return 'scalar'
+
+    def optimize_graph(self):
+        # OC: this.constantFolding;
+        if self.perform_dead_code_elimination(): # llama a super, pero no sobreescribe, y en Python no es necesario tampoco práctico.
+            return self
+        if self.operator == '+':
+            self.optimize_add()
+            return self
+        if self.operator == '-':
+            self.optimize_sub()
+            return self
+
+    def optimize_add(self):
+        # OC: create a Sum3 if possible
+        optimized_ugen = self.optimize_to_sum3()
+        # OC: create a Sum4 if possible
+        if not optimized_ugen:
+            optimized_ugen = self.optimize_to_sum4()
+        # OC: create a MulAdd if possible.
+        if not optimized_ugen:
+            optimized_ugen = self.optimize_to_muladd()
+        # OC: optimize negative additions
+        if not optimized_ugen:
+            optimized_ugen = self.optimize_addneg()
+
+        if optimized_ugen:
+            self.synthdef.replace_ugen(self, optimized_ugen)
+
+    # L239
+    def optimize_to_sum3(self):
+        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
+        if as_ugen_rate(a) == 'demand' or as_ugen_rate(b) == 'demand':
+            return None
+
+        if isinstance(a, BinaryOpUGen) and a.operator == '+'\
+        and len(a.descendants) == 1:
+            self.synthdef.remove_ugen(a)
+            replacement = Sum3.new(a.inputs[0], a.inputs[1], b) # .descendants_(descendants);
+            replacement.descendants = self.descendants
+            self.optimize_update_descendants(replacement, a)
+            return replacement
+
+        # Ídem b... lo único que veo es que retornan y que la función debería devolver un valor comprobable para luego retornoar.
+        if isinstance(b, BinaryOpUGen) and b.operator == '+'\
+        and len(b.descendants) == 1:
+            self.synthdef.remove_ugen(b)
+            replacement = Sum3.new(b.inputs[0], b.inputs[1], a)
+            replacement.descendants = self.descendants
+            self.optimize_update_descendants(replacement, b)
+            return replacement
+
+        return None
+
+    # L262
+    def optimize_to_sum4(self):
+        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
+        if as_ugen_rate(a) == 'demand' or as_ugen_rate(b) == 'demand':
+            return None
+
+        if isinstance(a, Sum3) and len(a.descendants) == 1:
+            self.synthdef.remove_ugen(a)
+            replacement = Sum4.new(a.inputs[0], a.inputs[1], a.inputs[2], b)
+            replacement.descendants = self.descendants
+            self.optimize_update_descendants(replacement, a)
+            return replacement
+
+        if isinstance(b, Sum3) and len(b.descendants) == 1:
+            self.synthdef.remove_ugen(b)
+            replacement = Sum4.new(b.inputs[0], b.inputs[1], b.inputs[2], a)
+            replacement.descendants = self.descendants
+            self.optimize_update_descendants(replacement, b)
+            return replacement
+
+        return None
+
+    # L197
+    def optimize_to_muladd(self):
+        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
+
+        if isinstance(a, BinaryOpUGen) and a.operator == '*'\
+        and len(a.descendants) == 1:
+
+            if MulAdd.can_be_muladd(a.inputs[0], a.inputs[1], b):
+                self.synthdef.remove_ugen(a)
+                replacement = MulAdd.new(a.inputs[0], a.inputs[1], b)
+                replacement.descendants = self.descendants
+                self.optimize_update_descendants(replacement, a)
+                return replacement
+
+            if MulAdd.can_be_muladd(a.inputs[1], a.inputs[0], b):
+                self.synthdef.remove_ugen(a)
+                replacement = MulAdd.new(a.inputs[1], a.inputs[0], b)
+                replacement.descendants = self.descendants
+                self.optimize_update_descendants(replacement, a)
+                return replacement
+
+        # does optimization code need to be optimized?
+        if isinstance(b, BinaryOpUGen) and b.operator == '*'\
+        and len(b.descendants) == 1:
+
+            if MulAdd.can_be_muladd(b.inputs[0], b.inputs[1], a):
+                self.synthdef.remove_ugen(b)
+                replacement = MulAdd.new(b.inputs[0], b.inputs[1], a)
+                replacement.descendants = self.descendants
+                self.optimize_update_descendants(replacement, b)
+                return replacement
+
+            if MulAdd.can_be_muladd(b.inputs[1], b.inputs[0], a):
+                self.synthdef.remove_ugen(b)
+                replacement = MulAdd.new(b.inputs[1], b.inputs[0], a)
+                replacement.descendants = self.descendants
+                self.optimize_update_descendants(replacement, b)
+                return replacement
+
+        return None
+
+    # L168
+    def optimize_addneg(self):
+        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
+
+        if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
+        and len(b.descendants) == 1:
+            # OC: a + b.neg -> a - b
+            self.synthdef.remove_ugen(b)
+            replacement = a - b.inputs[0]
+            # OC: this is the first time the dependants logic appears. It's repeated below.
+            # We will remove 'this' from the synthdef, and replace it with 'replacement'.
+            # 'replacement' should then have all the same descendants as 'this'.
+            replacement.descendants = self.descendants
+            # OC: drop 'this' and 'b' from all of replacement's inputs' descendant lists
+            # so that future optimizations decide correctly
+            self.optimize_update_descendants(replacement, b)
+            return replacement
+
+        if isinstance(a, UnaryOpUGen) and a.operator == 'neg'\
+        and len(a.descendants) == 1:
+            # OC: a.neg + b -> b - a
+            self.synthdef.remove_ugen(a)
+            replacement = b - a.inputs[0]
+            replacement.descendants = self.descendants
+            self.optimize_update_descendants(replacement, a)
+            return replacement
+
+        return None
+
+    # L283
+    def optimize_sub(self):
+        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
+
+        if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
+        and len(b.descendants) == 1:
+            # OC: a - b.neg -> a + b
+            self.synthdef.remove_ugen(b)
+            replacement = BinaryOpUGen.new('+', a, b.inputs[0])
+            replacement.descendants = self.descendants
+            self.optimize_update_descendants(replacement, b)
+            self.synthdef.replace_ugen(self, replacement)
+            replacement.optimize_graph() # OC: not called from optimizeAdd; no need to return ugen here
+
+        return None
+
+    # L151
+    # OC: 'this' = old ugen being replaced
+    # replacement = this's replacement
+    # deletedUnit = auxiliary unit being removed, not replaced
+    def optimize_update_descendants(self, replacement, deleted_unit):
+        for input in replacement.inputs:
+            if isinstance(input, UGen):
+                if isinstance(input, OutputProxy):
+                    input = input.source_ugen
+                desc = input.descendants
+                if desc is None: return # BUG, CREO QUE RESUELTO: add falla si desc es None, sclang reponde no haciendo nada.
+                desc.append(replacement)
+                if desc.count(self): # BUG, CREO QUE RESUELTO: remove falla si self no es descendiente, sclang reponde no haciendo nada.
+                    desc.remove(self)
+                if desc.count(deleted_unit): # BUG, CREO QUE RESUELTO: remove falla si deleted_unit no es descendiente, sclang reponde no haciendo nada.
+                    desc.remove(deleted_unit)
+
+    # L301
+    def constant_folding(self): # No sé si se usa este método, tal vez fue reemplazado porque está comentada la llamada arriba, pero no está comentado.
+        pass # BUG, boring to copy
+
+
+class MulAdd(UGen):
+    @classmethod
+    def new(cls, input, mul=1.0, add=0.0):
+        args = as_ugen_input([input, mul, add], cls)
+        rate = as_ugen_rate(args)
+        return cls.multi_new_list([rate] + args)
+
+    @classmethod
+    def new1(cls, rate, input, mul, add):
+        # OC: eliminate degenerate cases
+        if mul == 0.0: return add
+        minus = mul == -1.0
+        nomul = mul == 1.0
+        noadd = add == 0.0
+        if nomul and noadd: return input
+        if minus and noadd: return input.neg() # TODO: ES POSIBLE QUE PUEDA NO SER UNA UGEN?
+        if noadd: return input * mul
+        if minus: return add - input
+        if nomul: return input + add
+
+        if cls.can_be_muladd(input, mul, add):
+            return super().new1(rate, input, mul, add)
+        if cls.can_be_muladd(mul, input, add):
+            return super().new1(rate, mul, input, add)
+        return (input * mul) + add
+
+    def init_ugen(self, input, mul, add):
+        self.inputs = (input, mul, add) # TODO: es tupla, en sclang es nil si no hay inputs. No recuerdo por qué acá puse un array.
+        self.rate = as_ugen_rate(self.inputs)
+        return self
+
+    @classmethod
+    def can_be_muladd(cls, input, mul, add):
+        # // see if these inputs satisfy the constraints of a MulAdd ugen.
+        if input.rate == 'audio': # TODO: ES POSIBLE QUE PUEDA NO SER UNA UGEN? as_ugen_rate?
+            return True
+        mul_rate = as_ugen_rate(mul)
+        add_rate = as_ugen_rate(add)
+        if input.rate == 'control'\
+        and (mul_rate == 'control' or mul_rate == 'scalar')\
+        and (add_rate == 'control' or add_rate == 'scalar'):
+            return True
+        return False
+
+
+class Sum3(UGen):
+    @classmethod
+    def new(cls, in0, in1, in2):
+        return cls.multi_new(None, in0, in1, in2)
+
+    @classmethod
+    def new1(cls, dummy_rate, in0, in1, in2):
+        if in2 == 0.0: return in0 + in1
+        if in1 == 0.0: return in0 + in2
+        if in0 == 0.0: return in1 + in2
+
+        arg_array = [in0, in1, in2]
+        rate = as_ugen_rate(arg_array)
+        sorted_args = arg_array.sort(key=lambda x: x.rate) # Esto depende de la comparación entre strings, es así en sclang pero no es UGen.rate_number, no sé para qué ordena.
+
+        return super().new1(rate, *sorted_args)
+
+
+class Sum4(UGen):
+    @classmethod
+    def new(cls, in0, in1, in2, in3):
+        return cls.multi_new(None, in0, in1, in2, in3)
+
+    @classmethod
+    def new1(cls, in0, in1, in2, in3):
+        if in0 == 0.0: return Sum3.new1(None, in1, in2, in3)
+        if in1 == 0.0: return Sum3.new1(None, in0, in2, in3)
+        if in2 == 0.0: return Sum3.new1(None, in0, in1, in3)
+        if in3 == 0.0: return Sum3.new1(None, in0, in1, in2)
+
+        arg_array = [in0, in1, in2, in3]
+        rate = as_ugen_rate(arg_array)
+        sorted_args = arg_array.sort(key=lambda x: x.rate) # Esto depende de la comparación entre strings, es así en sclang pero no es UGen.rate_number, no sé para qué ordena.
+
+        return super().new1(rate, *sorted_args)
+
+
+### singledispatch ###
+
 # Estos métodos no sé cómo implementarlos. El problema es que serían un
 # protocolo, pero todos los objetos tienen que responder a él. Y no quiero
 # alterar la paz pytónica creando un objeto base. Tal vez luego encuentre
@@ -504,14 +870,12 @@ class OutputProxy(UGen):
 # y no acá.
 
 
+print('*** redefino Buffer, Bus, Dunique, Event y None para test en ugens.py')
 class Buffer(): pass  # TODO DEFINICIONES SOLO PARA TEST!
 class Bus(): pass     # TODO VER CÓMO HACER PARA NO IMPORTAR TODO LO INNECESARIO
 class Dunique(): pass #
 class Event(): pass   #
 class Node(): pass    #
-
-
-import supercollie.opugens as op # TODO: acá evita el problema cíclico y no hay que declararlo 20 veces. Ver.
 
 
 # madd
@@ -527,7 +891,7 @@ def madd(obj, mul=1.0, add=0.0):
 @madd.register(tuple)
 @madd.register(UGen)
 def _(obj, mul=1.0, add=0.0):
-    return op.MulAdd.new(obj, mul, add) # TODO: Tiene que hacer expansión multicanal, es igual a UGen. VER: qué pasa con MulAdd args = ug.as_ugen_input([input, mul, add], cls)
+    return MulAdd.new(obj, mul, add) # TODO: Tiene que hacer expansión multicanal, es igual a UGen. VER: qué pasa con MulAdd args = as_ugen_input([input, mul, add], cls)
 
 
 @madd.register(float)

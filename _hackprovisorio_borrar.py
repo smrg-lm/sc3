@@ -18,7 +18,6 @@ installed_ugens = dict()
 
 _ugs_modules = [
     'supercollie.ugens',
-    'supercollie.opugens',
     'supercollie.inout',
     'supercollie.osc',
     'supercollie.line'

@@ -1,6 +1,7 @@
 """ResponseDefs.sc"""
 
 from abc import ABC, abstractmethod
+import inspect
 
 import supercollie.systemactions as sac
 import supercollie.model as mdl
@@ -54,11 +55,11 @@ class AbstractResponderFunc(ABC):
 
     @property
     def permanent(self):
-        return self._permament
+        return self._permanent
 
     @permanent.setter
     def permanent(self, value):
-        self._permament = value
+        self._permanent = value
         if value and self.enabled:
             sac.CmdPeriod.remove(self)
         else:
@@ -177,7 +178,7 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
             except KeyError:
                 self.active[key] = [func]
         if not self.registered:
-            self.register
+            self.register()
 
     def remove(self, func_proxy):
         mdl.NotificationCenter.unregister(func_proxy, 'function', self) # NOTE: es addDependant, el msj es function en update de esta clase
@@ -199,11 +200,11 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
             self.active[key][i] = func
 
     @abstractmethod
-    def wrap_func(self, func_proxy):
+    def wrap_func(self, func_proxy): # TODO: este método pude ser privado, ver documentación
         pass
 
     @abstractmethod
-    def get_keys_for_func_proxy(self, func_proxy):
+    def get_keys_for_func_proxy(self, func_proxy): # TODO: este método pude ser privado, ver documentación
         pass
 
     def update(self, *args):
@@ -253,8 +254,12 @@ class OSCMessageDispatcher(AbstractWrappingDispatcher):
         return [func_proxy.path]
 
     def __call__(self, msg, time, addr, recv_port):
-        for func in self.active[msg[0]]:
-            func(msg, time, addr, recv_port)
+        try:
+            for func in self.active[msg[0]]:
+                func(msg, time, addr, recv_port)
+        except KeyError as e:
+            if len(inspect.trace()) > 1: # TODO: sigue solo si la excepción es del frame actual, este patrón se repite en Routine y Clock
+                raise e
 
     def register(self):
         main.Main.add_osc_recv_func(self) # thisProcess.addOSCRecvFunc(this)

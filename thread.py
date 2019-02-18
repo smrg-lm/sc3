@@ -268,7 +268,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
             # Todo esto es para imitar la funcionalidad/comportamiento de las
             # corrutinas en sclang. Pero se vuelve poco pitónico, por ejemplo,
             # no se pueden usar next() y for, e implica un poco más de carga.
-            if len(inspect.trace()) > 1: # sigue solo si la excepción es del frame actual
+            if len(inspect.trace()) > 1: # TODO: sigue solo si la excepción es del frame actual, este patrón se repite en responsedefs y Clock
                 raise e
             if len(inspect.signature(self.func).parameters) == 0: # esto funciona porque es solo para la primera llamada, cuando tampoco existe _iterator, luego no importa si la función tenía argumentos.
                 self._iterator = self.func()

@@ -40,6 +40,7 @@ class Process(type):
         cls.current_TimeThread = cls.main_TimeThread
 
         cls.osc_server = osr.OSCServer() # BUG: options, y ver si se pueden crear más servidores, ver abajo
+        cls.osc_server.start()
 
         atexit.register(cls.shutdown)
 
@@ -88,7 +89,7 @@ class Process(type):
     def add_osc_recv_func(cls, func):
         cls.osc_server.add_recv_func(func)
 
-    def add_osc_recv_func(cls, func):
+    def remove_osc_recv_func(cls, func):
         cls.osc_server.remove_recv_func(func)
 
     # por lo que hace es redundante
@@ -113,5 +114,5 @@ class Main(metaclass=Process):
 
 
 # BUG: TEST, luego va a ser necesario organizar todo
-# clk.SystemClock()
-# clk.AppClock()
+clk.SystemClock()
+clk.AppClock()

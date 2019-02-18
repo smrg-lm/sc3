@@ -291,7 +291,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                             self._sched_add(time, task)
                     except StopIteration as e:
                         # BUG: ver los anidamietnos válidos...
-                        if len(_inspect.trace()) > 1: # Volvió a 1 porque Routine devuelve None ahora.
+                        if len(_inspect.trace()) > 1: # Volvió a 1 porque Routine devuelve None ahora. # TODO: sigue solo si la excepción es del frame actual, este patrón se repite en Routine y Clock
                             raise e
                 except Exception:
                     _traceback.print_exception(*_sys.exc_info()) # hay que poder recuperar el loop ante cualquier otra excepción

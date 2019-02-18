@@ -225,7 +225,7 @@ class ServerOptions(object):
     def num_audio_bus_channels(self):
         return self._num_audio_bus_channels
     @num_audio_bus_channels.setter
-    def num_audio_bus_channels(self, value=1024):
+    def num_audio_bus_channels(self, value): #=1024): es un setter, no puede tener valor por defecto
         self._num_audio_bus_channels = value
         self._num_private_audio_bus_channels = self._num_audio_bus_channels\
             - self._num_input_bus_channels - self._num_output_bus_channels
@@ -315,12 +315,12 @@ class MetaServer(type):
             raise Exception('Implementar la funcionalidad mdl.NotificationCenter en MetaServer @default.setter')
 
 
-#@utl.initclass # BUG: esto es un problema por lo cíclico
+@utl.initclass # BUG: esto es un problema por lo cíclico, initclass o lo tengo que sacar o hacer que sea consistente con los imports, tal vez que initclass acumule los métodos y llame luego de que todo fue importado
 class Server(metaclass=MetaServer):
     def __init_class__(cls): # BUG: ver: __new__ es un método estático tratado de manera especial por el intérprete, tal vez este se podría definir como tal, los métodos estáticos no están ligados ni a la clase ni a la instancia.
                              # BUG: PERO __init_subclass___: "If defined as a normal instance method, this method is implicitly converted to a class method."
         cls._default = cls.local = cls('localhost', nad.NetAddr('127.0.0.1', 57110))
-        cls.internal = Server('internal', nad.NetAddr(None, None))
+        #cls.internal = cls('internal', nad.NetAddr(None, None)) # BUG: no hay internal, al menos por un tiempo
 
     @classmethod
     def from_name(cls, name):
@@ -347,7 +347,7 @@ class Server(metaclass=MetaServer):
 
         #self.volume = xxx.Volume(server=self, persist=True) # BUG: falta implementar
         #self.recorder = xxx.Recorder(server=self) # BUG: falta implementar
-        self.recorder.notify_server = True # BUG: falta implementar
+        #self.recorder.notify_server = True # BUG: falta implementar
 
         self.name = name # ahora si usa @property setter
         self.__class__.all.add(self)
@@ -372,8 +372,8 @@ class Server(metaclass=MetaServer):
         return self._max_num_clients or self.options.max_logins
 
     def remove(self):
-        self.__class__.all.remove(self)
-        del self.__class__.named[self.name]
+        type(self).all.remove(self)
+        del type(self).named[self.name]
 
     # L357
     @property
@@ -392,11 +392,11 @@ class Server(metaclass=MetaServer):
     @name.setter
     def name(self, value):
         self._name = value
-        if value in self.named:
+        if value in type(self).named:
             msg = "Server name '{}' already exists. Please use a unique name"
             _warnings.warn(msg.format(value)) # BUG: en sclang, pasa dos parámetros a format # TODO: por qué no es una excepción?
         else:
-            self.named[value] = self
+            type(self).named[value] = self
 
     # TODO: este método tal vez debería ir abajo de donde se llame por primera vez
     def init_tree(self):
@@ -450,14 +450,14 @@ class Server(metaclass=MetaServer):
         self.node_allocator = self.__class__.node_alloc_class(
             self.client_id,
             self.options.initial_node_id,
-            self.max_num_clients
+            # self.max_num_clients # BUG: en sclang, node_alloc_class es eng.NodeIDAllocator por defecto, los alocadores originales reciben 2 parámetros, ContiguousBlockAllocator, que se usa para buses y buffers, recibe uno más, cambia la interfaz. Acá se pasa el tercer parámetro y NodeIDAllocator lo ignora (característica de las funciones de sclang), tengo que ver cómo maneja los ids de los nodos por cliente.
         )
         # // defaultGroup and defaultGroups depend on allocator,
         # // so always make them here:
         self.make_default_groups()
 
     def new_bus_allocators(self):
-        audio_bus_io_offset = self.options.first_private_bus
+        audio_bus_io_offset = self.options.first_private_bus()
         num_ctrl_per_client = (self.options.num_control_bus_channels
                                // self.max_num_clients)
         num_audio_per_client = (self.options.num_audio_bus_channels
@@ -643,6 +643,10 @@ class Server(metaclass=MetaServer):
 
     # L698
     # /* scheduling */
+    # TODO
+    # // keep defaultGroups for all clients on this server:
+    def make_default_groups(self):
+        pass # TODO
     # TODO
 
     # L814

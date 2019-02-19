@@ -406,11 +406,15 @@ class SynthDescLib(dp.Dependancy):
     def __init_class__(cls): # TODO: es para no poner código fuera de la definición, es equivalente a scalng
         cls.all = dict()
         cls.default = cls('global') # BUG era global en vez de default, pero el método default retornaba global. Es default, no global, el mismo patrón que server y client.
+
         # // tryToLoadReconstructedDefs = false:
         # // since this is done automatically, w/o user action,
         # // it should not try to do things that will cause warnings
         # // (or errors, if one of the servers is not local)
-        sa.ServerBoot.add(lambda server: cls.send(server, False)) # BUG: falta implementar, y depende del orden de los imports # this.send(server, false) # this es la clase.
+        def action(server):
+            if server.has_booted:
+                cls.default.send(server, False)
+        sa.ServerBoot.add(action) # NOTE: *send llama a global.send if server has booted, ver abajo
 
     def __init__(self, name, servers=[]):
         self.name = name

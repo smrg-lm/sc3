@@ -364,7 +364,7 @@ class Server(metaclass=MetaServer):
         self.__class__ # .changed(\serverAdded, self) # BUG: usar mdl.NotificationCenter
 
         #self._max_num_clients = None # // maxLogins as sent from booted scsynth # la setea en _handle_client_login_info_from_server
-        self.tree = None # lambda *args: None # ver dónde se inicializa, se usa en init_tree
+        self.tree = lambda *args: None # TODO: ver dónde se inicializa (en la clase no lo hace), se usa en init_tree
 
         self.node_allocator = None # se inicializa en new_node_allocators
         self.control_bus_allocator = None # se inicializa en new_bus_allocators
@@ -611,7 +611,7 @@ class Server(metaclass=MetaServer):
         with condition:
             condition.wait()
 
-    def sync(self, condition, bundles, latency): # BUG: dice bundles, tengo que ver el nivel de anidamiento
+    def sync(self, condition=None, bundles=None, latency=0): # BUG: dice bundles, tengo que ver el nivel de anidamiento
         self.addr.sync(condition, bundles, latency)
 
     def sched_sync(self, func): # este método no se usa en la libreríá de clases
@@ -710,51 +710,51 @@ class Server(metaclass=MetaServer):
 
     @property
     def num_ugens(self):
-        self.status_watcher.num_ugens
+        return self.status_watcher.num_ugens
 
     @property
     def num_synths(self):
-        self.status_watcher.num_synths
+        return self.status_watcher.num_synths
 
     @property
     def num_groups(self):
-        self.status_watcher.num_groups
+        return self.status_watcher.num_groups
 
     @property
     def num_synthdefs(self):
-        self.status_watcher.num_synthdefs
+        return self.status_watcher.num_synthdefs
 
     @property
     def avg_cpu(self):
-        self.status_watcher.avg_cpu
+        return self.status_watcher.avg_cpu
 
     @property
     def peak_cpu(self):
-        self.status_watcher.peak_cpu
+        return self.status_watcher.peak_cpu
 
     @property
     def sample_rate(self):
-        self.status_watcher.sample_rate
+        return self.status_watcher.sample_rate
 
     @property
     def actual_sample_rate(self):
-        self.status_watcher.actual_sample_rate
+        return self.status_watcher.actual_sample_rate
 
     @property
     def has_booted(self):
-        self.status_watcher.has_booted
+        return self.status_watcher.has_booted
 
     @property
     def server_running(self):
-        self.status_watcher.server_running
+        return self.status_watcher.server_running
 
     @property
     def server_booting(self):
-        self.status_watcher.server_booting
+        return self.status_watcher.server_booting
 
     @property
     def unresponsive(self):
-        self.status_watcher.unresponsive
+        return self.status_watcher.unresponsive
 
     # no es property
     def start_alive_thread(self, delay=0.0):
@@ -766,11 +766,11 @@ class Server(metaclass=MetaServer):
 
     @property
     def alive_thread_is_running(self):
-        self.status_watcher.alive_thread.playing()
+        return self.status_watcher.alive_thread.playing()
 
     @property
     def alive_thread_period(self):
-        self.status_watcher.alive_thread_period
+        return self.status_watcher.alive_thread_period
 
     @alive_thread_period.setter
     def alive_thread_period(self, value):
@@ -915,7 +915,7 @@ class Server(metaclass=MetaServer):
         pass
 
     def send_status_msg(self):
-        self.send_msg('/status') # TODO: VER estoy usando send_msg acá en vez de implementar addr.send_status_msg
+        self.addr.send_status_msg()
 
     @property
     def notify(self):

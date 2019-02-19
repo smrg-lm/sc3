@@ -149,8 +149,8 @@ class NetAddr():
     def send_bundle(self, time, *args):
         main.Main.osc_server.send_bundle(self._target, time, *args)
 
-    # def send_status_msg(self): # TODO: esto es particular de la relación del cliente con el servidor
-    #     main.Main.osc_server.send_msg('/status')
+    def send_status_msg(self):
+        main.Main.osc_server.send_msg(self._target, '/status')
 
     # def send_clumped_bundles(self, time, *args): # TODO: pasada a client, ver que hace liblo.
 

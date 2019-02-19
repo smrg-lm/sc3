@@ -38,7 +38,7 @@ class OSCServer():
             self._osc_server_thread = _lo.ServerThread(self.port, self.proto)
             self._osc_server_thread.start()
             self._osc_server_thread.add_method(None, None, self._recv, self)
-            self._osc_server_thread.add_bundle_handlers(self._start_handler,
+            self._osc_server_thread.add_bundle_handlers(self._start_handler, # BUG: ver si es que al usar estos métodos hace que los callbacks de los bundles se ejecuten en timestamp (con delay), si no, estamos mal con liblo o tal vez msg tiene el timetag y llama inmediatamente?
                                                         self._end_handler,
                                                         self)
         except _lo.ServerError as e:
@@ -131,11 +131,11 @@ class OSCServer():
     def send_status_msg(self):
         self.send_msg('/status')
 
-    def sync(self, condition=None, bundle=None, latency=0): # BUG: dice array of bundles, los métodos bundle_size y send_bundle solo pueden enviar uno. No me cierra/me confunde en sclang porque usa send bundle agregándole latencia.
+    def sync(self, target, condition=None, bundle=None, latency=0): # BUG: dice array of bundles, los métodos bundle_size y send_bundle solo pueden enviar uno. No me cierra/me confunde en sclang porque usa send bundle agregándole latencia.
         condition = condition or threading.Condition()
         if bundle is None:
             id = self.make_sync_responder(condition)
-            self.send_bundle(('127.0.0.1', 57120), latency, ['/sync', id]) # TEST BUG: falta default target que creo que sería el servidor por defecto, está puesto sclang
+            self.send_bundle(target, latency, ['/sync', id])
             with condition:
                 condition.wait() # BUG: poner timeout y lanzar una excepción?
         else:
@@ -147,7 +147,7 @@ class OSCServer():
                 for item in clumped_bundles:
                     id = self.make_sync_responder(condition)
                     item.append(['/sync', id])
-                    self.send_bundle(('127.0.0.1', 57120), latency, *item) # TEST BUG: falta default target que creo que sería el servidor por defecto, está puesto sclang
+                    self.send_bundle(target, latency, *item)
                     latency += 1e-9 # nanosecond, TODO: esto lo hace así no sé por qué.
                     with condition:
                         condition.wait() # BUG: poner timeout y lanzar una excepción?
@@ -155,7 +155,7 @@ class OSCServer():
                 id = self.make_sync_responder(condition)
                 bundle = bundle[:]
                 bundle.append(['/sync', id])
-                self.send_bundle(('127.0.0.1', 57120), latency, *bundle) # TEST BUG: falta default target que creo que sería el servidor por defecto, está puesto sclang
+                self.send_bundle(target, latency, *bundle)
                 with condition:
                     condition.wait() # BUG: poner timeout y lanzar una excepción?
 

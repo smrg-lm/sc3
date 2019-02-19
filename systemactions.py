@@ -87,7 +87,7 @@ class AbstractServerAction(AbstractSystemAction):
     @classmethod
     def run(cls, server):
         selector = cls.function_selector()
-        cls.perform_function(server, lambda obj: getattr(obj, selector)(server))
+        cls.perform_function(server, lambda obj: getattr(obj, selector, obj)(server)) # NOTE: o es un objeto que responde a los selectores do_on_server_* o es una función/callable
 
     @abstractclassmethod
     def function_selector(cls):

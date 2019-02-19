@@ -75,13 +75,13 @@ class ServerStatusWatcher():
         self._boot_notify_first = False
 
         def rtn_func():
-            while not self.server.server_running: # NOTE: server.server_running retorna la propiedad server_running de esta clase...
+            while not self.server_running: # BUG: en sclang? server.server_running retorna la propiedad server_running de esta clase...
                 # // this is not yet implemented.
                 # // or: { serverBooting and: mBootNotifyFirst.not }
                 # // and: { (limit = limit - 1) > 0 }
                 # // and: { server.applicationRunning.not }
                 yield 0.2
-            if not self.server.server_running: # NOTE: esto debe ser así por el comentario original de arriba
+            if not self.server_running: # BUG: ídem? NOTE: otra cosa, esto debe ser así por el comentario original de arriba
                 post_err = True
                 if on_failure is not None:
                     post_err = on_failure(self.server) is False
@@ -129,7 +129,7 @@ class ServerStatusWatcher():
 
     def add_status_watcher(self):
         if self._status_watcher is None:
-            def osc_func(msg):
+            def osc_func(msg, *args):
                 if self.notify and not self.notified:
                     self._send_notify_request(True, True)
                 self._alive = True
@@ -142,8 +142,8 @@ class ServerStatusWatcher():
                     mdl.NotificationCenter.notify(self.server, 'counts')
                 clk.defer(defer_func)
 
-            osc_func = rdf.OSCFunc(osc_func, '/status.reply', self.server.addr)
-            osc_func.permanent = True
+            self._status_watcher = rdf.OSCFunc(osc_func, '/status.reply', self.server.addr)
+            self._status_watcher.permanent = True
         else:
             self._status_watcher.enable()
 
@@ -183,11 +183,11 @@ class ServerStatusWatcher():
 
     @server_running.setter
     def server_running(self, value):
-        if value != self.server.server_running: # NOTE: server.server_running retorna la propiedad server_running de esta clase...
+        if value != self.server_running: # BUG: cambiado server.server_running retorna la propiedad server_running de esta clase...
             self._unresponsive = False
             self.has_booted = value
             if not value:
-                #hasBooted = running; BUG: vuelve a asignar has_booted si running es true, no tiene sentido, es un error.
+                #self.has_booted = value # BUG: vuelve a asignar has_booted si running es false, no tiene sentido, es un error.
                 sac.ServerQuit.run(self.server)
                 self.server.disconnect_shared_memory()
                 if self.server.recording(): # BUG: original es is_recording, así es más pitónico
@@ -198,11 +198,11 @@ class ServerStatusWatcher():
 
     def update_running_state(self, running):
         if self.server.addr.has_bundle():
-            clk.defer(mdl.NotificationCenter.notify(self.server, 'bundling'))
+            clk.defer(lambda: mdl.NotificationCenter.notify(self.server, 'bundling'))
         elif running:
             self.server_running = True
             self.unresponsive = False
-            self._really_dead_count = self.server.options.pings_before_considered_dead()
+            self._really_dead_count = self.server.options.pings_before_considered_dead
         else:
             # // parrot
             self._really_dead_count -= 1
@@ -216,7 +216,7 @@ class ServerStatusWatcher():
     def unresponsive(self, value):
         if value != self._unresponsive:
             self._unresponsive = value
-            clk.defer(mdl.NotificationCenter.notify(self.server, 'server_running'))
+            clk.defer(lambda: mdl.NotificationCenter.notify(self.server, 'server_running'))
 
     # // final actions needed to finish booting
     def _finalize_boot(self):
@@ -241,7 +241,7 @@ class ServerStatusWatcher():
             return
 
         # // set up oscfuncs for possible server responses, \done or \failed
-        def _done(msg):
+        def _done(msg, *args):
             new_client_id = msg[2]
             new_max_logins = msg[3]
             fail_osc_func.free()
@@ -265,16 +265,16 @@ class ServerStatusWatcher():
             _done, '/done', self.server.addr,
             arg_template=['/notify', None]
         )
-        done_osc_func.one_shot() # BUG: no está implementado
+        done_osc_func.one_shot()
 
-        def _fail(msg):
+        def _fail(msg, *args):
             done_osc_func.free()
             self.server._handle_notify_fail_string(msg[2], msg)
         fail_osc_func = rdf.OSCFunc(
             _fail, '/fail', self.server.addr,
             arg_template=['/notify', None, None]
         )
-        fail_osc_func.one_shot() # BUG: no está implementado
+        fail_osc_func.one_shot()
 
         self.server.send_msg('/notify', int(flag), self.server.client_id)
         if flag:

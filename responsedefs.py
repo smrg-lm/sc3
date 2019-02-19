@@ -6,6 +6,7 @@ import inspect
 import supercollie.systemactions as sac
 import supercollie.model as mdl
 from . import main as main
+import supercollie.utils as utl
 
 
 class AbstractResponderFunc(ABC):
@@ -46,6 +47,7 @@ class AbstractResponderFunc(ABC):
         self.free()
 
     def one_shot(self):
+        print('**** llama a one_shot')
         wrapped_func = self._func
 
         def one_shot_func(*args):
@@ -388,8 +390,20 @@ class OSCFuncBothMessageMatcher(AbstractMessageMatcher):
 
 
 class OSCArgsMatcher(AbstractMessageMatcher):
-    pass
+    def __init__(self, arg_template, func):
+        super().__init__() # lo llamo por convención pero lo único que hace es setear func = None
+        self.arg_template = utl.as_list(arg_template)
+        self.func = func
 
+    def __call__(self, msg, time, addr, recv_port):
+        args = msg[1:]
+        for i, item in enumerate(self.arg_template):
+            # BUG: BUUUUUUUG: tengo que implementar utl.match_item
+            if item is None: # BUG: usa matchItem, para la que 'nil matches anything', collection 'includes', function hace this.value(item) y object compara identidad
+                continue
+            if item != args[i]: # BUG: acá no estoy comparando identidad porque supongo que compara tipos básicos
+                return
+        self.func(msg, time, addr, recv_port)
 
 # MIDI #
 

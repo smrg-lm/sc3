@@ -111,7 +111,7 @@ class ServerOptions(object):
     def device(self, value):
         self.in_device = self.out_device = value
 
-    def as_options_string(self, port=57110):
+    def as_options_string(self, port=57110): # BUG: el nombre está mal, acá no es un string, tengo que reveer la generación de cmd
         o = []
 
         if self.protocol == 'tcp':
@@ -121,9 +121,9 @@ class ServerOptions(object):
         o.append(str(port))
 
         o.append('-a')
-        o.append(self.num_private_audio_bus_channels
-                 + self.num_input_bus_channels
-                 + self.num_output_bus_channels)
+        o.append(str(self.num_private_audio_bus_channels
+                     + self.num_input_bus_channels
+                     + self.num_output_bus_channels))
 
         if self.num_control_bus_channels != _NUM_CONTROL_BUS_CHANNELS:
             o.append('-c')
@@ -171,8 +171,9 @@ class ServerOptions(object):
             o.append('-O')
             o.append(self.output_streams_enabled) # es un string
 
-        if main.Main.singleton.platform.name != 'osx'\
-        or self.in_device == self.out_device: # BUG: no está implementado: thisProcess.platform.name
+        # if main.Main.singleton.platform.name != 'osx'\
+        # or self.in_device == self.out_device: # BUG: no está implementado: thisProcess.platform.name
+        if self.in_device == self.out_device: # BUG: borrar, va lo de arriba pero implementado
             if self.in_device is not None:
                 o.append('-H')
                 o.append('"{}"'.format(self.in_device)) # BUG: comprobar que funciona en Python
@@ -294,7 +295,7 @@ class MetaServer(type):
 
     named = dict()
     all = set()
-    program = None
+    program = 'scsynth' # BUG: setea en Platform OSX/Linux startup
     sync_s = True
 
     node_alloc_class = eng.NodeIDAllocator
@@ -855,7 +856,7 @@ class Server(metaclass=MetaServer):
                 pass # no hace nada
 
         resp = rdf.OSCFunc(resp_func, '/synced', self.addr) # TODO: agregar decorador
-        thr.Routine.run(task, clk.AppClock)# TODO: agregar decorador
+        thr.Routine.run(task, clk.AppClock) # TODO: agregar decorador
         self.addr.send_msg('/sync', id)
 
     def _wait_for_pid_release(self, on_complete, on_failure=None, timeout=1):
@@ -914,7 +915,7 @@ class Server(metaclass=MetaServer):
         pass
 
     def send_status_msg(self):
-        pass
+        self.send_msg('/status') # TODO: VER estoy usando send_msg acá en vez de implementar addr.send_status_msg
 
     @property
     def notify(self):
@@ -979,6 +980,17 @@ class Server(metaclass=MetaServer):
     # /* CmdPeriod support for Server-scope and Server-record and Server-volume */
     # TODO
 
+    @classmethod
+    def scsynth(cls):
+        # BUG: ver, no me parece buena idea, además setea el valor en
+        # ./Platform/osx/OSXPlatform.sc o ./Platform/linux/LinuxPlatform.sc
+        # dentro del método startup.
+        cls.program = cls.program.replace('supernova', 'scsynth')
+
+    @classmethod
+    def supernova(cls):
+        cls.program = cls.program.replace('scsynth', 'supernova')
+
 
 class _ServerProcess(object):
     def __init__(self, options):
@@ -987,8 +999,13 @@ class _ServerProcess(object):
         self.timeout = 0.1
 
     def run(self):
+        # TEST HACK
+        cmd = [Server.program]
+        cmd.extend(self.options.as_options_string())
+        print('*** cmd:', cmd)
+        # END OF TEST HACK
         self.proc = _subprocess.Popen(
-            self.options.cmd(),
+            cmd, # self.options.cmd(), # BUG: ver cómo defino cmd, podría ser una función que lo genere a partir de server options, server y platform.
             stdout=_subprocess.PIPE,
             stderr=_subprocess.PIPE,
             bufsize=1,

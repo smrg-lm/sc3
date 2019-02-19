@@ -234,11 +234,11 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
         return self
 
     # // resume, next, value, run are synonyms
-    def __next__(self): # BUG: ver cómo sería la variante pitónica, luego.
+    def __next__(self): # BUG: ver cómo sería la variante pitónica, luego, por lo pronto creo que no debe declarar inval opcional.
         return self.next()
 
-    def __call__(self):
-        return self.next()
+    def __call__(self, inval=None):
+        return self.next(inval)
 
     # TODO: es _RoutineResume
     def next(self, inval=None):

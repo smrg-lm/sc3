@@ -21,7 +21,7 @@ imports = {
     'osc': ['ugens'],
     'oscserver': ['utils', 'netaddr', 'main', 'clock'],
     'platform': [],
-    'responsedefs': ['systemactions', 'model', 'main'],
+    'responsedefs': ['systemactions', 'model', 'main', 'utils'],
     'server': ['main', 'utils', 'netaddr', 'model', 'engine', 'synthdef', 'clock', 'systemactions', 'serverstatus', 'responsedefs', 'thread'],
     'serverstatus': ['clock', 'model', 'thread', 'systemactions', 'responsedefs'],
     'stream': ['functions'],

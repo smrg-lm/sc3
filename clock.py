@@ -393,6 +393,7 @@ class Scheduler():
     @property
     def seconds(self):
         return self._seconds
+
     @seconds.setter
     def seconds(self, value):
         if self.queue.empty():

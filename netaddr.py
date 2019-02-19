@@ -173,8 +173,8 @@ class NetAddr():
 
     # def ip(self): # TODO: ^addr.asIPString, addr es Integer as_ip_string(int), ver por dónde usa addr como entero.
 
-    # def has_bundle(self): # TODO: No lo entiendo.
-    #     return False
+    def has_bundle(self): # TODO: distingue de BundleNetAddr
+        return False
 
     # def print_on(self, stream):
     # def store_on(self, stream):

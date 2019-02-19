@@ -114,5 +114,5 @@ class Main(metaclass=Process):
 
 
 # BUG: TEST, luego va a ser necesario organizar todo
-clk.SystemClock()
-clk.AppClock()
+clk.SystemClock() # BUG: estas sentencias hacen que clock no se pueda importar directamente
+clk.AppClock() # BUG: porque es cíclo con main, hay que importar antes main para que importe clock

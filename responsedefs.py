@@ -223,7 +223,7 @@ class AbstractMessageMatcher(ABC):
         self.func = None
 
     @abstractmethod
-    def value(self):
+    def __call__(self):
         pass
 
 
@@ -368,7 +368,14 @@ class OSCDef(OSCFunc):
 
 # // if you need to test for address func gets wrapped in this
 class OSCFuncAddrMessageMatcher(AbstractMessageMatcher):
-    pass
+    def __init__(self, addr, func):
+        super().__init__() # lo llamo por convención pero lo único que hace es setear func = None
+        self.addr = addr
+        self.func = func
+
+    def __call__(self, msg, time, addr, recv_port):
+        if addr.addr == self.addr.addr and addr.port == self.addr.port: # BUG: usa matchItem??
+            self.func(msg, time, addr, recv_port)
 
 
 # // if you need to test for recvPort func gets wrapped in this

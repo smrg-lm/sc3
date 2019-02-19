@@ -7,8 +7,8 @@ import liblo as _lo
 
 import supercollie.utils as utl
 import supercollie.netaddr as nad
-from . import main # hack para que importe clock
-import supercollie.clock as clk
+from . import main # cíclico
+from . import clock as clk # es cíclico a través de main
 
 
 DEFAULT_CLIENT_PORT = 57120

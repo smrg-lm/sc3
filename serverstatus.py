@@ -2,10 +2,11 @@
 
 import warnings
 
-import supercollie.clock as clk
+from . import clock as clk # es recursivo a través de main y server
 import supercollie.model as mdl
 import supercollie.thread as thr
 import supercollie.systemactions as sac
+import supercollie.responsedefs as rdf
 
 
 class ServerStatusWatcher():
@@ -59,6 +60,7 @@ class ServerStatusWatcher():
     @property
     def notify(self):
         return self._notify
+
     @notify.setter
     def notify(self, value):
         self._notify = value
@@ -73,13 +75,13 @@ class ServerStatusWatcher():
         self._boot_notify_first = False
 
         def rtn_func():
-            while not self.server.server_running(): # NOTE: server.server_running() retorna la propiedad server_running de esta clase...
+            while not self.server.server_running: # NOTE: server.server_running retorna la propiedad server_running de esta clase...
                 # // this is not yet implemented.
                 # // or: { serverBooting and: mBootNotifyFirst.not }
                 # // and: { (limit = limit - 1) > 0 }
                 # // and: { server.applicationRunning.not }
                 yield 0.2
-            if not self.server.server_running(): # NOTE: esto debe ser así por el comentario original de arriba
+            if not self.server.server_running: # NOTE: esto debe ser así por el comentario original de arriba
                 post_err = True
                 if on_failure is not None:
                     post_err = on_failure(self.server) is False
@@ -99,16 +101,16 @@ class ServerStatusWatcher():
         server_really_quit = False
 
         if self._status_watcher is not None:
-            self._status_watcher.disable() # BUG: falta implementar ResponseDefs.sc que es también donde está OSCFunc
+            self._status_watcher.disable()
             if self.notified:
                 def osc_func(msg):
-                    if msg[1] == '/quit': # BUG: comprobar índice liblo
+                    if msg[1] == '/quit':
                         if self._status_watcher is not None:
                             self._status_watcher.enable()
                         server_really_quit = True
                         really_quit_watcher.free()
                         on_complete()
-                really_quit_watcher = xxx.OSCFunc(osc_func, '/done', self.server.addr)
+                really_quit_watcher = rdf.OSCFunc(osc_func, '/done', self.server.addr)
 
                 def sched_func():
                     if not server_really_quit:
@@ -140,7 +142,7 @@ class ServerStatusWatcher():
                     mdl.NotificationCenter.notify(self.server, 'counts')
                 clk.defer(defer_func)
 
-            osc_func = xxx.OSCFunc(osc_func, '/status.reply', self.server.addr)
+            osc_func = rdf.OSCFunc(osc_func, '/status.reply', self.server.addr)
             osc_func.permanent = True
         else:
             self._status_watcher.enable()
@@ -161,7 +163,7 @@ class ServerStatusWatcher():
                     yield self.alive_thread_period
                     self.update_running_state(self._alive)
             self.alive_thread = thr.Routine.run(rtn_func, clk.AppClock)
-        return self.alive_thread # TODO: por qué hacer return de este atributo en sclang?
+        return self.alive_thread # TODO: por qué hace return de este atributo en sclang?
 
     def stop_alive_thread(self):
         self._status_watcher.free()
@@ -178,9 +180,10 @@ class ServerStatusWatcher():
     @property
     def server_running(self):
         return self.has_booted and self.notified
+
     @server_running.setter
     def server_running(self, value):
-        if value != self.server.server_running(): # NOTE: server.server_running() retorna la propiedad server_running de esta clase...
+        if value != self.server.server_running: # NOTE: server.server_running retorna la propiedad server_running de esta clase...
             self._unresponsive = False
             self.has_booted = value
             if not value:
@@ -208,6 +211,7 @@ class ServerStatusWatcher():
     @property
     def unresponsive(self):
         return self._unresponsive
+
     @unresponsive.setter
     def unresponsive(self, value):
         if value != self._unresponsive:
@@ -257,7 +261,7 @@ class ServerStatusWatcher():
                     self.notified = True
             else:
                 self.notified = False
-        done_osc_func = xxx.OSCFunc(
+        done_osc_func = rdf.OSCFunc(
             _done, '/done', self.server.addr,
             arg_template=['/notify', None]
         )
@@ -266,7 +270,7 @@ class ServerStatusWatcher():
         def _fail(msg):
             done_osc_func.free()
             self.server._handle_notify_fail_string(msg[2], msg)
-        fail_osc_func = xxx.OSCFunc(
+        fail_osc_func = rdf.OSCFunc(
             _fail, '/fail', self.server.addr,
             arg_template=['/notify', None, None]
         )

@@ -122,7 +122,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
     def beats(self, value): # definido por compatibilidad, se comporta igual y no hace nada
         pass
 
-    def is_playing(self):
+    def playing(self): # BUG: era is_playing, está pitonizado
         return self.state == self.State.Suspended
 
     @property
@@ -232,8 +232,13 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
 
     def __iter__(self):
         return self
+
+    # // resume, next, value, run are synonyms
     def __next__(self): # BUG: ver cómo sería la variante pitónica, luego.
-        pass # TODO: es _RoutineResume
+        return self.next()
+
+    def __call__(self):
+        return self.next()
 
     # TODO: es _RoutineResume
     def next(self, inval=None):

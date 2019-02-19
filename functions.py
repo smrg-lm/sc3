@@ -14,16 +14,17 @@ en https://docs.python.org/3/reference/datamodel.html
 por ejemplo (#object.__rmul__)
 """
 
+from abc import ABC, abstractmethod
 import inspect
 
 from . import builtins as bi # TODO: TEST, ver abajo.
 
 
 # ver abstract base clases in python
-class AbstractFunction(object):
-    # callable
-    def __call__(self, *args): # no se llama
-        raise NotImplementedError('AbstractFunction is an abstract class.')
+class AbstractFunction(ABC):
+    @abstractmethod # BUG: esto lo tengo que extender a todos los métodos de interfaz obligatoria, pero por ahora es más fácil sin implementar todo
+    def __call__(self, *args):
+        pass
 
     # OC: function compositions
     # override these in subclasses to perform

@@ -15,9 +15,11 @@ import supercollie.netaddr as nad
 import supercollie.model as mdl
 import supercollie.engine as eng
 from . import synthdef as sdf
-import supercollie.clock as clk
+from . import clock as clk # es cíclico a través de main
 import supercollie.systemactions as sac
 import supercollie.serverstatus as sst
+import supercollie.responsedefs as rdf
+import supercollie.thread as thr
 
 # BUG: revisar porque hay un patch que cambió esto y otros que cambiaron un par
 # BUG: de cosas, el problema es que los patch se aplican meses después a master.
@@ -340,6 +342,9 @@ class Server(metaclass=MetaServer):
         self._name = name # no usa @property setter
         self.addr = addr # @property setter
         self.options = options or ServerOptions()
+        self.latency = 0.2
+        self.dump_mode = 0
+        self.send_quit = None # inicializa en boot_init
         # // make statusWatcher before clientID, so .serverRunning works
         self.status_watcher = sst.ServerStatusWatcher(server=self)
         # // go thru setter to test validity
@@ -352,6 +357,8 @@ class Server(metaclass=MetaServer):
         self.name = name # ahora si usa @property setter
         self.__class__.all.add(self)
 
+        self.pid = None # iniicaliza al bootear
+        self._server_interface = None
         self._pid_release_condition = None # BUG: implementar Condition({ this.pid == nil });
         self.__class__ # .changed(\serverAdded, self) # BUG: usar mdl.NotificationCenter
 
@@ -379,6 +386,7 @@ class Server(metaclass=MetaServer):
     @property
     def addr(self):
         return self._addr
+
     @addr.setter
     def addr(self, value):
         self._addr = value or nad.NetAddr("127.0.0.1", 57110) # TODO: podría hacer que se pueda pasar también una tupla como en liblo
@@ -389,6 +397,7 @@ class Server(metaclass=MetaServer):
     @property
     def name(self):
         return self._name
+
     @name.setter
     def name(self, value):
         self._name = value
@@ -415,10 +424,11 @@ class Server(metaclass=MetaServer):
     @property
     def client_id(self):
         return self._client_id
+
     @client_id.setter
     def client_id(self, value):
         msg = "Server {} couldn't set client_id to {} - {}. clientID is still {}"
-        if self.server_running():
+        if self.server_running:
             _warnings.warn(msg.format(self.name, value,
                                       'server is running', self.client_id))
             return # BUG: los setters de la propiedades retornan el valor? qué pasa cuando falla un setter?
@@ -552,17 +562,17 @@ class Server(metaclass=MetaServer):
             # // when already registered, msg[3] is the clientID by which
             # // the requesting client was registered previously
             log_msg = "{} - already registered with client_id {}"
-            print(log_msg.format(self.name, msg[3])) # BUG: es log
+            print(log_msg.format(self.name, msg[3])) # BUG: log
             self.status_watcher._handle_login_when_already_registered(msg[3]) # BUG: falta implmementar, cuidado con el nombre
         elif 'not registered' in fail_string:
             # // unregister when already not registered:
             log_msg = "{} - not registered"
-            print(log_msg.format(self.name)) # BUG: ídem
-            self.status_watcher.notified = False # BUG: falta implementar
+            print(log_msg.format(self.name)) # BUG: log
+            self.status_watcher.notified = False
         elif 'too many users' in fail_string:
             log_msg = "{} - could not register, too many users"
-            print(log_msg.format(self.name)) # BUG: ídem
-            self.status_watcher.notified = False # BUG: falta implementar
+            print(log_msg.format(self.name)) # BUG: log
+            self.status_watcher.notified = False
         else:
             # // throw error if unknown failure
             e_msg = "Failed to register with server '{}' for notifications: {}\n"
@@ -586,16 +596,17 @@ class Server(metaclass=MetaServer):
         cmd_name = str(args[0]) # BUG: TODO: el método reorder de abajo envía con send_msg y el número de mensaje como int, VER que hace sclang a bajo nivel, pero puede que esta conversión esté puesta para convertir símbolos a strings en sclang?
         if cmd_name[0] != '/':
             cmd_name = '/' + cmd_name # BUG: ver reorder abajo, ver por qué agrega la barra acá y no en otras partes.
-            #args = list(args); args[0] = cmd_name # BUG: esto no está en sclang, supongo que se encarga luego no sé liblo depende de ella.
-        # BUG: usa OSCFunc, pero es toda una parafernalia que tengo que ponerme a ver
-        # cambiar por OSCFunc luego en todo caso.
-        def responder(*msg):
-            if msg[1] == cmd_name:
-                main.Main.osc_server._osc_server_thread.del_method('/done', None) # BUG: usar OSCFunc
+        args = list(args)
+        args[0] = cmd_name # BUG: esto no está en sclang, supongo que se encarga luego a bajo nivel.
+
+        def resp_func(*msg): # TODO: agregar decorador luego
+            if str(msg[1]) == cmd_name:
+                resp.free()
                 with condition:
-                    condition.notify()
-        main.Main.osc_server._osc_server_thread.add_method('/done', None, responder) # BUG: usar OSCFunc
-        self.addr.send_bundle(0, *args)
+                    condition.notify() # TODO: es un lock único, tal vez debería usar otro más básico
+
+        resp = rdf.OSCFunc(resp_func, '/done', self.addr) # BUG: aún faltan implementar la clase OSCFuncAddrMessageMatcher que llama internamente el dispatcher
+        self.send_bundle(0, args)
         with condition:
             condition.wait()
 
@@ -638,62 +649,330 @@ class Server(metaclass=MetaServer):
         self.send_msg('/d_loadDir', dir) # BUG: completion_msg
 
     # L659
-    # /* network message bundling */
+    ### network message bundling ###
     # TODO
 
     # L698
-    # /* scheduling */
-    # TODO
+    ### scheduling ###
+
+    def wait(self, response_name=None):
+        pass
+
+    def wait_for_boot(self, on_complete, limit=100, on_failure=None):
+        pass
+
+    def do_when_booted(self, on_complete, limit=100, on_failure=None):
+        self.status_watcher.do_when_booted(on_complete, limit, on_failure)
+
+    def if_running(self, func, fail_func): # TODO: no se usa, pero como llama a statusWatcher puede ser útil
+        pass
+    def if_not_running(self, func): # TODO: no se usa, pero como llama a statusWatcher puede ser útil
+        pass
+
+    def boot_sync(self, condition):
+        pass
+
+    def ping(self, n=1, wait=0.1, func=None):
+        pass
+
+    def cached_buffers_do(self, func):
+        pass
+
+    def cached_buffers_at(self, bufnum):
+        pass
+
     # // keep defaultGroups for all clients on this server:
     def make_default_groups(self):
         pass # TODO
-    # TODO
+
+    def default_group_id(self):
+        pass
+
+    def send_default_groups(self):
+        pass
+
+    def send_default_groups_for_client_ids(self, client_ids):
+        pass
+
+    def input_bus(self):
+        pass
+
+    def output_bus(self):
+        pass
 
     # L814
-    # /* recording formats */
+    ### recording formats ###
     # TODO
 
     # L825
-    # /* server status */
+    ### server status ###
+
+    @property
+    def num_ugens(self):
+        self.status_watcher.num_ugens
+
+    @property
+    def num_synths(self):
+        self.status_watcher.num_synths
+
+    @property
+    def num_groups(self):
+        self.status_watcher.num_groups
+
+    @property
+    def num_synthdefs(self):
+        self.status_watcher.num_synthdefs
+
+    @property
+    def avg_cpu(self):
+        self.status_watcher.avg_cpu
+
+    @property
+    def peak_cpu(self):
+        self.status_watcher.peak_cpu
+
+    @property
+    def sample_rate(self):
+        self.status_watcher.sample_rate
+
+    @property
+    def actual_sample_rate(self):
+        self.status_watcher.actual_sample_rate
+
+    @property
+    def has_booted(self):
+        self.status_watcher.has_booted
+
+    @property
     def server_running(self):
         self.status_watcher.server_running
-    # TODO
 
-    # L835
-    # hasBooted { ^statusWatcher.hasBooted }
-    def has_booted(self):
-        #return True # BUG! falta implementar StatusWatcher
+    @property
+    def server_booting(self):
+        self.status_watcher.server_booting
+
+    @property
+    def unresponsive(self):
+        self.status_watcher.unresponsive
+
+    # no es property
+    def start_alive_thread(self, delay=0.0):
+        self.status_watcher.start_alive_thread(delay)
+
+    # no es property
+    def stop_alive_thread(self):
+        self.status_watcher.stop_alive_thread()
+
+    @property
+    def alive_thread_is_running(self):
+        self.status_watcher.alive_thread.playing()
+
+    @property
+    def alive_thread_period(self):
+        self.status_watcher.alive_thread_period
+
+    @alive_thread_period.setter
+    def alive_thread_period(self, value):
+        self.status_watcher.alive_thread_period = value
+
+    # shm
+    def disconnect_shared_memory(self):
         pass
-    # ...
-    # L868 REDO
-    def boot(self):
-        # localserver
-        #self.sproc = _ServerProcesses(self.options)
-        #self.sproc.run()
+
+    def connect_shared_memory(self):
         pass
-    # ...
-    # L1017 REDO
-    def quit(self):
-        # check running
-        # self.addr.send_msg('/quit')
-        # self.sproc.finish()
+
+    def has_shm_interface(self):
         pass
-    # ...
-    # L1110
+
+    @classmethod
+    def resume_threads(cls):
+        pass
+
+    # L868
+    def boot(self, start_alive=True, recover=False, on_failure=None):
+        if self.status_watcher.unresponsive:
+            print("server '{}' unresponsive, rebooting...".format(self.name)) # BUG: log
+            self.quit(watch_shutdown=False)
+        if self.status_watcher.server_running:
+            print("server '{}' already running".format(self.name))
+            return
+        if self.status_watcher.server_booting:
+            print("server '{}' already booting".format(self.name))
+            return
+        self.status_watcher.server_booting = True
+
+        def on_complete():
+            self.status_watcher.server_booting = False
+            self.boot_init(recover)
+        self.status_watcher.do_when_booted(on_complete, on_failure) # BUG: en sclang, esta llamada pasa false si on_failure es nil y do_when_booted checkea por notNil (false es true)
+
+        if self.remote_controlled:
+            print("remote server '{}' needs manual boot".format(self.name)) # BUG: log
+        else:
+            def ping_func():
+                self.quit()
+                self.boot()
+
+            def on_failure():
+                self._wait_for_pid_release(
+                    lambda: self.boot_server_app(\
+                        lambda: self.status_watcher.start_alive_thread()\
+                        if start_alive else None\
+                    ) # TODO: lambda siempre retorna un valor, no afecta pero no se puede usar como en sclang es rebuscado acá
+                )
+            self._ping_app(ping_func, on_failure, 0.25)
+
+    # // FIXME: recover should happen later, after we have a valid clientID!
+    # // would then need check whether maxLogins and clientID have changed or not,
+    # // and recover would only be possible if no changes.
+    def boot_init(self, recover=False):
+        # // if(recover) { this.newNodeAllocators } {
+        # // 	"% calls newAllocators\n".postf(thisMethod);
+        # // this.newAllocators };
+        if self.dump_mode != 0:
+            self.send_msg('/dumpOSC', self.dump_mode)
+        if self.send_quit is None:
+            self.send_quit = self.in_process or self.is_local
+        self.connect_shared_memory() # BUG: no está implementado
+
+    def _ping_app(self, func, on_failure=None, timeout=3): # subida de 'internal server commands'
+        id = func.__hash__()
+
+        def resp_func(msg, *args):
+            if msg[1] == id:
+                func()
+                task.stop()
+
+        if timeout is not None:
+            def task():
+                yield timeout
+                resp.free()
+                if on_failure is not None:
+                    on_failure()
+        else:
+            def task():
+                pass # no hace nada
+
+        resp = rdf.OSCFunc(resp_func, '/synced', self.addr) # TODO: agregar decorador
+        thr.Routine.run(task, clk.AppClock)# TODO: agregar decorador
+        self.addr.send_msg('/sync', id)
+
+    def _wait_for_pid_release(self, on_complete, on_failure=None, timeout=1):
+        if self.in_process or self.is_local or self.pid is None:
+            on_complete()
+            return
+
+        # // FIXME: quick and dirty fix for supernova reboot hang on macOS:
+        # // if we have just quit before running server.boot,
+        # // we wait until server process really ends and sets its pid to nil
+        # BUG: puede que todo esto no sea necesario con python Popen (_ServerProcess)
+        waiting = True
+        clk.AppClock.sched( # usa SystemClock pero no me parece que bootear el servidor sea time critical, y dice que es un hack
+            timeout,
+            lambda: self.pid_release_condition.unhang() if waiting else None # BUG: la condición no está definida
+        )
+        def task():
+            self.pid_release_condition.hang() # BUG: la condición no está definida
+            if self.pid_release_condition.test(): # BUG: la condición no está definida
+                waiting = False
+                on_complete()
+            else:
+                on_failure()
+        thr.Routine.run(task, clk.AppClock)
+
+    def boot_server_app(self, on_complete):
+        if self.in_process:
+            print('booting internal server')
+            self.boot_in_process() # BUG: no está implementado
+            self.pid = main.Main.pid # BUG: no está implementado
+            on_complete()
+        else:
+            self.disconnect_shared_memory() # BUG: no está implementado
+            self.server_process = _ServerProcess(self.options)
+            self.server_process.run()
+            # this.prOnServerProcessExit(exitCode) BUG: falta implementar en _ServerProcess
+            self.pid = self.server_process.proc.pid # BUG: con Popen la implementación de algunas cosas puede cambiar
+            msg = "booting server '{}' on address {}:{}."
+            print(msg.format(self.name, self.addr.hostname, self.addr.port)) # BUG: log
+            if self.options.protocol == 'tcp':
+                print('implementar conexión tcp')
+                # self.addr.try_connect_tcp(on_complete)
+            else:
+                on_complete()
+
+    def _on_server_process_exit(self, exit_code):
+        pass
+
+    def reboot(self, func, on_failure):
+        pass
+
+    def application_running(self):
+        pass
+
+    def status(self):
+        pass
+
+    def send_status_msg(self):
+        pass
+
+    @property
+    def notify(self):
+        pass
+
+    @notify.setter
+    def notify(self, value):
+        pass
+
+    @property
+    def notified(self):
+        return self.status_watcher.notified
+
+    def dump_osc(self, code=1):
+        pass
+
+    def quit(self, on_complete=None, on_failure=None, watch_shutdown=True):
+        pass
+
+    @classmethod
+    def quit_all(cls, watch_shutdown=True):
+        pass
+
+    @classmethod
+    def kill_all(cls):
+        pass
+
+    def free_all(self): # BUG: VER tiene variante como @classmethod
+        pass
+
+    def free_my_default_group(self):
+        pass
+
+    def free_default_groups(self):
+        pass
+
+    @classmethod
+    def hard_free_all(cls, even_remote=False):
+        pass
+
     @classmethod
     def all_booted_servers(cls):
-        return [x for x in cls.all if x.has_booted()]
+        return [x for x in cls.all if x.has_booted]
+
+    @classmethod
+    def all_running_servers(cls):
+        return [x for x in cls.all if x.server_running]
 
     # L1118
-    # /* volume control */
+    ### volume control ###
     # TODO
 
     # L1132
-    # /* recording output */
+    ### recording output ###
     # TODO
 
     # L1140
-    # /* internal server commands */
+    ### internal server commands ###
     # TODO
 
     # L1169
@@ -701,7 +980,7 @@ class Server(metaclass=MetaServer):
     # TODO
 
 
-class _ServerProcesses(object):
+class _ServerProcess(object):
     def __init__(self, options):
         self.options = options
         self.proc = None
@@ -713,7 +992,7 @@ class _ServerProcesses(object):
             stdout=_subprocess.PIPE,
             stderr=_subprocess.PIPE,
             bufsize=1,
-            universal_newlines=True) # or with asyncio.Subprocesses? :-/
+            universal_newlines=True)
         self._redirect_outerr()
         _atexit.register(self._terminate_proc) # BUG: no compruebo que no se agreguen más si se reinicia el cliente.
 

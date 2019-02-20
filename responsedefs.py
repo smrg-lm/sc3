@@ -69,7 +69,8 @@ class AbstractResponderFunc(ABC):
 
     def free(self):
         type(self)._all_func_proxies.remove(self)
-        self.disable()
+        if self.enabled: # BUG en sclang, esta comprobación faltaba para que no llame duplicado las funciones de disable
+            self.disable()
 
     def clear(self):
         self.func = None

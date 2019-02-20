@@ -304,7 +304,10 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     # prRoutineYieldAndReset simplifica cosas que no son necesarias cuando yield va a reset
 
     # reset # _RoutineReset
-    # stop # _RoutineStop con otros detalles
+
+    # // the _RoutineStop primitive can't stop the currently running Routine
+    # // but a user should be able to use .stop anywhere
+    # stop # prStop ->_RoutineStop con otros detalles
 
     # // resume, next, value, run are synonyms
     # next, ver arriba

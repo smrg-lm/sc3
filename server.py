@@ -455,7 +455,7 @@ class Server(metaclass=MetaServer):
         self.new_bus_allocators()
         self.new_buffer_allocators()
         self.new_scope_buffer_allocators()
-        mdl.NotificationCenter.notify(self, 'newAllocators')
+        mdl.NotificationCenter.notify(self, 'new_allocators')
 
     def new_node_allocators(self):
         self.node_allocator = self.__class__.node_alloc_class(
@@ -933,7 +933,37 @@ class Server(metaclass=MetaServer):
         pass
 
     def quit(self, on_complete=None, on_failure=None, watch_shutdown=True):
-        pass
+        self.addr.send_msg('/quit')
+
+        if watch_shutdown and self.status_watcher.unresponsive:
+            msg = "Server '{}' was unresponsive, quitting anyway"
+            print(msg.format(self.name)) # BUG: log
+            watch_shutdown = False
+
+        if self.options.protocol == 'tcp':
+            self.status_watcher.quit(
+                lambda: self.addr.try_disconnect_tcp(on_complete, on_failure),
+                None, watch_shutdown
+            )
+        else:
+            self.status_watcher.quit(on_complete, on_failure, watch_shutdown)
+
+        if self.in_process:
+            self.quit_in_process()
+            print('internal server has quit') # BUG: log
+        else:
+            print("'/quit' message sent to server '{}'".format(self.name))
+
+        self.server_process.finish()
+        self.pid = None
+        self.send_quit = None
+        self.max_num_clients = None
+
+        # TODO:
+        # if(scopeWindow.notNil) { scopeWindow.quit }
+        # self.volume.free_synth
+        # RootNode(self).free_all()
+        self.new_allocators()
 
     @classmethod
     def quit_all(cls, watch_shutdown=True):

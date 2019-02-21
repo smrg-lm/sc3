@@ -38,12 +38,13 @@ class ServerStatusWatcher():
         self._really_dead_count = 0
         self._boot_notify_first = True
 
-    def quit(self, on_complete, on_failure, watch_shutdown=True):
+    def quit(self, on_complete=None, on_failure=False, watch_shutdown=True):
         if watch_shutdown:
             self.watch_quit(on_complete, on_failure)
         else:
             self.stop_status_watcher()
-            on_complete()
+            if on_complete is not None:
+                on_complete()
         self.stop_alive_thread()
         self.server_running = False # usa @property
         self.has_booted = False
@@ -70,7 +71,7 @@ class ServerStatusWatcher():
     def send_notify_request(self, flag=True):
         self._send_notify_request(flag, False)
 
-    def do_when_booted(self, on_complete, limit=100, on_failure=None):
+    def do_when_booted(self, on_complete=None, limit=100, on_failure=None):
         # m_bnf = self._boot_notify_first # for not yet implemented
         self._boot_notify_first = False
 
@@ -94,10 +95,11 @@ class ServerStatusWatcher():
                 # // make sure the server process finishes all pending
                 # // tasks from Server.tree before running on_complete
                 self.server.sync()
-                on_complete()
+                if on_complete is not None:
+                    on_complete()
         thr.Routine.run(rtn_func, clk.AppClock)
 
-    def watch_quit(self, on_complete, on_failure=None):
+    def watch_quit(self, on_complete=None, on_failure=None):
         server_really_quit = False
 
         if self._status_watcher is not None:
@@ -109,7 +111,8 @@ class ServerStatusWatcher():
                             self._status_watcher.enable()
                         server_really_quit = True
                         really_quit_watcher.free()
-                        on_complete()
+                        if on_complete is not None:
+                            on_complete()
                 really_quit_watcher = rdf.OSCFunc(osc_func, '/done', self.server.addr)
 
                 def sched_func():

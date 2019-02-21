@@ -35,8 +35,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
     # ./lang/LangSource/PyrKernel.h: struct PyrThread : public PyrObjectHdr
 
     State = enum.Enum('State', [
-        'Init', 'Start', 'Ready', 'Running',
-        'Sleeping', 'Suspended', 'Done'
+        'Init', 'Running', 'Suspended', 'Done' # NOTE: tStart, tReady y tSleeping no se usan en ninguna parte
     ])
     _instance = None
 
@@ -70,7 +69,6 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
 
         self.func = func
         self.state = self.State.Init
-
         if _main.Main.current_TimeThread.clock is None:
             self._clock = clk.SystemClock
         else:
@@ -81,8 +79,16 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         # la setea luego en algún lugar, con el cambio de contexto, supongo,
         # y tiene valor solo mientras la rutina está en ejecución. Ver test_clock_thread.scd
         self.parent = None
+
+        self.state = self.State.Init
         self._thread_player = None
+        self._previous_rand_state = None
         self._rand_state = random.getstate()
+
+        # para Routine
+        self._iterator = None # se inicializa luego de la excepción
+        self._last_value = None
+        self._terminal_value = None
 
         # TODO: No vamos a usar entornos como en sclang, a lo sumo se podrían pasar diccionarios
         # self.environment = current_Environment # acá llama al slot currentEnvironment de Object y lo setea al del hilo
@@ -93,6 +99,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
 
     def __copy__(self):
         return self
+
     def __deepcopy__(self, memo):
         return self
 
@@ -100,6 +107,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
     def clock(self): # mainThread clock (SystemClock) no se puede setear y siempre devuelve elapsedTime en seconds
         # Ídem seconds
         return clk.SystemClock
+
     @clock.setter
     def clock(self, value): # definido por compatibilidad, se comporta igual y no hace nada
         pass
@@ -110,6 +118,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         # En Routine se queda con los valores de inicialización en __init__
         # Esta propiedad se sebreescribe y tiene setter
         return _main.Main.elapsed_time()
+
     @seconds.setter
     def seconds(self, value): # definido por compatibilidad, se comporta igual y no hace nada
         pass
@@ -118,6 +127,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
     def beats(self):
         # Ídem seconds.
         return _main.Main.elapsed_time()
+
     @beats.setter
     def beats(self, value): # definido por compatibilidad, se comporta igual y no hace nada
         pass
@@ -135,6 +145,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
                 return self.parent.thread_player()
             else:
                 return self
+
     @thread_player.setter
     def thread_player(self, player): # BUG: se usa en Stream.sc que no está implementada
         self._thread_player = player
@@ -154,12 +165,14 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
             random.seed(seed)
             self._rand_state = random.getstate()
             random.setstate(tmp)
+
     @property
     def rand_state(self):
         if _main.Main.current_TimeThread is self:
             return random.getstate()
         else:
             return self._rand_state
+
     @rand_state.setter
     def rand_state(self, data):
         self._rand_state = data
@@ -181,6 +194,20 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
     # storeOn { arg stream; stream << "nil"; }
     # archiveAsCompileString { ^true }
     # checkCanArchive { "cannot archive Threads".warn }
+
+
+# NOTE: para _RoutineYieldAndReset, ver método de Routine
+class YieldAndReset(Exception):
+    def __init__(self, value=None):
+        super().__init__()
+        self.value = value
+
+
+# NOTE: para _RoutineAlwaysYield, ver método de Routine
+class AlwaysYield(Exception):
+    def __init__(self, terminal_value=None):
+        super().__init__()
+        self.terminal_value = terminal_value
 
 
 class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y TimeThread y mro.
@@ -208,6 +235,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     @property
     def clock(self):
         return self._clock
+
     @clock.setter
     def clock(self, clock):
         self._clock = clock
@@ -225,6 +253,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     @property
     def beats(self):
         return self._beats
+
     @beats.setter
     def beats(self, beats):
         self._beats = beats
@@ -240,12 +269,16 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     def __call__(self, inval=None):
         return self.next(inval)
 
+    # TODO: volver a revisar todo, se puede implementar como generador/iterador?
     # TODO: es _RoutineResume
     def next(self, inval=None):
-        # BUG: ESTO LO VOY A REVISAR Y REHACER LUEGO.
+        # _RoutineAlwaysYield (y Done)
+        if self.state == self.State.Done:
+            return self._terminal_value
+
         # prRoutineResume
         # TODO: setea nowExecutingPath, creo que no lo voy a hacer.
-        previous_rand_state = random.getstate()
+        self._previous_rand_state = random.getstate()
         random.setstate(self._rand_state) # hay que llamarlo ANTES de setear current_TimeThread o usar el atributo privado _rand_state
         self.parent = _main.Main.current_TimeThread
         _main.Main.current_TimeThread = self
@@ -266,30 +299,53 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
             # NOTA: entiendo que esta llamada se ejecuta en el hilo del reloj,
             # no veo que el uso del intérprete tenga un lock. Pero tengo
             # que estar seguro y probar qué pasa con el acceso a los datos.
+            # NOTE: que tenga lock cambia la granularidad de la concurrencia
+            # lo cuál puede ser útil, ver nota en clock.py.
             # TODO: Reproducir test_concurrente.scd cuando implemente TempoClock.
-            return self._iterator.send(inval) # BUG: _iterator.send es solo para iteradores generadores, pero en clock está puesto para que evalúe como función lo que no tenga el método next()
-            self.state = self.State.Suspended
-        except AttributeError as e:
-            # Todo esto es para imitar la funcionalidad/comportamiento de las
-            # corrutinas en sclang. Pero se vuelve poco pitónico, por ejemplo,
-            # no se pueden usar next() y for, e implica un poco más de carga.
-            if len(inspect.trace()) > 1: # TODO: sigue solo si la excepción es del frame actual, este patrón se repite en responsedefs y Clock
-                raise e
-            if len(inspect.signature(self.func).parameters) == 0: # esto funciona porque es solo para la primera llamada, cuando tampoco existe _iterator, luego no importa si la función tenía argumentos.
-                self._iterator = self.func()
+            if self._iterator is None: # NOTE: esto lo paso acá porque next puede tirar yield exceptions
+                if len(inspect.signature(self.func).parameters) == 0: # esto funciona porque es solo para la primera llamada, cuando tampoco existe _iterator, luego no importa si la función tenía argumentos.
+                    self._iterator = self.func()
+                else:
+                    self._iterator = self.func(inval)
+                self._last_value = next(self._iterator) # NOTE: Igual no anda si este next puede tirar YieldException, por eso quité reset=false, después de tirar esa excepción volvía con StopIteration.
             else:
-                self._iterator = self.func(inval)
-            return next(self._iterator)
+                self._last_value = self._iterator.send(inval) # NOTE: _iterator.send es solo para iteradores generadores, pero en clock está puesto para que evalúe como función lo que no tenga el método next()
+            self.state = self.State.Suspended
+        # except AttributeError as e:
+        #     # Todo esto es para imitar la funcionalidad/comportamiento de las
+        #     # corrutinas en sclang. Pero se vuelve poco pitónico, por ejemplo,
+        #     # no se pueden usar next() con for, e implica un poco más de carga.
+        #     if len(inspect.trace()) > 1: # TODO: sigue solo si la excepción es del frame actual, este patrón se repite en responsedefs y Clock
+        #         raise e
+        #     if len(inspect.signature(self.func).parameters) == 0: # esto funciona porque es solo para la primera llamada, cuando tampoco existe _iterator, luego no importa si la función tenía argumentos.
+        #         self._iterator = self.func()
+        #     else:
+        #         self._iterator = self.func(inval)
+        #     self._last_value = next(self._iterator) # BUG: puede volver a tirar YieldAndReset
+        #     self.state = self.State.Suspended
         except StopIteration as e:
+            print('stop iter exception')
             if len(inspect.trace()) > 1:
                 raise e
-            else:
-                self.state = self.State.Done
-                return None # BUG: creo que va a ser necesario retornar None si se pueden anidar las rutinas.
+            self._iterator = None
+            self._terminal_value = None
+            self.state = self.State.Done
+            self._last_value = self._terminal_value
+        except YieldAndReset as e:
+            print('yield and reset exception')
+            self._iterator = None
+            self.state = self.State.Init
+            self._last_value = e.value
+        except AlwaysYield as e:
+            print('always yield exception')
+            self._iterator = None
+            self._terminal_value = e.terminal_value
+            self.state = self.State.Done
+            self._last_value = self._terminal_value
         finally:
             # prRoutineYield # BUG: ver qué pasa con las otras excepciones dentro de send, si afectan este comportamiento
             self._rand_state = random.getstate()
-            random.setstate(previous_rand_state)
+            random.setstate(self._previous_rand_state)
             _main.Main.current_TimeThread = self.parent
             self.parent = None
             # Setea nowExecutingPath, creo que no lo voy a hacer: slotCopy(&g->process->nowExecutingPath, &g->thread->oldExecutingPath);
@@ -297,17 +353,42 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
             #     Switchea rand data, pasado acá ARRIBA
             #     Setea el entorno de este hilo, eso no lo voy a hacer.
 
-    # TODO:
-    # prRoutineAlwaysYield además setea terminalValue y hace switchToThread(g, parent, tDone, &numArgsPushed);
-    # prRoutineReset
-    # prRoutineStop
-    # prRoutineYieldAndReset simplifica cosas que no son necesarias cuando yield va a reset
+        print('return _last_value', self._last_value)
+        return self._last_value # BUG: creo que va a ser necesario retornar None si se pueden anidar las rutinas.
 
-    # reset # _RoutineReset
+    def yield_and_reset(self, value=None): # BUG: no entiendo por qué reset puede ser false y comportarse exactaemnte igual que yield?
+        if self is _main.Main.current_TimeThread:
+            raise YieldAndReset(value)
+        else:
+            raise Exception('yield_and_reset only works if self is main.Main.current_TimeThread')
+
+    def reset(self):
+        if self is _main.Main.current_TimeThread: # Running
+            raise YieldAndReset() # BUG: o tirar otra excpeción? Running es un error en sclang (se llama con yieldAndReset)
+        elif self.state == self.State.Init:
+            return
+        else: #if self.state == self.State.Suspended or self.state == self.State.Done:
+            self._iterator = None # BUG: es el único caso que manejo fuera de las excepciones, es el que mejor anda...
+            self.state = self.State.Init
+
+    def always_yield(self, value=None): # NOTE: no se si es realmente necesario este método, se puede implementar AlwaysYield Exception
+        # solo se puede llamar mediante main.Main.current_TimeThread
+        if self is _main.Main.current_TimeThread:
+            raise AlwaysYield(value)
+        else:
+            raise Exception('always_yield only works if self is main.Main.current_TimeThread')
 
     # // the _RoutineStop primitive can't stop the currently running Routine
     # // but a user should be able to use .stop anywhere
     # stop # prStop ->_RoutineStop con otros detalles
+    def stop(self):
+        if self is _main.Main.current_TimeThread: # Running
+            raise AlwaysYield()
+        elif self.state == self.State.Done:
+            return
+        else:
+            self._terminal_value = None
+            self.state = self.State.Done
 
     # // resume, next, value, run are synonyms
     # next, ver arriba
@@ -322,5 +403,5 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     # storeOn
 
     # // PRIVATE
-    # awake, llama a next(inBeats)
+    # awake, llama a next(inBeats), esta función se llama desde C
     # prStart

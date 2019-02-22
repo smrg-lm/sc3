@@ -957,7 +957,7 @@ class Server(metaclass=MetaServer):
         self.server_process.finish()
         self.pid = None
         self.send_quit = None
-        self.max_num_clients = None
+        self._max_num_clients = None
 
         # TODO:
         # if(scopeWindow.notNil) { scopeWindow.quit }

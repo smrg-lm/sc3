@@ -9,10 +9,15 @@ import supercollie.utils as utl
 import supercollie.netaddr as nad
 from . import main # cíclico
 from . import clock as clk # es cíclico a través de main
+import supercollie.thread as thr
+import supercollie.responsedefs as rdf
 
 
+UDP = _lo.UDP
+TPC = _lo.TCP
+UNIX = _lo.UNIX
 DEFAULT_CLIENT_PORT = 57120
-DEFAULT_CLIENT_PROTOCOL = _lo.UDP
+DEFAULT_CLIENT_PROTOCOL = UDP
 
 
 class OSCServer():
@@ -63,7 +68,7 @@ class OSCServer():
         obj._bundle_timestamp = None
 
         def sched_func():
-            print('OSCServer._recv en AppClock')
+            print('OSCServer._recv enviado a AppClock')
             for func in obj._recv_funcs:
                  func(arr, time, addr, obj.port)
         clk.AppClock.sched(0, sched_func)  # NOTE: Lo envía al thread de AppClock que es seguro.
@@ -132,12 +137,11 @@ class OSCServer():
         self.send_msg('/status')
 
     def sync(self, target, condition=None, bundle=None, latency=0): # BUG: dice array of bundles, los métodos bundle_size y send_bundle solo pueden enviar uno. No me cierra/me confunde en sclang porque usa send bundle agregándole latencia.
-        condition = condition or threading.Condition()
+        condition = condition or thr.Condition()
         if bundle is None:
-            id = self.make_sync_responder(condition)
+            id = self._make_sync_responder(target, condition)
             self.send_bundle(target, latency, ['/sync', id])
-            with condition:
-                condition.wait() # BUG: poner timeout y lanzar una excepción?
+            condition.wait()
         else:
             # BUG: esto no está bien testeado, y acarreo el problema del tamaño exacto de los mensajes.
             sync_size = self.msg_size(['/sync', utl.UniqueID.next()])
@@ -145,30 +149,30 @@ class OSCServer():
             if self.bundle_size(bundle) > max_size:
                 clumped_bundles = self.clump_bundle(bundle, max_size)
                 for item in clumped_bundles:
-                    id = self.make_sync_responder(condition)
+                    id = self._make_sync_responder(target, condition)
                     item.append(['/sync', id])
                     self.send_bundle(target, latency, *item)
                     latency += 1e-9 # nanosecond, TODO: esto lo hace así no sé por qué.
-                    with condition:
-                        condition.wait() # BUG: poner timeout y lanzar una excepción?
+                    condition.wait()
             else:
-                id = self.make_sync_responder(condition)
+                id = self._make_sync_responder(target, condition)
                 bundle = bundle[:]
                 bundle.append(['/sync', id])
                 self.send_bundle(target, latency, *bundle)
-                with condition:
-                    condition.wait() # BUG: poner timeout y lanzar una excepción?
+                condition.wait()
 
-    def make_sync_responder(self, condition): # TODO: funciona en realación al método de arriba.
+    def _make_sync_responder(self, target, condition):
         id = utl.UniqueID.next()
 
-        def responder(*msg):
-            print(' ****** added method argument *msg:', msg)
-            if msg[1][0] == id: # TODO: msg es ('/synced', [1001], 'i', <liblo.Address object at 0x7f56c88b3d80>, None)
-                self._osc_server_thread.del_method('/synced', 'i') # BUG: no dice qué tipo de dato es typespec # BUG: borra la función por path y tipo de dato no por la identidad de la función.
-                with condition:
-                    condition.notify()
-        self._osc_server_thread.add_method('/synced', 'i', responder)
+        def resp_func(msg, *args):
+            if msg[1] == id:
+                resp.free()
+                condition.test = True
+                condition.signal()
+        resp = rdf.OSCFunc(
+            resp_func, '/synced',
+            nad.NetAddr(target[0], target[1])
+        )
         return id
 
     # def send_clumped_bundles(self, time, *args): # TODO: importante, lo usa para enviar paquetes muy grandes como stream, liblo tira error y no envía

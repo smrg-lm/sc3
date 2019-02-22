@@ -22,6 +22,9 @@ import enum
 import inspect
 import random
 
+# BUG: thread es cíclico con si mismo en cadena a través de serverstatus, no
+# creo que tenga solución, hay que importar main y tal vez server antes.
+# Es realmente un problema, no sé por qué es 'mal diseño' según comentarios.
 from . import clock as clk
 from . import main as _main
 import supercollie.stream as stm

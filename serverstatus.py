@@ -105,7 +105,7 @@ class ServerStatusWatcher():
         if self._status_watcher is not None:
             self._status_watcher.disable()
             if self.notified:
-                def osc_func(msg):
+                def osc_func(msg, *args):
                     if msg[1] == '/quit':
                         if self._status_watcher is not None:
                             self._status_watcher.enable()
@@ -193,8 +193,9 @@ class ServerStatusWatcher():
                 #self.has_booted = value # BUG: vuelve a asignar has_booted si running es false, no tiene sentido, es un error.
                 sac.ServerQuit.run(self.server)
                 self.server.disconnect_shared_memory()
-                if self.server.recording(): # BUG: original es is_recording, así es más pitónico
-                    self.server.stop_recording()
+                print('serverstatus.py: implementar server.recording() L196')
+                # if self.server.recording(): # BUG: original es is_recording, así es más pitónico
+                #     self.server.stop_recording()
                 clk.defer(lambda: mdl.NotificationCenter.notify(self.server, 'did_quit')) # BUG: ver comentario en sclang
                 if not self.server.is_local: # BUG: is_local es un atributo en server y un método en NetAddr
                     self.notified = False

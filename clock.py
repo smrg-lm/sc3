@@ -372,6 +372,7 @@ class Scheduler():
         else:
             from_time = self.seconds
         self.queue.put((from_time + delta, item))
+        #self.queue.task_done() # es una anotación por si es útil luego
 
     def sched_abs(self, time, item):
         self.queue.put((time, item))
@@ -423,6 +424,9 @@ class Scheduler():
             for time, item in self._expired:
                 self._seconds = time
                 self._beats = self._clock.secs2beats(time)
+                # import inspect
+                # if isinstance(item, thr.Routine):
+                #     print('******* sched _wakeup item *** ***', inspect.getsource(item.func))
                 self._wakeup(item)
             self._expired.clear()
         self._seconds = value
@@ -450,11 +454,9 @@ class AppClock(Clock): # ?
         while True:
             with self._sched_cond: # es Main._main_lock
                 seconds = type(self).tick() # el primer tick es gratis y retorna None
-                print('tick return seconds:', seconds)
                 if isinstance(seconds, (int, float))\
                 and not isinstance(seconds, bool):
                     seconds = seconds - self._scheduler.seconds # tick retorna abstime (elapsed)
-                    print('tick dalta seconds:', seconds)
                 else:
                     seconds = None
             with self._tick_cond: # la relación es muchas notifican una espera, tal vez no sea Condition el objeto adecuado, VER threading

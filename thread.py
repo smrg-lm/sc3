@@ -353,7 +353,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
             #     Switchea rand data, pasado acá ARRIBA
             #     Setea el entorno de este hilo, eso no lo voy a hacer.
 
-        print('return _last_value', self._last_value)
+        #print('return _last_value', self._last_value)
         return self._last_value # BUG: creo que va a ser necesario retornar None si se pueden anidar las rutinas.
 
     def yield_and_reset(self, value=None): # BUG: no entiendo por qué reset puede ser false y comportarse exactaemnte igual que yield?
@@ -405,3 +405,79 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     # // PRIVATE
     # awake, llama a next(inBeats), esta función se llama desde C
     # prStart
+
+
+### Condition.sc ###
+
+
+# NOTE: hay que usar yield from que delega a en un
+# subgenerador (factoriza el código a otra función),
+# o simplemente hacer return de la función a un yield,
+# pero creo que 'yield from' va a ser más explícito.
+class Condition():
+    def __init__(self, test=False):
+        self._test = test
+        self._waiting_threads = []
+
+    @property
+    def test(self):
+        if callable(self._test):
+            return self._test()
+        else:
+            return self._test
+
+    @test.setter
+    def test(self, value):
+        self._test = value
+
+    def wait(self):
+        if not self.test:
+            self._waiting_threads.append(
+                _main.Main.current_TimeThread.thread_player) # NOTE: problema en realidad, thread_player es callable, si se confunde con un método... no es que me haya pasado.
+            yield 'hang'
+            #return 'hang'
+        else:
+            yield 0 # BUG: sclang retorna self (no hace yield), supongo que 0 es como decir que sigua aunque reprograma
+            #return 0
+
+    def hang(self, value='hang'):
+        # // ignore the test, just wait
+        self._waiting_threads.append(
+            _main.Main.current_TimeThread.thread_player)
+        yield value
+        #return 'hang'
+
+    def signal(self):
+        if self.test:
+            time = _main.Main.current_TimeThread.seconds
+            tmp_wtt = self._waiting_threads
+            self._waiting_threads = []
+            for tt in tmp_wtt:
+                tt.clock.sched(0, tt)
+
+    def unhang(self):
+        # // ignore the test, just resume all waiting threads
+        time = _main.Main.current_TimeThread.seconds
+        tmp_wtt = self._waiting_threads
+        self._waiting_threads = []
+        for tt in tmp_wtt:
+            tt.clock.sched(0, tt)
+
+
+class FlowVar():
+    def __init__(self, compare='unbound'):
+        self._compare = compare
+        self._value = compare
+        self.condition = Condition(lambda: self._value != self._compare) # BUG: 'unbound') creo que es así en vez de como está, no le veo sentido al argumento inicial más que elegir un valor el cuál seguro no se va a asignar.
+
+    @property
+    def value(self):
+        yield from self.condition.wait() # BUG: hace yield a la nada
+        return self._value
+
+    @value.setter
+    def value(self, inval):
+        if self._value != self._compare:
+            raise Exception('cannot rebind a FlowVar')
+        self._value = inval
+        self.condition.signal()

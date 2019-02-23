@@ -20,6 +20,9 @@ import supercollie.systemactions as sac
 import supercollie.serverstatus as sst
 import supercollie.responsedefs as rdf
 import supercollie.thread as thr
+import supercollie.node as nod
+import supercollie.bus as bus
+
 
 # BUG: revisar porque hay un patch que cambió esto y otros que cambiaron un par
 # BUG: de cosas, el problema es que los patch se aplican meses después a master.
@@ -342,10 +345,22 @@ class Server(metaclass=MetaServer):
         # // set name to get readable posts from client_id set
         self._name = name # no usa @property setter
         self.addr = addr # @property setter
+
+        # self.is_local # inicializa con el setter de addr
+        # self.in_process # inicializa con el setter de addr
+        # self.remote_controlled # inicializa con el setter de addr
+        self.send_quit = None # inicializa en boot_init
+
         self.options = options or ServerOptions()
         self.latency = 0.2
         self.dump_mode = 0
-        self.send_quit = None # inicializa en boot_init
+
+        self.node_allocator = None # se inicializa en new_node_allocators
+        self.control_bus_allocator = None # se inicializa en new_bus_allocators
+        self.audio_bus_allocator = None # se inicializa en new_bus_allocators
+        self.buffer_allocator = None # se inicializa en new_buffer_allocators
+        self.scope_buffer_allocator = None # se inicializa en new_scope_buffer_allocators
+
         # // make statusWatcher before clientID, so .serverRunning works
         self.status_watcher = sst.ServerStatusWatcher(server=self)
         # // go thru setter to test validity
@@ -356,24 +371,26 @@ class Server(metaclass=MetaServer):
         #self.recorder.notify_server = True # BUG: falta implementar
 
         self.name = name # ahora si usa @property setter
-        self.__class__.all.add(self)
-
-        self.pid = None # iniicaliza al bootear
-        self._server_interface = None
-        self._pid_release_condition = None # BUG: implementar Condition({ this.pid == nil });
-        self.__class__ # .changed(\serverAdded, self) # BUG: usar mdl.NotificationCenter
+        type(self).all.add(self)
 
         #self._max_num_clients = None # // maxLogins as sent from booted scsynth # la setea en _handle_client_login_info_from_server
         self.tree = lambda *args: None # TODO: ver dónde se inicializa (en la clase no lo hace), se usa en init_tree
+        self.default_group = None # solo tiene getter en la declaración, init en make_default_groups
+        self.default_groups = None # solo tienen getter en la declaración, init en make_default_groups
 
-        self.node_allocator = None # se inicializa en new_node_allocators
-        self.control_bus_allocator = None # se inicializa en new_bus_allocators
-        self.audio_bus_allocator = None # se inicializa en new_bus_allocators
-        self.buffer_allocator = None # se inicializa en new_buffer_allocators
-        self.scope_buffer_allocator = None # se inicializa en new_scope_buffer_allocators
+        # self.sync_thread # solo getter en la declaración
+        # self.sync_task # solo getter en la declaración
+        # var <window, <>scopeWindow, <emacsbuf;
+        # var <volume, <recorder, <statusWatcher;
 
-        # TODO: faltan variables de instancia, siempre revisar que no esté usando
-        # las de clase porque no va a funcionar con metaclass sin llamar a __class__.
+        self.pid = None # iniicaliza al bootear, solo tiene getter en la declaración
+        self._server_interface = None
+        self._pid_release_condition = thr.Condition(lambda: self.pid is None)
+        type(self) # .changed(\serverAdded, self) # BUG: usar mdl.NotificationCenter
+
+        # TODO: siempre revisar que no esté usando las de variables clase
+        # porque no va a funcionar con metaclass sin llamar a __class__.
+        # TODO: ver qué atributos no tienen setter y convertirlos en propiedad.
 
     @property
     def max_num_clients(self):
@@ -408,11 +425,11 @@ class Server(metaclass=MetaServer):
         else:
             type(self).named[value] = self
 
-    # TODO: este método tal vez debería ir abajo de donde se llame por primera vez
+    # TODO: este método tal vez debería ir abajo de donde se llama por primera vez
     def init_tree(self):
         def init_task():
             self.send_default_groups()
-            self.tree(self) # tree es una propiedad de instancia que contiene una función
+            self.tree(self) # tree es un atributo de instancia que contiene una función
             self.sync()
             sac.ServerTree.run(self)
             self.sync()
@@ -667,14 +684,43 @@ class Server(metaclass=MetaServer):
 
     def if_running(self, func, fail_func): # TODO: no se usa, pero como llama a statusWatcher puede ser útil
         pass
+
     def if_not_running(self, func): # TODO: no se usa, pero como llama a statusWatcher puede ser útil
         pass
 
-    def boot_sync(self, condition):
-        pass
+    def boot_sync(self, condition=None):
+        condition = condition or thr.Condition()
+        condition.test = False
+
+        def func():
+            condition.test = True
+            condition.signal()
+
+        self.wait_for_boot(func)
+        condition.wait()
 
     def ping(self, n=1, wait=0.1, func=None):
-        pass
+        if not self.status_watcher.server_running:
+            print('server not running')
+            return
+        result = 0
+
+        def task():
+            t = main.Main.elapsedTime()
+            self.sync()
+            dt = main.Main.elapsedTime() - t
+            print('measured latency: {}s'.format(dt))
+            result = max(result, dt)
+            n -= 1
+            if n > 0:
+                clk.SystemClock.sched(wait, lambda: ping_func())
+            else:
+                msg = 'maximum determined latency of {}: {}s'
+                print(msg.format(self.name, result))
+
+        def ping_func():
+            thr.Routine.run(task, clk.SystemClock) # BUG: en sclang, y aquí lo pezqué, programa el la rutina en TempoClock.default, que puede tener otro tempo.
+        ping_func()
 
     def cached_buffers_do(self, func):
         pass
@@ -684,22 +730,29 @@ class Server(metaclass=MetaServer):
 
     # // keep defaultGroups for all clients on this server:
     def make_default_groups(self):
-        pass # TODO
+        self.default_groups = [nod.Group.basic_new(
+            self, self.node_allocator.num_ids * client_id + 1
+        ) for client_id in range(self.max_num_clients)]
+        self.default_group = self.default_groups[self.client_id]
 
     def default_group_id(self):
-        pass
+        return self.default_group.node_id
 
     def send_default_groups(self):
-        pass
+        for group in self.default_groups:
+            self.send_msg('/g_new', group.node_id, 0, 0)
 
     def send_default_groups_for_client_ids(self, client_ids):
-        pass
+        for i in client_ids:
+            group = self.default_groups[i]
+            self.send_msg('/g_new', group.node_id, 0, 0)
 
     def input_bus(self):
-        pass
+        return bus.Bus('audio', self.options.num_output_bus_channels,
+                        self.options.num_input_bus_channels, self)
 
     def output_bus(self):
-        pass
+        return bus.Bus('audio', 0, self.options.num_output_bus_channels, self)
 
     # L814
     ### recording formats ###
@@ -960,9 +1013,10 @@ class Server(metaclass=MetaServer):
         self._max_num_clients = None
 
         # TODO:
+        print('implementar scope_window y volume')
         # if(scopeWindow.notNil) { scopeWindow.quit }
         # self.volume.free_synth
-        # RootNode(self).free_all()
+        nod.RootNode(self).free_all()
         self.new_allocators()
 
     @classmethod
@@ -974,7 +1028,11 @@ class Server(metaclass=MetaServer):
         pass
 
     def free_all(self): # BUG: VER tiene variante como @classmethod
-        pass
+        self.send_msg('/g_freeAll', 0)
+        self.send_msg('/clearSched')
+        self.init_tree()
+    # @classmethod
+    # def free_all(cls, even_remote=False): pass
 
     def free_my_default_group(self):
         pass

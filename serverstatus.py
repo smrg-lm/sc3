@@ -88,7 +88,8 @@ class ServerStatusWatcher():
                     post_err = on_failure(self.server) is False
                 if post_err:
                     msg = "Server '{}' on failed to start. You may need to kill all servers"
-                    warnings.warn(msg.format(self.server.name))
+                    #warnings.warn(msg.format(self.server.name))
+                    print(msg.format(self.server.name))
                 self.server_booting = False
                 mdl.NotificationCenter.notify(self.server, 'server_running')
             else:
@@ -121,7 +122,8 @@ class ServerStatusWatcher():
                             msg = "Server '{}' remained unresponsive during quit"
                         else:
                             msg = "Server '{}' failed to quit after 3.0 seconds"
-                        warnings.warn(msg.format(self.server.name))
+                        #warnings.warn(msg.format(self.server.name))
+                        print(msg.format(self.server.name))
                         # // don't accumulate quit-watchers if /done doesn't come back
                         really_quit_watcher.free()
                         if self._status_watcher is not None:

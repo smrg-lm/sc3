@@ -69,20 +69,23 @@ class AbstractServerAction(AbstractSystemAction):
                     function(item)
             else:
                 msg = "{} server '{}' not added"
-                warnings.warn(msg.format(cls, server))
+                #warnings.warn(msg.format(cls, server))
+                print(msg.format(cls.__name__, server)) # BUG: log, los warnings son confusos de ver
             if server is srv.Server.default:
                 if 'default' in cls.objects:
                     for item in cls.objects['default'][:]:
                         function(item)
                 else:
                     msg = "{} key 'default' not initialized"
-                    warnings.warn(msg.format(cls))
+                    # warnings.warn(msg.format(cls))
+                    print(msg.format(cls.__name__)) # BUG: log, los warnings son confusos de ver
             if 'all' in cls.objects:
                 for item in cls.objects['all'][:]:
                     function(item)
             else:
                 msg = "{} key 'all' not initialized"
-                warnings.warn(msg.format(cls))
+                # warnings.warn(msg.format(cls))
+                print(msg.format(cls.__name__)) # BUG: log, los warnings son confusos de ver
 
     @classmethod
     def run(cls, server):

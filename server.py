@@ -1013,10 +1013,10 @@ class Server(metaclass=MetaServer):
         self._max_num_clients = None
 
         # TODO:
-        print('implementar scope_window y volume')
+        print('server.py: implementar scope_window (tal vez no) y volume')
         # if(scopeWindow.notNil) { scopeWindow.quit }
         # self.volume.free_synth
-        nod.RootNode(self).free_all()
+        nod.RootNode(self).free_all() # BUG: no entiendo por qué crea una instancia
         self.new_allocators()
 
     @classmethod
@@ -1090,7 +1090,6 @@ class _ServerProcess(object):
         # TEST HACK
         cmd = [Server.program]
         cmd.extend(self.options.as_options_string())
-        print('*** cmd:', cmd)
         # END OF TEST HACK
         self.proc = _subprocess.Popen(
             cmd, # self.options.cmd(), # BUG: ver cómo defino cmd, podría ser una función que lo genere a partir de server options, server y platform.
@@ -1118,19 +1117,18 @@ class _ServerProcess(object):
         self._terminate_proc() # same
 
     def _redirect_outerr(self):
-        def read(out, prefix, flag):
+        def read(out, flag):
             while not flag.is_set():
                 line = out.readline()
                 if line:
-                    print(prefix, line, end='')
-            print('*** {} redirect fin ***'.format(prefix)) # debug
+                    print(line, end='')
 
-        def make_thread(out, prefix, flag):
-            thr = _threading.Thread(target=read, args=(out, prefix, flag))
+        def make_thread(out, flag):
+            thr = _threading.Thread(target=read, args=(out, flag))
             thr.daemon = True
             thr.start()
             return thr
 
         self._tflag = _threading.Event()
-        self._tout = make_thread(self.proc.stdout, 'SCOUT:', self._tflag)
-        self._terr = make_thread(self.proc.stdout, 'SCERR:', self._tflag)
+        self._tout = make_thread(self.proc.stdout, self._tflag) # 'SCOUT:'
+        self._terr = make_thread(self.proc.stdout, self._tflag) # 'SCERR:'

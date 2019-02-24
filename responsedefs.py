@@ -47,7 +47,6 @@ class AbstractResponderFunc(ABC):
         self.free()
 
     def one_shot(self):
-        print('**** llama a one_shot')
         wrapped_func = self._func
 
         def one_shot_func(*args):

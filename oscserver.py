@@ -64,11 +64,9 @@ class OSCServer():
         addr = nad.NetAddr(msg[3].hostname, msg[3].port)
         arr = [msg[0]]
         arr.extend(msg[1])
-        print('OSCServer._recv:', arr, time, addr, obj.port)
         obj._bundle_timestamp = None
 
         def sched_func():
-            print('OSCServer._recv enviado a AppClock')
             for func in obj._recv_funcs:
                  func(arr, time, addr, obj.port)
         clk.AppClock.sched(0, sched_func)  # NOTE: Lo envía al thread de AppClock que es seguro.

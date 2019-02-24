@@ -356,7 +356,8 @@ class ParGroup(AbstractGroup):
 class RootNode(Group):
     roots = dict()
 
-    def __init__(cls, server):
+    def __init__(self, server=None):
+        cls = type(self)
         server = server or srv.Server.default
         if server.name in cls.roots:
             return cls.roots[server.name]
@@ -384,7 +385,7 @@ class RootNode(Group):
     @classmethod
     def free_all(cls):
         for rn in cls.roots.values():
-            rn.free_all()
+            super(cls, rn).free_all() # NOTE: esto es un tanto complicado, llama al método de instancia definido en la superclass
 
 
 class Synth(Node):

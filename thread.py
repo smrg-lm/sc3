@@ -310,7 +310,10 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
                     self._iterator = self.func()
                 else:
                     self._iterator = self.func(inval)
-                self._last_value = next(self._iterator) # NOTE: Igual no anda si este next puede tirar YieldException, por eso quité reset=false, después de tirar esa excepción volvía con StopIteration.
+                if inspect.isgenerator(self._iterator):
+                    self._last_value = next(self._iterator) # NOTE: Igual no anda si este next puede tirar YieldException, por eso quité reset=false, después de tirar esa excepción volvía con StopIteration.
+                else:
+                    raise StopIteration() # NOTE: puede que func sea una función común, esto ignora el valor de retorno que tiene que ser siempre None
             else:
                 self._last_value = self._iterator.send(inval) # NOTE: _iterator.send es solo para iteradores generadores, pero en clock está puesto para que evalúe como función lo que no tenga el método next()
             self.state = self.State.Suspended

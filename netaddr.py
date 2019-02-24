@@ -155,7 +155,7 @@ class NetAddr():
     # def send_clumped_bundles(self, time, *args): # TODO: pasada a client, ver que hace liblo.
 
     def sync(self, condition=None, bundle=None, latency=0):
-        main.Main.osc_server.sync(self._target, condition, bundle, latency)
+        yield from main.Main.osc_server.sync(self._target, condition, bundle, latency)
 
     # def make_sync_responder(self, condition): # TODO: funciona en realción al método de arriba.
 

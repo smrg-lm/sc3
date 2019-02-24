@@ -67,7 +67,9 @@ class AbstractResponderFunc(ABC):
             sac.CmdPeriod.add(self)
 
     def free(self):
-        type(self)._all_func_proxies.remove(self)
+        cls = type(self)
+        if self in cls._all_func_proxies: # NOTE: check agregado para poder llamar a free repetidamente sin que tire KeyError, la otra es comprobar que el responder exista en _all_func_proxies, no sé cuál sería mejor, esta es consistente con que se puede agregar varias veces el mismo sin duplicar (por set)
+            cls._all_func_proxies.remove(self)
         if self.enabled: # BUG en sclang, esta comprobación faltaba para que no llame duplicado las funciones de disable
             self.disable()
 
@@ -328,7 +330,7 @@ class OSCFunc(AbstractResponderFunc):
         self._func = func
         self.dispatcher = dispatcher or type(self).default_dispatcher
         self.enable()
-        type(self)._all_func_proxies.add(self)
+        #type(self)._all_func_proxies.add(self) # BUG: enable() hace esta llamada ya
 
     @classmethod
     def matching(cls, func, path, src_id=None,
@@ -360,7 +362,7 @@ class OSCFunc(AbstractResponderFunc):
 
     def __repr__(self):
         string = '{}({}, {}, {}, {})'
-        return string.format(type(self).__name__, self.path, self.src_id,
+        return string.format(type(self).__name__, self._func.__name__, self.path, self.src_id, # BUG: agregado self._func.__name__ to test
                              self.recv_port, self.arg_template)
 
 

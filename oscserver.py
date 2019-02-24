@@ -139,7 +139,7 @@ class OSCServer():
         if bundle is None:
             id = self._make_sync_responder(target, condition)
             self.send_bundle(target, latency, ['/sync', id])
-            condition.wait()
+            yield from condition.wait()
         else:
             # BUG: esto no está bien testeado, y acarreo el problema del tamaño exacto de los mensajes.
             sync_size = self.msg_size(['/sync', utl.UniqueID.next()])
@@ -151,13 +151,13 @@ class OSCServer():
                     item.append(['/sync', id])
                     self.send_bundle(target, latency, *item)
                     latency += 1e-9 # nanosecond, TODO: esto lo hace así no sé por qué.
-                    condition.wait()
+                    yield from condition.wait()
             else:
                 id = self._make_sync_responder(target, condition)
                 bundle = bundle[:]
                 bundle.append(['/sync', id])
                 self.send_bundle(target, latency, *bundle)
-                condition.wait()
+                yield from condition.wait()
 
     def _make_sync_responder(self, target, condition):
         id = utl.UniqueID.next()

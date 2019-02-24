@@ -107,6 +107,7 @@ class ServerStatusWatcher():
             self._status_watcher.disable()
             if self.notified:
                 def osc_func(msg, *args):
+                    nonlocal server_really_quit
                     if msg[1] == '/quit':
                         if self._status_watcher is not None:
                             self._status_watcher.enable()
@@ -229,8 +230,13 @@ class ServerStatusWatcher():
         # // this needs to be forked so that ServerBoot and ServerTree
         # // will definitely run before notified is true.
         def rtn_func():
+            import time
+            print('*** llama a sac.ServerBoot.run(self.server)', time.time())
             sac.ServerBoot.run(self.server)
-            self.server.sync()
+            print('*** vuelve de sac.ServerBoot.run(self.server)', time.time())
+            print('*** llama a yield from yield from self.server.sync()', time.time())
+            yield from self.server.sync()
+            print('*** vuelve de yield from yield from self.server.sync()', time.time())
             self.server.init_tree()
             self.notified = True
             mdl.NotificationCenter.notify(self.server, 'server_running')

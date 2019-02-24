@@ -629,7 +629,7 @@ class Server(metaclass=MetaServer):
             condition.wait()
 
     def sync(self, condition=None, bundles=None, latency=0): # BUG: dice bundles, tengo que ver el nivel de anidamiento
-        self.addr.sync(condition, bundles, latency)
+        yield from self.addr.sync(condition, bundles, latency)
 
     def sched_sync(self, func): # este método no se usa en la libreríá de clases
         raise Exception('implementar Server sched_sync con @routine') # BUG

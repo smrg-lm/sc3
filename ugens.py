@@ -18,6 +18,7 @@ import supercollie.functions as fn
 import supercollie._global as _gl
 import supercollie.utils as ut
 import supercollie._specialindex as si
+from . import node as nod
 
 
 class UGen(fn.AbstractFunction):
@@ -870,16 +871,16 @@ class Sum4(UGen):
 # y no acá.
 
 
-print('*** redefino Buffer, Bus, Dunique, Event y None para test en ugens.py')
+print('*** redefino Buffer, Bus, Dunique, Event, Env y Rest para test en ugens.py')
 class Buffer(): pass  # TODO DEFINICIONES SOLO PARA TEST!
 class Bus(): pass     # TODO VER CÓMO HACER PARA NO IMPORTAR TODO LO INNECESARIO
 class Dunique(): pass #
 class Event(): pass   #
-class Node(): pass    #
+class Env(): pass     #
+class Rest(): pass    #
 
 
 # madd
-
 
 @singledispatch
 def madd(obj, mul=1.0, add=0.0):
@@ -901,7 +902,6 @@ def _(obj, mul=1.0, add=0.0):
 
 
 # is_valid_ugen_input
-
 
 @singledispatch
 def is_valid_ugen_input(obj):
@@ -926,7 +926,6 @@ def _(obj):
 
 # as_ugen_input
 
-
 @singledispatch #Este método es implementado por varias clases y extensiones. Cada clase prepara los datos para que sea una entrada válida.
 def as_ugen_input(obj, *ugen_cls): # ugen_cls (*** VER ABAJO ***) es opt_arg, solo AbstractFunction y Array lo usan, Array porque itera sobre. Si la llamada recibe una tupla estrella vacía '*()' no pasa nada. EL PROBLEMA ES QUE SCLANG IGNORA LOS PARÁMETROS SI LA FUNCIÓN NO RECIBE ARGUMENTOS Y LA TUPLA PUEDE NO ESTAR VACÍA.
     return obj
@@ -942,8 +941,8 @@ def _(obj, *ugen_cls):
     return obj
 
 
-@as_ugen_input.register(tuple) # las tuplas se convierten en listas, no sé si podría ser al revés.
 @as_ugen_input.register(list)
+@as_ugen_input.register(tuple) # las tuplas se convierten en listas, no sé si podría ser al revés.
 def _(obj, *ugen_cls):
     return list(map(lambda x: as_ugen_input(x, *ugen_cls), obj)) # de Array: ^this.collect(_.asUGenInput(for))
 
@@ -968,7 +967,7 @@ def _(obj, *ugen_cls): # sc Event, VER
     return as_control_input(obj) # es otro método de interfaz
 
 
-@as_ugen_input.register(Node) # TODO: prefijo
+@as_ugen_input.register(nod.Node)
 def _(obj, *ugen_cls): # sc Node
     raise NotImplementedError('Should not use a Node inside a SynthDef') # dice esto pero implmente as_control_input
 
@@ -981,7 +980,6 @@ def _(obj, *ugen_cls): # sc Node
 
 # as_control_input
 
-
 @singledispatch
 def as_control_input(obj):
     return obj
@@ -989,29 +987,88 @@ def as_control_input(obj):
 
 @as_control_input.register(UGen)
 def _(obj):
-    '''Otro método de interfaz para otras clases, muchas. Los
-    valores válidos son los aceptados por las ugens, que tengo
-    que ver cuales son, por lo pronto números y arrays.
-    '''# TODO
-    raise TypeError("Can't set a control to an UGen.")
+    raise TypeError("UGen can't be set as control input")
 
 
-# num_channels
+@as_control_input.register(fn.AbstractFunction) # BUG: todo lo que vale para abstract function vale para callable, creo
+def _(obj):
+    return obj() # as_control_input(obj()) # BUG: en sclang? no se debería convertir el valor de retorno de la función y no lo hace en sclang
 
+
+@as_control_input.register(list)
+@as_control_input.register(tuple)
+def _(obj):
+    return [as_control_input(x) for x in obj]
+
+
+@as_control_input.register(Buffer)
+def _(obj):
+    return obj.bufnum
+
+
+@as_control_input.register(Bus)
+def _(obj):
+    return obj.index
+
+
+@as_control_input.register(Env)
+def _(obj):
+    # if (array.isNil) { array = this.prAsArray }
+    # ^array.unbubble // keep backward compatibility
+    # TODO: hay que implementar la funcionalidad de asArray acá o en la clase (puede ser con otro nombre)
+    raise Exception('implementar Env as_control_input')
+
+
+@as_control_input.register(Event)
+def _(obj):
+    # ^this[ EventTypesWithCleanup.ugenInputTypes[this[\type] ] ] ;
+    raise Exception('implementar as_control_input para Event')
+
+
+@as_control_input.register(nod.Node)
+def _(obj):
+    return obj.node_id
+
+
+# @as_control_input.register(Ref)
+@as_control_input.register(Rest)
+def _(obj):
+    return as_control_input(obj.value)
+
+
+# as_audio_rate_input
 
 @singledispatch
-def num_channels(obj):
-    '''Idem anteriores.'''# TODO
+def as_audio_rate_input(obj):
+    if as_ugen_rate(obj) != 'audio':
+        return xxx.K2A.kr(obj)
     return obj
 
 
-@num_channels.register(UGen)
+@as_audio_rate_input.register(float)
+@as_audio_rate_input.register(int)
 def _(obj):
-    return 1
+    if obj == 0:
+        return xxx.Silent.ar()
+    else:
+        return xxx.DC.ar()
+
+
+@as_audio_rate_input.register(fn.AbstractFunction) # BUG: todo lo que vale para abstract function vale para callable, creo
+def _(obj, *args):
+    res = obj(*args)
+    if as_ugen_rate(res) != 'audio':
+        return xxx.K2A.ar(res)
+    return res
+
+
+@as_audio_rate_input.register(list)
+@as_audio_rate_input.register(tuple)
+def _(obj, *ugen_cls):
+    return list(map(lambda x: as_audio_rate_input(x, *ugen_cls), obj)) # de Array: ^this.collect(_.asAudioRateInput(for))
 
 
 # as_ugen_rate
-
 
 # Agregado por la propiedad rate de las UGens que está implementada a nivel
 # de la librería de clases. Nil retorna nil, SimpleNumber devuelve 'scalar'.
@@ -1071,6 +1128,10 @@ def _(obj):
 # def _(obj):
 #     return
 
+
+# BUG: array implementa num_channels?
+
+
 # TODO: Object L684, performBinaryOpOnUGen, hay OnSomething (este delega acá), OnSimpleNumber, OnSignal, OnComplex y OnSeqColl. Actúan como double dispatch, nota en Complex.sc
 # TODO: SimpleNumber es la clase que se encarga de llamar a las primitivas e implementa performBinaryOpOnSimpleNumber como: BinaryOpFailureError(this, aSelector, [aNumber, adverb]).throw;
 # TODO: y es el método que llama luego de las primitivas y el error posterior a la llamada de bajo nivel a cada método binario, por ejemplo: clip2(): { _Clip2; ^aNumber.performBinaryOpOnSimpleNumber('clip2', this, adverb) }
@@ -1109,7 +1170,6 @@ def _(input, selector, thing):
 
 
 # write_input_spec
-
 
 @singledispatch
 def write_input_spec(obj, file, synthdef):

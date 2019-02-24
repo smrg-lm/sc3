@@ -2,11 +2,12 @@
 
 import threading as _threading
 import warnings as _warnings
+from functools import singledispatch
 
-import supercollie.utils as ut
-import supercollie.ugens as ug
-import supercollie.server as sv
-import supercollie.synthdesc as ds
+import supercollie.utils as utl
+from . import ugens as ugn
+from . import server as srv # es cíclico con sí mismo a través de node
+import supercollie.synthdesc as dsc
 
 # Node:asTarget se implementa para Integer, Nil, y Server
 # como extensión en el archivo Common/Control/asTarget.sc
@@ -32,7 +33,7 @@ class Node():
     @classmethod
     def basic_new(cls, server=None, node_id=None):
         obj = cls.__new__(cls)
-        obj.server = server or sv.Server.default
+        obj.server = server or srv.Server.default
         obj.node_id = node_id or obj.server.next_node_id()
         obj.group = None
         obj.is_playing = False
@@ -70,17 +71,17 @@ class Node():
         kr_values = []
         ar_values = []
         result = []
-        for control, bus in ut.gen_cclumps(args, 2):
+        for control, bus in utl.gen_cclumps(args, 2):
             bus = xxx.as_bus(bus) # BUG usa asBus que se implementa en Bus, Integer, Nil y Server.
             if bus.rate == 'control':
                 kr_values.extend([
-                    ug.as_control_input(control), # BUG: ug.as_control_input no está implementada, es como as_ugen_input
+                    ugn.as_control_input(control), # BUG: ugn.as_control_input no está implementada, es como as_ugen_input
                     bus.index,
                     bus.num_channels
                 ])
             elif bus.rate == 'audio':
                 ar_values.extend([
-                    ug.as_control_input(control), # BUG: ídem, además no entiendo porque tiene que ser un símbolo, de los contrario el mensaje no sería válido si un bus devuelve un entero por ejemplo?
+                    ugn.as_control_input(control), # BUG: ídem, además no entiendo porque tiene que ser un símbolo, de los contrario el mensaje no sería válido si un bus devuelve un entero por ejemplo?
                     bus.index,
                     bus.num_channels
                 ])
@@ -90,19 +91,19 @@ class Node():
         if len(ar_values) > 0:
             result.append(['/n_mapan', self.node_id] + ar_values)
         if len(result) < 2:
-            result = ut.flatten(result)
+            result = utl.flatten(result)
         return result
 
     def mapn(self, *args):
         self.server.send_msg(
             '/n_mapn', # 48
             self.node_id,
-            *ug.as_control_input(args)
+            *ugn.as_control_input(args)
         )
 
     def mapn_msg(self, *args):
         return ['/n_mapn', self.node_id]\
-            + ug.as_control_input(list(args)) # 48
+            + ugn.as_control_input(list(args)) # 48
 
     def set(self, *args):
         self.server.send_msg(
@@ -121,8 +122,8 @@ class Node():
     @classmethod
     def setn_msg_args(cls, *args):
         nargs = []
-        args = ug.as_control_input(list(args)) # BUG: args es tupla, tengo que ver porque no están implementadas estas funciones.
-        for control, more_vals in ut.gen_cclumps(args, 2):
+        args = ugn.as_control_input(list(args)) # BUG: args es tupla, tengo que ver porque no están implementadas estas funciones.
+        for control, more_vals in utl.gen_cclumps(args, 2):
             if isinstance(more_vals, list): # BUG: ídem acá arriba, more_vals TIENE QUE SER LISTA
                 nargs.extend([control, len(more_vals)] + more_vals)
             else:
@@ -136,12 +137,12 @@ class Node():
         self.server.send_msg(
             '/n_fill', self.node_id, # 17
             cname, num_controls, value,
-            *ug.as_control_input(list(args))
+            *ugn.as_control_input(list(args))
         )
 
     def fill_msg(self, cname, num_controls, value, *args):
         return ['n_fill', self.node_id, cname, num_controls, value]\
-            + ug.as_control_input(list(args)) # 17
+            + ugn.as_control_input(list(args)) # 17
 
     def release(self, release_time=None):
         self.server.send_msg(*self.release_msg(release_time))
@@ -214,7 +215,7 @@ class Node():
 
     def order_nodes_msg(self, nodes):
         msg = ['/n_before'] # 18 # BUG: en sclang, 18 es '/n_before', el comentario está mal. Revisar todos los números.
-        for first, to_move_after in ut.pairwise(nodes):
+        for first, to_move_after in utl.pairwise(nodes):
             msg.append(to_move_after.node_id)
             msg.append(first.node_id)
         return msg
@@ -230,8 +231,8 @@ class Node():
 # // common base for Group and ParGroup classes
 class AbstractGroup(Node):
     # /** immediately sends **/
-    def __new__(cls, target, add_action='addToHead'):
-        target = xxx.as_target(target)
+    def __new__(cls, target=None, add_action='addToHead'):
+        target = as_target(target)
         server = target.server
         group = cls.basic_new(server)
         add_action_id = cls.add_actions[add_action]
@@ -247,7 +248,7 @@ class AbstractGroup(Node):
 
     def new_msg(self, target=None, add_action='addToHead'):
         # // if target is nil set to default group of server specified when basicNew was called
-        target = xxx.as_target(target) # BUG: acá es un caso de asTarget sobre Nil
+        target = as_target(target) # BUG: acá es un caso de asTarget sobre Nil
         add_action_id = self.add_actions[add_action]
         if add_action_id < 2:
             self.group = target
@@ -356,7 +357,7 @@ class RootNode(Group):
     roots = dict()
 
     def __new__(cls, server):
-        server = server or sv.Server.default
+        server = server or srv.Server.default
         if server.name in cls.roots:
             return cls.roots[server.name]
         else:
@@ -389,7 +390,7 @@ class RootNode(Group):
 class Synth(Node):
     # /** immediately sends **/
     def __new__(cls, def_name, args=[], target=None, add_action='addToHead'):
-        target = xxx.as_target(target)
+        target = as_target(target)
         server = target.server
         add_action_id = cls.add_actions[add_action]
         synth = cls.basic_new(def_name, server)
@@ -414,7 +415,7 @@ class Synth(Node):
 
     @classmethod
     def new_paused(cls, def_name, args=[], target=None, add_action='addToHead'):
-        target = xxx.as_target(target)
+        target = as_target(target)
         server = target.server
         add_action_id = cls.add_actions[add_action]
         synth = cls.basic_new(def_name, server)
@@ -456,7 +457,7 @@ class Synth(Node):
     # node_id -1
     @classmethod # TODO: este tal vez debería ir arriba
     def grain(cls, def_name, args=[], target=None, add_action='addToHead'):
-        target = xxx.as_target(target)
+        target = as_target(target)
         server = target.server
         server.send_msg(
             '/s_new', # 9
@@ -467,7 +468,7 @@ class Synth(Node):
 
     def new_msg(self, target=None, args=[], add_action='addToHead'):
         add_action_id = self.add_actions[add_action]
-        target = xxx.as_target(target)
+        target = as_target(target)
         if add_action_id < 2:
             self.group = target
         else:
@@ -539,12 +540,12 @@ class Synth(Node):
 
     def seti(self, *args): # // args are [key, index, value, key, index, value ...]
         osc_msg = []
-        synth_desc = ds.SynthDescLib.at(self.def_name)
+        synth_desc = dsc.SynthDescLib.at(self.def_name)
         if synth_desc is None:
             msg = 'message seti failed, because SynthDef {} was not added'
             _warnings.warn(msg.format(self.def_name))
             return
-        for key, offset, value in ut.gen_cclumps(args, 3):
+        for key, offset, value in utl.gen_cclumps(args, 3):
             if key in synth_desc.control_dict:
                 cname = synth_desc.control_dict[key]
                 if offset < cname.num_channels:
@@ -560,3 +561,138 @@ class Synth(Node):
 
     # TODO, VER
     #printOn
+
+
+### asTarget.sc ###
+
+
+# as_target
+
+@singledispatch
+def as_target(obj):
+    msg = "invalid value for Node target: '{}'"
+    raise TypeError(msg.format(type(obj).__name__))
+
+
+@as_target.register(int)
+def _(obj):
+    return Group.basic_new(srv.Server.default, obj)
+
+
+@as_target.register(None)
+def _(obj):
+    return srv.Server.default.default_group
+
+
+@as_target.register(srv.Server)
+def _(obj):
+    return obj.default_group
+
+
+@as_target.register(Node)
+def _(obj):
+    return obj
+
+
+# # NOTE: se usa solo para clases de JITlib
+# ### as_node_id ###
+#
+# @singledispatch
+# def as_node_id(obj):
+#     msg = "invalid value for Node node id: '{}'"
+#     raise TypeError(msg.format(type(obj).__name__))
+#
+#
+# @as_node_id.register(int)
+# @as_node_id.register(None)
+# def _(obj):
+#     return obj
+#
+#
+# @as_node_id.register(srv.Server)
+# def _(obj):
+#     return 0
+#
+#
+# @as_node_id.register(Node)
+# def _(obj):
+#     return obj.node_id
+
+
+### extConvertToOSC.sc ###
+
+# // The following interface in an optimized version of asControlInput that
+# // flattens arrayed values and marks the outermost array of a value with $[ and $]
+# // These Chars are turning into typetags ([ and ]) in the OSC message to mark that array
+# // Inner arrays are flattened (they are not meaningful in the server context)
+# // This makes it possible to write Synth("test", [0, [[100,200,300], [0.1,0.2,0.3], [10,20,30]] ])
+# // and have all the arguments be assigned to consecutive controls in the synth.
+
+
+# as_osc_arg_list
+
+@singledispatch
+def as_osc_arg_list(obj): # NOTE: incluye Env, ver @as_control_input.register(Env), tengo que ver la clase Ref que es una AbstractFunction
+    return ugn.as_control_input(obj)
+
+
+@as_osc_arg_list.register(str)
+@as_osc_arg_list.register(None)
+def _(obj):
+    return obj
+
+
+@as_osc_arg_list.register(tuple)
+@as_osc_arg_list.register(list)
+def _(obj):
+    arr = []
+    for e in obj:
+        arr.append(as_osc_arg_embedded_list(e, arr))
+    return arr
+
+
+# as_osc_arg_embedded_list
+
+@singledispatch
+def as_osc_arg_embedded_list(obj, arr): # NOTE: incluye None, tengo que ver la clase Ref que es una AbstractFunction
+    arr.append(as_control_input(obj))
+    return arr
+
+
+@as_osc_arg_embedded_list.register(Env)
+def _(obj, arr):
+    env_arr = ugn.as_control_input(obj)
+    return as_osc_arg_embedded_list(env_arr, arr)
+
+
+@as_osc_arg_embedded_list.register(str)
+def _(obj, arr):
+    arr.append(obj)
+    return arr
+
+
+@as_osc_arg_embedded_list.register(tuple)
+@as_osc_arg_embedded_list.register(list)
+def _(obj, arr):
+    arr.append('[')
+    for e in obj:
+        arr.append(as_osc_arg_embedded_list(e, arr))
+    arr.append(']')
+    return arr
+
+
+# as_osc_arg_bundle
+
+@singledispatch
+def as_osc_arg_bundle(obj): # NOTE: incluye None y Env, tengo que ver la clase Ref que es una AbstractFunction
+    return ugn.as_control_input(obj)
+
+
+@as_osc_arg_bundle.register(str)
+@as_osc_arg_bundle.register(tuple)
+@as_osc_arg_bundle.register(list)
+def _(obj):
+    arr = []
+    for e in obj:
+        arr.append(as_osc_arg_list(e))
+    return arr

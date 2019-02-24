@@ -231,7 +231,7 @@ class Node():
 # // common base for Group and ParGroup classes
 class AbstractGroup(Node):
     # /** immediately sends **/
-    def __new__(cls, target=None, add_action='addToHead'):
+    def __init__(cls, target=None, add_action='addToHead'):
         target = as_target(target)
         server = target.server
         group = cls.basic_new(server)
@@ -356,7 +356,7 @@ class ParGroup(AbstractGroup):
 class RootNode(Group):
     roots = dict()
 
-    def __new__(cls, server):
+    def __init__(cls, server):
         server = server or srv.Server.default
         if server.name in cls.roots:
             return cls.roots[server.name]
@@ -389,7 +389,7 @@ class RootNode(Group):
 
 class Synth(Node):
     # /** immediately sends **/
-    def __new__(cls, def_name, args=[], target=None, add_action='addToHead'):
+    def __init__(cls, def_name, args=[], target=None, add_action='addToHead'):
         target = as_target(target)
         server = target.server
         add_action_id = cls.add_actions[add_action]
@@ -579,12 +579,16 @@ def _(obj):
     return Group.basic_new(srv.Server.default, obj)
 
 
-@as_target.register(None)
+@as_target.register(type(None))
 def _(obj):
     return srv.Server.default.default_group
 
 
-@as_target.register(srv.Server)
+class Server():
+    print('+ fordward declaration of Server in node.py')
+
+
+@as_target.register(Server)
 def _(obj):
     return obj.default_group
 
@@ -604,7 +608,7 @@ def _(obj):
 #
 #
 # @as_node_id.register(int)
-# @as_node_id.register(None)
+# @as_node_id.register(type(None))
 # def _(obj):
 #     return obj
 #
@@ -637,7 +641,7 @@ def as_osc_arg_list(obj): # NOTE: incluye Env, ver @as_control_input.register(En
 
 
 @as_osc_arg_list.register(str)
-@as_osc_arg_list.register(None)
+@as_osc_arg_list.register(type(None))
 def _(obj):
     return obj
 
@@ -657,6 +661,10 @@ def _(obj):
 def as_osc_arg_embedded_list(obj, arr): # NOTE: incluye None, tengo que ver la clase Ref que es una AbstractFunction
     arr.append(as_control_input(obj))
     return arr
+
+
+class Env():
+    print('+ fordward declaration of Env in node.py')
 
 
 @as_osc_arg_embedded_list.register(Env)

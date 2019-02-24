@@ -5,7 +5,7 @@ automático, podría ser que ya haya alguna librería así.
 """
 
 
-imports = {
+imp_data = {
     '_global': [],
     '_specialindex': [],
     'builtins': ['functions'],
@@ -29,12 +29,12 @@ imports = {
     'synthdesc': ['_global', 'inout', 'utils', 'ugens', 'server', 'systemactions', 'synthdef'],
     'systemactions': [],
     'thread': ['clock', 'main', 'stream'],
-    'ugens': ['functions', '_global', 'utils'],
+    'ugens': ['functions', '_global', 'utils'], #, 'node'], # BUG: no puede importar node, ver ugens
     'utils': []
 }
 
 
-def show_path(module, imports, print_rec=True):
+def show_path(module, imports=imp_data, print_rec=True):
     print(module + ':', imports[module])
     def _(module, imports, prevmodules, path, level):
         dashes = '|   ' * level
@@ -63,7 +63,7 @@ def show_path(module, imports, print_rec=True):
     _(module, imports, set([module]), [module], 1)
 
 
-def show_cyclic(imports):
+def show_cyclic(imports=imp_data):
     registered = set()
     for mod in imports:
         for submod in imports[mod]:

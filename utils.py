@@ -10,6 +10,7 @@ import itertools as _itertools
 # decorador
 class initclass():
     def __new__(_, cls):
+        print('+ initclass for {} in {}'.format(cls.__name__, cls.__module__))
         cls.__init_class__(cls) # TODO: solo para métodos comunes, ver test_init_class.py
         return cls
 

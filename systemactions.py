@@ -21,8 +21,9 @@ class AbstractSystemAction(ABC):
 
     @classmethod
     def remove(cls, obj):
-        if obj in cls.objects:
-            cls.objects.remove(obj)
+        if cls.objects is not None:
+            if obj in cls.objects:
+                cls.objects.remove(obj)
 
     @classmethod
     def remove_all(cls):

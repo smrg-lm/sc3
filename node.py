@@ -109,12 +109,12 @@ class Node():
         self.server.send_msg(
             '/n_set', # 15
             self.node_id,
-            xxx.as_osc_arg_list(list(args)) # BUG: asOSCArgArray no está implementada, viene desde object
+            *as_osc_arg_list(list(args))
         )
 
     def set_msg(self, *args):
         return ['/n_set', self.node_id]\
-            + xxx.as_osc_arg_list(list(args)) # 15
+            + as_osc_arg_list(list(args)) # 15
 
     def setn(self, *args):
         self.server.send_msg(*self.setn_msg(*args))
@@ -231,25 +231,30 @@ class Node():
 # // common base for Group and ParGroup classes
 class AbstractGroup(Node):
     # /** immediately sends **/
-    def __init__(cls, target=None, add_action='addToHead'):
+    def __init__(self, target=None, add_action='addToHead'):
         target = as_target(target)
-        server = target.server
-        group = cls.basic_new(server)
-        add_action_id = cls.add_actions[add_action]
+        # BUG: revisar, estoy reemplazando la llamada a basic_new, que estaba mal...
+        # BUG: basic_new lo único que hace se setear self -> server, node_id, group is_playing e is_running
+        #server = target.server
+        #group = cls.basic_new(server) # group es self, obj allá es self acá
+        self.server = target.server
+        self.node_id = self.server.next_node_id()
+        add_action_id = type(self).add_actions[add_action]
         if add_action_id < 2:
-            group.group = target
+            self.group = target
         else:
-            group.group = target.group
-        group.server.send_msg(
-            cls.creation_cmd(), group.node_id,
+            self.group = target.group
+        self.is_playing = False # BUG: me resulta raro, esto es así en basic_new, acá no sobreescribe, en rootnode setea a true
+        self.is_running = False # BUG: me resulta raro, esto es así en basic_new, acá no sobreescribe, en rootnode setea a true
+        self.server.send_msg(
+            self.creation_cmd(), self.node_id,
             add_action_id, target.node_id
         )
-        return group
 
     def new_msg(self, target=None, add_action='addToHead'):
         # // if target is nil set to default group of server specified when basicNew was called
         target = as_target(target) # BUG: acá es un caso de asTarget sobre Nil
-        add_action_id = self.add_actions[add_action]
+        add_action_id = type(self).add_actions[add_action]
         if add_action_id < 2:
             self.group = target
         else:
@@ -283,15 +288,19 @@ class AbstractGroup(Node):
     @classmethod
     def after(cls, node):
         return cls(node, 'addAfter')
+
     @classmethod
     def before(cls, node):
         return cls(node, 'addBefore')
+
     @classmethod
     def head(cls, group):
         return cls(group, 'addToHead')
+
     @classmethod
     def tail(cls, group):
         return cls(group, 'addToTail')
+
     @classmethod
     def replace(cls, node_to_replace):
         return cls(node_to_replace, 'addReplace')
@@ -344,41 +353,46 @@ class AbstractGroup(Node):
 class Group(AbstractGroup):
     @staticmethod
     def creation_cmd():
-        return 21 # '/g_new'
+        return '/g_new' # 21
 
 
 class ParGroup(AbstractGroup):
     @staticmethod
     def creation_cmd():
-        return 63 # '/p_new'
+        return '/p_new' # 63
 
 
 class RootNode(Group):
     roots = dict()
 
     def __init__(self, server=None):
-        cls = type(self)
-        server = server or srv.Server.default
-        if server.name in cls.roots:
-            return cls.roots[server.name]
+        if server.name in type(self).roots:
+            type(self).roots[server.name]
         else:
-            return cls.basic_new(server, 0).rninit() # BUG: no entiendo por qué sclang llama con super, creo que es lo mismo, en Python es lo mismo
-
-    def rninit(self):
-        self.roots[self.server.name] = self
-        self.is_playing = self.is_running = True
-        self.group = self
+            # BUG: revisar, solo estoy reemplazando la llamada a basic_new, e integrando rinit
+            #cls.basic_new(server, 0).rninit() # BUG: no entiendo por qué sclang llama con super, creo que es lo mismo, en Python es lo mismo
+            self.server = server or srv.Server.default
+            self.node_id = self.server.next_node_id()
+            self.group = self
+            self.is_playing = True # NOTE: a diferencia de los grupos comunes acá playling/running es true
+            self.is_running = True
+            type(self).roots[self.server.name] = self
 
     def run(self):
         _warnings.warn('run has no effect on RootNode')
+
     def free(self):
         _warnings.warn('free has no effect on RootNode')
+
     def move_before(self):
         _warnings.warn('moveBefore has no effect on RootNode')
+
     def move_after(self):
         _warnings.warn('move_after has no effect on RootNode')
+
     def move_to_head(self):
         _warnings.warn('move_to_head has no effect on RootNode')
+
     def move_to_tail(self):
         _warnings.warn('move_to_tail has no effect on RootNode')
 
@@ -390,26 +404,31 @@ class RootNode(Group):
 
 class Synth(Node):
     # /** immediately sends **/
-    def __init__(cls, def_name, args=[], target=None, add_action='addToHead'):
+    def __init__(self, def_name, args=[], target=None, add_action='addToHead'):
         target = as_target(target)
-        server = target.server
-        add_action_id = cls.add_actions[add_action]
-        synth = cls.basic_new(def_name, server)
+        # BUG: revisar, estoy reemplazando la llamada a basic_new (que acá reimplementa además)
+        # server = target.server
+        # synth = cls.basic_new(def_name, server) # synth es self
+        self.server = target.server
+        self.node_id = self.server.next_node_id()
+        add_action_id = type(self).add_actions[add_action]
         if add_action_id < 2:
-            synth.group = target
+            self.group = target
         else:
-            synth.group = target.group
-        synth.server.send_msg(
+            self.group = target.group
+        self.is_playing = False # BUG: me resulta raro, esto es así en basic_new, acá no sobreescribe, en rootnode setea a true
+        self.is_running = False # BUG: me resulta raro, esto es así en basic_new, acá no sobreescribe, en rootnode setea a true
+        self.def_name = def_name
+        self.server.send_msg(
             '/s_new', # 9
-            synth.def_name, synth.node_id,
+            self.def_name, self.node_id,
             add_action_id, target.node_id,
-            *xxx.as_osc_arg_list(args)
+            *as_osc_arg_list(args)
         )
-        return synth
 
     # // does not send (used for bundling)
     @classmethod
-    def basic_new(cls, def_name, server, node_id):
+    def basic_new(cls, def_name, server=None, node_id=None):
         obj = super().basic_new(server, node_id)
         obj.def_name = def_name
         return obj
@@ -430,7 +449,7 @@ class Synth(Node):
                 '/s_new', # 9
                 synth.def_name, synth.node_id,
                 add_action_id, target.node_id,
-                *xxx.as_osc_arg_list(args)
+                *as_osc_arg_list(args)
             ],
             [
                 '/n_run', # 12
@@ -451,7 +470,7 @@ class Synth(Node):
             '/s_new', # 9
             synth.def_name, synth.node_id,
             4, node_to_replace.node_id, # 4 -> 'addReplace'
-            *xxx.as_osc_arg_list(args)
+            *as_osc_arg_list(args)
         )
         return synth
 
@@ -464,7 +483,7 @@ class Synth(Node):
             '/s_new', # 9
             def_name.as_def_name(), -1, # BUG: as_def_name no está implementado puede ser método de Object
             cls.add_actions[add_action], target.node_id,
-            *xxx.as_osc_arg_list(args)
+            *as_osc_arg_list(args)
         )
 
     def new_msg(self, target=None, args=[], add_action='addToHead'):
@@ -475,7 +494,7 @@ class Synth(Node):
         else:
             self.group = target.group
         return ['/s_new', self.def_name, self.node_id, add_action_id,
-                target.node_id, *xxx.as_osc_arg_list(args)] # 9
+                target.node_id, *as_osc_arg_list(args)] # 9
 
     @classmethod
     def after(cls, node, def_name, args=[]):
@@ -501,7 +520,7 @@ class Synth(Node):
         else:
             self.group = self.server.default_group
         return ['/s_new', self.def_name, self.node_id, 0,
-                self.group.node_id, *xxx.as_osc_arg_list(args)] # 9
+                self.group.node_id, *as_osc_arg_list(args)] # 9
 
     def add_to_tail_msg(self, group, args):
         # // if aGroup is nil set to default group of server specified when basicNew was called
@@ -510,22 +529,22 @@ class Synth(Node):
         else:
             self.group = self.server.default_group
         return ['/s_new', self.def_name, self.node_id, 1,
-                self.group.node_id, *xxx.as_osc_arg_list(args)] # 9
+                self.group.node_id, *as_osc_arg_list(args)] # 9
 
     def add_after_msg(self, node, args=[]):
         self.group = node.group
         return ['/s_new', self.def_name, self.node_id, 3,
-                node.node_id, *xxx.as_osc_arg_list(args)] # 9
+                node.node_id, *as_osc_arg_list(args)] # 9
 
     def add_before_msg(self, node, args=[]):
         self.group = node.group
         return ['/s_new', self.def_name, self.node_id, 2,
-                node.node_id, *xxx.as_osc_arg_list(args)] # 9
+                node.node_id, *as_osc_arg_list(args)] # 9
 
     def add_replace_msg(self, node_to_replace, args):
         self.group = node_to_replace.group
         return ['/s_new', self.def_name, self.node_id, 4,
-                node_to_replace.node_id, *xxx.as_osc_arg_list(args)] # 9
+                node_to_replace.node_id, *as_osc_arg_list(args)] # 9
 
     def get(self, index, action):
         raise Exception('implementar Synth:get con OSCFunc') # BUG
@@ -557,7 +576,7 @@ class Synth(Node):
                         osc_msg.append(value)
         self.server.send_msg(
             '/n_set', self.node_id,
-            *xxx.as_osc_arg_list(osc_msg)
+            *as_osc_arg_list(osc_msg)
         )
 
     # TODO, VER
@@ -652,7 +671,8 @@ def _(obj):
 def _(obj):
     arr = []
     for e in obj:
-        arr.append(as_osc_arg_embedded_list(e, arr))
+        #arr.append(as_osc_arg_embedded_list(e, arr)) # NOTE: estaba mal, pero ver por qué crea elipsis!
+        as_osc_arg_embedded_list(e, arr)
     return arr
 
 
@@ -660,7 +680,7 @@ def _(obj):
 
 @singledispatch
 def as_osc_arg_embedded_list(obj, arr): # NOTE: incluye None, tengo que ver la clase Ref que es una AbstractFunction
-    arr.append(as_control_input(obj))
+    arr.append(ugn.as_control_input(obj))
     return arr
 
 
@@ -685,7 +705,8 @@ def _(obj, arr):
 def _(obj, arr):
     arr.append('[')
     for e in obj:
-        arr.append(as_osc_arg_embedded_list(e, arr))
+        #arr.append(as_osc_arg_embedded_list(e, arr)) # NOTE: estaba mal, pero ver por qué crea elipsis!
+        as_osc_arg_embedded_list(e, arr)
     arr.append(']')
     return arr
 

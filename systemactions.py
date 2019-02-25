@@ -21,9 +21,8 @@ class AbstractSystemAction(ABC):
 
     @classmethod
     def remove(cls, obj):
-        # BUG: sclang no tira error si el elemento no está, ver si es necesario el comportamiento, y ver todos los métodos similares
-        #if obj in cls.objects:
-        cls.objects.remove(obj)
+        if obj in cls.objects:
+            cls.objects.remove(obj)
 
     @classmethod
     def remove_all(cls):
@@ -62,41 +61,6 @@ class AbstractServerAction(AbstractSystemAction):
         cls.objects = dict()
 
     @classmethod
-    def perform_function(cls, server, function): # server es str o srv.Server
-        if cls.objects is not None:
-            if server in cls.objects:
-                for item in cls.objects[server][:]:
-                    function(item)
-            else:
-                msg = "{} server '{}' not added"
-                #warnings.warn(msg.format(cls, server))
-                print(msg.format(cls.__name__, server)) # BUG: log, los warnings son confusos de ver
-            if server is srv.Server.default:
-                if 'default' in cls.objects:
-                    for item in cls.objects['default'][:]:
-                        function(item)
-                else:
-                    msg = "{} key 'default' not initialized"
-                    # warnings.warn(msg.format(cls))
-                    print(msg.format(cls.__name__)) # BUG: log, los warnings son confusos de ver
-            if 'all' in cls.objects:
-                for item in cls.objects['all'][:]:
-                    function(item)
-            else:
-                msg = "{} key 'all' not initialized"
-                # warnings.warn(msg.format(cls))
-                print(msg.format(cls.__name__)) # BUG: log, los warnings son confusos de ver
-
-    @classmethod
-    def run(cls, server):
-        selector = cls.function_selector()
-        cls.perform_function(server, lambda obj: getattr(obj, selector, obj)(server)) # NOTE: o es un objeto que responde a los selectores do_on_server_* o es una función/callable
-
-    @abstractclassmethod
-    def function_selector(cls):
-        pass
-
-    @classmethod
     def add(cls, obj, server=None):
         server = server or 'all'
         cls.objects or cls.init()
@@ -123,6 +87,29 @@ class AbstractServerAction(AbstractSystemAction):
     def remove_server(cls, server):
         if server in cls.objects:
             del cls.objects[server]
+
+    @classmethod
+    def run(cls, server):
+        selector = cls.function_selector()
+        cls.perform_function(server, lambda obj: getattr(obj, selector, obj)(server)) # NOTE: o es un objeto que responde a los selectores do_on_server_* o es una función/callable
+
+    @classmethod
+    def perform_function(cls, server, function): # server es str o srv.Server)
+        if cls.objects is not None:
+            if server in cls.objects:
+                for item in cls.objects[server][:]:
+                    function(item)
+            if server is srv.Server.default:
+                if 'default' in cls.objects:
+                    for item in cls.objects['default'][:]:
+                        function(item)
+            if 'all' in cls.objects:
+                for item in cls.objects['all'][:]:
+                    function(item)
+
+    @abstractclassmethod
+    def function_selector(cls):
+        pass
 
 
 # // things to do after server has booted

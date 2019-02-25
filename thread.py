@@ -330,7 +330,6 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
         #     self._last_value = next(self._iterator) # BUG: puede volver a tirar YieldAndReset
         #     self.state = self.State.Suspended
         except StopIteration as e:
-            print('stop iter exception')
             if len(inspect.trace()) > 1:
                 raise e
             self._iterator = None
@@ -338,12 +337,10 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
             self.state = self.State.Done
             self._last_value = self._terminal_value
         except YieldAndReset as e:
-            print('yield and reset exception')
             self._iterator = None
             self.state = self.State.Init
             self._last_value = e.value
         except AlwaysYield as e:
-            print('always yield exception')
             self._iterator = None
             self._terminal_value = e.terminal_value
             self.state = self.State.Done

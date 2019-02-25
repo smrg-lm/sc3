@@ -230,13 +230,8 @@ class ServerStatusWatcher():
         # // this needs to be forked so that ServerBoot and ServerTree
         # // will definitely run before notified is true.
         def rtn_func():
-            import time
-            print('*** llama a sac.ServerBoot.run(self.server)', time.time())
             sac.ServerBoot.run(self.server)
-            print('*** vuelve de sac.ServerBoot.run(self.server)', time.time())
-            print('*** llama a yield from yield from self.server.sync()', time.time())
             yield from self.server.sync()
-            print('*** vuelve de yield from yield from self.server.sync()', time.time())
             self.server.init_tree()
             self.notified = True
             mdl.NotificationCenter.notify(self.server, 'server_running')

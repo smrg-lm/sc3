@@ -597,7 +597,7 @@ class Server(metaclass=MetaServer):
             e_msg += "To recover, please reboot the server"
             raise Exception(e_msg.format(self.name, msg)) # BUG: el formato de msg y la nueva línea de e_msg
 
-    # L571
+    # L634
     # /* network messages */
 
     def send_msg(self, *args):
@@ -651,7 +651,12 @@ class Server(metaclass=MetaServer):
     #     pass
 
     def reorder(self, node_list, target, add_action='addToHead'): # BUG: ver los comandos en notación camello, creo que el servidor los usa así, no se puede cambiar.
-        raise Exception('implementar Server reorder con asTarget, ver el 62') # BUG
+        target = nod.as_target(target)
+        node_list = [x.node_id for x in node_list]
+        self.send(
+            '/n_order', nod.Node.action_number_for(add_action), # 62
+            target.node_id, *node_list
+        )
 
     # // load from disk locally, send remote
     def send_synthdef(self, name, dir=None):
@@ -677,11 +682,11 @@ class Server(metaclass=MetaServer):
     def load_directory(self, dir, completion_msg=None): # BUG: completion_msg
         self.send_msg('/d_loadDir', dir) # BUG: completion_msg
 
-    # L659
+    # L722
     ### network message bundling ###
     # TODO
 
-    # L698
+    # L761
     ### scheduling ###
 
     def wait(self, response_name=None):
@@ -765,11 +770,11 @@ class Server(metaclass=MetaServer):
     def output_bus(self):
         return bus.Bus('audio', 0, self.options.num_output_bus_channels, self)
 
-    # L814
+    # L877
     ### recording formats ###
     # TODO
 
-    # L825
+    # L888
     ### server status ###
 
     @property
@@ -854,7 +859,7 @@ class Server(metaclass=MetaServer):
     def resume_threads(cls):
         pass
 
-    # L868
+    # L931
     def boot(self, start_alive=True, recover=False, on_failure=None):
         if self.status_watcher.unresponsive:
             print("server '{}' unresponsive, rebooting...".format(self.name)) # BUG: log
@@ -1063,19 +1068,19 @@ class Server(metaclass=MetaServer):
     def all_running_servers(cls):
         return [x for x in cls.all if x.server_running]
 
-    # L1118
+    # L1181
     ### volume control ###
     # TODO
 
-    # L1132
+    # L1195
     ### recording output ###
     # TODO
 
-    # L1140
+    # L1203
     ### internal server commands ###
     # TODO
 
-    # L1169
+    # L1232
     # /* CmdPeriod support for Server-scope and Server-record and Server-volume */
     # TODO
 

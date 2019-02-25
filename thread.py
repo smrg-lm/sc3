@@ -440,7 +440,7 @@ class Condition():
             yield 'hang'
             #return 'hang'
         else:
-            yield 0 # BUG: sclang retorna self (no hace yield), supongo que 0 es como decir que sigua aunque reprograma
+            yield 0 # BUG: sclang retorna self (no hace yield), supongo que 0 es como decir que sigua aunque reprograma, pero funciona, ver sync
             #return 0
 
     def hang(self, value='hang'):

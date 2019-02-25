@@ -378,8 +378,8 @@ class Server(metaclass=MetaServer):
         self.default_group = None # solo tiene getter en la declaración, init en make_default_groups
         self.default_groups = None # solo tienen getter en la declaración, init en make_default_groups
 
-        # self.sync_thread # solo getter en la declaración
-        # self.sync_task # solo getter en la declaración
+        self.sync_thread = None # solo getter en la declaración # se usa en sched_sync
+        self.sync_tasks = [] # solo getter en la declaración # se usa en sched_sync
         # var <window, <>scopeWindow, <emacsbuf;
         # var <volume, <recorder, <statusWatcher;
 
@@ -631,8 +631,19 @@ class Server(metaclass=MetaServer):
     def sync(self, condition=None, bundles=None, latency=0): # BUG: dice bundles, tengo que ver el nivel de anidamiento
         yield from self.addr.sync(condition, bundles, latency)
 
-    def sched_sync(self, func): # este método no se usa en la libreríá de clases
-        raise Exception('implementar Server sched_sync con @routine') # BUG
+    # Este método no se usa en la libreríá de clases
+    # y no especifica cómo debería usarse la condición interna.
+    # BUG: El problema es que le crea dos atributos a Server.
+    # TODO: Probablemente se pueda borrar, ver.
+    def sched_sync(self, func):
+        self.sync_tasks.append(func) # NOTE: las func tienen que ser generadores que hagna yield form cond.wait()?
+        if self.sync_thread is None:
+            def sync_thread_rtn():
+                cond = thr.Condition()
+                while len(self.sync_tasks) > 0:
+                    yield from self.sync_tasks.pop(0)(cond) # BUG: no se si esto funcione así como así, sin más, por cond. Si el control vuelve a sync_thread_rtn nunc ase ejecuta el código en espera.
+                self.sync_thread = None
+            self.sync_thread = thr.Routine.run(sync_thread_rtn, clk.AppClock) # BUG:s en sclang usa TempoClock, ver arriba, acá deberíá pasar todos los AppClock a SystemClock (el reloj por defecto orginialmente de las rutinas).
 
     # def list_send_msg(self, msg): # TODO: creo que es un método de conveniencia que genera confusión sobre la interfaz, acá msg es una lista no más.
     #     pass

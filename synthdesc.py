@@ -402,7 +402,7 @@ class SynthDesc():
 
 
 @ut.initclass
-class SynthDescLib(dp.Dependancy):
+class SynthDescLib(dp.Dependancy): # BUG: REEMPLAZAR DEPENDANCY POR NOTIFYCENTER
     def __init_class__(cls): # TODO: es para no poner código fuera de la definición, es equivalente a scalng
         cls.all = dict()
         cls.default = cls('global') # BUG era global en vez de default, pero el método default retornaba global. Es default, no global, el mismo patrón que server y client.

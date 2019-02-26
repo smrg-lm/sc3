@@ -446,7 +446,7 @@ class Server(metaclass=MetaServer):
     @client_id.setter
     def client_id(self, value):
         msg = "Server {} couldn't set client_id to {} - {}. clientID is still {}"
-        if self.server_running:
+        if self.status_watcher.server_running:
             _warnings.warn(msg.format(self.name, value,
                                       'server is running', self.client_id))
             return # BUG: los setters de la propiedades retornan el valor? qué pasa cuando falla un setter?
@@ -598,7 +598,7 @@ class Server(metaclass=MetaServer):
             raise Exception(e_msg.format(self.name, msg)) # BUG: el formato de msg y la nueva línea de e_msg
 
     # L634
-    # /* network messages */
+    ### network messages ###
 
     def send_msg(self, *args):
         self.addr.send_msg(*args)
@@ -610,7 +610,7 @@ class Server(metaclass=MetaServer):
     #    self.addr.send_raw(raw_bytes)
 
     def send_msg_sync(self, condition, *args): # este método no se usa en la libreríá de clases
-        condition = condition or _threading.Condition()
+        condition = condition or thr.Condition()
         cmd_name = str(args[0]) # BUG: TODO: el método reorder de abajo envía con send_msg y el número de mensaje como int, VER que hace sclang a bajo nivel, pero puede que esta conversión esté puesta para convertir símbolos a strings en sclang?
         if cmd_name[0] != '/':
             cmd_name = '/' + cmd_name # BUG: ver reorder abajo, ver por qué agrega la barra acá y no en otras partes.
@@ -620,13 +620,12 @@ class Server(metaclass=MetaServer):
         def resp_func(*msg): # TODO: agregar decorador luego
             if str(msg[1]) == cmd_name:
                 resp.free()
-                with condition:
-                    condition.notify() # TODO: es un lock único, tal vez debería usar otro más básico
+                condition.test = True
+                condition.signal()
 
         resp = rdf.OSCFunc(resp_func, '/done', self.addr) # BUG: aún faltan implementar la clase OSCFuncAddrMessageMatcher que llama internamente el dispatcher
         self.send_bundle(0, args)
-        with condition:
-            condition.wait()
+        yield from condition.wait()
 
     def sync(self, condition=None, bundles=None, latency=0): # BUG: dice bundles, tengo que ver el nivel de anidamiento
         yield from self.addr.sync(condition, bundles, latency)
@@ -689,20 +688,44 @@ class Server(metaclass=MetaServer):
     # L761
     ### scheduling ###
 
-    def wait(self, response_name=None):
-        pass
+    def wait(self, response_name): # BUG: la implementación en sclang parece un bug, pero tendríá que ver cómo responde _RoutineResume y cómo se hace el reschedule.
+        cond = thr.Condition()
+
+        def resp_func():
+            cond.test = True
+            cond.signal()
+
+        rdf.OSCFunc(resp_func, response_name, self.addr).one_shot()
+        yield from cond.wait()
 
     def wait_for_boot(self, on_complete, limit=100, on_failure=None):
-        pass
+        # // onFailure.true: why is this necessary?
+        # // this.boot also calls doWhenBooted.
+        # // doWhenBooted prints the normal boot failure message.
+        # // if the server fails to boot, the failure error gets posted TWICE.
+        # // So, we suppress one of them.
+        if not self.status_watcher.server_running:
+            self.boot(on_failure=True) # BUG: ver true y por qué no nil, es la razón de todo el comentario
+        self.do_when_booted(on_complete, limit, on_failure)
 
     def do_when_booted(self, on_complete, limit=100, on_failure=None):
         self.status_watcher.do_when_booted(on_complete, limit, on_failure)
 
-    def if_running(self, func, fail_func): # TODO: no se usa, pero como llama a statusWatcher puede ser útil
-        pass
+    def if_running(self, func, fail_func=lambda s: None): # TODO: no se usa, pero como llama a statusWatcher puede ser útil
+        if self.status_watcher.unresponsive:
+            print("server '{}' not responsive".fromat(self.name)) # BUG: log
+            fail_func(self)
+        elif self.status_watcher.server_running:
+            func(self)
+        else:
+            print("server '{}' no running".fromat(self.name)) # BUG: log
+            fail_func(self)
+        # NOTE: no retorna nada a diferencia de sclang, se podría comprobar el
+        # valor de retorno en vez de postear, esta función no está documentada.
 
     def if_not_running(self, func): # TODO: no se usa, pero como llama a statusWatcher puede ser útil
-        pass
+        self.if_running(lambda s: None, func) # NOTE: para el caso if_running deberíá postear 'server tal funning' en caso de error
+        # NOTE: Ídem.
 
     def boot_sync(self, condition=None):
         condition = condition or thr.Condition()
@@ -713,7 +736,7 @@ class Server(metaclass=MetaServer):
             condition.signal()
 
         self.wait_for_boot(func)
-        condition.wait()
+        yield from condition.wait()
 
     def ping(self, n=1, wait=0.1, func=None):
         if not self.status_watcher.server_running:
@@ -739,10 +762,10 @@ class Server(metaclass=MetaServer):
         ping_func()
 
     def cached_buffers_do(self, func):
-        pass
+        xxx.Buffer.cached_buffers_do(self, func)
 
-    def cached_buffers_at(self, bufnum):
-        pass
+    def cached_buffer_at(self, bufnum):
+        return xxx.Buffer.cached_buffer_at(self, bufnum)
 
     # // keep defaultGroups for all clients on this server:
     def make_default_groups(self):
@@ -857,7 +880,8 @@ class Server(metaclass=MetaServer):
 
     @classmethod
     def resume_threads(cls):
-        pass
+        for server in cls.all:
+            server.status_watcher.resume_thread()
 
     # L931
     def boot(self, start_alive=True, recover=False, on_failure=None):
@@ -943,8 +967,8 @@ class Server(metaclass=MetaServer):
             lambda: self.pid_release_condition.unhang() if waiting else None # BUG: la condición no está definida
         )
         def task():
-            self.pid_release_condition.hang() # BUG: la condición no está definida
-            if self.pid_release_condition.test(): # BUG: la condición no está definida
+            self.pid_release_condition.hang() # BUG: revisar
+            if self.pid_release_condition.test(): # BUG: revisar
                 waiting = False
                 on_complete()
             else:
@@ -952,6 +976,7 @@ class Server(metaclass=MetaServer):
         thr.Routine.run(task, clk.AppClock)
 
     def boot_server_app(self, on_complete):
+        print('* boot_server_app: falta implementar todo lo relacionado con popen y options')
         if self.in_process:
             print('booting internal server')
             self.boot_in_process() # BUG: no está implementado
@@ -971,35 +996,54 @@ class Server(metaclass=MetaServer):
             else:
                 on_complete()
 
-    def _on_server_process_exit(self, exit_code):
+    def _on_server_process_exit(self, exit_code): # BUG: este método sería distinto porque process es distinto acá, se usaba en boot_server_app
         pass
 
-    def reboot(self, func, on_failure):
-        pass
+    def reboot(self, func=None, on_failure=None): # // func is evaluated when server is off
+        if not self.is_local:
+            print("can't reboot a remote server") # BUG: log
+            return
+        if self.server_status.server_running\
+        and not self.status_watcher.unresponsive:
+            def _():
+                if func is not None:
+                    func()
+                clk.defer(lambda: self.boot()) # NOTE: usa AppClock en sclang
+            self.quit(_, on_failure)
+        else:
+            if func is not None:
+                func()
+            self.boot(on_failure=on_failure)
 
-    def application_running(self):
-        pass
+    def application_running(self): # TODO: este método se relaciona con server_running que es propiedad, ver
+        return self.server_process.proc.poll() is None
 
     def status(self):
-        pass
+        self.addr.send_status_msg() # // backward compatibility
 
-    def send_status_msg(self):
+    def send_status_msg(self): # BUG: este método tal vez no vaya? o el de arriba?
         self.addr.send_status_msg()
 
     @property
     def notify(self):
-        pass
+        return self.status_watcher.notify
 
     @notify.setter
     def notify(self, value):
-        pass
+        self.status_watcher.notify = value
 
     @property
     def notified(self):
         return self.status_watcher.notified
 
     def dump_osc(self, code=1):
-        pass
+        # 0 - turn dumping OFF.
+        # 1 - print the parsed contents of the message.
+        # 2 - print the contents in hexadecimal.
+        # 3 - print both the parsed and hexadecimal representations of the contents.
+        self.dump_mode = code
+        self.send_msg('/dumpOSC', code)
+        mdl.NotificationCenter.notify(self, 'dumpOSC', code)
 
     def quit(self, on_complete=None, on_failure=None, watch_shutdown=True):
         self.addr.send_msg('/quit')
@@ -1037,28 +1081,44 @@ class Server(metaclass=MetaServer):
 
     @classmethod
     def quit_all(cls, watch_shutdown=True):
-        pass
+        for server in cls.all:
+            if server.send_quit is True:
+                server.quit(watch_shutdown=watch_shutdown)
 
     @classmethod
     def kill_all(cls):
-        pass
+        # // if you see Exception in World_OpenUDP: unable to bind udp socket
+        # // its because you have multiple servers running, left
+        # // over from crashes, unexpected quits etc.
+        # // you can't cause them to quit via OSC (the boot button)
+        # // this brutally kills them all off
+        # thisProcess.platform.killAll(this.program.basename);
+        # this.quitAll(watchShutDown: false);
+        print('* implementar Server.kill platform.kill_all') # BUG: implementar
 
     def free_all(self): # BUG: VER tiene variante como @classmethod
         self.send_msg('/g_freeAll', 0)
         self.send_msg('/clearSched')
         self.init_tree()
     # @classmethod
-    # def free_all(cls, even_remote=False): pass
+    # def free_all(cls, even_remote=False): pass # BUG: IMPLEMENTAR NO SÉ CÓMO, hace lo mismo que hard_free_all, llama al método de instancia en cada server.
 
     def free_my_default_group(self):
-        pass
+        self.send_msg('g_freeAll', self.default_group.node_id)
 
     def free_default_groups(self):
-        pass
+        for group in self.default_groups:
+            self.send_msg('g_freeAll', group.node_id)
 
     @classmethod
     def hard_free_all(cls, even_remote=False):
-        pass
+        if even_remote:
+            for server in cls.all:
+                server.free_all()
+        else:
+            for server in cls.all:
+                if server.is_local:
+                    server.free_all()
 
     @classmethod
     def all_booted_servers(cls):

@@ -758,7 +758,7 @@ class Server(metaclass=MetaServer):
                 print(msg.format(self.name, result))
 
         def ping_func():
-            thr.Routine.run(task, clk.SystemClock) # BUG: en sclang, y aquí lo pezqué, programa el la rutina en TempoClock.default, que puede tener otro tempo.
+            thr.Routine.run(task, clk.SystemClock) # NOTE: Routine.run usa SystemClock por defecto (con un checkeo puesto demás en sclang, y acá, porque es lo que pasa a bajo nivel)
         ping_func()
 
     def cached_buffers_do(self, func):

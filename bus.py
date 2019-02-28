@@ -2,6 +2,7 @@
 
 import supercollie.server as srv
 import supercollie.utils as utl
+import supercollie.responsedefs as rdf
 
 
 class Bus():
@@ -71,7 +72,7 @@ class Bus():
 
     def setn(self, values):
         if self.index is None:
-            msg = "cannot call 'set' on a Bus that has been freed"
+            msg = "cannot call 'setn' on a Bus that has been freed"
             raise Exception(msg)
         elif self.settable():
             self.server.send_bundle(0, ['/c_setn', len(values)].extend(values))
@@ -79,15 +80,99 @@ class Bus():
 
     def setn_msg(self, values):
         if self.index is None:
-            msg = "cannot call 'set' on a Bus that has been freed"
+            msg = "cannot call 'setn' on a Bus that has been freed"
             raise Exception(msg)
         elif self.settable():
             return ['/c_setn', len(values)].extend(values)
         raise Exception('cannot set an audio rate bus')
 
-    # TODO: sigue...
+    def set_at(self, offset, *values):
+        if self.index is None:
+            msg = 'cannot call set_at on a Bus that has been freed'
+            raise Exception(msg)
+        elif self.settable():
+            values = [[self.index + offset + i, val] for i, val in enumerate(values)]
+            self.server.send_bundle(0, ['/c_set'].extend(utl.flat(values)))
+        print('cannot set an audio rate bus') # BUG: log, warnings
 
+    def setn_at(self, offset, values):
+        if self.index is None:
+            msg = 'cannot call setn_at on a Bus that has been freed'
+            raise Exception(msg)
+        # // could throw an error if values.size > numChannels
+        elif self.settable():
+            self.server.send_bundle(0,
+                ['/c_setn', self.index + offset, len(values)].extend(values)
+        print('cannot set an audio rate bus') # BUG: log, warnings
 
+    def set_pairs(self, *pairs):
+        if self.index in None:
+            msg = 'cannot call set_pairs on a Bus that has been freed'
+            raise Exception(msg)
+        elif self.settable():
+            pairs = [[self.index + pair[0], pair[1]] for pair in utl.gen_cclumps(pairs, 2)]
+            self.server.send_bundle(0, ['/c_set'].extend(utl.flat(paris)))
 
+    def get(self, action=None):
+        if self.index in None:
+            msg = 'cannot call get on a Bus that has been freed'
+            raise Exception(msg)
+        elif self.num_channels == 1:
+            if action is None
+                def func(vals):
+                    msg = 'Bus {} index: {} value: {}'
+                    print(msg.format(self.rate, self.index, vals))
+                action = func
 
-#
+            def osc_func(msg, *args):
+                # // The response is of the form [/c_set, index, value].
+                action(msg[2])
+
+            rdf.OSCFunc(
+                osc_func, '/c_set', self.server.addr,
+                arg_template=[self.index]
+            ).one_shot()
+            self.server.list_send_msg(['/c_set', self.index]) # BUG: este método no lo implementé
+        else:
+            self.getn(self.num_channels, action)
+
+    def get_msg(self):
+        pass
+
+    def getn(self, count, action):
+        pass
+
+    def getn_msg(self, count):
+        pass
+
+    def get_synchronous(self):
+        pass
+
+    def getn_synchronous(self, count):
+        pass
+
+    def set_synchronous(self, *values):
+        pass
+
+    def setn_synchronous(self, values):
+        pass
+
+    def fill(self, value, num_chans):
+        pass
+
+    def fill_msg(self, value):
+        pass
+
+    def free(self, clear=False):
+        pass
+
+    # // allow reallocation
+
+    def alloc(self):
+        pass
+
+    def realloc(self):
+        pass
+
+    # // alternate syntaxes
+    # TODO: hay métodos que son importantes, VER.

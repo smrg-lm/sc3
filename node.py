@@ -499,12 +499,15 @@ class Synth(Node):
     @classmethod
     def after(cls, node, def_name, args=[]):
         return cls(def_name, args, node, 'addAfter')
+
     @classmethod
     def before(cls, node, def_name, args=[]):
         return cls(def_name, args, node, 'addBefore')
+
     @classmethod
     def head(cls, group, def_name, args=[]):
         return cls(def_name, args, group, 'addToHead')
+
     @classmethod
     def tail(cls, group, def_name, args=[]):
         return cls(def_name, args, group, 'addToTail')

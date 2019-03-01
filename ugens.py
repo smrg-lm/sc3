@@ -18,6 +18,7 @@ import supercollie.functions as fn
 import supercollie._global as _gl
 import supercollie.utils as ut
 import supercollie._specialindex as si
+import supercollie.bus as bus
 #from . import node as nod # BUG: ugens no puede importar node, se crean varios niveles de recursión, usando fordward declaration
 
 
@@ -874,8 +875,7 @@ class Sum4(UGen):
 
 print('*** redefino Buffer, Bus, Dunique, Event, Env y Rest para test en ugens.py')
 class Buffer(): pass  # TODO DEFINICIONES SOLO PARA TEST!
-class Bus(): pass     # TODO VER CÓMO HACER PARA NO IMPORTAR TODO LO INNECESARIO
-class Dunique(): pass #
+class Dunique(): pass # TODO VER CÓMO HACER PARA NO IMPORTAR TODO LO INNECESARIO
 class Event(): pass   #
 class Env(): pass     #
 class Rest(): pass    #
@@ -953,7 +953,7 @@ def _(obj, *ugen_cls): # si la llamada recibe una tupla estrella vacía '*()' no
     return obj.bufnum
 
 
-@as_ugen_input.register(Bus) # TODO: prefijo
+@as_ugen_input.register(bus.Bus)
 def _(obj, *ugen_cls):
     return obj.index
 
@@ -1011,7 +1011,7 @@ def _(obj):
     return obj.bufnum
 
 
-@as_control_input.register(Bus)
+@as_control_input.register(bus.Bus)
 def _(obj):
     return obj.index
 
@@ -1097,7 +1097,7 @@ def _(obj): # TODO OJO, porque en sclang es tanto una función como una propieda
 
 
 @as_ugen_rate.register(UGen)
-@as_ugen_rate.register(Bus)
+@as_ugen_rate.register(bus.Bus)
 def _(obj):
     return obj.rate
 

@@ -283,7 +283,7 @@ class ContiguousBlockAllocator():
 
     def _find_available(self, n):
         if len(self._freed) > 0:
-            return random.choice(list(self._freed[n]))
+            return random.choice(list(self._freed[n])) # BUG: ver las funciones de librería como esta
         for size, set_ in self._freed.items():
             if size >= n and len(set_) > 0:
                 return random.choice(list(set_))
@@ -293,12 +293,12 @@ class ContiguousBlockAllocator():
         return self._array[self.top - self.addr_offset]
 
     def _add_to_freed(self, block):
-        if self._freed[block.size] is None:
+        if self._freed.get(block.size) is None:
             self._freed[block.size] = set()
         self._freed[block.size] = block
 
     def _remove_from_freed(self, block):
-        if self._freed[block.size] is not None:
+        if self._freed.get(block.size) is not None:
             if block in self._freed[block.size]:
                 self._freed[block.size].remove(block)
             if len(self._freed[block.size]) == 0:

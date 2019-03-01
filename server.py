@@ -21,7 +21,7 @@ import supercollie.serverstatus as sst
 import supercollie.responsedefs as rdf
 import supercollie.thread as thr
 import supercollie.node as nod
-import supercollie.bus as bus
+from . import bus
 
 
 # BUG: revisar porque hay un patch que cambió esto y otros que cambiaron un par

@@ -172,10 +172,12 @@ class ServerStatusWatcher():
         return self.alive_thread # TODO: por qué hace return de este atributo en sclang?
 
     def stop_alive_thread(self):
-        self._status_watcher.free()
-        self._status_watcher = None
-        self.alive_thread.stop()
-        self.alive_thread = None
+        if self._status_watcher: # is not None, NOTE: pero debería haber algún flag que evite llamar todo esto de nuevo, pj. s.quit() sigue inmprimiendo quit sent
+            self._status_watcher.free()
+            self._status_watcher = None
+        if self.alive_thread: # is not None
+            self.alive_thread.stop()
+            self.alive_thread = None
         self._alive = False
 
     def resume_thread(self):

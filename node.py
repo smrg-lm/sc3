@@ -608,7 +608,7 @@ def _(obj):
 
 
 class Server():
-    print('+ fordward declaration of Server in node.py')
+    print('+ forward declaration of Server in node.py')
 
 
 @as_target.register(Server)
@@ -688,7 +688,7 @@ def as_osc_arg_embedded_list(obj, arr): # NOTE: incluye None, tengo que ver la c
 
 
 class Env():
-    print('+ fordward declaration of Env in node.py')
+    print('+ forward declaration of Env in node.py')
 
 
 @as_osc_arg_embedded_list.register(Env)

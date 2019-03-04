@@ -19,7 +19,7 @@ import supercollie._global as _gl
 import supercollie.utils as ut
 import supercollie._specialindex as si
 import supercollie.bus as bus
-#from . import node as nod # BUG: ugens no puede importar node, se crean varios niveles de recursión, usando fordward declaration
+#from . import node as nod # BUG: ugens no puede importar node, se crean varios niveles de recursión, usando forward declaration
 
 
 class UGen(fn.AbstractFunction):
@@ -969,7 +969,7 @@ def _(obj, *ugen_cls): # sc Event, VER
 
 
 class Node():
-    print('+ fordward declaration of Node in ugens.py')
+    print('+ forward declaration of Node in ugens.py')
 
 
 @as_ugen_input.register(Node)
@@ -1030,7 +1030,7 @@ def _(obj):
     raise Exception('implementar as_control_input para Event')
 
 
-@as_control_input.register(Node) # BUG: usa fordward declaration, arriba
+@as_control_input.register(Node) # BUG: usa forward declaration, arriba
 def _(obj):
     return obj.node_id
 

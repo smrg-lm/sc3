@@ -586,146 +586,101 @@ class Synth(Node):
     #printOn
 
 
-### asTarget.sc ###
+class NodeParamDispatch():
+    ### asTarget.sc ###
+
+    def as_target(self): # Integer, Nil, Node, Server
+        msg = "NodeParamDispatch: object '{}' should implement this method"
+        raise NotImplementedError(msg.format(type(self).__name__))
+
+    # def as_node_id(obj): # La usa solo JITLib
+    #    pass
+
+    ### extConvertToOSC.sc ###
+
+    # // The following interface in an optimized version of asControlInput that
+    # // flattens arrayed values and marks the outermost array of a value with $[ and $]
+    # // These Chars are turning into typetags ([ and ]) in the OSC message to mark that array
+    # // Inner arrays are flattened (they are not meaningful in the server context)
+    # // This makes it possible to write Synth("test", [0, [[100,200,300], [0.1,0.2,0.3], [10,20,30]] ])
+    # // and have all the arguments be assigned to consecutive controls in the synth.
+
+    # NOTE: Define paraSequenceableCollection, String, Env, Object, Nil, Ref, AbstractFunction.
+    # BUG: ESTOS MÉTODOS NO SON DE PROTOCOLO, TODOS SON CASOS POR DEFECTO,
+    # BUG: EL PROTOCOLO ES PARA LOS TIPOS BÁSICOS EN SCLANG, PERO VER Ref, AbstractFunction.
+    def as_osc_arg_list(self): # NOTE: incluye Env, ver @as_control_input.register(Env), tengo que ver la clase Ref que es una AbstractFunction
+        return as_control_input(self) # NOTE: es caso de interfaz pero también es caso general por defecto porque llama a otra interfaz!!!!
+
+    def as_osc_arg_embedded_list(self, lst):
+        lst.append(as_control_input(self))
+        return lst # NOTE: incluye None, tengo que ver la clase Ref que es una AbstractFunction
+
+    def as_osc_arg_bundle(self):
+        return as_control_input(self)
 
 
-# as_target
+### NodeParamDispatch ###
 
-@singledispatch
+
 def as_target(obj):
+    if hasattr(obj, 'as_target'):
+        return obj.as_target()
+    if obj is None:
+        return srv.Server.default.default_group
+    if isinstance(obj, int):
+        return nod.Group.basic_new(srv.Server.default, obj)
     msg = "invalid value for Node target: '{}'"
     raise TypeError(msg.format(type(obj).__name__))
-
-
-@as_target.register(int)
-def _(obj):
-    return Group.basic_new(srv.Server.default, obj)
-
-
-@as_target.register(type(None))
-def _(obj):
-    return srv.Server.default.default_group
-
-
-class Server():
-    print('+ forward declaration of Server in node.py')
-
-
-@as_target.register(Server)
-def _(obj):
-    return obj.default_group
-
-
-@as_target.register(Node)
-def _(obj):
-    return obj
-
-
-# # NOTE: se usa solo para clases de JITlib
-# ### as_node_id ###
-#
-# @singledispatch
-# def as_node_id(obj):
-#     msg = "invalid value for Node node id: '{}'"
-#     raise TypeError(msg.format(type(obj).__name__))
-#
-#
-# @as_node_id.register(int)
-# @as_node_id.register(type(None))
+# @as_target.register(Server)
+# def _(obj):
+#     return obj.default_group
+# @as_target.register(Node)
 # def _(obj):
 #     return obj
-#
-#
-# @as_node_id.register(srv.Server)
-# def _(obj):
-#     return 0
-#
-#
-# @as_node_id.register(Node)
-# def _(obj):
-#     return obj.node_id
 
 
-### extConvertToOSC.sc ###
-
-# // The following interface in an optimized version of asControlInput that
-# // flattens arrayed values and marks the outermost array of a value with $[ and $]
-# // These Chars are turning into typetags ([ and ]) in the OSC message to mark that array
-# // Inner arrays are flattened (they are not meaningful in the server context)
-# // This makes it possible to write Synth("test", [0, [[100,200,300], [0.1,0.2,0.3], [10,20,30]] ])
-# // and have all the arguments be assigned to consecutive controls in the synth.
-
-
-# as_osc_arg_list
-
-@singledispatch
-def as_osc_arg_list(obj): # NOTE: incluye Env, ver @as_control_input.register(Env), tengo que ver la clase Ref que es una AbstractFunction
-    return ugn.as_control_input(obj)
+def as_osc_arg_list(obj):
+    if hasattr(obj, 'as_osc_arg_list'):
+        return obj.as_osc_arg_list()
+    if obj is None or isinstance(obj, str):
+        return obj
+    if isinstance(obj, (list, tuple)):
+        lst = []
+        for e in obj:
+            #arr.append(as_osc_arg_embedded_list(e, arr)) # NOTE: estaba mal, pero ver por qué crea elipsis!
+            as_osc_arg_embedded_list(e, lst)
+        return arr
+    return as_control_input(obj) # NOTE: es caso de interfaz pero también es caso general por defecto porque llama a otra interfaz!!!!
 
 
-@as_osc_arg_list.register(str)
-@as_osc_arg_list.register(type(None))
-def _(obj):
-    return obj
+def as_osc_arg_embedded_list(obj, lst):
+    if hasattr(obj, 'as_osc_arg_embedded_list'):
+        return obj.as_osc_arg_embedded_list(lst)
+    if isinstance(obj, str):
+        lst.append(obj)
+        return lst
+    if isinstance(obj, (list, tuple)):
+        lst.append('[')
+        for e in obj:
+            #arr.append(as_osc_arg_embedded_list(e, arr)) # NOTE: estaba mal, pero ver por qué crea elipsis!
+            as_osc_arg_embedded_list(e, lst)
+        lst.append(']')
+        return lst
+    lst.append(as_control_input(obj))
+    return lst # NOTE: incluye None, tengo que ver la clase Ref que es una AbstractFunction
+# @as_osc_arg_embedded_list.register(Env)
+# def _(obj, arr):
+#     env_arr = ugn.as_control_input(obj)
+#     return as_osc_arg_embedded_list(env_arr, arr)
 
 
-@as_osc_arg_list.register(tuple)
-@as_osc_arg_list.register(list)
-def _(obj):
-    arr = []
-    for e in obj:
-        #arr.append(as_osc_arg_embedded_list(e, arr)) # NOTE: estaba mal, pero ver por qué crea elipsis!
-        as_osc_arg_embedded_list(e, arr)
-    return arr
-
-
-# as_osc_arg_embedded_list
-
-@singledispatch
-def as_osc_arg_embedded_list(obj, arr): # NOTE: incluye None, tengo que ver la clase Ref que es una AbstractFunction
-    arr.append(ugn.as_control_input(obj))
-    return arr
-
-
-class Env():
-    print('+ forward declaration of Env in node.py')
-
-
-@as_osc_arg_embedded_list.register(Env)
-def _(obj, arr):
-    env_arr = ugn.as_control_input(obj)
-    return as_osc_arg_embedded_list(env_arr, arr)
-
-
-@as_osc_arg_embedded_list.register(str)
-def _(obj, arr):
-    arr.append(obj)
-    return arr
-
-
-@as_osc_arg_embedded_list.register(tuple)
-@as_osc_arg_embedded_list.register(list)
-def _(obj, arr):
-    arr.append('[')
-    for e in obj:
-        #arr.append(as_osc_arg_embedded_list(e, arr)) # NOTE: estaba mal, pero ver por qué crea elipsis!
-        as_osc_arg_embedded_list(e, arr)
-    arr.append(']')
-    return arr
-
-
-# as_osc_arg_bundle
-
-@singledispatch
-def as_osc_arg_bundle(obj): # NOTE: incluye None y Env, tengo que ver la clase Ref que es una AbstractFunction
-    return ugn.as_control_input(obj)
-
-
-@as_osc_arg_bundle.register(str)
-@as_osc_arg_bundle.register(tuple)
-@as_osc_arg_bundle.register(list)
-def _(obj):
-    arr = []
-    for e in obj:
-        arr.append(as_osc_arg_list(e))
-    return arr
+def as_osc_arg_bundle(obj):
+    if hasattr(obj, 'as_osc_arg_bundle'):
+        return obj.as_osc_arg_bundle()
+    if isinstance(obj, (list, tuple, str)):
+        lst = []
+        for e in obj:
+            lst.append(as_osc_arg_list(e))
+        return lst
+    return as_control_input(obj) # NOTE: incluye None y Env (pero Env lo TIENE que implementar), tengo que ver la clase Ref que es una AbstractFunction
+# Env hereda y usa l aimplementación por defecto...

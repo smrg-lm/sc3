@@ -72,22 +72,22 @@ class UGen(fn.AbstractFunction):
         '''
         # single channel, one ugen
         lenght = 0
-        args = as_ugen_input(args, cls)
-        for item in args:
-            if isinstance(item, list):
-                lenght = max(lenght, len(item))
+        args = GraphList(args).as_ugen_input(cls)
+        for item in args.value:
+            if isinstance(item, GraphList):
+                lenght = max(lenght, len(item.value))
         if lenght == 0:
-            return cls.new1(*args)
+            return cls.new1(*args.value)
         # multichannel expansion
-        new_args = [None] * len(args)
+        new_args = [None] * len(args.value)
         results = [None] * lenght
         for i in range(lenght): # tener en cuenta sclang #[] y `()
             for j, item in enumerate(args):
-                new_args[j] = item[i % len(item)]\
-                              if isinstance(item, list)\
+                new_args[j] = item[i % len(item.value)]\
+                              if isinstance(item, GraphList)\
                               else item # hace la expansión multicanal
             results[i] = cls.multi_new(*new_args)
-        return results
+        return GraphList(results)
 
     # Python __init__ no es sclang SynthDef init
     # acá solo puse los valores de instancia por defecto de la clase original.
@@ -127,8 +127,6 @@ class UGen(fn.AbstractFunction):
     # Desde L51 hasta L284 son, más que nada, métodos de operaciones
     # mátemáticas que aplican las ugens correspondientes, el mismo
     # principio de AbstractFunction aplicados a los ugengraphs.
-    def madd(self, mul=1.0, add=0.0): # NOTE: madd pordría ser una función funcional (sic), pero esto es una vieja idea que tengo que ver
-        return MulAdd.new(self, mul, add)
 
     # L284
     def signal_range(self):
@@ -164,7 +162,7 @@ class UGen(fn.AbstractFunction):
     def check_valid_inputs(self):  # este método se usa acá y en otras ugens dentro de check_inputs, es interfaz de UGen se usa junto con check_inputs
         '''Returns error msg or None.'''
         for i, input in enumerate(self.inputs): # TODO: es tupla, en sclang es nil si no hay inputs.
-            if not is_valid_ugen_input(input):
+            if not input.is_valid_ugen_input():
                 arg_name = self.arg_name_for_input_at(i)
                 if arg_name is None: arg_name = i
                 return 'arg: {} has bad input: {}'.format(arg_name, input)
@@ -175,14 +173,14 @@ class UGen(fn.AbstractFunction):
             if n > len(self.inputs): # en sclang no comprueba el rango de inputs porque arr[i] fuera de rango devuelve nil y nil.rate devuelve nil!
                 n = len(self.inputs) # TODO: es tupla, en sclang es nil si no hay inputs.
             for i in range(n):
-                if as_ugen_rate(self.inputs[i]) != 'audio': # *** VER VALORES POSIBLES PARA self.inputs[i]:: IMPLEMENTADO ARRIBA COMO SINGLE DISPATCH
+                if self.inputs[i].as_ugen_rate() != 'audio': # *** VER VALORES POSIBLES PARA self.inputs[i]:: IMPLEMENTADO ARRIBA COMO SINGLE DISPATCH
                     msg = 'input {} is not audio rate: {} {}'\
                           .format(i, self.inputs[i], self.inputs[0].rate)
                     return msg
         return self.check_valid_inputs() # comprueba is_valid_ugen_input no el rate.
 
     def check_sr_as_first_input(self): # checkSameRateAsFirstInput ídem anterior, deben ser interfaz protejida
-        if self.rate != as_ugen_rate(self.inputs[0]): # *** VER VALORES POSIBLES PARA self.inputs[0]: IMPLEMENTADO ARRIBA COMO SINGLE DISPATCH
+        if self.rate != self.inputs[0].as_ugen_rate():
             msg = 'first input is not {} rate: {} {}'\
                   .format(self.rate, self.inputs[0], self.inputs[0].rate)
             return msg
@@ -262,7 +260,7 @@ class UGen(fn.AbstractFunction):
         num_zeroes = values.count(0.0)
         if num_zeroes == 0: return values
 
-        from supercollie.line import Silent # Cyclic import. TODO: ESTOY VIENDO QUE VA A HABER PROBLEMS CON LOS OPERADORES UNARIOS (e.g. madd)...
+        from supercollie.line import Silent # Cyclic import. TODO: ESTOY VIENDO QUE VA A HABER PROBLEMS CON LOS OPERADORES UNARIOS
         silent_channels = ut.as_list(Silent.ar(num_zeroes)) # VER: usa asCollection
         pos = 0
         for i, item in enumerate(values):
@@ -281,7 +279,7 @@ class UGen(fn.AbstractFunction):
     def compose_unop(self, selector): # composeUnaryOp
         return UnaryOpUGen.new(selector, self)
     def compose_binop(self, selector, input): #composeBinaryOp
-        if is_valid_ugen_input(input):
+        if input.is_valid_ugen_input():
             return BinaryOpUGen.new(selector, self, input)
         else:
             # TODO: VER ABAJO DE tODO LA FUNCIÓN LLAMADA, TIENE NOTAS.
@@ -315,7 +313,7 @@ class UGen(fn.AbstractFunction):
             file.write(struct.pack('>h', self.special_index)) # putInt16
             # // write wire spec indices.
             for input in self.inputs:
-                write_input_spec(input, file, self.synthdef)
+                input.write_input_spec(file, self.synthdef)
             self.write_output_specs(file)
         except Exception as e:
             raise Exception('SynthDef: could not write def') from e
@@ -350,7 +348,7 @@ class UGen(fn.AbstractFunction):
     # L488
     def init_topo_sort(self):
         for input in self.inputs: # TODO: es tupla, en sclang es nil si no hay inputs.
-            if isinstance(input, UGen):
+            if isinstance(input, UGen) and not isinstance(input, GraphParameter): # HACK, tal vez, GraphParameter no son gratis.
                 if isinstance(input, OutputProxy): # Omite los OutputProxy in pone las fuentes en antecedents, ver BUG? abajo.
                     ugen = input.source_ugen # VER: source acá es solo propiedad de OutputProxy(es), no se implementa en otras clases.
                 else:                        # OJO: SynthDesc-readUGenSpec llama a source dos veces, la primera sin checar. VER: source es un método/propiedad de varias clases, Array (que returns the source UGen from an Array of OutputProxy(s)) y Nil
@@ -410,6 +408,35 @@ class UGen(fn.AbstractFunction):
     def can_free_synth(self): # BUG: tiene ext canFreeSynth.sc y es método de instancia (BUG: lo usa EnvGen!). También es una función implementadas por muchas ugens (true), SequenceableCollection (revisa any), SynthDef (childre.canFreeSynth (seq col)) y Object (false). Es una propiedad solo en esta clase.
         return False
     # BUG: puede faltar algún otro que se use en otro lado.
+
+    ### métodos que actúan como interfaz para tipos de datos básicos ###
+
+    def madd(self, mul=1.0, add=0.0):
+        return MulAdd.new(self, mul, add)
+
+    def is_valid_ugen_input(self):
+        return True
+
+    def as_ugen_input(self, *ugen_cls):
+        return self
+
+    def as_control_input(self):
+        raise TypeError("UGen can't be set as control input")
+
+    def as_audio_rate_input(self):
+        if self.rate != 'audio':
+            return xxx.K2A.ar(self)
+        return self
+
+    def as_ugen_rate(self): # BUG: en sclang es simplemente 'rate' aplicada a cualquier objeto...
+        return self.rate
+
+    # BUG: VER
+    # def perform_binary_op_on_ugen(input, selector, thing):
+
+    def write_input_spec(self, file, synthdef):
+        file.write(struct.pack('>i', self.synth_index)) # putInt32
+        file.write(struct.pack('>i', self.output_index)) # putInt32
 
 
 # OC: ugen which has no side effect and can therefore be considered for a dead code elimination
@@ -511,7 +538,7 @@ class BasicOpUGen(UGen):
 
     @operator.setter
     def operator(self, value):
-        index, operator = si.sc_spindex_opname(value)
+        index, operator = si.sc_spindex_opname(value.value) # NOTE: porque es GraphParameter, BUG: ver semántica
         self._operator = operator
         self.special_index = index # TODO: en inout.py hace: self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
         if self.special_index < 0:
@@ -590,12 +617,12 @@ class BinaryOpUGen(BasicOpUGen):
 
     def determine_rate(self, a, b):
         # El orden es importante.
-        if as_ugen_rate(a) == 'demand': return 'demand'
-        if as_ugen_rate(b) == 'demand': return 'demand'
-        if as_ugen_rate(a) == 'audio': return 'audio'
-        if as_ugen_rate(b) == 'audio': return 'audio'
-        if as_ugen_rate(a) == 'control': return 'control'
-        if as_ugen_rate(b) == 'control': return 'control'
+        if a.as_ugen_rate() == 'demand': return 'demand'
+        if b.as_ugen_rate() == 'demand': return 'demand'
+        if a.as_ugen_rate() == 'audio': return 'audio'
+        if b.as_ugen_rate() == 'audio': return 'audio'
+        if a.as_ugen_rate() == 'control': return 'control'
+        if b.as_ugen_rate() == 'control': return 'control'
         return 'scalar'
 
     def optimize_graph(self):
@@ -628,7 +655,7 @@ class BinaryOpUGen(BasicOpUGen):
     # L239
     def optimize_to_sum3(self):
         a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
-        if as_ugen_rate(a) == 'demand' or as_ugen_rate(b) == 'demand':
+        if a.as_ugen_rate() == 'demand' or b.as_ugen_rate() == 'demand':
             return None
 
         if isinstance(a, BinaryOpUGen) and a.operator == '+'\
@@ -653,7 +680,7 @@ class BinaryOpUGen(BasicOpUGen):
     # L262
     def optimize_to_sum4(self):
         a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
-        if as_ugen_rate(a) == 'demand' or as_ugen_rate(b) == 'demand':
+        if a.as_ugen_rate() == 'demand' or b.as_ugen_rate() == 'demand':
             return None
 
         if isinstance(a, Sum3) and len(a.descendants) == 1:
@@ -764,7 +791,7 @@ class BinaryOpUGen(BasicOpUGen):
     # deletedUnit = auxiliary unit being removed, not replaced
     def optimize_update_descendants(self, replacement, deleted_unit):
         for input in replacement.inputs:
-            if isinstance(input, UGen):
+            if isinstance(input, UGen) and not isinstance(input, GraphParameter): # HACK, tal vez, GraphParameter no son gratis.
                 if isinstance(input, OutputProxy):
                     input = input.source_ugen
                 desc = input.descendants
@@ -783,9 +810,9 @@ class BinaryOpUGen(BasicOpUGen):
 class MulAdd(UGen):
     @classmethod
     def new(cls, input, mul=1.0, add=0.0):
-        args = as_ugen_input([input, mul, add], cls)
-        rate = as_ugen_rate(args)
-        return cls.multi_new_list([rate] + args)
+        args = GraphList([input, mul, add]).as_ugen_input(cls)
+        rate = args.as_ugen_rate()
+        return cls.multi_new_list([rate] + args.value)
 
     @classmethod
     def new1(cls, rate, input, mul, add):
@@ -807,8 +834,8 @@ class MulAdd(UGen):
         return (input * mul) + add
 
     def init_ugen(self, input, mul, add):
-        self.inputs = (input, mul, add) # TODO: es tupla, en sclang es nil si no hay inputs. No recuerdo por qué acá puse un array.
-        self.rate = as_ugen_rate(self.inputs)
+        self.inputs = GraphList([input, mul, add])
+        self.rate = self.inputs.as_ugen_rate()
         return self
 
     @classmethod
@@ -816,8 +843,8 @@ class MulAdd(UGen):
         # // see if these inputs satisfy the constraints of a MulAdd ugen.
         if input.rate == 'audio': # TODO: ES POSIBLE QUE PUEDA NO SER UNA UGEN? as_ugen_rate?
             return True
-        mul_rate = as_ugen_rate(mul)
-        add_rate = as_ugen_rate(add)
+        mul_rate = mul.as_ugen_rate()
+        add_rate = add.as_ugen_rate()
         if input.rate == 'control'\
         and (mul_rate == 'control' or mul_rate == 'scalar')\
         and (add_rate == 'control' or add_rate == 'scalar'):
@@ -836,11 +863,12 @@ class Sum3(UGen):
         if in1 == 0.0: return in0 + in2
         if in0 == 0.0: return in1 + in2
 
-        arg_array = [in0, in1, in2]
-        rate = as_ugen_rate(arg_array)
-        sorted_args = arg_array.sort(key=lambda x: x.rate) # Esto depende de la comparación entre strings, es así en sclang pero no es UGen.rate_number, no sé para qué ordena.
+        arg_list = GraphList([in0, in1, in2])
+        rate = arg_list.as_ugen_rate()
+        #arg_list.value.sort(key=lambda x: x.rate) # Esto depende de la comparación entre strings, es así en sclang pero no es UGen.rate_number, no sé para qué ordena.
+        arg_list.value.sort(key=lambda x: x.as_ugen_rate()) # BUG: algo está haciendo mal, cómo es que funcionaba antes?
 
-        return super().new1(rate, *sorted_args)
+        return super().new1(rate, *arg_list.value)
 
 
 class Sum4(UGen):
@@ -855,269 +883,189 @@ class Sum4(UGen):
         if in2 == 0.0: return Sum3.new1(None, in0, in1, in3)
         if in3 == 0.0: return Sum3.new1(None, in0, in1, in2)
 
-        arg_array = [in0, in1, in2, in3]
-        rate = as_ugen_rate(arg_array)
-        sorted_args = arg_array.sort(key=lambda x: x.rate) # Esto depende de la comparación entre strings, es así en sclang pero no es UGen.rate_number, no sé para qué ordena.
+        arg_list = GraphList([in0, in1, in2, in3])
+        rate = arg_list.as_ugen_rate()
+        #arg_list.value.sort(key=lambda x: x.rate) # Esto depende de la comparación entre strings, es así en sclang pero no es UGen.rate_number, no sé para qué ordena.
+        arg_list.value.sort(key=lambda x: x.as_ugen_rate()) # BUG: algo está haciendo mal, cómo es que funcionaba antes?
 
-        return super().new1(rate, *sorted_args)
+        return super().new1(rate, *arg_list.value)
 
 
-### singledispatch ###
+### Define ugen graph parameters data types ####
 
-# Estos métodos no sé cómo implementarlos. El problema es que serían un
-# protocolo, pero todos los objetos tienen que responder a él. Y no quiero
-# alterar la paz pytónica creando un objeto base. Tal vez luego encuentre
-# una solución general alternativa, así debería funcionar, el problema es
-# ver cómo se hace cuando se crean nuevas clases como extensiones. Tal vez
-# así podría andar y simplemente hay que agregar el register en cada módulo
-# y no acá.
 
+# BUG, TODO: ver la clase Operand como base en vez de UGen
+# implica cambios y se pueden quitar los otros HACK.
+class GraphParameter(UGen):
+    def __new__(cls, value):
+        if isinstance(value, UGen):
+            return value
+        new_cls = None
+        for sub_class in GraphParameter.__subclasses__():
+            if isinstance(value, sub_class.type()):
+                new_cls = sub_class
+                break
+        if new_cls is None:
+            msg = "GraphParameter: type '{}' not supported"
+            raise TypeError(msg.format(type(value).__name__))
+        obj = super().__new__(new_cls)
+        return obj
 
-print('*** redefino Buffer, Bus, Dunique, Event, Env y Rest para test en ugens.py')
-class Buffer(): pass  # TODO DEFINICIONES SOLO PARA TEST!
-class Dunique(): pass # TODO VER CÓMO HACER PARA NO IMPORTAR TODO LO INNECESARIO
-class Event(): pass   #
-class Env(): pass     #
-class Rest(): pass    #
+    def __init__(self, value):
+        if self is value: return
+        self.value = value
 
+    def __repr__(self):
+        return "{}({})".format(type(self).__name__, repr(self.value))
 
-# madd
+    def compose_unop(self, selector):
+        return GraphParameter(getattr(self.value, selector)())
 
-@singledispatch
-def madd(obj, mul=1.0, add=0.0):
-    msg = "'{}' is not a valid type for madd"
-    raise TypeError(msg.format(obj.__class__.__name__))
+    def compose_binop(self, selector, other):
+        if isinstance(other, GraphParameter):
+            other = other.value
+        return GraphParameter(getattr(self.value, selector)(other))
 
+    def compose_narop(self, selector, *args):
+        new_args = [x.value if isinstance(x, GraphParameter) else x for x in args]
+        return GraphParameter(getattr(self.value, selector)(*new_args))
 
-@madd.register(list)
-@madd.register(tuple)
-@madd.register(UGen)
-def _(obj, mul=1.0, add=0.0):
-    return MulAdd.new(obj, mul, add) # TODO: Tiene que hacer expansión multicanal, es igual a UGen. VER: qué pasa con MulAdd args = as_ugen_input([input, mul, add], cls)
 
+class GraphNone(GraphParameter):
+    @classmethod
+    def type(cls):
+        return (type(None),)
 
-@madd.register(float)
-@madd.register(int)
-def _(obj, mul=1.0, add=0.0):
-    return (obj * mul) + add
+    def madd(self, mul=1.0, add=0.0):
+        raise TypeError("madd can't be applied to GraphNone")
 
+    def is_valid_ugen_input(self):
+        return False
 
-# is_valid_ugen_input
+    def as_ugen_input(self, *_): # TODO: factorizar
+        return self
 
-@singledispatch
-def is_valid_ugen_input(obj):
-    return False
+    def as_control_input(self): # TODO: factorizar
+        return self
 
+    # TODO: revisar todas las propiedades dispersas en la librería de clases,
+    # esta estaba mal, y algunas no se deberían usar, creo...
+    def as_audio_rate_input(self): # TODO: factorizar a GraphParameter, se repite
+        return xxx.K2A.ar(self)
 
-@is_valid_ugen_input.register(fn.AbstractFunction)
-@is_valid_ugen_input.register(UGen)
-@is_valid_ugen_input.register(list)
-@is_valid_ugen_input.register(tuple)
-@is_valid_ugen_input.register(bool)
-def _(obj):
-    return True
-
-
-#@is_valid_ugen_input.register con numbers.py? Para casos especiales lo mejor sería que cada módulo agregue su propio dispatch
-@is_valid_ugen_input.register(float)
-@is_valid_ugen_input.register(int)
-def _(obj):
-    return not isnan(obj)
-
-
-# as_ugen_input
-
-@singledispatch #Este método es implementado por varias clases y extensiones. Cada clase prepara los datos para que sea una entrada válida.
-def as_ugen_input(obj, *ugen_cls): # ugen_cls (*** VER ABAJO ***) es opt_arg, solo AbstractFunction y Array lo usan, Array porque itera sobre. Si la llamada recibe una tupla estrella vacía '*()' no pasa nada. EL PROBLEMA ES QUE SCLANG IGNORA LOS PARÁMETROS SI LA FUNCIÓN NO RECIBE ARGUMENTOS Y LA TUPLA PUEDE NO ESTAR VACÍA.
-    return obj
-
-
-@as_ugen_input.register(fn.AbstractFunction) # Es la única clase que usa ugen_cls en sclang
-def _(obj, *ugen_cls):
-    return obj(*ugen_cls) # BUG: Cuando se use va a tirar error porque a obj lo castea a AbstractFunction
-
-
-@as_ugen_input.register(UGen) # Es necesario porque AbstractFunction responde distsinto y UGen es subclass, todas las subclases que cambian lo tiene que volver a implementar (pasa con Ref también en sclang)
-def _(obj, *ugen_cls):
-    return obj
-
-
-@as_ugen_input.register(list)
-@as_ugen_input.register(tuple) # las tuplas se convierten en listas, no sé si podría ser al revés.
-def _(obj, *ugen_cls):
-    return list(map(lambda x: as_ugen_input(x, *ugen_cls), obj)) # de Array: ^this.collect(_.asUGenInput(for))
-
-
-@as_ugen_input.register(Buffer) # TODO: prefijo
-def _(obj, *ugen_cls): # si la llamada recibe una tupla estrella vacía '*()' no pasa nada. Pero si es genérica como en multi_new_list sí pasa, porque la tupla no está vacía. Solo AbstractFunction usa el parámetro realmente, no se si se usó en algún momento de la historia.
-    return obj.bufnum
-
-
-@as_ugen_input.register(bus.Bus)
-def _(obj, *ugen_cls):
-    return obj.index
-
-
-@as_ugen_input.register(Dunique) # TODO: prefijo
-def _(obj, *ugen_cls):
-    raise NotImplementedError('Dunique as ugen input is not implemente yet.') # TODO, es complicado para ahora.
-
-
-@as_ugen_input.register(Event) # TODO: prefijo
-def _(obj, *ugen_cls): # sc Event, VER
-    return as_control_input(obj) # es otro método de interfaz
-
-
-class Node():
-    print('+ forward declaration of Node in ugens.py')
-
-
-@as_ugen_input.register(Node)
-def _(obj, *ugen_cls): # sc Node
-    raise NotImplementedError('Should not use a Node inside a SynthDef') # dice esto pero implmente as_control_input
-
-
-#@as_ugen_input.register
-# def _(obj: Point): # qué point?
-#     pass # ^this.asArray } // dangerous?
-# Ref y UGen devuelve this, el caso por defecto.
-
-
-# as_control_input
-
-@singledispatch
-def as_control_input(obj):
-    return obj
-
-
-@as_control_input.register(UGen)
-def _(obj):
-    raise TypeError("UGen can't be set as control input")
-
-
-@as_control_input.register(fn.AbstractFunction) # BUG: todo lo que vale para abstract function vale para callable, creo
-def _(obj):
-    return obj() # as_control_input(obj()) # BUG: en sclang? no se debería convertir el valor de retorno de la función y no lo hace en sclang
-
-
-@as_control_input.register(list)
-@as_control_input.register(tuple)
-def _(obj):
-    return [as_control_input(x) for x in obj]
-
-
-@as_control_input.register(Buffer)
-def _(obj):
-    return obj.bufnum
-
-
-@as_control_input.register(bus.Bus)
-def _(obj):
-    return obj.index
-
-
-@as_control_input.register(Env)
-def _(obj):
-    # if (array.isNil) { array = this.prAsArray }
-    # ^array.unbubble // keep backward compatibility
-    # TODO: hay que implementar la funcionalidad de asArray acá o en la clase (puede ser con otro nombre)
-    raise Exception('implementar Env as_control_input')
-
-
-@as_control_input.register(Event)
-def _(obj):
-    # ^this[ EventTypesWithCleanup.ugenInputTypes[this[\type] ] ] ;
-    raise Exception('implementar as_control_input para Event')
-
-
-@as_control_input.register(Node) # BUG: usa forward declaration, arriba
-def _(obj):
-    return obj.node_id
-
-
-# @as_control_input.register(Ref)
-@as_control_input.register(Rest)
-def _(obj):
-    return as_control_input(obj.value)
-
-
-# as_audio_rate_input
-
-@singledispatch
-def as_audio_rate_input(obj):
-    if as_ugen_rate(obj) != 'audio':
-        return xxx.K2A.kr(obj)
-    return obj
-
-
-@as_audio_rate_input.register(float)
-@as_audio_rate_input.register(int)
-def _(obj):
-    if obj == 0:
-        return xxx.Silent.ar()
-    else:
-        return xxx.DC.ar()
-
-
-@as_audio_rate_input.register(fn.AbstractFunction) # BUG: todo lo que vale para abstract function vale para callable, creo
-def _(obj, *args):
-    res = obj(*args)
-    if as_ugen_rate(res) != 'audio':
-        return xxx.K2A.ar(res)
-    return res
-
-
-@as_audio_rate_input.register(list)
-@as_audio_rate_input.register(tuple)
-def _(obj, *ugen_cls):
-    return list(map(lambda x: as_audio_rate_input(x, *ugen_cls), obj)) # de Array: ^this.collect(_.asAudioRateInput(for))
-
-
-# as_ugen_rate
-
-# Agregado por la propiedad rate de las UGens que está implementada a nivel
-# de la librería de clases. Nil retorna nil, SimpleNumber devuelve 'scalar'.
-# SequenceableCollection devueve una colleción de valores sobre los cuales
-# aplica rate, si no es nil sino aplica 'scalar'. BinaryOpUGen usa
-# a.respondsTo(\rate)) en rate(). RawArray retorna 'scalar'. Stethoscope
-# retorna el rate del bus o nil. SynthDef rate devuevle nil. UGen rate es
-# 'audio' por defecto.
-# El método UGen.methodSelectorForRate(rate) devuelve 'audio', 'control' o
-# 'scalar', como símbolo en UGen.methodSelectorForRate(rate), pero no es
-# el mismo método, los ControlName, además, tienen 'trigger' rate. También
-# está 'demand'.
-@singledispatch
-def as_ugen_rate(obj):
-    return None
-
-
-@as_ugen_rate.register(str)
-def _(obj): # TODO OJO, porque en sclang es tanto una función como una propiedad, RawArray retorna 'scalar' ("audio".rate -> 'scalar'), ver el caso list
-    return obj
-
-
-@as_ugen_rate.register(UGen)
-@as_ugen_rate.register(bus.Bus)
-def _(obj):
-    return obj.rate
-
-
-@as_ugen_rate.register(float)
-@as_ugen_rate.register(int)
-def _(obj):
-    return 'scalar'
-
-
-@as_ugen_rate.register(list)
-@as_ugen_rate.register(tuple)
-def _(obj):
-    if len(obj) == 1: return as_ugen_rate(obj[0]) # *** en SequenceableCollection si this.size es 1 devuelve this.first.rate
-
-    obj = [as_ugen_rate(x) for x in obj]
-    if any(x is None for x in obj): # TODO: este 'is' está bien usado, no? *** demás, reduce con Collection minItem, los símbolos por orden lexicográfico, si algún elemento es nil devuelve nil !!!
+    def as_ugen_rate(self):
         return None
-    else:
-        return min(obj) # VER pero falla si los objetos no son comparables (e.g. int y str),
+
+    # BUG, VER.
+    # def perform_binary_op_on_ugen(input, selector, thing):
+
+    def write_input_spec(self, file, synthdef):
+        raise Exception('*** ** * GraphNone write_input_spec deberíá escribir 0?') # BUG, ver los otros archivos
+
+
+class GraphString(GraphParameter):
+    @classmethod
+    def type(cls):
+        return (str,)
+
+    def madd(self, mul=1.0, add=0.0):
+        raise TypeError("madd can't be applied to GraphString")
+
+    def is_valid_ugen_input(self): # lo mismo que None, están definido en Object
+        return False
+
+    def as_ugen_input(self, *_): # TODO: factorizar
+        return self
+
+    def as_control_input(self): # TODO: factorizar
+        return self
+
+    def as_audio_rate_input(self): # TODO: factorizar
+        return xxx.K2A.ar(self)
+
+    def as_ugen_rate(self):
+        return 'scalar'
+
+    # BUG, VER.
+    # def perform_binary_op_on_ugen(input, selector, thing):
+
+    def write_input_spec(self, file, synthdef):
+        raise Exception('*** ** * GraphString write_input_spec deberíá escribir str?') # BUG, ver los otros archivos
+
+
+class GraphScalar(GraphParameter):
+    @classmethod
+    def type(cls):
+        return (int, float, bool)
+
+    def madd(self, mul=1.0, add=0.0):
+        res = (self.value * mul) + add
+        if isinstance(res, UGen):
+            return res
+        return self
+
+    def is_valid_ugen_input(self):
+        return not isnan(self.value)
+
+    def as_ugen_input(self, *_): # TODO: creo que repite UGen
+        return self
+
+    def as_control_input(self):
+        return self
+
+    def as_audio_rate_input(self):
+        if self.value == 0:
+            return xxx.Silent.ar()
+        else:
+            return xxx.DC.ar(self) # BUG: self, si? self.value? puede fallar con bool o depende de osc?
+
+    def as_ugen_rate(self):
+        return 'scalar'
+
+    # BUG: VER
+    # def perform_binary_op_on_ugen(input, selector, thing):
+
+    def write_input_spec(self, file, synthdef):
+        try:
+            const_index = synthdef.constants[float(self.value)]
+            file.write(struct.pack('>i', -1)) # putInt32
+            file.write(struct.pack('>i', const_index)) # putInt32
+        except KeyError as e:
+            msg = 'write_input_spec constant not found: {}'
+            raise Exception(msg.format(float(self.value))) from e
+
+
+class GraphList(GraphParameter):
+    @classmethod
+    def type(cls):
+        return (list, tuple)
+
+    # BUG: array implementa num_channels?
+
+    # def madd(obj, mul=1.0, add=0.0): # Es igual a UGen
+    #     return MulAdd.new(obj, mul, add) # TODO: Tiene que hacer expansión multicanal, es igual a UGen. VER: qué pasa con MulAdd args = as_ugen_input([input, mul, add], cls)
+
+    # def is_valid_ugen_input(self): # Igual que UGen.
+    #     return True
+
+    def as_ugen_input(self, *ugen_cls):
+        lst = list(map(lambda x: GraphParameter(x).as_ugen_input(*ugen_cls), self.value)) # de Array: ^this.collect(_.asUGenInput(for))
+        return GraphList(lst)
+
+    def as_control_input(self):
+        return GraphList([GraphParameter(x).as_control_input() for x in self.value])
+
+    def as_audio_rate_input(self, *ugen_cls):
+        lst = list(map(lambda x: GraphParameter(x).as_audio_rate_input(*ugen_cls), self.value)) # de Array: ^this.collect(_.asAudioRateInput(for))
+        return GraphList(lst)
+
+    def as_ugen_rate(self):
+        if len(self.value) == 1:
+            return GraphParameter(self.value[0]).as_ugen_rate() # *** en SequenceableCollection si this.size es 1 devuelve this.first.rate
+        lst = [GraphParameter(x).as_ugen_rate() for x in self.value]
+        if any(x is None for x in lst): # TODO: reduce con Collection minItem, los símbolos por orden lexicográfico, si algún elemento es nil devuelve nil !!!
+            return None
+        return min(lst) # VER pero falla si los objetos no son comparables (e.g. int y str),
                         # en sclang comparaciones entre tipos no compatibles retornan false...
                         # minItem también lo implementa SparseArray, pero es un array más eficiente y llama a super.
                         # *** el método de minItem puede recibir una función.
@@ -1125,16 +1073,12 @@ def _(obj):
                         # TODO: Si agrego una enum tengo que cuidar el orden. Y RawArray.rate retorna 'scalar' ("audio".rate -> 'scalar'),
                         # pero en la comparación original es una propiedad str (que puede ser un método por polimorfismo)
 
+    # BUG, VER.
+    # def perform_binary_op_on_ugen(input, selector, thing):
 
-# @as_ugen_rate.register # pero asi también habría que hacerlo para set y dict, no tienen clase base con list y tuple?
-# def _(obj: tuple):
-#     return ...
-# @as_ugen_rate.register
-# def _(obj):
-#     return
-
-
-# BUG: array implementa num_channels?
+    def write_input_spec(self, file, synthdef):
+        for item in self.value:
+            item.write_input_spec(file, synthdef)
 
 
 # TODO: Object L684, performBinaryOpOnUGen, hay OnSomething (este delega acá), OnSimpleNumber, OnSignal, OnComplex y OnSeqColl. Actúan como double dispatch, nota en Complex.sc
@@ -1172,36 +1116,3 @@ def perform_binary_op_on_ugen(input, selector, thing):
 @perform_binary_op_on_ugen.register(complex) # También Polar y Spherical en sclang. No hay nada implementado para Python complex aún.
 def _(input, selector, thing):
     pass
-
-
-# write_input_spec
-
-@singledispatch
-def write_input_spec(obj, file, synthdef):
-    msg = "write_input_spec can't be performed on {}, possible BUG"
-    raise TypeError(msg.format(obj))
-
-
-@write_input_spec.register(UGen)
-def _(obj, file, synthdef):
-    file.write(struct.pack('>i', obj.synth_index)) # putInt32
-    file.write(struct.pack('>i', obj.output_index)) # putInt32
-
-
-@write_input_spec.register(float)
-@write_input_spec.register(int)
-def _(obj, file, synthdef):
-    try:
-        const_index = synthdef.constants[float(obj)]
-        file.write(struct.pack('>i', -1)) # putInt32
-        file.write(struct.pack('>i', const_index)) # putInt32
-    except KeyError as e:
-        msg = 'write_input_spec constant not found: {}'
-        raise Exception(msg.format(float(obj))) from e
-
-
-@write_input_spec.register(list)
-@write_input_spec.register(tuple)
-def _(obj, file, synthdef):
-    for item in obj:
-        write_input_spec(item, file, synthdef)

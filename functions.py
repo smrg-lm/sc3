@@ -245,6 +245,25 @@ class AbstractFunction(ABC):
     # ...
 
 
+    # UGen graph parameter interface #
+    # TODO: ver el resto en GraphParameter
+
+    def is_valid_ugen_input(self):
+        return True
+
+    def as_ugen_input(self, *ugen_cls):
+        return self(*ugen_cls)
+
+    def as_control_input(self):
+        return xxx.GraphParameter(self()) # FIXME, graph parameter podría ir separado de ugen, y comprobar que sea correcto retornarlo. Original: return self() # BUG: en sclang? no se debería convertir el valor de retorno (as_control_input(obj())) de la función y no lo hace en sclang
+
+    def as_audio_rate_input(self, *args):
+        res = self(*args)
+        if res.as_ugen_rate() != 'audio':
+            return xxx.K2A.ar(res)
+        return res
+
+
 class UnaryOpFunction(AbstractFunction):
     def __init__(self, selector, a):
         self.selector = selector

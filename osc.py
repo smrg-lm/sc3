@@ -19,18 +19,18 @@ class Osc(ug.PureUGen):
     def ar(cls, bufnum, freq=440.0, phase=0.0, mul=1.0, add=0.0):
         '''Nota: Hay que usar la función ug.madd porque multi_new puede
         devolver un número, una lista (expansión multicanal) o una ugen.'''
-        return ug.madd(cls.multi_new('audio', bufnum, freq, phase), mul, add)
+        return cls.multi_new('audio', bufnum, freq, phase).madd(mul, add)
 
     @classmethod
     def kr(cls, bufnum, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        return ug.madd(cls.multi_new('control', bufnum, freq, phase), mul, add)
+        return cls.multi_new('control', bufnum, freq, phase).madd(mul, add)
 
 
 class SinOsc(ug.PureUGen):
     @classmethod
     def ar(cls, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        return ug.madd(cls.multi_new('audio', freq, phase), mul, add)
+        return cls.multi_new('audio', freq, phase).madd(mul, add)
 
     @classmethod
     def kr(cls, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        return ug.madd(cls.multi_new('control', freq, phase), mul, add)
+        return cls.multi_new('control', freq, phase).madd(mul, add)

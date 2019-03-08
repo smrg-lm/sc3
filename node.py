@@ -224,8 +224,15 @@ class Node():
     # ==
     # hash
     # printOn
-    # asUGenInput # TODO: ver si va separado
-    # asControlInput # TODO: ver si va separado
+
+    # UGen graph parameter interface #
+    # TODO: ver el resto en GraphParameter
+
+    def as_ugen_input(self, *_):
+        raise NotImplementedError('should not use a Node inside a SynthDef') # NOTE: dice esto pero implmente as_control_input, por qué?
+
+    def as_control_input(self):
+        return ugn.GraphParameter(self.node_id) # BUG: ver cómo cuándo y dónde se usa este método, porque si se usa por fuera del grafo no hay que retornar GraphParameters desde ninguna clase.
 
 
 # // common base for Group and ParGroup classes

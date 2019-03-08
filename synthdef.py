@@ -463,7 +463,7 @@ class SynthDef():
         for ugen in self.children: # tampoco terminó usando el índice
             inputs = None
             if ugen.inputs is not None:
-                inputs = [x.dump_name() if isinstance(x, ug.UGen)
+                inputs = [x.dump_name() if isinstance(x, ug.UGen) and not isinstance(x, ug.GraphParameter) # HACK
                           else x for x in ugen.inputs] # ugen.inputs.collect {|in| if (in.respondsTo(\dumpName)) { in.dumpName }{ in }; }; # Las únicas clases que implementan dumpName son UGen, BasicOpUGen y OutputProxy, sería interfaz de UGen, sería if is UGen
             print([ugen.dump_name(), ugen.rate, inputs])
 

@@ -205,3 +205,14 @@ class Bus():
 
     # // alternate syntaxes
     # TODO: hay métodos que son importantes (e.g. asMap), VER.
+
+    # UGen graph parameter interface #
+
+    def as_ugen_input(self, *_):
+        return self.index # BUG: GraphParameter(self.index)
+
+    def as_control_input(self):
+        return self.index # BUG: GraphParameter(self.index)
+
+    def as_ugen_rate(self):
+        return self.rate # BUG: GraphParameter(self.index)

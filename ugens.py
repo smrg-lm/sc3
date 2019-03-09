@@ -350,7 +350,7 @@ class UGen(fn.AbstractFunction):
     # L488
     def init_topo_sort(self):
         for input in self.inputs: # TODO: es tupla, en sclang es nil si no hay inputs.
-            if isinstance(input, UGen) and not isinstance(input, GraphParameter): # HACK, tal vez, GraphParameter no son gratis.
+            if isinstance(input, UGen):
                 if isinstance(input, OutputProxy): # Omite los OutputProxy in pone las fuentes en antecedents, ver BUG? abajo.
                     ugen = input.source_ugen # VER: source acá es solo propiedad de OutputProxy(es), no se implementa en otras clases.
                 else:                        # OJO: SynthDesc-readUGenSpec llama a source dos veces, la primera sin checar. VER: source es un método/propiedad de varias clases, Array (que returns the source UGen from an Array of OutputProxy(s)) y Nil
@@ -795,7 +795,7 @@ class BinaryOpUGen(BasicOpUGen):
     # deletedUnit = auxiliary unit being removed, not replaced
     def optimize_update_descendants(self, replacement, deleted_unit):
         for input in replacement.inputs:
-            if isinstance(input, UGen) and not isinstance(input, GraphParameter): # HACK, tal vez, GraphParameter no son gratis.
+            if isinstance(input, UGen):
                 if isinstance(input, OutputProxy):
                     input = input.source_ugen
                 desc = input.descendants

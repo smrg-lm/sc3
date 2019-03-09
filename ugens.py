@@ -26,7 +26,7 @@ class UGen(fn.AbstractFunction):
     # classvar <>buildSynthDef; // the synth currently under construction,  PASADA A _gl.current_synthdef y tiene un Lock
 
     def __call__(self, *args):
-        pass
+        return self
 
     @classmethod
     def new1(cls, rate, *args): # la verdad que see podría llamar single_new.
@@ -254,7 +254,7 @@ class UGen(fn.AbstractFunction):
     #checkBadValues
 
     @classmethod # VER: la locación de este método, es una utilidad de clase.
-    def replace_zeroes_with_silence(cls, values: list): # es recursiva y la usan Function-asBuffer, (AtkMatrixMix*ar), GraphBuilder-wrapOut, LocalOut*ar, Out*ar, XOut*ar.
+    def replace_zeroes_with_silence(cls, values): # es recursiva y la usan Function-asBuffer, (AtkMatrixMix*ar), GraphBuilder-wrapOut, LocalOut*ar, Out*ar, XOut*ar.
         # OC: This replaces zeroes with audio rate silence.
         # Sub collections are deep replaced
         num_zeroes = values.count(0.0)
@@ -896,9 +896,12 @@ class Sum4(UGen):
 
 # BUG, TODO: ver la clase Operand como base en vez de UGen
 # implica cambios y se pueden quitar los otros HACK.
-class GraphParameter(UGen):
+class GraphParameter(fn.AbstractFunction):
+    def __call__(self, *args):
+        return self._value
+
     def __new__(cls, value):
-        if isinstance(value, UGen):
+        if isinstance(value, (GraphParameter, UGen)):
             return value
         new_cls = None
         for sub_class in GraphParameter.__subclasses__():
@@ -913,7 +916,7 @@ class GraphParameter(UGen):
 
     def __init__(self, value):
         if self is value: return
-        self.value = value
+        self._value = value
 
     def __repr__(self):
         return "{}({})".format(type(self).__name__, repr(self.value))
@@ -929,6 +932,10 @@ class GraphParameter(UGen):
     def compose_narop(self, selector, *args):
         new_args = [x.value if isinstance(x, GraphParameter) else x for x in args]
         return GraphParameter(getattr(self.value, selector)(*new_args))
+
+    @property
+    def value(self):
+        return self._value
 
 
 class GraphNone(GraphParameter):

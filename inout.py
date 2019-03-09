@@ -57,7 +57,7 @@ class Control(ug.MultiOutUGen):
         return cls.multi_new_list(['control'] + ut.as_list(values))
 
     def init_ugen(self, *values):
-        self.values = list(values)
+        self.values = [x.value for x in values] # NOTE: creo que Control solo puede tener int of float como dato porque falla write_def # if isinstance(x, ug.GraphParameter) else x\
         if self.synthdef is not None:
             self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
             self.synthdef.controls.extend(self.values)
@@ -101,7 +101,7 @@ class AudioControl(ug.MultiOutUGen):
         return cls.multi_new_list(['audio'] + ut.as_list(values))
 
     def init_ugen(self, *values):
-        self.values = list(values)
+        self.values = [x.value for x in values] # NOTE: creo que Control solo puede tener int of float como dato porque falla write_def # if isinstance(x, ug.GraphParameter) else x\
         if self.synthdef is not None:
             self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
             self.synthdef.controls.extend(self.values)
@@ -155,7 +155,7 @@ class LagControl(Control):
         # declara la variable lags y no la usa.
         size = len(stuff)
         size2 = size >> 1 # size // 2
-        self.values = list(stuff)[size2:size] # en Python es la cantidad de elementos desde, no el índice.
+        self.values = [x.value for x in values][size2:size] # en Python es la cantidad de elementos desde, no el índice.
         if self.synthdef is not None:
             self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
             self.synthdef.controls.extend(self.values)
@@ -241,7 +241,7 @@ class AbstractOut(ug.UGen):
     def check_inputs(self):
         if self.rate == 'audio':
             for i in range(type(self).num_fixed_args(), len(self.inputs)): # TODO: es tupla, en sclang es nil si no hay inputs.
-                if ug.as_ugen_rate(self.inputs[i]) != 'audio':
+                if self.inputs[i].as_ugen_rate() != 'audio':
                     msg = '{}:'.format(type(self).__name__)
                     msg += ' input at index {} ({}) is not audio rate'
                     return msg.format(i, type(self.inputs[i]).__name__) # TODO: Si es OutputProxy que imprima source_ugen
@@ -267,9 +267,10 @@ class AbstractOut(ug.UGen):
 class Out(AbstractOut):
     @classmethod
     def ar(cls, bus, channels_list):
-        channels_list = cls.replace_zeroes_with_silence(
-            ut.as_list(ug.as_ugen_input(channels_list, cls)))
-        cls.multi_new_list(['audio', bus] + ut.as_list(channels_list))
+        channels_list = ug.GraphList(ut.as_list(channels_list))
+        channels_list = channels_list.as_ugen_input(cls)
+        channels_list = cls.replace_zeroes_with_silence(channels_list)
+        cls.multi_new_list(['audio', bus] + channels_list.value)
         return 0.0
 
     @classmethod
@@ -298,10 +299,10 @@ class OffsetOut(Out):
 class LocalOut(AbstractOut):
     @classmethod
     def ar(cls, channels_list):
-        channels_list = ug.as_ugen_input(channels_list, cls)
-        channels_list = ut.as_list(channels_list)
+        channels_list = ug.GraphList(ut.as_list(channels_list))
+        channels_list = channels_list.as_ugen_input(cls)
         channels_list = cls.replace_zeroes_with_silence(channels_list)
-        cls.multi_new_list(['audio'] + channels_list)
+        cls.multi_new_list(['audio'] + channels_list.value)
         return 0.0 # OC: LocalOut has no output.
 
     @classmethod
@@ -321,11 +322,11 @@ class LocalOut(AbstractOut):
 class XOut(AbstractOut):
     @classmethod
     def ar(cls, bus, xfade, channels_list):
-        channels_list = ug.as_ugen_input(channels_list, cls)
-        channels_list = ut.as_list(channels_list)
+        channels_list = ug.GraphList(ut.as_list(channels_list))
+        channels_list = channels_list.as_ugen_input(cls)
         channels_list = cls.replace_zeroes_with_silence(channels_list)
-        cls.multi_new_list(['audio', bus, xfade] + channels_list)
-        return 0.0 # OC: Out has no output.
+        cls.multi_new_list(['audio', bus, xfade] + channels_list.value)
+        # return 0.0 # OC: Out has no output. # NOTE: acá retorna None, the Python way
 
     @classmethod
     def kr(cls, bus, xfade, channels_list):

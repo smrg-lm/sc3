@@ -143,6 +143,8 @@ class UGen(fn.AbstractFunction):
     # L292
     def _collect_constants(self): # pong
         for input in self.inputs: # TODO: es tupla, en sclang es nil si no hay inputs.
+            if isinstance(input, GraphParameter):
+                input = input.value
             if isinstance(input, (int, float)):
                 self.synthdef.add_constant(float(input))
 
@@ -254,23 +256,23 @@ class UGen(fn.AbstractFunction):
     #checkBadValues
 
     @classmethod # VER: la locación de este método, es una utilidad de clase.
-    def replace_zeroes_with_silence(cls, values): # es recursiva y la usan Function-asBuffer, (AtkMatrixMix*ar), GraphBuilder-wrapOut, LocalOut*ar, Out*ar, XOut*ar.
+    def replace_zeroes_with_silence(cls, graphlist): # es recursiva y la usan Function-asBuffer, (AtkMatrixMix*ar), GraphBuilder-wrapOut, LocalOut*ar, Out*ar, XOut*ar.
         # OC: This replaces zeroes with audio rate silence.
         # Sub collections are deep replaced
-        num_zeroes = values.count(0.0)
-        if num_zeroes == 0: return values
+        num_zeroes = graphlist.value.count(0.0)
+        if num_zeroes == 0: return graphlist
 
-        from supercollie.line import Silent # Cyclic import. TODO: ESTOY VIENDO QUE VA A HABER PROBLEMS CON LOS OPERADORES UNARIOS
-        silent_channels = ut.as_list(Silent.ar(num_zeroes)) # VER: usa asCollection
+        from supercollie.line import Silent # TODO: FIXME: Cyclic import.
+        silent_channels = GraphParameter(Silent.ar(num_zeroes))
         pos = 0
-        for i, item in enumerate(values):
-            if item == 0.0:
-                values[i] = silent_channels[pos]
+        for i, item in enumerate(graphlist.value):
+            if item.value == 0.0:
+                graphlist.value[i] = silent_channels[pos]
                 pos += 1
-            elif isinstance(item, list):
+            elif isinstance(item, GraphList):
                 res = cls.replace_zeroes_with_silence(item)
-                values[i] = res
-        return values
+                graphlist.value[i] = res
+        return graphlist
 
     # L407
     # OC: PRIVATE
@@ -475,6 +477,8 @@ class MultiOutUGen(UGen):
         return obj
 
     def init_outputs(self, num_channels, rate):
+        if isinstance(num_channels, GraphParameter): # BUG: NOTE: puede o no ser GraphParameter
+            num_channels = num_channels.value # BUG: tengo que revisar mejor si hay un comportamiento general y cuándo se aplica graphparameter y cuándo no, tal vez se puede aislar en funciones específicas.
         if num_channels is None or num_channels < 1:
             msg = '{}: wrong number of channels ({})'\
                   .format(self.name(), num_channels)
@@ -894,14 +898,28 @@ class Sum4(UGen):
 ### Define ugen graph parameters data types ####
 
 
-# BUG, TODO: ver la clase Operand como base en vez de UGen
+# TODO: ver la clase Operand como base en vez de UGen, pero no hace
+# lo mismo porque crea nuevas instancias. Se usa para Rest.
 # implica cambios y se pueden quitar los otros HACK.
+# TODO: Tal vez se pueda crear una clase base AbstractType
+# de la cual herede AbstractFunction.
+# BUG: IMPORTANTE: tengo que ver en qué momentos de la cadena
+# de generación del grafo son realmente necesarios los GraphParameters
+# puede ser que esté convirtiendo y reconvirtiendo porque no doy
+# con el flujo de los datos. Tal vez se podría usar simplemente
+# la clase GraphParameter para llamar a los métodos de interfaz,
+# siempre y cuando no se esté llamando repetidas veces para un mismo
+# dato, por eso tengo que ver el flujo. Para esto tengo que ver los
+# métodos as_ugen_input, as_control_input y as_audio_rate_input que
+# podrían retornar los valores originales en vez de self. TODO: VER EL DIFF.
+# NOTE: No puedo heredar los tipos integrados porque no se puede
+# hacer subclase y emular NoneType y que funcione con la sintaxis.
 class GraphParameter(fn.AbstractFunction):
     def __call__(self, *args):
         return self._value
 
     def __new__(cls, value):
-        if isinstance(value, (GraphParameter, UGen)):
+        if isinstance(value, (GraphParameter, UGen, bus.Bus)): # BUG: se hace lista de clases
             return value
         new_cls = None
         for sub_class in GraphParameter.__subclasses__():
@@ -1009,7 +1027,7 @@ class GraphScalar(GraphParameter):
         res = (self.value * mul) + add
         if isinstance(res, UGen):
             return res
-        return self
+        return self # BUG: es self? se usa?
 
     def is_valid_ugen_input(self):
         return not isnan(self.value)

@@ -75,13 +75,13 @@ class Node():
             bus = xxx.as_bus(bus) # BUG usa asBus que se implementa en Bus, Integer, Nil y Server.
             if bus.rate == 'control':
                 kr_values.extend([
-                    ugn.as_control_input(control), # BUG: ugn.as_control_input no está implementada, es como as_ugen_input
+                    ugn.GraphParameter(control).as_control_input(),
                     bus.index,
                     bus.num_channels
                 ])
             elif bus.rate == 'audio':
                 ar_values.extend([
-                    ugn.as_control_input(control), # BUG: ídem, además no entiendo porque tiene que ser un símbolo, de los contrario el mensaje no sería válido si un bus devuelve un entero por ejemplo?
+                    ugn.GraphParameter(control).as_control_input(), # BUG: no entiendo porque tiene que ser un símbolo, de los contrario el mensaje no sería válido si un bus devuelve un entero por ejemplo?
                     bus.index,
                     bus.num_channels
                 ])
@@ -98,12 +98,12 @@ class Node():
         self.server.send_msg(
             '/n_mapn', # 48
             self.node_id,
-            *ugn.as_control_input(args)
+            *ugn.ugn.GraphParameter(args).as_control_input()
         )
 
     def mapn_msg(self, *args):
         return ['/n_mapn', self.node_id]\
-            + ugn.as_control_input(list(args)) # 48
+            + ugn.GraphParameter(args).as_control_input() # 48
 
     def set(self, *args):
         self.server.send_msg(
@@ -122,7 +122,7 @@ class Node():
     @classmethod
     def setn_msg_args(cls, *args):
         nargs = []
-        args = ugn.as_control_input(list(args)) # BUG: args es tupla, tengo que ver porque no están implementadas estas funciones.
+        args = ugn.GraphParameter(args).as_control_input()
         for control, more_vals in utl.gen_cclumps(args, 2):
             if isinstance(more_vals, list): # BUG: ídem acá arriba, more_vals TIENE QUE SER LISTA
                 nargs.extend([control, len(more_vals)] + more_vals)
@@ -137,12 +137,12 @@ class Node():
         self.server.send_msg(
             '/n_fill', self.node_id, # 17
             cname, num_controls, value,
-            *ugn.as_control_input(list(args))
+            *ugn.GraphParameter(args).as_control_input()
         )
 
     def fill_msg(self, cname, num_controls, value, *args):
         return ['n_fill', self.node_id, cname, num_controls, value]\
-            + ugn.as_control_input(list(args)) # 17
+            + ugn.GraphParameter(args).as_control_input() # 17
 
     def release(self, release_time=None):
         self.server.send_msg(*self.release_msg(release_time))
@@ -232,7 +232,7 @@ class Node():
         raise NotImplementedError('should not use a Node inside a SynthDef') # NOTE: dice esto pero implmente as_control_input, por qué?
 
     def as_control_input(self):
-        return ugn.GraphParameter(self.node_id) # BUG: ver cómo cuándo y dónde se usa este método, porque si se usa por fuera del grafo no hay que retornar GraphParameters desde ninguna clase.
+        return ugn.GraphParameter(self.node_id).as_control_input() # BUG: ver cómo cuándo y dónde se usa este método, porque si se usa por fuera del grafo no hay que retornar GraphParameters desde ninguna clase.
 
 
 # // common base for Group and ParGroup classes
@@ -667,7 +667,7 @@ def _(obj):
 
 @singledispatch
 def as_osc_arg_list(obj): # NOTE: incluye Env, ver @as_control_input.register(Env), tengo que ver la clase Ref que es una AbstractFunction
-    return ugn.as_control_input(obj)
+    return ugn.GraphParameter(obj).as_control_input()
 
 
 @as_osc_arg_list.register(str)
@@ -690,7 +690,7 @@ def _(obj):
 
 @singledispatch
 def as_osc_arg_embedded_list(obj, arr): # NOTE: incluye None, tengo que ver la clase Ref que es una AbstractFunction
-    arr.append(ugn.as_control_input(obj))
+    arr.append(ugn.GraphParameter(obj).as_control_input())
     return arr
 
 
@@ -700,7 +700,7 @@ class Env():
 
 @as_osc_arg_embedded_list.register(Env)
 def _(obj, arr):
-    env_arr = ugn.as_control_input(obj)
+    env_arr = ugn.GraphParameter(obj).as_control_input()
     return as_osc_arg_embedded_list(env_arr, arr)
 
 
@@ -725,7 +725,7 @@ def _(obj, arr):
 
 @singledispatch
 def as_osc_arg_bundle(obj): # NOTE: incluye None y Env, tengo que ver la clase Ref que es una AbstractFunction
-    return ugn.as_control_input(obj)
+    return ugn.GraphParameter(obj).as_control_input()
 
 
 @as_osc_arg_bundle.register(str)

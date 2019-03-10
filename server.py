@@ -22,6 +22,7 @@ import supercollie.responsedefs as rdf
 import supercollie.thread as thr
 import supercollie.node as nod
 from . import bus
+from supercollie.nodeparam import NodeParameter, node_param
 
 
 # BUG: revisar porque hay un patch que cambió esto y otros que cambiaron un par
@@ -322,7 +323,7 @@ class MetaServer(type):
 
 
 @utl.initclass # BUG: esto es un problema por lo cíclico, initclass o lo tengo que sacar o hacer que sea consistente con los imports, tal vez que initclass acumule los métodos y llame luego de que todo fue importado
-class Server(metaclass=MetaServer):
+class Server(NodeParameter, metaclass=MetaServer):
     def __init_class__(cls): # BUG: ver: __new__ es un método estático tratado de manera especial por el intérprete, tal vez este se podría definir como tal, los métodos estáticos no están ligados ni a la clase ni a la instancia.
                              # BUG: PERO __init_subclass___: "If defined as a normal instance method, this method is implicitly converted to a class method."
         cls._default = cls.local = cls('localhost', nad.NetAddr('127.0.0.1', 57110))
@@ -650,7 +651,7 @@ class Server(metaclass=MetaServer):
     #     pass
 
     def reorder(self, node_list, target, add_action='addToHead'): # BUG: ver los comandos en notación camello, creo que el servidor los usa así, no se puede cambiar.
-        target = nod.as_target(target)
+        target = node_param(target).as_target()
         node_list = [x.node_id for x in node_list]
         self.send(
             '/n_order', nod.Node.action_number_for(add_action), # 62
@@ -1154,6 +1155,11 @@ class Server(metaclass=MetaServer):
     @classmethod
     def supernova(cls):
         cls.program = cls.program.replace('scsynth', 'supernova')
+
+    ### Node parameter interface ###
+
+    def as_target(self):
+        return self.default_group
 
 
 class _ServerProcess(object):

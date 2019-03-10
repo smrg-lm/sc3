@@ -4,11 +4,13 @@ import threading as _threading
 import warnings as _warnings
 from functools import singledispatch
 
-from supercollie.ugenparam import ugen_param
 import supercollie.utils as utl
 from . import ugens as ugn
 from . import server as srv # es cíclico con sí mismo a través de node
 import supercollie.synthdesc as dsc
+from supercollie.ugenparam import ugen_param
+from supercollie.nodeparam import node_param
+
 
 # Node:asTarget se implementa para Integer, Nil, y Server
 # como extensión en el archivo Common/Control/asTarget.sc
@@ -110,12 +112,12 @@ class Node():
         self.server.send_msg(
             '/n_set', # 15
             self.node_id,
-            *as_osc_arg_list(list(args))
+            *node_param(args).as_osc_arg_list()
         )
 
     def set_msg(self, *args):
         return ['/n_set', self.node_id]\
-            + as_osc_arg_list(list(args)) # 15
+            + node_param(args).as_osc_arg_list() # 15
 
     def setn(self, *args):
         self.server.send_msg(*self.setn_msg(*args))
@@ -235,12 +237,17 @@ class Node():
     def as_control_input(self):
         return ugen_param(self.node_id).as_control_input()
 
+    ### Node parameter interface ###
+
+    def as_target(self):
+        return self
+
 
 # // common base for Group and ParGroup classes
 class AbstractGroup(Node):
     # /** immediately sends **/
     def __init__(self, target=None, add_action='addToHead'):
-        target = as_target(target)
+        target = node_param(target).as_target()
         # BUG: revisar, estoy reemplazando la llamada a basic_new, que estaba mal...
         # BUG: basic_new lo único que hace se setear self -> server, node_id, group is_playing e is_running
         #server = target.server
@@ -261,7 +268,7 @@ class AbstractGroup(Node):
 
     def new_msg(self, target=None, add_action='addToHead'):
         # // if target is nil set to default group of server specified when basicNew was called
-        target = as_target(target) # BUG: acá es un caso de asTarget sobre Nil
+        target = node_param(target).as_target()
         add_action_id = type(self).add_actions[add_action]
         if add_action_id < 2:
             self.group = target
@@ -413,7 +420,7 @@ class RootNode(Group):
 class Synth(Node):
     # /** immediately sends **/
     def __init__(self, def_name, args=[], target=None, add_action='addToHead'):
-        target = as_target(target)
+        target = node_param(target).as_target()
         # BUG: revisar, estoy reemplazando la llamada a basic_new (que acá reimplementa además)
         # server = target.server
         # synth = cls.basic_new(def_name, server) # synth es self
@@ -431,7 +438,7 @@ class Synth(Node):
             '/s_new', # 9
             self.def_name, self.node_id,
             add_action_id, target.node_id,
-            *as_osc_arg_list(args)
+            *node_param(args).as_osc_arg_list()
         )
 
     # // does not send (used for bundling)
@@ -443,7 +450,7 @@ class Synth(Node):
 
     @classmethod
     def new_paused(cls, def_name, args=[], target=None, add_action='addToHead'):
-        target = as_target(target)
+        target = node_param(target).as_target()
         server = target.server
         add_action_id = cls.add_actions[add_action]
         synth = cls.basic_new(def_name, server)
@@ -457,7 +464,7 @@ class Synth(Node):
                 '/s_new', # 9
                 synth.def_name, synth.node_id,
                 add_action_id, target.node_id,
-                *as_osc_arg_list(args)
+                *node_param(args).as_osc_arg_list()
             ],
             [
                 '/n_run', # 12
@@ -478,31 +485,31 @@ class Synth(Node):
             '/s_new', # 9
             synth.def_name, synth.node_id,
             4, node_to_replace.node_id, # 4 -> 'addReplace'
-            *as_osc_arg_list(args)
+            *node_param(args).as_osc_arg_list()
         )
         return synth
 
     # node_id -1
     @classmethod # TODO: este tal vez debería ir arriba
     def grain(cls, def_name, args=[], target=None, add_action='addToHead'):
-        target = as_target(target)
+        target = node_param(target).as_target()
         server = target.server
         server.send_msg(
             '/s_new', # 9
             def_name.as_def_name(), -1, # BUG: as_def_name no está implementado puede ser método de Object
             cls.add_actions[add_action], target.node_id,
-            *as_osc_arg_list(args)
+            *node_param(args).as_osc_arg_list()
         )
 
     def new_msg(self, target=None, args=[], add_action='addToHead'):
         add_action_id = self.add_actions[add_action]
-        target = as_target(target)
+        target = node_param(target).as_target()
         if add_action_id < 2:
             self.group = target
         else:
             self.group = target.group
         return ['/s_new', self.def_name, self.node_id, add_action_id,
-                target.node_id, *as_osc_arg_list(args)] # 9
+                target.node_id, *node_param(args).as_osc_arg_list()] # 9
 
     @classmethod
     def after(cls, node, def_name, args=[]):
@@ -531,7 +538,7 @@ class Synth(Node):
         else:
             self.group = self.server.default_group
         return ['/s_new', self.def_name, self.node_id, 0,
-                self.group.node_id, *as_osc_arg_list(args)] # 9
+                self.group.node_id, *node_param(args).as_osc_arg_list()] # 9
 
     def add_to_tail_msg(self, group, args):
         # // if aGroup is nil set to default group of server specified when basicNew was called
@@ -540,22 +547,22 @@ class Synth(Node):
         else:
             self.group = self.server.default_group
         return ['/s_new', self.def_name, self.node_id, 1,
-                self.group.node_id, *as_osc_arg_list(args)] # 9
+                self.group.node_id, *node_param(args).as_osc_arg_list()] # 9
 
     def add_after_msg(self, node, args=[]):
         self.group = node.group
         return ['/s_new', self.def_name, self.node_id, 3,
-                node.node_id, *as_osc_arg_list(args)] # 9
+                node.node_id, *node_param(args).as_osc_arg_list()] # 9
 
     def add_before_msg(self, node, args=[]):
         self.group = node.group
         return ['/s_new', self.def_name, self.node_id, 2,
-                node.node_id, *as_osc_arg_list(args)] # 9
+                node.node_id, *node_param(args).as_osc_arg_list()] # 9
 
     def add_replace_msg(self, node_to_replace, args):
         self.group = node_to_replace.group
         return ['/s_new', self.def_name, self.node_id, 4,
-                node_to_replace.node_id, *as_osc_arg_list(args)] # 9
+                node_to_replace.node_id, *node_param(args).as_osc_arg_list()] # 9
 
     def get(self, index, action):
         raise Exception('implementar Synth:get con OSCFunc') # BUG
@@ -587,71 +594,14 @@ class Synth(Node):
                         osc_msg.append(value)
         self.server.send_msg(
             '/n_set', self.node_id,
-            *as_osc_arg_list(osc_msg)
+            *node_param(osc_msg).as_osc_arg_list()
         )
 
     # TODO, VER
     #printOn
 
 
-### asTarget.sc ###
 
-
-# as_target
-
-@singledispatch
-def as_target(obj):
-    msg = "invalid value for Node target: '{}'"
-    raise TypeError(msg.format(type(obj).__name__))
-
-
-@as_target.register(int)
-def _(obj):
-    return Group.basic_new(srv.Server.default, obj)
-
-
-@as_target.register(type(None))
-def _(obj):
-    return srv.Server.default.default_group
-
-
-class Server():
-    print('+ forward declaration of Server in node.py')
-
-
-@as_target.register(Server)
-def _(obj):
-    return obj.default_group
-
-
-@as_target.register(Node)
-def _(obj):
-    return obj
-
-
-# # NOTE: se usa solo para clases de JITlib
-# ### as_node_id ###
-#
-# @singledispatch
-# def as_node_id(obj):
-#     msg = "invalid value for Node node id: '{}'"
-#     raise TypeError(msg.format(type(obj).__name__))
-#
-#
-# @as_node_id.register(int)
-# @as_node_id.register(type(None))
-# def _(obj):
-#     return obj
-#
-#
-# @as_node_id.register(srv.Server)
-# def _(obj):
-#     return 0
-#
-#
-# @as_node_id.register(Node)
-# def _(obj):
-#     return obj.node_id
 
 
 ### extConvertToOSC.sc ###
@@ -666,74 +616,74 @@ def _(obj):
 
 # as_osc_arg_list
 
-@singledispatch
-def as_osc_arg_list(obj): # NOTE: incluye Env, ver @as_control_input.register(Env), tengo que ver la clase Ref que es una AbstractFunction
-    return ugen_param(obj).as_control_input()
+# @singledispatch
+# def as_osc_arg_list(obj): # NOTE: incluye Env, ver @as_control_input.register(Env), tengo que ver la clase Ref que es una AbstractFunction
+#     return ugen_param(obj).as_control_input()
 
 
-@as_osc_arg_list.register(str)
-@as_osc_arg_list.register(type(None))
-def _(obj):
-    return obj
+# @as_osc_arg_list.register(str)
+# @as_osc_arg_list.register(type(None))
+# def _(obj):
+#     return obj
 
 
-@as_osc_arg_list.register(tuple)
-@as_osc_arg_list.register(list)
-def _(obj):
-    lst = []
-    for e in obj:
-        #lst.append(as_osc_arg_embedded_list(e, lst)) # NOTE: estaba mal, pero ver por qué crea elipsis!
-        as_osc_arg_embedded_list(e, lst)
-    return lst
+# @as_osc_arg_list.register(tuple)
+# @as_osc_arg_list.register(list)
+# def _(obj):
+#     lst = []
+#     for e in obj:
+#         #lst.append(as_osc_arg_embedded_list(e, lst)) # NOTE: estaba mal, pero ver por qué crea elipsis!
+#         as_osc_arg_embedded_list(e, lst)
+#     return lst
 
 
 # as_osc_arg_embedded_list
 
-@singledispatch
-def as_osc_arg_embedded_list(obj, lst): # NOTE: incluye None, tengo que ver la clase Ref que es una AbstractFunction
-    lst.append(ugen_param(obj).as_control_input())
-    return lst
+# @singledispatch
+# def as_osc_arg_embedded_list(obj, lst): # NOTE: incluye None, tengo que ver la clase Ref que es una AbstractFunction
+#     lst.append(ugen_param(obj).as_control_input())
+#     return lst
 
 
-class Env():
-    print('+ forward declaration of Env in node.py')
+# class Env():
+#     print('+ forward declaration of Env in node.py')
 
 
-@as_osc_arg_embedded_list.register(Env)
-def _(obj, lst):
-    env_lst = ugen_param(obj).as_control_input()
-    return as_osc_arg_embedded_list(env_lst, lst)
+# @as_osc_arg_embedded_list.register(Env)
+# def _(obj, lst):
+#     env_lst = ugen_param(obj).as_control_input()
+#     return as_osc_arg_embedded_list(env_lst, lst)
 
 
-@as_osc_arg_embedded_list.register(str)
-def _(obj, lst):
-    lst.append(obj)
-    return lst
+# @as_osc_arg_embedded_list.register(str)
+# def _(obj, lst):
+#     lst.append(obj)
+#     return lst
 
 
-@as_osc_arg_embedded_list.register(tuple)
-@as_osc_arg_embedded_list.register(list)
-def _(obj, lst):
-    lst.append('[')
-    for e in obj:
-        #lst.append(as_osc_arg_embedded_list(e, lst)) # NOTE: estaba mal, pero ver por qué crea elipsis!
-        as_osc_arg_embedded_list(e, lst)
-    lst.append(']')
-    return lst
+# @as_osc_arg_embedded_list.register(tuple)
+# @as_osc_arg_embedded_list.register(list)
+# def _(obj, lst):
+#     lst.append('[')
+#     for e in obj:
+#         #lst.append(as_osc_arg_embedded_list(e, lst)) # NOTE: estaba mal, pero ver por qué crea elipsis!
+#         as_osc_arg_embedded_list(e, lst)
+#     lst.append(']')
+#     return lst
 
 
 # as_osc_arg_bundle
 
-@singledispatch
-def as_osc_arg_bundle(obj): # NOTE: incluye None y Env, tengo que ver la clase Ref que es una AbstractFunction
-    return ugen_param(obj).as_control_input()
-
-
-@as_osc_arg_bundle.register(str)
-@as_osc_arg_bundle.register(tuple)
-@as_osc_arg_bundle.register(list)
-def _(obj):
-    lst = []
-    for e in obj:
-        lst.append(as_osc_arg_list(e))
-    return lst
+# @singledispatch
+# def as_osc_arg_bundle(obj): # NOTE: incluye None y Env, tengo que ver la clase Ref que es una AbstractFunction
+#     return ugen_param(obj).as_control_input()
+#
+#
+# @as_osc_arg_bundle.register(str)
+# @as_osc_arg_bundle.register(tuple)
+# @as_osc_arg_bundle.register(list)
+# def _(obj):
+#     lst = []
+#     for e in obj:
+#         lst.append(as_osc_arg_list(e))
+#     return lst

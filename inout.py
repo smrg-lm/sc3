@@ -241,11 +241,11 @@ class AbstractOut(ug.UGen):
     def check_inputs(self):
         if self.rate == 'audio':
             for i in range(type(self).num_fixed_args(), len(self.inputs)): # TODO: es tupla, en sclang es nil si no hay inputs.
-                if self.inputs[i].as_ugen_rate() != 'audio':
+                if ug.as_ugen_rate(self.inputs[i]) != 'audio':
                     msg = '{}:'.format(type(self).__name__)
                     msg += ' input at index {} ({}) is not audio rate'
-                    return msg.format(i, type(self.inputs[i]).__name__) # TODO: Si es OutputProxy que imprima source_ugen
-        elif len(self.inputs) <= type(self).num_fixed_args(): # TODO: es tupla, en sclang es nil si no hay inputs.
+                    return msg.format(i, self.inputs[i].__class__.__name__) # TODO: Si es OutputProxy que imprima source_ugen
+        elif len(self.inputs) <= self.__class_.num_fixed_args(): # TODO: es tupla, en sclang es nil si no hay inputs.
             return 'missing input at index 1'
         return self.check_valid_inputs()
 
@@ -258,7 +258,7 @@ class AbstractOut(ug.UGen):
         pass # TODO: VER: ^this.subclassResponsibility(thisMethod)
 
     def num_audio_channels(self):
-        return len(self.inputs) - type(self).num_fixed_args() # TODO: es tupla, en sclang es nil si no hay inputs.
+        return len(self.inputs) - self.__class__.num_fixed_args() # TODO: es tupla, en sclang es nil si no hay inputs.
 
     def writes_to_bus(self):
         pass # BUG: VER: ^this.subclassResponsibility(thisMethod) se usa en SynthDesc:outputData se implementa en varias out ugens. Es método de interfaz/protocolo de UGen, creo.

@@ -1,9 +1,5 @@
 """Support for built in or extensions data types as UGen parameters."""
 
-# BUG: este debería llamarse ugen_param, porque es la interfaz de UGen
-# que se aplica a otros objetos, todas las UGens heredan o reimplementan
-# los métodos sin tener a UGenParameter de parent.
-
 from math import isnan
 import struct
 
@@ -41,14 +37,14 @@ class UGenParameter():
 
     def __init__(self, value):
         # if self is value: return
-        self._value = value
+        self.__value = value
 
     # def __repr__(self):
     #     return "{}({})".format(type(self).__name__, repr(self.value))
 
     @property
-    def value(self):
-        return self._value
+    def value(self): # TODO: tal vez sería mejor que se llame param_value
+        return self.__value
 
     ### Interface ###
 

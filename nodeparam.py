@@ -24,14 +24,14 @@ def node_param(obj):
 
 class NodeParameter():
     def __init__(self, value):
-        self._value = value
+        self.__value = value
 
     # def __repr__(self):
     #     return "{}({})".format(type(self).__name__, repr(self.value))
 
     @property
-    def value(self):
-        return self._value
+    def value(self): # TODO: tal vez sería mejor que se llame param_value
+        return self.__value
 
     @classmethod
     def param_type(cls):
@@ -102,7 +102,7 @@ class NodeString(NodeParameter):
     # le correspondería la misma implementación de NodeList, pero creo que
     # el único método que llama a este es as_osc_arg_embedded_list que
     # String sobreescribe de manera distinta por lo que supongo que nunca
-    # nunca usa este método (además de que no parece consistente).
+    # usa este método (además de que no parece consistente).
     def as_osc_arg_bundle(self):
         raise Exeption('BUG: NodeString as_osc_arg_bundle') # BUG: TEST
         lst = []

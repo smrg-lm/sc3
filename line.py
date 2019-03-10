@@ -1,10 +1,10 @@
 """Line.sc"""
 
-import supercollie.ugens as ug
+from . import ugens as ugn
 
 
 # SON LAS DOS ÚLTIMAS
-class DC(ug.PureMultiOutUGen):
+class DC(ugn.PureMultiOutUGen):
     @classmethod
     def ar(cls, input=0.0):
         return cls.multi_new('audio', input)

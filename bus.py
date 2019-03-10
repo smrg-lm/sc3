@@ -1,11 +1,12 @@
 """Bus.sc"""
 
+from supercollie.graphparam import GraphParameter
 from . import server as srv
 import supercollie.utils as utl
 import supercollie.responsedefs as rdf
 
 
-class Bus():
+class Bus(GraphParameter):
     def __init__(self, rate='audio', index=0, num_channels=2, server=None): # NOTE: es *new
         self.rate = rate # todos tienen solo getter salvo _map_symbol que es privado.
         self.index = index

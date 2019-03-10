@@ -567,7 +567,6 @@ class SynthDef():
 
             file.write(struct.pack('>i', len(self.children))) # putInt32
             for item in self.children:
-                print('*** write children:', item)
                 item.write_def(file)
 
             file.write(struct.pack('>h', len(self.variants))) # putInt16

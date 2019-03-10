@@ -1,10 +1,13 @@
 """Buffer.sc"""
 
-class Buffer():
+from supercollie.ugenparam import UGenParameter
+
+
+class Buffer(UGenParameter):
     # TODO: todo.
 
     # UGen graph parameter interface #
-    # TODO: ver el resto en GraphParameter
+    # TODO: ver el resto en UGenParameter
 
     def as_ugen_input(self, *_):
         return self.bufnum

@@ -1,12 +1,12 @@
 """Bus.sc"""
 
-from supercollie.graphparam import GraphParameter
+from supercollie.ugenparam import UGenParameter
 from . import server as srv
 import supercollie.utils as utl
 import supercollie.responsedefs as rdf
 
 
-class Bus(GraphParameter):
+class Bus(UGenParameter):
     def __init__(self, rate='audio', index=0, num_channels=2, server=None): # NOTE: es *new
         self.rate = rate # todos tienen solo getter salvo _map_symbol que es privado.
         self.index = index
@@ -210,10 +210,10 @@ class Bus(GraphParameter):
     # UGen graph parameter interface #
 
     def as_ugen_input(self, *_):
-        return self.index # BUG: GraphParameter(self.index)
+        return self.index # BUG: UGenParameter(self.index)
 
     def as_control_input(self):
-        return self.index # BUG: GraphParameter(self.index)
+        return self.index # BUG: UGenParameter(self.index)
 
     def as_ugen_rate(self):
-        return self.rate # BUG: GraphParameter(self.index)
+        return self.rate # BUG: UGenParameter(self.index)

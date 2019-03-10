@@ -4,7 +4,7 @@ import threading as _threading
 import warnings as _warnings
 from functools import singledispatch
 
-from supercollie.graphparam import graph_param
+from supercollie.ugenparam import ugen_param
 import supercollie.utils as utl
 from . import ugens as ugn
 from . import server as srv # es cíclico con sí mismo a través de node
@@ -76,13 +76,13 @@ class Node():
             bus = xxx.as_bus(bus) # BUG usa asBus que se implementa en Bus, Integer, Nil y Server.
             if bus.rate == 'control':
                 kr_values.extend([
-                    graph_param(control).as_control_input(),
+                    ugen_param(control).as_control_input(),
                     bus.index,
                     bus.num_channels
                 ])
             elif bus.rate == 'audio':
                 ar_values.extend([
-                    graph_param(control).as_control_input(), # BUG: no entiendo porque tiene que ser un símbolo, de los contrario el mensaje no sería válido si un bus devuelve un entero por ejemplo?
+                    ugen_param(control).as_control_input(), # BUG: no entiendo porque tiene que ser un símbolo, de los contrario el mensaje no sería válido si un bus devuelve un entero por ejemplo?
                     bus.index,
                     bus.num_channels
                 ])
@@ -99,12 +99,12 @@ class Node():
         self.server.send_msg(
             '/n_mapn', # 48
             self.node_id,
-            *graph_param(args).as_control_input()
+            *ugen_param(args).as_control_input()
         )
 
     def mapn_msg(self, *args):
         return ['/n_mapn', self.node_id]\
-            + graph_param(args).as_control_input() # 48
+            + ugen_param(args).as_control_input() # 48
 
     def set(self, *args):
         self.server.send_msg(
@@ -123,7 +123,7 @@ class Node():
     @classmethod
     def setn_msg_args(cls, *args):
         nargs = []
-        args = graph_param(args).as_control_input()
+        args = ugen_param(args).as_control_input()
         for control, more_vals in utl.gen_cclumps(args, 2):
             if isinstance(more_vals, list): # BUG: ídem acá arriba, more_vals TIENE QUE SER LISTA
                 nargs.extend([control, len(more_vals)] + more_vals)
@@ -138,12 +138,12 @@ class Node():
         self.server.send_msg(
             '/n_fill', self.node_id, # 17
             cname, num_controls, value,
-            *graph_param(args).as_control_input()
+            *ugen_param(args).as_control_input()
         )
 
     def fill_msg(self, cname, num_controls, value, *args):
         return ['n_fill', self.node_id, cname, num_controls, value]\
-            + graph_param(args).as_control_input() # 17
+            + ugen_param(args).as_control_input() # 17
 
     def release(self, release_time=None):
         self.server.send_msg(*self.release_msg(release_time))
@@ -227,13 +227,13 @@ class Node():
     # printOn
 
     # UGen graph parameter interface #
-    # TODO: ver el resto en GraphParameter
+    # TODO: ver el resto en UGenParameter
 
     def as_ugen_input(self, *_):
         raise NotImplementedError('should not use a Node inside a SynthDef') # NOTE: dice esto pero implmente as_control_input, por qué?
 
     def as_control_input(self):
-        return graph_param(self.node_id).as_control_input()
+        return ugen_param(self.node_id).as_control_input()
 
 
 # // common base for Group and ParGroup classes
@@ -668,7 +668,7 @@ def _(obj):
 
 @singledispatch
 def as_osc_arg_list(obj): # NOTE: incluye Env, ver @as_control_input.register(Env), tengo que ver la clase Ref que es una AbstractFunction
-    return graph_param(obj).as_control_input()
+    return ugen_param(obj).as_control_input()
 
 
 @as_osc_arg_list.register(str)
@@ -691,7 +691,7 @@ def _(obj):
 
 @singledispatch
 def as_osc_arg_embedded_list(obj, lst): # NOTE: incluye None, tengo que ver la clase Ref que es una AbstractFunction
-    lst.append(graph_param(obj).as_control_input())
+    lst.append(ugen_param(obj).as_control_input())
     return lst
 
 
@@ -701,7 +701,7 @@ class Env():
 
 @as_osc_arg_embedded_list.register(Env)
 def _(obj, lst):
-    env_lst = graph_param(obj).as_control_input()
+    env_lst = ugen_param(obj).as_control_input()
     return as_osc_arg_embedded_list(env_lst, lst)
 
 
@@ -726,7 +726,7 @@ def _(obj, lst):
 
 @singledispatch
 def as_osc_arg_bundle(obj): # NOTE: incluye None y Env, tengo que ver la clase Ref que es una AbstractFunction
-    return graph_param(obj).as_control_input()
+    return ugen_param(obj).as_control_input()
 
 
 @as_osc_arg_bundle.register(str)

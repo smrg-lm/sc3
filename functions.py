@@ -18,10 +18,11 @@ from abc import ABC, abstractmethod
 import inspect
 
 from . import builtins as bi # TODO: TEST, ver abajo.
+from supercollie.ugenparam import UGenParameter, ugen_param
 
 
 # ver abstract base clases in python
-class AbstractFunction(ABC):
+class AbstractFunction(ABC, UGenParameter):
     @abstractmethod # BUG: esto lo tengo que extender a todos los métodos de interfaz obligatoria, pero por ahora es más fácil sin implementar todo
     def __call__(self, *args):
         pass
@@ -246,7 +247,8 @@ class AbstractFunction(ABC):
 
 
     # UGen graph parameter interface #
-    # TODO: ver el resto en GraphParameter
+    # TODO: ver el resto en UGenParameter
+    # BUG: ver si value no intefiere
 
     def is_valid_ugen_input(self):
         return True
@@ -255,11 +257,11 @@ class AbstractFunction(ABC):
         return self(*ugen_cls)
 
     def as_control_input(self):
-        return xxx.GraphParameter(self()) # FIXME, graph parameter podría ir separado de ugen, y comprobar que sea correcto retornarlo. Original: return self() # BUG: en sclang? no se debería convertir el valor de retorno (as_control_input(obj())) de la función y no lo hace en sclang
+        return self()
 
     def as_audio_rate_input(self, *args):
         res = self(*args)
-        if res.as_ugen_rate() != 'audio':
+        if ugen_param(res).as_ugen_rate() != 'audio':
             return xxx.K2A.ar(res)
         return res
 

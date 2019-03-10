@@ -5,7 +5,7 @@ import warnings
 import supercollie.ugens as ug
 import supercollie._global as _gl
 import supercollie.utils as ut
-
+from supercollie.ugenparam import ugen_param
 
 # Controls
 
@@ -241,7 +241,7 @@ class AbstractOut(ug.UGen):
     def check_inputs(self):
         if self.rate == 'audio':
             for i in range(type(self).num_fixed_args(), len(self.inputs)): # TODO: es tupla, en sclang es nil si no hay inputs.
-                if ug.graph_param(self.inputs[i]).as_ugen_rate() != 'audio':
+                if ugen_param(self.inputs[i]).as_ugen_rate() != 'audio':
                     msg = '{}:'.format(type(self).__name__)
                     msg += ' input at index {} ({}) is not audio rate'
                     return msg.format(i, type(self.inputs[i]).__name__) # TODO: Si es OutputProxy que imprima source_ugen
@@ -267,7 +267,7 @@ class AbstractOut(ug.UGen):
 class Out(AbstractOut):
     @classmethod
     def ar(cls, bus, channels_list):
-        channels_list = ug.graph_param(ut.as_list(channels_list))
+        channels_list = ugen_param(ut.as_list(channels_list))
         channels_list = channels_list.as_ugen_input(cls)
         channels_list = cls.replace_zeroes_with_silence(channels_list)
         cls.multi_new_list(['audio', bus] + channels_list)
@@ -299,7 +299,7 @@ class OffsetOut(Out):
 class LocalOut(AbstractOut):
     @classmethod
     def ar(cls, channels_list):
-        channels_list = ug.graph_param(ut.as_list(channels_list))
+        channels_list = ugen_param(ut.as_list(channels_list))
         channels_list = channels_list.as_ugen_input(cls)
         channels_list = cls.replace_zeroes_with_silence(channels_list)
         cls.multi_new_list(['audio'] + channels_list)
@@ -322,7 +322,7 @@ class LocalOut(AbstractOut):
 class XOut(AbstractOut):
     @classmethod
     def ar(cls, bus, xfade, channels_list):
-        channels_list = ug.graph_param(ut.as_list(channels_list))
+        channels_list = ugen_param(ut.as_list(channels_list))
         channels_list = channels_list.as_ugen_input(cls)
         channels_list = cls.replace_zeroes_with_silence(channels_list)
         cls.multi_new_list(['audio', bus, xfade] + channels_list)

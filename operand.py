@@ -1,8 +1,4 @@
-"""
-Operand.sc
-
-Este nombre se puede usar como clase base para GraphParam.
-"""
+"""Operand.sc"""
 
 import supercollie.functions as fn
 

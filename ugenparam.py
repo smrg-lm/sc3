@@ -1,36 +1,40 @@
-"""Support for built in or extensions data types as graph parameters."""
+"""Support for built in or extensions data types as UGen parameters."""
+
+# BUG: este debería llamarse ugen_param, porque es la interfaz de UGen
+# que se aplica a otros objetos, todas las UGens heredan o reimplementan
+# los métodos sin tener a UGenParameter de parent.
 
 from math import isnan
 import struct
 
 
-def graph_param(obj):
+def ugen_param(obj):
     import supercollie.ugens as ugn
 
-    if isinstance(obj, (GraphParameter, ugn.UGen)):
+    if isinstance(obj, (UGenParameter, ugn.UGen)):
         return obj
     new_cls = None
-    for sub_class in GraphParameter.__subclasses__():
-        if isinstance(obj, sub_class.graph_type()):
+    for sub_class in UGenParameter.__subclasses__():
+        if isinstance(obj, sub_class.param_type()):
             new_cls = sub_class
             break
     if new_cls is None:
-        msg = "GraphParameter: type '{}' not supported"
+        msg = "UGenParameter: type '{}' not supported"
         raise TypeError(msg.format(type(value).__name__))
     return new_cls(obj)
 
 
-class GraphParameter():
+class UGenParameter():
     # def __new__(cls, value):
-    #     if isinstance(value, (GraphParameter, UGen)):
+    #     if isinstance(value, (UGenParameter, UGen)):
     #         return value
     #     new_cls = None
-    #     for sub_class in GraphParameter.__subclasses__():
+    #     for sub_class in UGenParameter.__subclasses__():
     #         if isinstance(value, sub_class.type()):
     #             new_cls = sub_class
     #             break
     #     if new_cls is None:
-    #         msg = "GraphParameter: type '{}' not supported"
+    #         msg = "UGenParameter: type '{}' not supported"
     #         raise TypeError(msg.format(type(value).__name__))
     #     obj = super().__new__(new_cls)
     #     return obj
@@ -39,16 +43,16 @@ class GraphParameter():
         # if self is value: return
         self._value = value
 
-    def __repr__(self):
-        return "{}({})".format(type(self).__name__, repr(self.value))
+    # def __repr__(self):
+    #     return "{}({})".format(type(self).__name__, repr(self.value))
 
     @property
     def value(self):
         return self._value
 
-    # interface #
+    ### Interface ###
 
-    def graph_type(cls):
+    def param_type(cls):
         return (cls,)
 
     def madd(self, mul=1.0, add=0.0):
@@ -90,27 +94,27 @@ class GraphParameter():
         raise NotImplementedError(msg.format(type(self).__name__))
 
 
-class GraphNone(GraphParameter):
+class UGenNone(UGenParameter):
     @classmethod
-    def graph_type(cls):
+    def param_type(cls):
         return (type(None),)
 
     def as_ugen_rate(self):
         return None
 
 
-class GraphString(GraphParameter):
+class UGenString(UGenParameter):
     @classmethod
-    def graph_type(cls):
+    def param_type(cls):
         return (str,)
 
     def as_ugen_rate(self):
         return 'scalar'
 
 
-class GraphScalar(GraphParameter):
+class UGenScalar(UGenParameter):
     @classmethod
-    def graph_type(cls):
+    def param_type(cls):
         return (int, float, bool)
 
     def madd(self, mul=1.0, add=0.0):
@@ -141,9 +145,9 @@ class GraphScalar(GraphParameter):
             raise Exception(msg.format(float(self.value))) from e
 
 
-class GraphList(GraphParameter):
+class UGenList(UGenParameter):
     @classmethod
-    def graph_type(cls):
+    def param_type(cls):
         return (list, tuple)
 
     # BUG: array implementa num_channels?
@@ -155,24 +159,24 @@ class GraphList(GraphParameter):
         return True
 
     def as_ugen_input(self, *ugen_cls):
-        lst = list(map(lambda x: graph_param(x).as_ugen_input(*ugen_cls), self.value))
+        lst = list(map(lambda x: ugen_param(x).as_ugen_input(*ugen_cls), self.value))
         return lst
 
     def as_control_input(self):
-        return [graph_param(x).as_control_input() for x in self.value]
+        return [ugen_param(x).as_control_input() for x in self.value]
 
     def as_audio_rate_input(self, *ugen_cls):
-        lst = list(map(lambda x: graph_param(x).as_audio_rate_input(*ugen_cls), self.value)) # NOTE: de Array: ^this.collect(_.asAudioRateInput(for))
+        lst = list(map(lambda x: ugen_param(x).as_audio_rate_input(*ugen_cls), self.value)) # NOTE: de Array: ^this.collect(_.asAudioRateInput(for))
         return lst
 
     def as_ugen_rate(self):
         if len(self.value) == 1:
-            return graph_param(self.value[0]).as_ugen_rate() # NOTE: en SequenceableCollection si this.size es 1 devuelve this.first.rate
-        lst = [graph_param(x).as_ugen_rate() for x in self.value]
+            return ugen_param(self.value[0]).as_ugen_rate() # NOTE: en SequenceableCollection si this.size es 1 devuelve this.first.rate
+        lst = [ugen_param(x).as_ugen_rate() for x in self.value]
         if any(x is None for x in lst): # TODO: reduce con Collection minItem, los símbolos por orden lexicográfico, si algún elemento es nil devuelve nil !!!
             return None
         return min(lst)
 
     def write_input_spec(self, file, synthdef):
         for item in self.value:
-            graph_param(item).write_input_spec(file, synthdef)
+            ugen_param(item).write_input_spec(file, synthdef)

@@ -281,7 +281,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
 
         # prRoutineResume
         # TODO: setea nowExecutingPath, creo que no lo voy a hacer.
-        self._previous_rand_state = random.getstate()
+        self._previous_rand_state = random.getstate() # NOTE: se podría guardar el estado como un descriptor u otro objeto que implemente un protocolo?
         random.setstate(self._rand_state) # hay que llamarlo ANTES de setear current_TimeThread o usar el atributo privado _rand_state
         self.parent = _main.Main.current_TimeThread
         _main.Main.current_TimeThread = self

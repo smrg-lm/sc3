@@ -277,6 +277,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     def next(self, inval=None):
         # _RoutineAlwaysYield (y Done)
         if self.state == self.State.Done:
+            print('*** está en State.Done')
             return self._terminal_value
 
         # prRoutineResume
@@ -330,17 +331,21 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
         #     self._last_value = next(self._iterator) # BUG: puede volver a tirar YieldAndReset
         #     self.state = self.State.Suspended
         except StopIteration as e:
+            print('*** StopIteration')
             if len(inspect.trace()) > 1:
                 raise e
             self._iterator = None
             self._terminal_value = None
-            self.state = self.State.Done
+            self.state = self.State.Done # BUG: esto hace que no funcione yield from con streams anidados, y si se retorna None, se necesita StopIteration
             self._last_value = self._terminal_value
+            raise e # BUG: **************** TEST PARA YIELD FROM ANIDADO
         except YieldAndReset as e:
+            print('*** YieldAndReset')
             self._iterator = None
             self.state = self.State.Init
             self._last_value = e.value
         except AlwaysYield as e:
+            print('*** AlwaysYield')
             self._iterator = None
             self._terminal_value = e.terminal_value
             self.state = self.State.Done
@@ -357,7 +362,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
             #     Setea el entorno de este hilo, eso no lo voy a hacer.
 
         #print('return _last_value', self._last_value)
-        return self._last_value # BUG: creo que va a ser necesario retornar None si se pueden anidar las rutinas.
+        return self._last_value # BUG: ***************** si se retorna None no funciona yield from en State.Done no funciona yield from
 
     def yield_and_reset(self, value=None): # BUG: no entiendo por qué reset puede ser false y comportarse exactaemnte igual que yield?
         if self is _main.Main.current_TimeThread:

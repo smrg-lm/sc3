@@ -30,7 +30,7 @@ class Stream(fn.AbstractFunction): #, ABC):
         return self.iter()
 
     def __next__(self):
-        raise self.next() # TODO: en Python no son infinitos por defecto
+        return self.next() # TODO: en Python no son infinitos por defecto
 
     def __call__(self, inval=None):
         return self.next(inval)
@@ -127,9 +127,9 @@ class BinaryOpStream(Stream):
         self.b = b
 
     def next(self, inval=None):
-        a = self.a.next(inval)
-        if a is None:
-            return None
+        a = self.a.next(inval) # BUG: a o b pueden no ser streams, polimorfismo
+        if a is None:          # BUG: con StopIteration no es necesaria la comprobación
+            return None        # BUG: revisar todos los op.
         b = self.b.next(inval)
         if b is None:
             return None

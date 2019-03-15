@@ -262,15 +262,16 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
         self._beats = beats
         self._seconds = self.clock.beats2secs(beats)
 
-    def __iter__(self):
-        return self
-
-    # // resume, next, value, run are synonyms
-    def __next__(self): # BUG: ver cómo sería la variante pitónica, luego, por lo pronto creo que no debe declarar inval opcional.
-        return self.next()
-
-    def __call__(self, inval=None):
-        return self.next(inval)
+    # Se definen en Stream
+    # def __iter__(self):
+    #     return self
+    #
+    # # // resume, next, value, run are synonyms
+    # def __next__(self): # BUG: ver cómo sería la variante pitónica, luego, por lo pronto creo que no debe declarar inval opcional.
+    #     return self.next()
+    #
+    # def __call__(self, inval=None):
+    #     return self.next(inval)
 
     # TODO: volver a revisar todo, se puede implementar como generador/iterador?
     # TODO: es _RoutineResume

@@ -276,7 +276,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     # TODO: es _RoutineResume
     def next(self, inval=None):
         # _RoutineAlwaysYield (y Done)
-        if self.state == self.State.Done:
+        if self.state == self.State.Done: # BUG: esto no sería necesario con StopIteration?
             print('*** está en State.Done')
             return self._terminal_value
 
@@ -331,21 +331,21 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
         #     self._last_value = next(self._iterator) # BUG: puede volver a tirar YieldAndReset
         #     self.state = self.State.Suspended
         except StopIteration as e:
-            print('*** StopIteration')
-            if len(inspect.trace()) > 1:
-                raise e
+            #print('*** StopIteration')
+            if len(inspect.trace()) > 1: # BUG: si no es su propia excepción la tiene que pasar para arriba
+                raise e                  # BUG: tengo que ver qué pasa con el estado de la rutina en este caso. Si se puede dejar "mentiroso" se elimina este if y terminal_value
             self._iterator = None
             self._terminal_value = None
-            self.state = self.State.Done # BUG: esto hace que no funcione yield from con streams anidados, y si se retorna None, se necesita StopIteration
+            self.state = self.State.Done # BUG: esto no sería necesario con StopIteration?
             self._last_value = self._terminal_value
-            raise e # BUG: **************** TEST PARA YIELD FROM ANIDADO
+            raise e # NOTE: **************** PARA YIELD FROM
         except YieldAndReset as e:
-            print('*** YieldAndReset')
+            #print('*** YieldAndReset')
             self._iterator = None
             self.state = self.State.Init
             self._last_value = e.value
         except AlwaysYield as e:
-            print('*** AlwaysYield')
+            #print('*** AlwaysYield')
             self._iterator = None
             self._terminal_value = e.terminal_value
             self.state = self.State.Done
@@ -362,7 +362,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
             #     Setea el entorno de este hilo, eso no lo voy a hacer.
 
         #print('return _last_value', self._last_value)
-        return self._last_value # BUG: ***************** si se retorna None no funciona yield from en State.Done no funciona yield from
+        return self._last_value # BUG: ***************** si se retorna None no funciona yield from en State.Done.
 
     def yield_and_reset(self, value=None): # BUG: no entiendo por qué reset puede ser false y comportarse exactaemnte igual que yield?
         if self is _main.Main.current_TimeThread:
@@ -382,7 +382,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     def always_yield(self, value=None): # NOTE: no se si es realmente necesario este método, se puede implementar AlwaysYield Exception
         # solo se puede llamar mediante main.Main.current_TimeThread
         if self is _main.Main.current_TimeThread:
-            raise AlwaysYield(value)
+            raise AlwaysYield(value) # BUG: ver como afecta a StopIteration
         else:
             raise Exception('always_yield only works if self is main.Main.current_TimeThread')
 

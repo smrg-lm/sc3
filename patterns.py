@@ -26,7 +26,6 @@ class Pattern(fn.AbstractFunction):
         # aunque tiene que ser compatible.
         def _stream(inval=None): # BUG: pattern_iterator?? from _collections_abc import list_iterator
             inval = yield from self.iter(inval)
-            print('*** sale de Stream Routne(_stream)')
         return thr.Routine(_stream)
 
     def iter(self, inval=None): # NOTE: es embedInStream para Stream sin la funcionalidad del yield from

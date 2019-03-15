@@ -44,17 +44,10 @@ class Pseq(ListPattern):
             for i in range(repeats):
                 for item in lst:
                     if isinstance(item, stm.Stream): # BUG: o puede ser otro iterador? y la expansión multicanal dónde se produce?
-                        try:
-                            print('*** llama a yield from')
-                            inval = yield from item.iter(inval)
-                            print('*** inval luego de yield from:', inval)
-                        except StopIteration as e:
-                            print('*** catch de StopIteration en Pseq iter')
+                        inval = yield from item.iter(inval)
                     else:
                         inval = yield item # BUG: embedInStream hace this.yield en Object
-                        print('*** inval luego de yield item', inval)
-            #return inval # BUG: no recuerdo si esto tiene efecto.
-            print('*** sale de _gi')
+            #return inval # BUG: no recuerdo si esto tiene efecto, creo que no
         return _gi(inval) # BUG: comprobar que inval está bien como parámetro de iter()
 
     # storeArgs # TODO

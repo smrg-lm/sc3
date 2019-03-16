@@ -277,9 +277,8 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     # TODO: es _RoutineResume
     def next(self, inval=None):
         # _RoutineAlwaysYield (y Done)
-        if self.state == self.State.Done: # BUG: esto no sería necesario con StopIteration?
-            print('*** está en State.Done')
-            return self._terminal_value
+        if self.state == self.State.Done:
+            raise StopIteration()
 
         # prRoutineResume
         # TODO: setea nowExecutingPath, creo que no lo voy a hacer.

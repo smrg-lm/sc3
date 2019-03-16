@@ -8,26 +8,17 @@ from . import thread as thr
 
 
 class Stream(fn.AbstractFunction): #, ABC):
-    # TODO:
-    #     * Stream actúa como conotenedor e iterador en sclang
-    #     * los generadores implementan __iter__, los iteradores además implementan __next__
-    #     * No me queda claro cómo deberían ser los equivalentes, Stream,
-    #       al ser AbstractFunction implementa las operaciones matemáticas y eso
-    #       iría sobre los iteradores o los generadores?
-    #     * Por lo que veo no es necesario implementar Stream para que funcione
-    #       lo básico de Routine.
-    # TODO: OK, la cosa será así, al menos por ahora, Stream es un iterador
-    # y Pattern es un generador, es lo que hace sclang en su explicación teórica.
-    # La gracia de ambos es que son AbstractFunctions.
-    # Tengo que ver, después, por qué Stream implementa la funcionalidad de los
-    # contenedores, pero la idea es no agregar funcionalidad demás.
-    # Tengo que ver cuándo sirve el método send de Python, tal vez para
-    # embedInStream.
-
     ### iterator protocol ###
 
     def __iter__(self):
-        return self.iter()
+        return self
+
+    def __stream__(self):
+        return self
+
+    def __embed__(self, inval=None):
+        while True:
+            yield self.next(inval)
 
     def __next__(self):
         return self.next() # TODO: en Python no son infinitos por defecto
@@ -35,15 +26,9 @@ class Stream(fn.AbstractFunction): #, ABC):
     def __call__(self, inval=None):
         return self.next(inval)
 
-    def iter(self, inval=None):
-        return self # BUG: es self para Routine?
-
     #@abstractmethod # NOTE: la clase que se usa como Stream por defecto es Routine (hay otras)
     def next(self, inval=None): # se define en Object y se sobreescribe con subclassResponsibility en Stream
         pass
-
-    def stream(self): # BUG: cambié el nombre de asString, en sclang se define en Object devolviendo this, es protocolo
-        return self # BUG: es self para Routine?
 
     # @property # BUG: ver si es realmente necesario definir esta propiedad
     # def parent(self): # TODO: entiendo que esta propiedad, que no se puede declarar como atributo, es por parent de Thread
@@ -52,11 +37,16 @@ class Stream(fn.AbstractFunction): #, ABC):
     # def stream_arg(self): # BUG: se usa para Pcollect, Pselect, Preject, el método lo definen Object y Pattern también.
     #     return self
 
-    def all(inval=None):
+    def all(self, inval=None):
+        self.reset()
+        item = None
         lst = []
-        item = self.next(inval)
-        while item is not None:
-            lst.append(item)
+        while True:
+            try:
+                item = self.next(inval)
+                lst.append(item)
+            except StopIteration:
+                break
         return lst
 
     # put
@@ -82,14 +72,11 @@ class Stream(fn.AbstractFunction): #, ABC):
         return UnaryOpStream(selector, self)
 
     def compose_binop(self, selector, other):
-        return BinaryOpStream(selector, self, as_stream(other)) # BUG: en sclang usa el adverbio y si es nil la operación binaria retorna nil, no sé para qué se usa.
+        return BinaryOpStream(selector, self, stream(other)) # BUG: BUG: en sclang usa el adverbio y si es nil la operación binaria retorna nil, tal vez porque sin él no hace la operación elemento a elemento de los streams.
 
     def compose_narop(self, selector, *args):
-        args = [as_stream(x) for x in args]
+        args = [stream(x) for x in args]
         return NAryOpStream(selector, self, *args)
-
-    # TODO: ver embedInStream que se puede usar en las operaciones entre Streams
-    # embedInStream # NOTE: es yield from en Python, creo que no se puede implementar como método
 
     # asEventStreamPlayer
     # play
@@ -108,11 +95,8 @@ class UnaryOpStream(Stream):
         self.a = a
 
     def next(self, inval=None):
-        a = self.a.next(inval)
-        if a is None:
-            return None
-        else:
-            return getattr(a, self.selector)()
+        a = self.a.next(inval) # NOTE: tira StopIteration
+        return getattr(a, self.selector)()
 
     def reset(self):
         self.a.reset()
@@ -127,12 +111,8 @@ class BinaryOpStream(Stream):
         self.b = b
 
     def next(self, inval=None):
-        a = self.a.next(inval) # BUG: a o b pueden no ser streams, polimorfismo
-        if a is None:          # BUG: con StopIteration no es necesaria la comprobación
-            return None        # BUG: revisar todos los op.
+        a = self.a.next(inval) # NOTE: tira StopIteration
         b = self.b.next(inval)
-        if b is None:
-            return None
         return getattr(a, self.selector)(b)
 
     def reset(self):
@@ -146,42 +126,21 @@ class NAryOpStream(Stream):
     def __init__(self, selector, a, *args):
         self.selector = selector
         self.a = a
-        self.args = args # BUG: cambié los nombres arglist, isNumeric
-
-    @property
-    def args(self):
-        return self._args
-
-    @args.setter
-    def args(self, value):
-        # // optimization
-        self._numeric = all(isinstance(x, (int, float, str)) for x in value)
-        self._args = list(value)
+        self.args = args # BUG: cambié el nombres arglist, no uso la optimización isNumeric, todos los args son stream (convertidos en la llamada)
 
     def next(self, inval=None):
-        a = self.a.next(inval)
-        if a is None:
-            return None
-        if self._numeric:
-            args = self._args
-        else:
-            args = []
-            res = None
-            for item in self._args:
-                if isinstance(item, Stream):
-                    res = item.next(inval)
-                else:
-                    res = item
-                if res is None:
-                    return None
-                args.append(res)
+        a = self.a.next(inval) # NOTE: tira StopIteration
+        args = []
+        res = None
+        for item in self._args:
+            res = item.next(inval) # NOTE: tira StopIteration
+            args.append(res)
         return getattr(a, self.selector)(*args)
 
     def reset(self):
         self.a.reset()
         for item in self._args:
-            if isinstance(item, Stream):
-                item.reset()
+            item.reset()
 
     # storeOn # TODO
 
@@ -212,32 +171,22 @@ class EventStreamPlayer(PauseStream):
 # class StreamClutch(Stream): pass # TODO: no se usa en la librería de clases, actúa como un filtro, sí está documentada.
 # class CleanupStream(Stream): pass # TODO: no se usa en la librería de clases, creo, ver bien, no tiene documentación.
 
-def as_stream(obj): # BUG: es asStream, ver nombre
-    # NOTE: Esto es nuevo, la clase la estoy usando como
-    # función de interfaz para convertir otros tipos, como funcionan
-    # list, int, etc. en Python, aunque en este caso puede devolver
-    # el objeto entrante... no es lo mismo, tal vez mejor una función
-    # y el método mágico __stream__.
-    # BUG: Luego tengo que revisar si resulta coherente además de práctico.
-    # NOTE: Así es como si cualquier objeto pudiera ser convertido
-    # en un Stream, pero porque esta clase tiene una sola subclase,
-    # o implementa el protocolo stream (que tendría que ser __stream__).
-    # En este caso se puede porque los tipos básico retornan todos self.
-    # Se usa en compose.
-    # NOTE: La verdad que se podría usar un método de clase, pero para
-    # sentir cómo queda, la otra es implementar una función 'stream(obj)'
-    # a nivel de módulo.
-    # *************************************************************************
-    # NOTE: IMPORTANTE: En Python todos los iterables responden a yield from,
-    # creo que con que los Patterns sean iterables alcanza y el equivalente a
-    # embedInStream es devolver un iterador... pero está el problema de inval.
-    # *************************************************************************
-    if isinstance(obj, Stream):
-        return obj # NOTE: no se define __init__, la única subclase es Routine que usa __init__ de TimeThread
-    if hasattr(obj, 'stream'): # BUG: no sé si alcanza para definir una interfaz, cualquier clase puede tener este método, tal vez __stream__, pero tengo que revisar todas las otras interfaces también.
-        return obj.stream() # NOTE: es asStream que es método de interfaz
-    if hasattr(obj, '__iter__'): # BUG: alcanza con esto?
+
+def stream(obj):
+    if hasattr(obj, '__stream__'):
+        return obj.__stream__()
+    if hasattr(obj, '__iter__'):
         def _(inval=None):
-            yield from item # NOTE: funciona incluso para dict
+            yield from obj
         return thr.Routine(_)
-    return obj
+    else:
+        def _(inval=None):
+            yield obj
+        return thr.Routine(_)
+
+
+def embed(obj, inval=None):
+    import supercollie.patterns as ptt
+    if isinstance(obj, (ptt.Pattern, Stream)):
+        return obj.__embed__(inval)
+    return stream(obj).__embed__(inval)

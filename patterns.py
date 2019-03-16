@@ -19,20 +19,17 @@ class Pattern(fn.AbstractFunction):
         pass # TODO
 
     def __iter__(self):
-        return self.stream() # BUG: es stream (routine) o iter (gen obj)???
+        return self.__stream__()
 
-    def stream(self): # NOTE: es asStream
-        # TODO: ES PROTOCOLO, un stream no es un iterador común (es una Routine)
-        # aunque tiene que ser compatible.
-        def _stream(inval=None): # BUG: pattern_iterator?? from _collections_abc import list_iterator
-            inval = yield from self.iter(inval)
-        return thr.Routine(_stream)
+    def __stream__(self): # es asStream
+        def _(inval=None): # NOTE: Stream es el pattern iterator
+            yield from self.__embed__(inval)
+        _.__name__ = type(self).__name__ + '_stream_gf' # e.g. Pseq_stream_gf
+        _.__qualname__ += _.__name__
+        return thr.Routine(_)
 
-    def iter(self, inval=None): # NOTE: es embedInStream para Stream sin la funcionalidad del yield from
-        # NOTE: devuelve un generator object
-        def _gi(inval):
-            yield None
-        return _gi(inval)
+    def __embed__(self, inval=None): # NOTE: es embedInStream para Stream sin la funcionalidad del yield from que se define en __stream__
+        yield None
 
     # stream_args
 

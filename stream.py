@@ -186,7 +186,6 @@ def stream(obj):
 
 
 def embed(obj, inval=None):
-    import supercollie.patterns as ptt
-    if isinstance(obj, (ptt.Pattern, Stream)):
+    if hasattr(obj, '__embed__'):
         return obj.__embed__(inval)
     return stream(obj).__embed__(inval)

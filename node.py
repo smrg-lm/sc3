@@ -8,8 +8,7 @@ import supercollie.utils as utl
 from . import ugens as ugn
 from . import server as srv # es cíclico con sí mismo a través de node
 import supercollie.synthdesc as dsc
-from supercollie.ugenparam import ugen_param
-from supercollie.nodeparam import node_param
+from supercollie.graphparam import ugen_param, node_param
 
 
 # Node:asTarget se implementa para Integer, Nil, y Server

@@ -1,6 +1,6 @@
 """Buffer.sc"""
 
-from supercollie.ugenparam import UGenParameter
+from supercollie.graphparam import UGenParameter
 
 
 class Buffer(UGenParameter):

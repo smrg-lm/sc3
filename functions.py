@@ -18,7 +18,7 @@ from abc import ABC, abstractmethod
 import inspect
 
 from . import builtins as bi # TODO: TEST, ver abajo.
-from supercollie.ugenparam import UGenParameter, ugen_param
+from supercollie.graphparam import UGenParameter, ugen_param
 
 
 # ver abstract base clases in python

@@ -17,7 +17,7 @@ import supercollie.functions as fn
 import supercollie._global as _gl
 import supercollie.utils as ut
 import supercollie._specialindex as si
-from supercollie.ugenparam import ugen_param
+from supercollie.graphparam import ugen_param
 #from . import node as nod # BUG: ugens no puede importar node, se crean varios niveles de recursión, usando forward declaration
 
 

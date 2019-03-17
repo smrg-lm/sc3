@@ -5,7 +5,7 @@ import warnings
 import supercollie.ugens as ug
 import supercollie._global as _gl
 import supercollie.utils as ut
-from supercollie.ugenparam import ugen_param
+from supercollie.graphparam import ugen_param
 
 # Controls
 

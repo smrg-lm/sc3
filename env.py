@@ -1,7 +1,7 @@
 """Env.sc"""
 
-from supercollie.ugenparam import UGenParameter, ugen_param
-from supercollie.nodeparam import NodeParameter, node_param
+from supercollie.graphparam import UGenParameter, ugen_param,
+                                   NodeParameter, node_param
 
 
 class Env(UGenParameter, NodeParameter):

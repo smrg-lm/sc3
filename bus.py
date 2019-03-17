@@ -1,7 +1,6 @@
 """Bus.sc"""
 
-from supercollie.ugenparam import UGenParameter
-from supercollie.nodeparam import NodeParameter
+from supercollie.graphparam import UGenParameter, NodeParameter
 from . import server as srv
 import supercollie.utils as utl
 import supercollie.responsedefs as rdf

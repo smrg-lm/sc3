@@ -1,7 +1,7 @@
 """Rest.sc"""
 
 import supercollie.operand as opd
-from supercollie.ugenparam import ugen_param
+from supercollie.graphparam import ugen_param
 
 
 class Rest(opd.Operand):

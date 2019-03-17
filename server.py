@@ -22,7 +22,7 @@ import supercollie.responsedefs as rdf
 import supercollie.thread as thr
 import supercollie.node as nod
 from . import bus
-from supercollie.nodeparam import NodeParameter, node_param
+from supercollie.graphparam import NodeParameter, node_param
 
 
 # BUG: revisar porque hay un patch que cambió esto y otros que cambiaron un par

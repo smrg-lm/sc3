@@ -96,7 +96,10 @@ class UnaryOpStream(Stream):
 
     def next(self, inval=None):
         a = self.a.next(inval) # NOTE: tira StopIteration
-        return getattr(a, self.selector)()
+        if hasattr(self.selector, '__scbuiltin__'):
+            return self.selector(a)
+        else:
+            return getattr(a, self.selector)()
 
     def reset(self):
         self.a.reset()
@@ -113,7 +116,13 @@ class BinaryOpStream(Stream):
     def next(self, inval=None):
         a = self.a.next(inval) # NOTE: tira StopIteration
         b = self.b.next(inval)
-        return getattr(a, self.selector)(b)
+        if hasattr(self.selector, '__scbuiltin__'):
+            return self.selector(a, b)
+        else:
+            ret = getattr(a, self.selector)(b)
+            if ret is NotImplemented and type(a) is int and type(b) is float: # BUG: ver cuál era el caso de este problema
+                return getattr(float(a), self.selector)(b)
+            return ret
 
     def reset(self):
         self.a.reset()
@@ -132,14 +141,17 @@ class NAryOpStream(Stream):
         a = self.a.next(inval) # NOTE: tira StopIteration
         args = []
         res = None
-        for item in self._args:
+        for item in self.args:
             res = item.next(inval) # NOTE: tira StopIteration
             args.append(res)
-        return getattr(a, self.selector)(*args)
+        if hasattr(self.selector, '__scbuiltin__'):
+            return self.selector(a, *args)
+        else:
+            return getattr(a, self.selector)(*args)
 
     def reset(self):
         self.a.reset()
-        for item in self._args:
+        for item in self.args:
             item.reset()
 
     # storeOn # TODO
@@ -179,13 +191,19 @@ def stream(obj):
         def _(inval=None):
             yield from obj
         return thr.Routine(_)
-    else:
-        def _(inval=None):
+
+    def _(inval=None):
+        while True: # BUG: los Object son streams infinitos el problema es que no se comportan lo mismo con embedInStream, ahí son finitos, valores únicos.
             yield obj
-        return thr.Routine(_)
+    return thr.Routine(_)
 
 
 def embed(obj, inval=None):
     if hasattr(obj, '__embed__'):
         return obj.__embed__(inval)
-    return stream(obj).__embed__(inval)
+    if hasattr(obj, '__stream__') or hasattr(obj, '__iter__'):
+        return  stream(obj).__embed__(inval)
+
+    def _(inval=None):
+        yield obj
+    return thr.Routine(_).__embed__()

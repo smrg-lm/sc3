@@ -2,6 +2,7 @@
 
 import supercollie.functions as fn
 import supercollie.thread as thr
+import supercollie.stream as stm
 
 
 # NOTE: No define ningún método como responsabilidad de subclase,
@@ -29,14 +30,14 @@ class Pattern(fn.AbstractFunction):
         return thr.Routine(_)
 
     def __embed__(self, inval=None): # NOTE: es embedInStream para Stream sin la funcionalidad del yield from que se define en __stream__
-        yield None
+        print('*** usa Pattern __embed__')
+        yield from self.__stream__().__embed__(inval)
 
     # stream_args
 
     def event_stream_player(self, proto):
         return EventStreamPlayer(self.stream, proto)
 
-    # embedInStream # NOTE: este método no se usaría en Python.
     # do
     # collect
     # select
@@ -91,15 +92,71 @@ class Pattern(fn.AbstractFunction):
 
 
 class Punop(Pattern):
-    pass
+    def __init__(self, selector, a):
+        self.selector = selector
+        self.a = a
+
+    def __stream__(self): # BUG: no entiendo cuándo se usan estos métodos si anulan __embed__
+        print('*** convierte Punop en UnaryOpStream')
+        return stm.UnaryOpStream(self.selector, stm.stream(self.a))
+
+    def __embed__(self, inval=None):
+        print('*** usa Punop __embed__')
+        stream = stm.stream(self.a)
+        outval = None
+        while True:
+            outval = stream.next(inval)
+            if hasattr(self.selector, '__scbuiltin__'):
+                inval = yield self.selector(outval)
+            else:
+                inval = yield getattr(outval, self.selector)()
+
+    # storeOn
 
 
 class Pbinop(Pattern):
-    pass
+    def __init__(self, selector, a, b):
+        self.selector = selector
+        self.a = a
+        self.b = b
+
+    def __stream__(self):
+        print('*** convierte Pbinop en BinaryOpStream')
+        return stm.BinaryOpStream(
+            self.selector,
+            stm.stream(self.a),
+            stm.stream(self.b)
+        )
+
+    # BUG: ver por qué no define __embed__ acá o por qué los define en los otros dos.
+
+    # storeOn
 
 
 class Pnarop(Pattern): # BUG: nombre cambiado
-    pass
+    def __init__(self, selector, a, *args):
+        self.selector = selector
+        self.a = a
+        self.args = args
+
+    def __stream__(self):
+        print('*** convierte Pnarop en NAryOpStream')
+        args = [stm.stream(x) for x in self.args]
+        return stm.NAryOpStream(self.selector, stm.stream(self.a), *args)
+
+    def __embed__(self, inval=None):
+        print('*** usa Pnarop __embed__')
+        stream_a = stm.stream(self.a)
+        stream_lst = [stm.stream(x) for x in self.args]
+        while True:
+            a = stream_a.next(inval)
+            args = [x.next(inval) for x in stream_lst]
+            if hasattr(self.selector, '__scbuiltin__'):
+                inval = yield self.selector(a, *args)
+            else:
+                inval = yield getattr(a, self.selector)(*args)
+
+    # storeOn
 
 
 ### patterns ###

@@ -238,11 +238,11 @@ class AbstractFunction(ABC, UGenParameter):
     # TODO: los operadores enarios deberían ser implementados por duplicado
     # como las funciones incluidas para los tipos numéricos. VER MIDICPS Y MOD ARRIBA.
     def clip(self, lo, hi):
-        return self.compose_narop('clip', lo, hi)
+        return self.compose_narop(bi.clip, lo, hi)
     def wrap(self, lo, hi):
-        return self.compose_narop('wrap', lo, hi)
+        return self.compose_narop(bi.wrap, lo, hi)
     def fold(self, lo, hi):
-        return self.compose_narop('fold', lo, hi)
+        return self.compose_narop(bi.fold, lo, hi)
     # ...
 
 
@@ -294,7 +294,7 @@ class BinaryOpFunction(AbstractFunction):
 
         ret_value = getattr(a_value, self.selector)(b_value)
         if ret_value is NotImplemented and type(a_value) is int and type(self.b) is float: # TODO: ver qué pasa con otros operadores integrados.
-            return getattr(float(a_value), self.selector)(self.b) # BUG: ver por qué fuerza float, no lo recuerdo.
+            return getattr(float(a_value), self.selector)(self.b) # BUG: fuerza float por operaciones sobre tipos no conmutativos, no me acuerdo cuál era el caso, pero si por alguna otra razón se genera un error va a estar mál el itpo original de la operación.
 
         return ret_value
 

@@ -598,6 +598,7 @@ _SQRT2M1 = math.sqrt(2.) - 1.;
 #define sc_max(a,b) (((a) > (b)) ? (a) : (b)) # Use Python's
 #define sc_min(a,b) (((a) < (b)) ? (a) : (b)) # Use Python's
 #inline T sc_clip(T x, U lo, V hi) return std::max(std::min(x, (T)hi), (T)lo);
+@scbuiltin
 def clip(x, lo, hi):
     T = type(x)
     return max(min(x, T(hi)), T(lo))

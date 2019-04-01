@@ -61,6 +61,10 @@ class Event(dict):
     def __repr__(self):
         return f'{type(self).__name__}({super().__repr__()})'
 
+    # NOTE: '''Para usar como decorador'''
+    def add_function(self, func):
+        self[func.__name__] = func
+
     # UGen graph parameter interface #
     # TODO: ver el resto en UGenParameter
 
@@ -76,62 +80,86 @@ class Event(dict):
 ### Partial Events ###
 
 
-class PitchEvent(Event):
-    def _init(self):
-        self.mtranspose = 0
-        self.gtranspose = 0.0
-        self.ctranspose = 0.0
-        self.octave = 5.0
-        self.root = 0.0
-        self.degree = 0
-        self.scale = (0, 2, 4, 5, 7, 9, 11) # NOTE: ESTO SÍ ES UNA TUPLA EN VEZ DE UNA LISTA?
-        self.spo = 12.0 # NOTE steps per octave, steps_per_octave, stepsPerOctave. No sé.
-        self.detune = 0.0
-        self.harmonic = 1.0
-        self.octave_ratio = 2.0
+def _pe_pitch():
+    pitch_event = Event(
+        mtranspose = 0,
+        gtranspose = 0.0,
+        ctranspose = 0.0,
+        octave = 5.0,
+        root = 0.0,
+        degree = 0,
+        scale = (0, 2, 4, 5, 7, 9, 11), # NOTE: ESTO SÍ ES UNA TUPLA EN VEZ DE UNA LISTA?
+        spo = 12.0, # NOTE steps per octave, steps_per_octave, stepsPerOctave. No sé.
+        detune = 0.0,
+        harmonic = 1.0,
+        octave_ratio = 2.0
+    )
 
-    # BUG: son property en realidad, al setear las llaves sobreescribe la función por un valor.
-    # BUG: ver si las pongo como llaves o como propiedades. El ejemplo clave es
-    # BUG: freq, que por defecto depende de (~midinote.value + ~ctranspose).midicps * ~harmonic;
-    # BUG: o midinote! y que se puedan llamar indistintamente como función o propiedad también es problema.
-    # BUG: cuando se especifica midinote. Pero en el otro extremo hay funciones
-    # BUG: como freqToNote y freqToScale, que actúan más como métodos.
+    # **************************************************************************
+    # BUG IMPORTANTE: el problema es la llamada con value que hace de las ******
+    # BUG IMPORTANTE: llaves que pueden ser una función o un valor escalar. ****
+    # BUG IMPORTANTE: Ver sustain, abajo, como otro ejemplo claro. *************
+    # BUG IMPORTANTE: Y EL USO DE valueEnvir. SE PUEDE SOLUCIONAR CON MÉTODOS **
+    # BUG IMPORTANTE: value(key) y value_envir(key) en Event, value_envir: *****
+    # BUG IMPORTANTE: "evaluates a function, looking up unspecified arguments **
+    # BUG IMPORTANTE: in currentEnvironment", completa los argumentos como si **
+    # BUG IMPORTANTE: fueran kwargs, por nombre en vez de orden, ***************
+    # BUG IMPORTANTE: y automáticamente. ***************************************
+    # BUG IMPORTANTE: VER valueEnvir.scd y getMsgFunc. *************************
+    # **************************************************************************
+
+    @pitch_event.add_function
     def note(self):
-        # NOTE: usa degreeToKey, que es un método polimórfico y una UGen, por algo le dieron relevancia, pero ver la clase Scale porque me resulta redundante.
-        pass
+        pass # BUG: TODO.
 
-    def midinote(self):
-        pass
-
-    def detuned_freq(self):
-        pass
-
+    @pitch_event.add_function
     def freq(self):
-        pass
+        pass # BUG: TODO.
 
-    def freq2note(self, freq): # BUG: nombre. midicps, ampdb, freqnote/freqscale? freq_to_note?
-        pass
+    @pitch_event.add_function
+    def midinote(self):
+        pass # BUG: TODO.
 
-    def freq2scale(self, freq):
-        pass
+    @pitch_event.add_function
+    def detuned_freq(self):
+        pass # BUG: TODO.
+
+    @pitch_event.add_function
+    def freq_to_note(self, freq):
+        pass # BUG: TODO.
+
+    @pitch_event.add_function
+    def freq_to_scale(self, freq):
+        pass # BUG: TODO.
+
+    return pitch_event
 
 
-class DurEvent(Event):
-    pass
+def _pe_dur():
+    dur_event = Event(
+        tempo = None,
+        dur = 1.0,
+        stretch = 1.0,
+        legato = 0.8,
+        #sustain: #{ ~dur * ~legato * ~stretch }, # BUG IMPORTANTE: aunque e.sustain evalúa la función, usa e.use{ ~sustain.value } y necesita evaluar explícitamente, pero el problema es que value anda para todo y la función se puede reemplazar por un escalar.
+        lag = 0.0,
+        strum = 0.0,
+        strum_ends_together = False
+    )
+
+    @dur_event.add_function
+    def sustain(self):
+        return self.dur * self.legato * self.strech
+
+    return dur_event
 
 
 class AmpEvent(Event):
     pass
-
-
 class ServerEvent(Event):
     pass
-
-
 class BufferEvent(Event):
     pass
-
-
 ### BUG: este 'event' en realidad define la intefaz de las funciones MIDI
 ### BUG: que luego se llaman como Event Types de EventPlayer MidiEvent...
 ### BUG: Partial Events tal vez no sean realmente 'Events', sino parámetros
@@ -140,12 +168,8 @@ class BufferEvent(Event):
 ### BUG: estáticos del servidor.
 class MidiEvent(Event): # BUG: todo en mayúsculas no me convence...
     pass
-
-
 class NodeEvent(Event):
     pass
-
-
 class PlayerEvent(Event):
     pass
 

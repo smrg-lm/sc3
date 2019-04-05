@@ -147,6 +147,7 @@ def _pe_pitch():
 
     @pitch_event.add_function
     def note(self):
+        # NOTE: La documentación de Function:performDegreeToKey da un buen ejemplo de cuándo una llave de event puede actuar como una función personalizada con parámetros estándar.
         pass # BUG: TODO.
 
     @pitch_event.add_function

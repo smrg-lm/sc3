@@ -3,6 +3,9 @@
 import types
 
 
+# NOTE: para putAll -> Event({**a, **b, **c, ...}) en vez de updates... (>= Python 3.5)
+
+
 class Event(dict):
     default_parent_event = {}
     parent_events = {}
@@ -30,6 +33,7 @@ class Event(dict):
     # NOTE: VER: módulo types, porque usa types.MethodType to a bound instance method object,
     # NOTE: y es una manera de pasar self: "Define names for built-in types that aren't directly accessible as a builtin."
     def __getattr__(self, name):
+        # BUG: la lógica de las llaves, proto y parent va en __getitem__
         try:
             attr = self[name]
         except KeyError:
@@ -41,17 +45,16 @@ class Event(dict):
                         try:
                             attr = self.parent[name]
                         except KeyError:
-                            attr = KeyError
+                            attr = KeyError # BUG: queda sin asignar en caso de no existir proto y parent y tira UnboundLocalError abajo.
         if attr is KeyError:
             msg = "'{}' has not attribute or key '{}'"
             raise AttributeError(msg.format(type(self).__name__, name))
         else:
-            if isinstance(attr, types.FunctionType):
+            if isinstance(attr, types.FunctionType): # BUG: qué debería pasar con MethodType y los métodos estáticos? así implementado no es posible asingar métodos, en Python se puede asignar un método a otra clase pero self es la clase originaria del método, el méþodo se lleva la clase consigo, lo cual no sé si es bueno. VER value también
                 # BUG: el problema es que por más que llame a Event.use, las variables con tilde siempre leen del entorno actual y puede cambiar
                 return types.MethodType(attr, self) # NOTE: esta es la forma correcta para que pase self primero siempre (no se puede fácil con FunctionType), ahora, self siempre tiene que estar declarada también. Cuando se llama con at no se pasa self en SuperCollider.
             else:
                 return attr
-
 
     def __delattr__(self, name):
         if hasattr(type(self), name):
@@ -61,9 +64,24 @@ class Event(dict):
     def __repr__(self):
         return f'{type(self).__name__}({super().__repr__()})'
 
+    ### Event interface ###
+
     # NOTE: '''Para usar como decorador'''
     def add_function(self, func):
-        self[func.__name__] = func
+        self.__setattr__(func.__name__, func)
+
+    # NOTE: value sirve porque las llaves se pueden llamar siendo funciones o valores según el dato de entrada/sobreescritura del usuario
+    # BUG: en realidad esto es simplemente self.name() pero ignora la llamada y los argumentos si no es una función, distintas funciones pueden tener distintos nombres para los argumentos, eso no se ignora acá y tienen que tener valores por defecto.
+    def value(self, name, *args, **kwargs):
+        if name in self:
+            if isinstance(self[name], types.FunctionType):
+                return self[name](self, *args, **kwargs)
+            else:
+                return self[name]
+        else:
+            raise KeyError("'{type(self).__name__}' has not key '{name}'")
+
+    # TODO
 
     # UGen graph parameter interface #
     # TODO: ver el resto en UGenParameter
@@ -96,6 +114,7 @@ def _pe_pitch():
     )
 
     # **************************************************************************
+    # NOTE: para esto usar el método value(key) (singular) con kwargs **********
     # BUG IMPORTANTE: el problema es la llamada con value que hace de las ******
     # BUG IMPORTANTE: llaves que pueden ser una función o un valor escalar. ****
     # BUG IMPORTANTE: Ver sustain, abajo, como otro ejemplo claro. *************
@@ -149,7 +168,7 @@ def _pe_dur():
 
     @dur_event.add_function
     def sustain(self):
-        return self.dur * self.legato * self.strech
+        return self.dur * self.legato * self.stretch
 
     return dur_event
 

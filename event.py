@@ -2,6 +2,8 @@
 
 import types
 
+import supercollie.builtins as bi
+
 
 # NOTE: para putAll -> Event({**a, **b, **c, ...}) en vez de updates... (>= Python 3.5)
 
@@ -189,8 +191,33 @@ def _pe_dur():
     return dur_event
 
 
-class AmpEvent(Event):
-    pass
+def _pe_amp():
+    amp_event = Event(
+        #'amp': #{ ~db.dbamp }, # BUG: es curioso que en sclang Event.parentEvents.default; e.amp tira error ~db es nil, hay que hacer e.use { e.amp.postln }, i.e. no se puede usar como llave común y corriente # BUG: es un tanto inconsistente, aunque no se use así, que db no se recalcule si se cambia amp por un escalar, lo mismo define velocity pero no la usa para calcular amp
+                                # BUG: la otra opción es que las llaves se comporten como properties con getter/setter.
+        db=-20.0,
+        velocity=64,
+        pan=0.0,
+        trig=0.5
+    )
+
+    @amp_event.add_function
+    def amp(self):
+        return bi.dbamp(self.db)
+
+    return amp_event
+
+
+### TEST ###
+### BUG: ir pasando para abajo ###
+Event.default_parent_event = Event(
+    **_pe_pitch(),
+    **_pe_amp(), # NOTE: el orden de las definiciones, que sigo, está mal en sclang
+    **_pe_dur(),
+    # ...
+)
+
+
 class ServerEvent(Event):
     pass
 class BufferEvent(Event):

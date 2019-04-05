@@ -14,7 +14,7 @@ class Event(dict):
     # BUG: tengo que ver la documentación, en update los parámetros actúan igual
     def __init__(self, *args, **kwargs): # know = always True
         super().__init__(*args, **kwargs)
-        super().__setattr__('proto', self.pop('proto', None))
+        super().__setattr__('proto', self.pop('proto', None)) # BUG: se puede escribir la llave proto/parent luego pero siempre llama al atributo.
         super().__setattr__('parent', self.pop('parent', None))
 
     # NOTE: set/get/del es simplemente para implementar y las llamadas a super
@@ -33,33 +33,49 @@ class Event(dict):
     # NOTE: VER: módulo types, porque usa types.MethodType to a bound instance method object,
     # NOTE: y es una manera de pasar self: "Define names for built-in types that aren't directly accessible as a builtin."
     def __getattr__(self, name):
-        # BUG: la lógica de las llaves, proto y parent va en __getitem__
         try:
             attr = self[name]
         except KeyError:
-            if self.proto is not None:
-                try:
-                    attr = self.proto[name]
-                except KeyError:
-                    if self.parent is not None:
-                        try:
-                            attr = self.parent[name]
-                        except KeyError:
-                            attr = KeyError # BUG: queda sin asignar en caso de no existir proto y parent y tira UnboundLocalError abajo.
-        if attr is KeyError:
+            attr = KeyError
+        if attr is KeyError: # NOTE: así no tira excepción sobre excepción.
             msg = "'{}' has not attribute or key '{}'"
             raise AttributeError(msg.format(type(self).__name__, name))
+        if isinstance(attr, types.FunctionType): # BUG: qué debería pasar con MethodType y los métodos estáticos? así implementado no es posible asingar métodos, en Python se puede asignar un método a otra clase pero self es la clase originaria del método, el méþodo se lleva la clase consigo, lo cual no sé si es bueno. VER value también
+            # BUG: el problema es que por más que llame a Event.use, las variables con tilde siempre leen del entorno actual y puede cambiar
+            return types.MethodType(attr, self) # NOTE: esta es la forma correcta para que pase self primero siempre (no se puede fácil con FunctionType), ahora, self siempre tiene que estar declarada también. Cuando se llama con at no se pasa self en SuperCollider.
         else:
-            if isinstance(attr, types.FunctionType): # BUG: qué debería pasar con MethodType y los métodos estáticos? así implementado no es posible asingar métodos, en Python se puede asignar un método a otra clase pero self es la clase originaria del método, el méþodo se lleva la clase consigo, lo cual no sé si es bueno. VER value también
-                # BUG: el problema es que por más que llame a Event.use, las variables con tilde siempre leen del entorno actual y puede cambiar
-                return types.MethodType(attr, self) # NOTE: esta es la forma correcta para que pase self primero siempre (no se puede fácil con FunctionType), ahora, self siempre tiene que estar declarada también. Cuando se llama con at no se pasa self en SuperCollider.
-            else:
-                return attr
+            return attr
 
     def __delattr__(self, name):
         if hasattr(type(self), name):
             raise AttributeError(f"attribute '{name}' can't be deleted")
         del self[name]
+
+    def __getitem__(self, key):
+        try:
+            value = super().__getitem__(key)
+        except KeyError:
+            if self.proto is not None:
+                try:
+                    value = super(type(self), self.proto).__getitem__(key)
+                except KeyError:
+                    if self.parent is not None: # proto and parent
+                        try:
+                            value = self.parent[key]
+                        except KeyError:
+                            value = KeyError
+                    else: # proto and no parent
+                        value = KeyError
+            elif self.proto is None and self.parent is not None: # no proto and parent
+                try:
+                    value = self.parent[key]
+                except KeyError:
+                    value = KeyError
+            else: # no proto and no parent
+                value = KeyError
+        if value is KeyError: # NOTE: así no tira excepción sobre excepción.
+            raise KeyError(key)
+        return value
 
     def __repr__(self):
         return f'{type(self).__name__}({super().__repr__()})'

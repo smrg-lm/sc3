@@ -153,15 +153,25 @@ def _pe_pitch():
         return self.scale.degree_to_key(self.degree + self.mtranspose) # BUG, NOTE: si solo se puede usar Scale la llave spo de Event es obsoleta.
 
     @pitch_event.add_function
-    def freq(self):
-        return bi.midicps(self.value('midinote') + self.ctranspose) * self.harmonic
-
-    @pitch_event.add_function
     def midinote(self):
         ret = self.value('note') + self.gtranspose + self.root
         ret = ret / self.scale.spo() + self.octave - 5.0
         ret = ret * (12.0 * math.log2(self.scale.octave_ratio)) + 60
         return ret
+
+    # NOTE: Vuelto a esta posición de lectura porque las dependencias son:
+    # NOTE: degree -> note -> midinote -> freq -> detuned_freq.
+    # NOTE: De ser mplementadas como propiedades de objeto se podría definir
+    # NOTE: una variable privada, en la representación más conveniente, es
+    # NOTE: arbitraria, y que todas estas propiedades dependan de ella así
+    # NOTE: se actualizan entre sí y las llaves del evento quedan siempre
+    # NOTE: en estado consistente. En este caso degree actúa de esa manera,
+    # NOTE: no tiene función, es solo un número de referencia, pero faltaría
+    # NOTE: que todas las llaves devuelvan el valor actual consistentemente
+    # NOTE: cuando se cambia el valor de a través de una llave intermedia.
+    @pitch_event.add_function
+    def freq(self):
+        return bi.midicps(self.value('midinote') + self.ctranspose) * self.harmonic
 
     @pitch_event.add_function
     def detuned_freq(self):

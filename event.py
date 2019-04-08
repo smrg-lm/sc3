@@ -1,8 +1,10 @@
 """Event.sc"""
 
 import types
+import math
 
 import supercollie.builtins as bi
+import supercollie.scale as scl
 
 
 # NOTE: para putAll -> Event({**a, **b, **c, ...}) en vez de updates... (>= Python 3.5)
@@ -124,11 +126,11 @@ def _pe_pitch():
         octave = 5.0,
         root = 0.0,
         degree = 0,
-        scale = (0, 2, 4, 5, 7, 9, 11), # NOTE: ESTO SÍ ES UNA TUPLA EN VEZ DE UNA LISTA?
-        spo = 12.0, # NOTE steps per octave, steps_per_octave, stepsPerOctave. No sé.
+        scale = scl.Scale([0, 2, 4, 5, 7, 9, 11]), # BUG: Scale tiene que ser inmutable como una tupla.
+        #spo = 12.0, # BUG: obsoleta, siempre se usa Scale NOTE steps per octave, steps_per_octave, stepsPerOctave. No sé.
         detune = 0.0,
         harmonic = 1.0,
-        octave_ratio = 2.0
+        #octave_ratio = 2.0 # BUG: obsoleta, siempre se usa Scale
     )
 
     # **************************************************************************
@@ -148,27 +150,30 @@ def _pe_pitch():
     @pitch_event.add_function
     def note(self):
         # NOTE: La documentación de Function:performDegreeToKey da un buen ejemplo de cuándo una llave de event puede actuar como una función personalizada con parámetros estándar.
-        pass # BUG: TODO.
+        return self.scale.degree_to_key(self.degree + self.mtranspose) # BUG, NOTE: si solo se puede usar Scale la llave spo de Event es obsoleta.
 
     @pitch_event.add_function
     def freq(self):
-        pass # BUG: TODO.
+        return bi.midicps(self.value('midinote') + self.ctranspose) * self.harmonic
 
     @pitch_event.add_function
     def midinote(self):
-        pass # BUG: TODO.
+        ret = self.value('note') + self.gtranspose + self.root
+        ret = ret / self.scale.spo() + self.octave - 5.0
+        ret = ret * (12.0 * math.log2(self.scale.octave_ratio)) + 60
+        return ret
 
     @pitch_event.add_function
     def detuned_freq(self):
-        pass # BUG: TODO.
+        self.value('freq') + self.detune
 
     @pitch_event.add_function
-    def freq_to_note(self, freq):
-        pass # BUG: TODO.
+    def freq_to_note(self, freq): # BUG: no parece usarse en la librería de clases
+        pass # BUG: TODO. # BUG: podría ser que se tome siempre ~freq y se quite el parámetro para que actúe como propiedad, ver test_event_value_midinote.py
 
     @pitch_event.add_function
-    def freq_to_scale(self, freq):
-        pass # BUG: TODO.
+    def freq_to_scale(self, freq): # BUG: no parece usarse en la librería de clases
+        pass # BUG: TODO. # BUG: podría ser que se tome siempre ~freq y se quite el parámetro para que actúe como propiedad, ver test_event_value_midinote.py
 
     return pitch_event
 
@@ -211,6 +216,8 @@ def _pe_amp():
 
 ### TEST ###
 ### BUG: ir pasando para abajo ###
+### NOTE: ver test_event_value_midinote.py
+### NOTE: hacer serverEvent y playerEvent ahora
 Event.default_parent_event = Event(
     **_pe_pitch(),
     **_pe_amp(), # NOTE: el orden de las definiciones, que sigo, está mal en sclang

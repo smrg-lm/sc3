@@ -5,6 +5,8 @@ import math
 
 import supercollie.builtins as bi
 import supercollie.scale as scl
+import supercollie.synthdef as sdf
+import supercollie.synthdesc as sdc
 
 
 # NOTE: para putAll -> Event({**a, **b, **c, ...}) en vez de updates... (>= Python 3.5)
@@ -31,6 +33,7 @@ class Event(dict):
 
     # NOTE: https://docs.python.org/3/howto/descriptor.html#invoking-descriptors
     # NOTE: "Called when the default attribute access fails with an AttributeError"
+    # NOTE: object.__getattribute__(): data descriptors -> instance variables -> non-data descriptors -> __getattr__()
     # NOTE: https://docs.python.org/3/reference/datamodel.html#object.__getattribute__
     # NOTE: https://docs.python.org/3/reference/datamodel.html#special-lookup
     # NOTE: https://docs.python.org/3/library/types.html#types.FunctionType
@@ -44,8 +47,8 @@ class Event(dict):
         if attr is KeyError: # NOTE: así no tira excepción sobre excepción.
             msg = "'{}' has not attribute or key '{}'"
             raise AttributeError(msg.format(type(self).__name__, name))
-        if isinstance(attr, types.FunctionType): # BUG: qué debería pasar con MethodType y los métodos estáticos? así implementado no es posible asingar métodos, en Python se puede asignar un método a otra clase pero self es la clase originaria del método, el méþodo se lleva la clase consigo, lo cual no sé si es bueno. VER value también
-            # BUG: el problema es que por más que llame a Event.use, las variables con tilde siempre leen del entorno actual y puede cambiar
+        if isinstance(attr, types.FunctionType):
+            #return attr(self) # NOTE: así no existen las llamadas, la llave siempre retorna valor, self contiene el 'entorno'
             return types.MethodType(attr, self) # NOTE: esta es la forma correcta para que pase self primero siempre (no se puede fácil con FunctionType), ahora, self siempre tiene que estar declarada también. Cuando se llama con at no se pasa self en SuperCollider.
         else:
             return attr
@@ -224,6 +227,103 @@ def _pe_amp():
     return amp_event
 
 
+def _pe_server():
+    server_event = Event(
+        server=None,
+        synth_lib=None,
+        #group: #{ ~server.defaultGroup.nodeID }
+        out=0,
+        add_action=None,
+        msg_func=None,
+        instrument='default',
+        variant=None,
+        has_gate=True, # // assume SynthDef has gate
+        send_gate=None, # // false => event does not specify note release
+        args=('freq', 'amp', 'pan', 'trig'), # // for \type \set
+        timing_offset=0
+    )
+
+    #########################################################################
+    # BUG: Estas funciones probablemente no funcionen, tengo que revisarlas #
+    #########################################################################
+
+    @server_event.add_function
+    def group(self):
+        # BUG: *** En sclang, group es un método, nunca se llama esta llave.
+        # BUG: *** en NodeEvents.sc está definido como:
+        # BUG: *** this.parent = Event.parentEvents[\groupEvent] y retorna self.
+        return self.server.default_group.node_id
+
+    # // this function should return a msgFunc: a Function that
+    # // assembles a synth control list from event values
+    @server_event.add_function
+    def get_msg_func(self):
+        # // if user specifies a msgFunc, prefer user's choice
+        if self.msg_func is None:
+            #self.instrument = self.instrument.as_def_name() # BUG: asDefName es una extensión en Common/Control/asDefName, supongo que soporta cadenas/símbolos y definiciones.
+            if isinstance(self.instrument, sdf.SynthDef): # BUG: el único soporte interesante es SynthDef, podría no estar y que tenga que se un str y ya.
+                self.instrument = self.instrument.name # NOTE: IMPORTANTE: ESTO CREA UNA LLAVE EN EVENTOS HIJOS REEMPLAZANDO LA LLAVE DE PARENT/PROTO. ASÍ ES COMO SE PUEBLAN LOS EVENTOS EN SCLANG.
+            if self.synth_lib is None:
+                self.synth_lib = sdc.SynthDescLib.default # BUG: lo cambié a default, pero está mal, tiene que ser global, pero global es una palabra reservada y tira error.
+            desc = self.synth_lib.at(self.instrument)
+            if desc is not None:
+                self.has_gate = desc.has_gate
+                self.msg_func = desc.msg_func # BUG: SynthDesc devuelve una función creada al vuelo con make_msg_func según los parámetros de la SynthDef que se asignan con valueEnvir!!!
+            else:
+                self.msg_func = self.default_msg_func # BUG: Esta llave tiene que devolver una función cuyos argumentos se asignan con valueEnvir!!!
+        return self.msg_func
+
+    @server_event.add_function
+    def synth_def_name(self):
+        if isinstance(self.instrument, sdf.SynthDef): # BUG: el único soporte interesante es SynthDef, podría no estar y que tenga que se un str y ya.
+            self.instrument = self.instrument.name
+        # # // allow `nil to cancel a variant in a pattern # BUG: no entiendo por qué no alcanza solamente con nil en sclang.
+        # variant = variant.dereference;
+        if self.variant is not None\
+        and self.synth_desc is not None\
+        and self.synth_desc.has_variants():
+            return '{}.{}'.format(self.instrument, self.variant)
+        else:
+            return self.instrument
+
+    @server_event.add_function
+    def get_bundle_args(self):
+        # BUG: BUUUUUUUUUUUUUUUUUUUUUUG: ESTÁ MAL, GET_MSG_FUNC, VALUEENVIR, Y NECESITA EL ARGUMENTO INSTRUMENT
+        if isinstance(self.instrument, (list, tuple)):
+            #return [self.get_msg_func() for _ in instrument]
+            lalala
+        return self.get_msg_func(lalala) # BUG: hace flop, EVALUA LA FUNCION POR CANTIDAD DE INSTRUMENT EN EL ARRAY (EL NOMBRE NO IMPORTA)
+
+    # hasGate: true, // assume SynthDef has gate
+    # sendGate: nil, // false => event does not specify note release
+
+    @server_event.add_function
+    def default_msg_func(self):
+        return [
+            'freq', self.value('freq'),
+            'amp', self.value('amp'),
+            'pan', self.value('pan'),
+            'out', self.value('out')
+        ]
+
+    # args: #[\freq, \amp, \pan, \trig] # // for \type \set
+    # timingOffset: 0
+
+    # // it is more efficient to directly use schedBundleArrayOnClock
+    # // we keep these for compatibility.
+    # @server_event.add_function
+    # def sched_bundle():
+    #     pass
+    # @server_event.add_function
+    # def sched_bundle_list():
+    #     pass
+    # @server_event.add_function
+    # def sched_strummed_note():
+    #     pass
+
+    return server_event
+
+
 ### TEST ###
 ### BUG: ir pasando para abajo ###
 ### NOTE: ver test_event_value_midinote.py
@@ -232,14 +332,15 @@ Event.default_parent_event = Event(
     **_pe_pitch(),
     **_pe_amp(), # NOTE: el orden de las definiciones, que sigo, está mal en sclang
     **_pe_dur(),
+    **_pe_server()
     # ...
 )
 
 
-class ServerEvent(Event):
-    pass
 class BufferEvent(Event):
     pass
+
+
 ### BUG: este 'event' en realidad define la intefaz de las funciones MIDI
 ### BUG: que luego se llaman como Event Types de EventPlayer MidiEvent...
 ### BUG: Partial Events tal vez no sean realmente 'Events', sino parámetros
@@ -248,8 +349,15 @@ class BufferEvent(Event):
 ### BUG: estáticos del servidor.
 class MidiEvent(Event): # BUG: todo en mayúsculas no me convence...
     pass
+
+
+# BUG: Event:node_id es una interfaz hibrida entre evento y nodo, para los
+# BUG: nodeEvent, está implementada en NodeEvents.sc, ahí explica su posible uso
+# BUG: con \Synth y \Group
 class NodeEvent(Event):
     pass
+
+
 class PlayerEvent(Event):
     pass
 

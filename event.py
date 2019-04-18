@@ -7,6 +7,11 @@ import supercollie.builtins as bi
 import supercollie.scale as scl
 import supercollie.synthdef as sdf
 import supercollie.synthdesc as sdc
+import supercollie.main as _main
+import supercollie.utils as utl
+from supercollie.graphparam import node_param
+import supercollie.clock as clk
+import supercollie.server as srv
 
 
 # NOTE: para putAll -> Event({**a, **b, **c, ...}) en vez de updates... (>= Python 3.5)
@@ -48,7 +53,8 @@ class Event(dict):
             msg = "'{}' has not attribute or key '{}'"
             raise AttributeError(msg.format(type(self).__name__, name))
         if isinstance(attr, types.FunctionType):
-            #return attr(self) # NOTE: así no existen las llamadas, la llave siempre retorna valor, self contiene el 'entorno'
+            # return attr(self) # NOTE: así no existen las llamadas, la llave siempre retorna valor, self contiene el 'entorno'
+            # NOTE: si se decide hacer que las llaves evalúen las funciones hay que tener en cuenta que hay llaves que necesitan retornar funciones, y la función como elemnto de la llave obtiene una cualidad especial distinta al comportamiento estandar.
             return types.MethodType(attr, self) # NOTE: esta es la forma correcta para que pase self primero siempre (no se puede fácil con FunctionType), ahora, self siempre tiene que estar declarada también. Cuando se llama con at no se pasa self en SuperCollider.
         else:
             return attr
@@ -96,13 +102,14 @@ class Event(dict):
     # NOTE: value sirve porque las llaves se pueden llamar siendo funciones o valores según el dato de entrada/sobreescritura del usuario
     # BUG: en realidad esto es simplemente self.name() pero ignora la llamada y los argumentos si no es una función, distintas funciones pueden tener distintos nombres para los argumentos, eso no se ignora acá y tienen que tener valores por defecto.
     def value(self, name, *args, **kwargs):
-        if name in self:
-            if isinstance(self[name], types.FunctionType):
-                return self[name](self, *args, **kwargs)
-            else:
-                return self[name]
+        value = self[name]
+        if isinstance(value, types.FunctionType):
+            return value(self, *args, **kwargs)
         else:
-            raise KeyError("'{type(self).__name__}' has not key '{name}'")
+            return value
+
+    def is_rest(self):
+        return False # BUG: ************************ TODO: por qué está implementado a bajo nivel?
 
     # TODO
 
@@ -230,6 +237,7 @@ def _pe_amp():
 def _pe_server():
     server_event = Event(
         server=None,
+        latency=None,
         synth_lib=None,
         #group: #{ ~server.defaultGroup.nodeID }
         out=0,
@@ -244,7 +252,7 @@ def _pe_server():
     )
 
     #########################################################################
-    # BUG: Estas funciones probablemente no funcionen, tengo que revisarlas #
+    # ().play llama solamente a getMsgFunc y synthDefName, pero deben habero otras combinaciones.
     #########################################################################
 
     @server_event.add_function
@@ -252,6 +260,7 @@ def _pe_server():
         # BUG: *** En sclang, group es un método, nunca se llama esta llave.
         # BUG: *** en NodeEvents.sc está definido como:
         # BUG: *** this.parent = Event.parentEvents[\groupEvent] y retorna self.
+        # BUG: *** VER SI SE LLAMA COMO LLAVE e[\group]
         return self.server.default_group.node_id
 
     # // this function should return a msgFunc: a Function that
@@ -262,7 +271,7 @@ def _pe_server():
         if self.msg_func is None:
             #self.instrument = self.instrument.as_def_name() # BUG: asDefName es una extensión en Common/Control/asDefName, supongo que soporta cadenas/símbolos y definiciones.
             if isinstance(self.instrument, sdf.SynthDef): # BUG: el único soporte interesante es SynthDef, podría no estar y que tenga que se un str y ya.
-                self.instrument = self.instrument.name # NOTE: IMPORTANTE: ESTO CREA UNA LLAVE EN EVENTOS HIJOS REEMPLAZANDO LA LLAVE DE PARENT/PROTO. ASÍ ES COMO SE PUEBLAN LOS EVENTOS EN SCLANG.
+                self.instrument = self.instrument.name # BUG: IMPORTANTE: ESTO CREA UNA LLAVE EN EVENTOS HIJOS REEMPLAZANDO LA LLAVE DE PARENT/PROTO. ASÍ ES COMO SE PUEBLAN LOS EVENTOS EN SCLANG.
             if self.synth_lib is None:
                 self.synth_lib = sdc.SynthDescLib.default # BUG: lo cambié a default, pero está mal, tiene que ser global, pero global es una palabra reservada y tira error.
             desc = self.synth_lib.at(self.instrument)
@@ -270,11 +279,11 @@ def _pe_server():
                 self.has_gate = desc.has_gate
                 self.msg_func = desc.msg_func # BUG: SynthDesc devuelve una función creada al vuelo con make_msg_func según los parámetros de la SynthDef que se asignan con valueEnvir!!!
             else:
-                self.msg_func = self.default_msg_func # BUG: Esta llave tiene que devolver una función cuyos argumentos se asignan con valueEnvir!!!
+                self.msg_func = self.default_msg_func()
         return self.msg_func
 
     @server_event.add_function
-    def synth_def_name(self):
+    def synthdef_name(self):
         if isinstance(self.instrument, sdf.SynthDef): # BUG: el único soporte interesante es SynthDef, podría no estar y que tenga que se un str y ya.
             self.instrument = self.instrument.name
         # # // allow `nil to cancel a variant in a pattern # BUG: no entiendo por qué no alcanza solamente con nil en sclang.
@@ -286,34 +295,61 @@ def _pe_server():
         else:
             return self.instrument
 
-    @server_event.add_function
-    def get_bundle_args(self):
-        # BUG: BUUUUUUUUUUUUUUUUUUUUUUG: ESTÁ MAL, GET_MSG_FUNC, VALUEENVIR, Y NECESITA EL ARGUMENTO INSTRUMENT
-        if isinstance(self.instrument, (list, tuple)):
-            #return [self.get_msg_func() for _ in instrument]
-            lalala
-        return self.get_msg_func(lalala) # BUG: hace flop, EVALUA LA FUNCION POR CANTIDAD DE INSTRUMENT EN EL ARRAY (EL NOMBRE NO IMPORTA)
-
-    # hasGate: true, // assume SynthDef has gate
-    # sendGate: nil, // false => event does not specify note release
+    # BUG: esta función ni se usa ni parece funcionar para (instrument: #[a, b]),
+    # BUG: no veo el sentido del flop, no parece que se pueda hacer expansión
+    # BUG: multicanal en eventos. Ver function_flop.scd.
+    # BUG: Y creo que en sclang las funciones generadas con SynthDesc:
+    # BUG: make_msg_func no tienen parámetros por defecto, ver, podrían tener.
+    # @server_event.add_function
+    # def get_bundle_args(self):
+    #     if isinstance(self.instrument, (list, tuple)):
+    #         return [self.value('get_msg_func', i)() for i in self.instrument]
+    #     return self.value('get_msg_func', self.instrument)() # NOTE: hace flop, EVALUA LA FUNCION POR CANTIDAD DE INSTRUMENT EN EL ARRAY (EL NOMBRE NO IMPORTA)
 
     @server_event.add_function
     def default_msg_func(self):
-        return [
-            'freq', self.value('freq'),
-            'amp', self.value('amp'),
-            'pan', self.value('pan'),
-            'out', self.value('out')
-        ]
+        def _(self):
+            return [
+                'freq', self.value('freq'), # NOTE: llave definida en _pe_pitch, tal vez debería comprobar y asignar valores por defecto como es la función en sclang, pero igual mezcla el contenido que distribuye en eventos parciales... !!!
+                'amp', self.value('amp'), # NOTE: llave definida en _pe_amp
+                'pan', self.value('pan'), # NOTE: llave definida en _pe_amp
+                'out', self.value('out') # NOTE: llave definida acá
+            ]
+        return _
 
-    # args: #[\freq, \amp, \pan, \trig] # // for \type \set
-    # timingOffset: 0
+    # NOTE: transcribo acá la lógica del método schedBundleArrayOnClock de
+    # NOTE: SimpleNumber (método que también define SequenceableCollection).
+    # NOTE: No estoy teniendo en cuenta la nota de eficiencia en sclang.
+    # NOTE: Estoy utilizando el nombre más simple, sched_bundle, porque
+    # NOTE: ~schedBundleArray hace exactamente lo mismo pero sin latency.
+    # NOTE: schedStrumedNote no parece usarse. La última opción sería
+    # NOTE: convertir esta función en método de la clase Event.
+    @server_event.add_function
+    def sched_bundle(self, lag, offset, server, bundle, latency=None):
+        lmbd = lambda: server.send_bundle(latency or server.latency, *bundle)
+        # // "offset" is the delta time for the clock (usually in beats)
+        # // "lag" is a tempo independent absolute lag time (in seconds)
+        if lag != 0:
+            if offset != 0:
+                # // schedule on both clocks
+                _main.Main.current_TimeThread.clock(
+                    offset,
+                    lambda: clk.SystemClock.sched(lag, lmbd)
+                )
+            else:
+                # // only lag specified: schedule only on the system clock
+                clk.SystemClock.sched(lag, lmbd)
+        else:
+            if offset != 0:
+                # // only delta specified: schedule only on the clock passed in
+                _main.Main.current_TimeThread.clock(offset, lmbd)
+            else:
+                # // no delays: send directly
+                lmbd()
+
 
     # // it is more efficient to directly use schedBundleArrayOnClock
     # // we keep these for compatibility.
-    # @server_event.add_function
-    # def sched_bundle():
-    #     pass
     # @server_event.add_function
     # def sched_bundle_list():
     #     pass
@@ -322,19 +358,6 @@ def _pe_server():
     #     pass
 
     return server_event
-
-
-### TEST ###
-### BUG: ir pasando para abajo ###
-### NOTE: ver test_event_value_midinote.py
-### NOTE: hacer serverEvent y playerEvent ahora
-Event.default_parent_event = Event(
-    **_pe_pitch(),
-    **_pe_amp(), # NOTE: el orden de las definiciones, que sigo, está mal en sclang
-    **_pe_dur(),
-    **_pe_server()
-    # ...
-)
 
 
 class BufferEvent(Event):
@@ -358,13 +381,137 @@ class NodeEvent(Event):
     pass
 
 
-class PlayerEvent(Event):
-    pass
+def _pe_player():
+    player_event = Event(
+        type='note',
+        parent_types=Event() # NOTE: está justo antes de event types
+    )
+
+    @player_event.add_function
+    def play(self): # BUG: esto podría ser un método?
+        parent_type = self.parent_types.get(self.type)
+        if parent_type is not None:
+            self.parent = parent_type # BUG: esto escribe parent como una llave y se pierde la propiedad parent, creo que conviene definir parent y proto como @property
+        self.server = self.server or srv.Server.default
+
+        # NOTE: buscar la documentación de esta llave.
+        finish = self.get('finish')
+        if finish is not None:
+            finish(self)
+
+        tempo = self.get('tempo')
+        if tempo is not None:
+            _main.Main.current_TimeThread.clock.tempo = tempo # BUG: ESTO ES ASÍ PERO NO ME GUSTA NADA¡
+
+        if not self.is_rest(): # BUG: falta definir is_rest, tengo que ver la implementación a bajo nivel y la clase Rest, no puede ser propiedad, no puede llamarse rest porque confunde con el event_type 'rest'.
+            type_func = self.event_types.get(self.type)\
+                        or self.event_types['note']
+            type_func(self, self.server) # BUG: OJO, OJO: event_types ES OTRO evento en el cual se definen funciones ('note', 'set', etc.), en esas funciones el primero argumentos no hay que llamarlo self porque recibe otro evento que es este self (quien llama)! Eso es porque evalua todo con event.use{} y el alcance dinámico.
+
+        # NOTE: buscar la documentación de esta llave.
+        callback = self.get('callback')
+        if callback is not None:
+            callback(self)
+
+    # BUG: No entiendo por qué esta nota está en este lugar, parece que refiere al comportamiento general del evento, no sé qué son los cleanup events.
+    # // synth / node interface
+    # // this may be better moved into the cleanup events, but for now
+    # // it avoids confusion.
+    # // this is a preliminary implementation and does not recalculate dependent
+    # // values like degree, octave etc.
+
+    @player_event.add_function
+    def free_server_node(self):
+        pass
+
+    # // for some yet unknown reason, this function is uncommented,
+    # // it breaks the play method for gatelesss synths
+
+    @player_event.add_function
+    def release_server_node(self): # BUG: arg releaseTime
+        pass
+
+    ### Event Types ###
+
+    event_types = Event()
+
+    @event_types.add_function
+    def rest(event, server):
+        pass # really empty
+
+    @event_types.add_function
+    def note(event, server):
+        freqs = event.detuned_freq()
+        # // msgFunc gets the synth's control values from the Event
+        msg_func = event.get_msg_func()
+        instrument_name = event.synthdef_name()
+        # // determine how to send those commands
+        # // sendGate == false turns off releases
+        send_gate = event.send_gate or event.has_gate
+        # // update values in the Event that may be determined by functions
+        event.freq = freqs
+        event.amp = event.value('amp')
+        sustain = event.sustain = event.value('sustain')
+        lag = event.lag
+        offset = event.timing_offset
+        strum = event.strum
+        event.server = server # BUG: esto es redundante en sclang porque se setea en 'play', pero tengo que ver si este event_type se llama desde otra parte.
+        event.is_playing = True
+        add_action = nod.Node.action_number_for(self.add_action)
+        # // compute the control values and generate OSC commands
+        ids = None # NOTE: Es None por defecto y modifica el mensaje después generando ids.
+        bndl = ['/s_new', instrument_name, ids, add_action, event.value('group')]
+        bndl.extend(msg_func(event))
+
+        if strum == 0 and ( (send_gate and isinstance(sustain, list))\
+        or isinstance(offset, list) or isinstance(lag, list) ):
+            pass # BUG: TODO: flopTogether
+        else:
+            bndl = utl.flop(bndl)
+        # // produce a node id for each synth
+        ids = self.ids = [server.next_node_id() for _ in len(bndl)]
+        for b, i in enumerate(bndl):
+            b[2] = ids[i]
+            bndl[i] = node_param(b).as_osc_arg_list()
+        # // schedule when the bundles are sent
+        if strum == 0:
+            self.sched_bundle(lag, offset, server, bndl, self.latency)
+            if send_gate:
+                self.sched_bundle(
+                    lag,
+                    sustain + offset,
+                    server,
+                    utl.flop(['/n_set', ids, 'gate', 0]),
+                    self.latency
+                )
+        else:
+            pass # BUG: TODO: strum
+
+    # TODO: sigue...
+
+    player_event.event_types = event_types
+    return player_event
+
+
+### TEST ###
+### BUG: ir pasando para abajo ###
+### NOTE: ver test_event_value_midinote.py
+### NOTE: hacer serverEvent y playerEvent ahora
+Event.default_parent_event = Event(
+    **_pe_pitch(),
+    **_pe_amp(), # NOTE: el orden de las definiciones, que sigo, está mal en sclang
+    **_pe_dur(),
+    **_pe_server(),
+    **_pe_player()
+    # ...
+)
 
 
 ### Event Types ###
 
 # BUG: son tipos de PlayerEvent en realidad, no sé por qué está hecho como está hecho.
+
+class PlayerEvent: pass # BORRAR
 
 class RestEvent(PlayerEvent):
     pass

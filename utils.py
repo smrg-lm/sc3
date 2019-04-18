@@ -167,3 +167,32 @@ def pairwise(iterable):
 
 # pero también se puede usar list comprehensions como sugiere el link
 #[f(x) for x in iterable]
+
+def flop(lst):
+    lst = [as_list(x) for x in lst]
+    n = len(lst)
+    if n == 0:
+        return [[]] # NOTE: es una columna vacía, así es en sclang.
+    lenght = max(len(l) for l in lst)
+    ret = [[None for _ in range(0, n)] for _ in range(0, lenght)]
+    for i in range(0, lenght):
+        for j in range(0, n):
+            ret[i][j] = lst[j][i % len(lst[j])]
+    return ret
+
+# # otras implementaciones de flop, comparar
+# #[[None] * lenght] * n # al multiplicar copia la misma lista n veces
+# def flop(lst):
+#     # agregar lst = [as_list(x) for x in lst]
+#     n = len(lst)
+#     lenght = max(len(l) for l in lst)
+#     aux = []
+#     ret = []
+#     for i in range(0, lenght):
+#         for j in range(0, n):
+#             aux.append(lst[j][i % len(lst[j])])
+#         ret.append(aux)
+#         aux = []
+#     return ret
+# # lst = [[1, 2], [10, 20, 30], [100, 200, 300, 400]]
+# # [[lst[j][i % len(lst[j])] for j in range(0, len(lst))] for i in range(max(len(l) for l in lst))]

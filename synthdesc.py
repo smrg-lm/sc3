@@ -74,7 +74,7 @@ class SynthDesc():
 
         self.constants = None
         self.sdef = None
-        self.msg_func = None
+        self.msg_func = lambda: None
         self.has_gate = False
         self.has_array_args = None
         self.has_variants = False
@@ -318,7 +318,7 @@ class SynthDesc():
         names = 0 # // now, count the args actually added to the func
         suffix = hex(self.__hash__() & 0xFFFFFFFF) # 32 bits positive
 
-        string = 'def sdesc_' + suffix + '('
+        string = 'def sdesc_' + suffix + '(self, ' # NOTE: es una función que se asigna a una llave de Event, que se evalúa/llama con valueEnvir en 'note', acá se necesita self al evaluarse como método al llamar a la llave con __getattr__ para tener los parámetros del evento.
         for i, cname in enumerate(self.controls):
             name = cname.name
             if name != '?':
@@ -346,7 +346,7 @@ class SynthDesc():
 
         comma = False
 
-        string += '    x_' + suffix + ' = []\n'
+        string += '    ret = []\n'
         for i, cname in enumerate(self.controls):
             name = cname.name
             if name != '?':
@@ -356,10 +356,10 @@ class SynthDesc():
                     else:
                         name2 = name
                     string += '    if ' + name2 + ' is not None:\n'
-                    string += '        x_' + suffix + '.append(' + name + ')\n'
-                    string += '        x_' + suffix + '.append(' + name2 + ')\n'
+                    string += '        ret.append("' + name + '")\n'
+                    string += '        ret.append(self.value(' + name2 + '))\n' # BUG: va anecesitar try/except
                     names += 1
-        string += '    x_' + suffix + '\n'
+        string += '    return ret\n'
         string += 'self.msg_func = sdesc_' + suffix
 
         # // do not compile the string if no argnames were added

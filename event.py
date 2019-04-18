@@ -12,6 +12,7 @@ import supercollie.utils as utl
 from supercollie.graphparam import node_param
 import supercollie.clock as clk
 import supercollie.server as srv
+import supercollie.node as nod
 
 
 # NOTE: para putAll -> Event({**a, **b, **c, ...}) en vez de updates... (>= Python 3.5)
@@ -241,7 +242,7 @@ def _pe_server():
         synth_lib=None,
         #group: #{ ~server.defaultGroup.nodeID }
         out=0,
-        add_action=None,
+        add_action='addToHead',
         msg_func=None,
         instrument='default',
         variant=None,
@@ -257,10 +258,9 @@ def _pe_server():
 
     @server_event.add_function
     def group(self):
-        # BUG: *** En sclang, group es un método, nunca se llama esta llave.
         # BUG: *** en NodeEvents.sc está definido como:
         # BUG: *** this.parent = Event.parentEvents[\groupEvent] y retorna self.
-        # BUG: *** VER SI SE LLAMA COMO LLAVE e[\group]
+        # BUG: *** PERO SÍ SE LLAMA LA LLAVE CON e[\group] O ~group en 'note'!
         return self.server.default_group.node_id
 
     # // this function should return a msgFunc: a Function that
@@ -271,10 +271,14 @@ def _pe_server():
         if self.msg_func is None:
             #self.instrument = self.instrument.as_def_name() # BUG: asDefName es una extensión en Common/Control/asDefName, supongo que soporta cadenas/símbolos y definiciones.
             if isinstance(self.instrument, sdf.SynthDef): # BUG: el único soporte interesante es SynthDef, podría no estar y que tenga que se un str y ya.
-                self.instrument = self.instrument.name # BUG: IMPORTANTE: ESTO CREA UNA LLAVE EN EVENTOS HIJOS REEMPLAZANDO LA LLAVE DE PARENT/PROTO. ASÍ ES COMO SE PUEBLAN LOS EVENTOS EN SCLANG.
+                self.instrument = self.instrument.name # NOTE: IMPORTANTE: ESTO CREA UNA LLAVE EN EVENTOS HIJOS REEMPLAZANDO LA LLAVE DE PARENT/PROTO. ASÍ ES COMO SE PUEBLAN LOS EVENTOS EN SCLANG.
+            else:
+                self.instrument = self.instrument # NOTE: IMPORTANTE: ESTO CREA UNA LLAVE
             if self.synth_lib is None:
-                self.synth_lib = sdc.SynthDescLib.default # BUG: lo cambié a default, pero está mal, tiene que ser global, pero global es una palabra reservada y tira error.
-            desc = self.synth_lib.at(self.instrument)
+                synth_lib = sdc.SynthDescLib.default # BUG: lo cambié a default, pero está mal, tiene que ser global, pero global es una palabra reservada y tira error.
+            else:
+                synth_lib = self.synth_lib
+            desc = synth_lib.at(self.instrument)
             if desc is not None:
                 self.has_gate = desc.has_gate
                 self.msg_func = desc.msg_func # BUG: SynthDesc devuelve una función creada al vuelo con make_msg_func según los parámetros de la SynthDef que se asignan con valueEnvir!!!
@@ -326,6 +330,7 @@ def _pe_server():
     # NOTE: convertir esta función en método de la clase Event.
     @server_event.add_function
     def sched_bundle(self, lag, offset, server, bundle, latency=None):
+        print('*** Event.sched_bundle bundle = ', bundle)
         lmbd = lambda: server.send_bundle(latency or server.latency, *bundle)
         # // "offset" is the delta time for the clock (usually in beats)
         # // "lag" is a tempo independent absolute lag time (in seconds)
@@ -457,11 +462,11 @@ def _pe_player():
         strum = event.strum
         event.server = server # BUG: esto es redundante en sclang porque se setea en 'play', pero tengo que ver si este event_type se llama desde otra parte.
         event.is_playing = True
-        add_action = nod.Node.action_number_for(self.add_action)
+        add_action = nod.Node.action_number_for(event.add_action)
         # // compute the control values and generate OSC commands
         ids = None # NOTE: Es None por defecto y modifica el mensaje después generando ids.
         bndl = ['/s_new', instrument_name, ids, add_action, event.value('group')]
-        bndl.extend(msg_func(event))
+        bndl.extend(msg_func()) # NOTE: si se obtiene como atributo es un bound method de self.
 
         if strum == 0 and ( (send_gate and isinstance(sustain, list))\
         or isinstance(offset, list) or isinstance(lag, list) ):
@@ -469,20 +474,20 @@ def _pe_player():
         else:
             bndl = utl.flop(bndl)
         # // produce a node id for each synth
-        ids = self.ids = [server.next_node_id() for _ in len(bndl)]
-        for b, i in enumerate(bndl):
+        event.id = ids = [server.next_node_id() for _ in bndl]
+        for i, b in enumerate(bndl):
             b[2] = ids[i]
             bndl[i] = node_param(b).as_osc_arg_list()
         # // schedule when the bundles are sent
         if strum == 0:
-            self.sched_bundle(lag, offset, server, bndl, self.latency)
+            event.sched_bundle(lag, offset, server, bndl, event.latency)
             if send_gate:
-                self.sched_bundle(
+                event.sched_bundle(
                     lag,
                     sustain + offset,
                     server,
                     utl.flop(['/n_set', ids, 'gate', 0]),
-                    self.latency
+                    event.latency
                 )
         else:
             pass # BUG: TODO: strum

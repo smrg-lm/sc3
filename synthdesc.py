@@ -287,7 +287,7 @@ class SynthDesc():
                 self.can_free_synth = self.can_free_synth or ugen.can_free_synth() # TODO, revisar protocolo: también es una función implementadas por muchas ugens (true) y y Object (false). Es una propiedad solo en esta clase.
 
     def make_msg_func(self):
-        comma = False
+        duplicated_cn = False
         names = set()
 
         # // if a control name is duplicated, the msgFunc will be invalid
@@ -299,7 +299,7 @@ class SynthDesc():
                 if name in names:
                     msg = "could not build msg_func for this SynthDesc: duplicate control name '{}'"
                     warnings.warn(msg.format(name))
-                    comma = True
+                    duplicated_cn = True
                 else:
                     names.add(name)
 
@@ -307,46 +307,57 @@ class SynthDesc():
             msg = "a SynthDef cannot have more than 255 control names ('{}')"
             raise Exception(msg.format(self.name))
 
-        # // reusing variable to know if I should continue or not
-        if comma:
+        if duplicated_cn:
             msg = "SynthDef '{}' has been saved in the library and loaded on the server, if running. Use of this synth in Patterns will not detect argument names automatically because of the duplicate name(s)."
             warnings.warn(msg.format(self.name))
             self.msg_func = None
             return
 
-        comma = False
-        names = 0 # // now, count the args actually added to the func
+        # comma = False
+        # names = 0 # // now, count the args actually added to the func
+        # suffix = hex(self.__hash__() & 0xFFFFFFFF) # 32 bits positive
+        #
+        # string = 'def sdesc_' + suffix + '(event, ' # NOTE: es una función que se asigna a una llave de Event, que se evalúa/llama con valueEnvir en 'note', acá se necesita self al evaluarse como método al llamar a la llave con __getattr__ para tener los parámetros del evento.
+        # for i, cname in enumerate(self.controls):
+        #     name = cname.name
+        #     if name != '?':
+        #         if name == 'gate':
+        #             self.has_gate = True
+        #             if self.msg_func_keep_gate:
+        #                 if comma:
+        #                     string += ', '
+        #                 else:
+        #                     comma = True
+        #                 string += name
+        #                 names += 1
+        #         else:
+        #             if len(name) > 2 and name[1] == '_':
+        #                 name2 = name[2:] # BUG: en sclang, no comprueba len, los índices y name2 puede ser un string vacío: x = "a_"[2..]; x.size == 0
+        #             else:
+        #                 name2 = name
+        #             if comma:
+        #                 string += ', '
+        #             else:
+        #                 comma = True
+        #             string += name2
+        #             names += 1
+        # string += '):\n'
+        #
+        # comma = False # BUG: VER EL USO DE ESTA VARIABLE, ES REALMENTE CONFUSO, E.G. POR QUÉ LA VUELVE A FALSE? POR QUÉ LA USA AL PRINCIPIO ANTES DEL FOR DE LOS ARGUMENTOS PARA NOMBRE DUPLICADOS?!
+
+        # NOTE: gate tiene que estar en names desde el primer for.
+        if 'gate' in names:
+            self.has_gate = True # NOTE: este método se llama con add() y por lo tanto inicializa antes, aunque Event.play también lo llama y ¿actualiza, por qué? o será por defs cargadas del disco?
+
+        # NOTE: Implementación alterantiva, y sin argumentos, los valores se
+        # NOTE: obtienen del parámetro event.
+        # NOTE: *** VER POR QUÉ ESTO NECESITA SER UNA FUNCIÓN QUE DEVUELVE UNA
+        # NOTE: *** LISTA Y NO PUEDE SER UNA LISTA, A COMPLETAR EN ToDO CASO.
+        names_count = 0 # // count the args actually added to the func # NOTE: no reutilizamos ninguna variable que genere confusión.
         suffix = hex(self.__hash__() & 0xFFFFFFFF) # 32 bits positive
-
-        string = 'def sdesc_' + suffix + '(self, ' # NOTE: es una función que se asigna a una llave de Event, que se evalúa/llama con valueEnvir en 'note', acá se necesita self al evaluarse como método al llamar a la llave con __getattr__ para tener los parámetros del evento.
-        for i, cname in enumerate(self.controls):
-            name = cname.name
-            if name != '?':
-                if name == 'gate':
-                    self.has_gate = True
-                    if self.msg_func_keep_gate:
-                        if comma:
-                            string += ', '
-                        else:
-                            comma = True
-                        string += name
-                        names += 1
-                else:
-                    if len(name) > 2 and name[1] == '_':
-                        name2 = name[2:] # BUG: en sclang, no comprueba len, los índices y name2 puede ser un string vacío: x = "a_"[2..]; x.size == 0
-                    else:
-                        name2 = name
-                    if comma:
-                        string += ', '
-                    else:
-                        comma = True
-                    string += name2
-                    names += 1
-        string += '):\n'
-
-        comma = False
-
+        string = 'def sdesc_' + suffix + '(event):\n' # NOTE: es una función que se asigna a una llave de Event, que se evalúa/llama con valueEnvir en 'note', acá se necesita self al evaluarse como método al llamar a la llave con __getattr__ para tener los parámetros del evento.
         string += '    ret = []\n'
+
         for i, cname in enumerate(self.controls):
             name = cname.name
             if name != '?':
@@ -355,15 +366,17 @@ class SynthDesc():
                         name2 = name[2:] # BUG: en sclang, no comprueba len, los índices y name2 puede ser un string vacío: x = "a_"[2..]; x.size == 0
                     else:
                         name2 = name
-                    string += '    if ' + name2 + ' is not None:\n'
-                    string += '        ret.append("' + name + '")\n'
-                    string += '        ret.append(self.value(' + name2 + '))\n' # BUG: va anecesitar try/except
-                    names += 1
+                    string += "    if hasattr(event, '" + name2 + "'):\n" # NOTE: antes era None porque eran los argumentos de valueEnvir.
+                    string += "        ret.append('" + name + "')\n"
+                    string += "        ret.append(event.value('" + name2 + "'))\n"
+                    names_count += 1
         string += '    return ret\n'
         string += 'self.msg_func = sdesc_' + suffix
 
+        print('*** SynthDesc msg_func:'); print(string)
+
         # // do not compile the string if no argnames were added
-        if names > 0:
+        if names_count > 0:
             exec(string)
 
     @property

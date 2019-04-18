@@ -387,7 +387,7 @@ class Server(NodeParameter, metaclass=MetaServer):
         self.pid = None # iniicaliza al bootear, solo tiene getter en la declaración
         self._server_interface = None
         self._pid_release_condition = thr.Condition(lambda: self.pid is None)
-        type(self) # .changed(\serverAdded, self) # BUG: usar mdl.NotificationCenter
+        type(self) # TODO: .changed(\serverAdded, self) # BUG: usar mdl.NotificationCenter
 
         # TODO: siempre revisar que no esté usando las de variables clase
         # porque no va a funcionar con metaclass sin llamar a __class__.

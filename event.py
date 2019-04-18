@@ -186,7 +186,7 @@ def _pe_pitch():
 
     @pitch_event.add_function
     def detuned_freq(self):
-        self.value('freq') + self.detune
+        return self.value('freq') + self.detune
 
     @pitch_event.add_function
     def freq_to_note(self, freq): # BUG: no parece usarse en la librería de clases
@@ -330,7 +330,7 @@ def _pe_server():
     # NOTE: convertir esta función en método de la clase Event.
     @server_event.add_function
     def sched_bundle(self, lag, offset, server, bundle, latency=None):
-        print('*** Event.sched_bundle bundle = ', bundle)
+        print('*** Event.sched_bundle bundle = ', lag, offset, bundle)
         lmbd = lambda: server.send_bundle(latency or server.latency, *bundle)
         # // "offset" is the delta time for the clock (usually in beats)
         # // "lag" is a tempo independent absolute lag time (in seconds)

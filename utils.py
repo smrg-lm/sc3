@@ -169,7 +169,7 @@ def pairwise(iterable):
 #[f(x) for x in iterable]
 
 def flop(lst):
-    lst = [as_list(x) for x in lst]
+    lst = [[None] if x is None else as_list(x) for x in lst] # NOTE: as_list convierte None en []
     n = len(lst)
     if n == 0:
         return [[]] # NOTE: es una columna vacía, así es en sclang.

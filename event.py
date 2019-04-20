@@ -330,8 +330,9 @@ def _pe_server():
     # NOTE: convertir esta función en método de la clase Event.
     @server_event.add_function
     def sched_bundle(self, lag, offset, server, bundle, latency=None):
-        print('*** Event.sched_bundle bundle = ', lag, offset, bundle)
-        lmbd = lambda: server.send_bundle(latency or server.latency, *bundle)
+        if latency is None:
+            latency = server.latency
+        lmbd = lambda: server.send_bundle(latency, *bundle)
         # // "offset" is the delta time for the clock (usually in beats)
         # // "lag" is a tempo independent absolute lag time (in seconds)
         if lag != 0:

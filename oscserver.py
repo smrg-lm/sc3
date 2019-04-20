@@ -127,8 +127,9 @@ class OSCServer():
         """args son listas de valores para crear varios mensajes"""
         messages = [_lo.Message(*x) for x in args] # BUG: falta la conversión de tipos con tupla
                                                    # BUG: ver si los bundles en sc pueden ser recursivos!!!
-        time = time or 0 # BUG: qué pasaba con valores negativos?
-        bundle = _lo.Bundle(float(time), *messages)
+        if time is None: # BUG: qué pasaba con valores negativos y nrt?
+            time = 0.0
+        bundle = _lo.Bundle(_lo.time() + float(time), *messages) # BUG: estoy usando el tiempo de liblo en vez del de SystemClock, que está mal y tengo que revisar, pero luego ver qué tanta diferencia puede haber entre la implementaciones.
         self._osc_server_thread.send(target, bundle)
 
     def send_status_msg(self):

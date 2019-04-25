@@ -177,7 +177,10 @@ def flop(lst):
     ret = [[None for _ in range(0, n)] for _ in range(0, lenght)]
     for i in range(0, lenght):
         for j in range(0, n):
-            ret[i][j] = lst[j][i % len(lst[j])]
+            try:
+                ret[i][j] = lst[j][i % len(lst[j])] # NOTE: *** en sclang i % 0 es cero *** es el caso de listas vacías acá.
+            except ZeroDivisionError:
+                ret[i][j] = [] # NOTE: *** y a = []; a[0] es nil, pero este método está implementado a bajo nivel y no lo miré, 0 o nil es [] acá.
     return ret
 
 # # otras implementaciones de flop, comparar
@@ -196,3 +199,20 @@ def flop(lst):
 #     return ret
 # # lst = [[1, 2], [10, 20, 30], [100, 200, 300, 400]]
 # # [[lst[j][i % len(lst[j])] for j in range(0, len(lst))] for i in range(max(len(l) for l in lst))]
+
+def flop_together(*lsts):
+    max_size = 0
+    for sub_list in lsts:
+        for each in sub_list:
+            if isinstance(each, list):
+                max_size = max(max_size, len(each))
+    stand_in = [0] * max_size
+    for sub_list in lsts:
+        sub_list.append(stand_in)
+    ret = []
+    for i, sub_list in enumerate(lsts):
+        ret.append([])
+        for each in flop(sub_list):
+            each.pop()
+            ret[i].append(each)
+    return ret

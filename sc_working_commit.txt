@@ -1,2 +1,10 @@
 SuperCollie current commit
+SuperCollider commit 834c036d3519337d409277d13f15f321759c5756
+The only changes to lib were:
+commit 553e66194542868ef0ec63c97d0ae399297cb761
+commit 61d023fc56721f79117665ea097b31200e0f7cd4
+"Classlib: Add TempoClock:isRunning method"
+
+SuperCollie last commit 79f8208950b04102a929a30df5797bf9e197d25a
 SuperCollider commit 8597befefcd67c21aaec5081f21181fd914137fd
+

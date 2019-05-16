@@ -1,0 +1,2 @@
+SuperCollie current commit
+SuperCollider commit 8597befefcd67c21aaec5081f21181fd914137fd

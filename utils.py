@@ -118,6 +118,7 @@ def wrap_extend(inlist, n):
 #def reshape_like(this, that); # or that this like sclang?
 
 # flop [(a[i], b[i]) for i in range(len(a))] pero len(a) >= len(b)
+# las funciones integradas filter() y itertools.filterfalse() son select/reject más pythonico pero necesitan list.
 # select [x for x in self.control_names if x.rate == 'noncontrol']
 # reject [x for x in self.control_names if x.rate != 'noncontrol']
 # any with predicate (a generator) como en sclang any(x > 10 for x in l)

@@ -2,6 +2,9 @@
 
 import types
 import math
+import functools as ft
+import itertools as it
+import operator as op
 
 import supercollie.builtins as bi
 import supercollie.scale as scl
@@ -112,6 +115,34 @@ class Event(dict):
     def is_rest(self):
         return False # BUG: ************************ TODO: por qué está implementado a bajo nivel?
 
+    # NOTE: Esta función realiza operaciones matemáticas entre vectores, y
+    # NOTE: escalares. Es a la manera de sclang pero no realiza las operaciones
+    # NOTE: dentro de los anidamientos. En principio está hecha para las operaciones
+    # NOTE: sobre las llaves que definen las alturas. Hay que restringir los datos
+    # NOTE: de entrada haciendolos explícitos por llave y relación entre llaves.
+    # NOTE: VER: archivo test_scarray_op.py.
+    @staticmethod
+    def _binop_map(op, a, b):
+        if isinstance(a, (list, tuple)):
+            if isinstance(b, (list, tuple)):
+                lena = len(a)
+                lenb = len(b)
+            else:
+                lena = len(a)
+                lenb = 1
+                b = [b]
+        elif isinstance(b, (list, tuple)):
+            lenb = len(b)
+            lena = 1
+            a = [a]
+        else:
+            return op(a, b)
+        if lena < lenb:
+            a = it.cycle(a)
+        elif lena > lenb:
+            b = it.cycle(b)
+        return type(a)(map(op, a, b))
+
     # TODO
 
     # UGen graph parameter interface #
@@ -131,16 +162,26 @@ class Event(dict):
 
 def _pe_pitch():
     pitch_event = Event(
-        mtranspose = 0,
-        gtranspose = 0.0,
-        ctranspose = 0.0,
-        octave = 5.0,
-        root = 0.0,
-        degree = 0,
+        # NOTE: De todas estas llaves tendría que revisar y escribir la
+        # NOTE: especificación de las relaciones. Por ejemplo, 'harmonic' solo
+        # NOTE: calcula la llave freq si la frecuencia se define desde midinote
+        # NOTE: o más arriba en la cadena (puede estar definida desde note o degree).
+        # NOTE: xtranspose, octave y root son escalares que tratan los posibles
+        # NOTE: acordes como una unidad (todas las notas se alteran por igual como conjunto).
+        # NOTE: Problema: hay semántica múltiple, con respecto a la afinación y
+        # NOTE: la estructura de datos jerárquica (operaciones sobre listas).
+        # NOTE: VER notas en test_scarray_op.py. Lo mismo pasa en _pe_dur.
+        # NOTE: Ver el gráfico en la documentación de Event.
+        mtranspose = 0, # transposición modal, ESCALAR
+        gtranspose = 0.0, # transposición por gamut, ESCALAR
+        ctranspose = 0.0, # transposición cromática, ESCALAR
+        octave = 5.0, # transposición de octava, ESCALAR
+        root = 0.0, # transposición por nota base, ESCALAR
+        degree = 0, # grado de la escala, VECTOR/ESCALAR, actúa en conjunto: degree -> note -> midinote -> freq -> detuned_freq, ver abajo.
         scale = scl.Scale([0, 2, 4, 5, 7, 9, 11]), # BUG: Scale tiene que ser inmutable como una tupla.
         #spo = 12.0, # BUG: obsoleta, siempre se usa Scale NOTE steps per octave, steps_per_octave, stepsPerOctave. No sé.
-        detune = 0.0,
-        harmonic = 1.0,
+        detune = 0.0, # desafinación, VECTOR/ESCALAR, se pueden necesitar las notas alteradas en afinación dentro de un acorde, esta sería la única llave que lo permite, tiene doble semántica, con respecto a la afinación y la estructura de datos jerárquica.
+        harmonic = 1.0, # se usa solo para calcular la llave 'freq' tal vez debería ser vector/escalar si un conjunto de armónicos es un *acorde*, PERO: puede estar pensado para una sola altura y lo mismo vale si se define que esta llave no se puede usar para polifonía, es arbitrario.
         #octave_ratio = 2.0 # BUG: obsoleta, siempre se usa Scale
     )
 
@@ -158,17 +199,52 @@ def _pe_pitch():
     # BUG IMPORTANTE: VER valueEnvir.scd y getMsgFunc. *************************
     # **************************************************************************
 
+    # BUG: Solucionado provisoriamente con _binop_map:
+    # BUG: Todos estos métodos deberían soportar operadores aritméticos sobre
+    # BUG: listas, e.g. freq = [440, 442] + detune. El problema es que
+    # BUG: además estas operaciones tienen comportamiento wrapAt, para Python
+    # BUG: esto es una implementación arbitraria propia de la clase Event.
+    # BUG: Si se limita a un único valor por llave los eventos no pueden generar
+    # BUG: varios mensajes osc (ej. acordes y strum) que es un comportamiento
+    # BUG: que se usa a nivel de patrones también. Por ejemplo en Pbind no se
+    # BUG: pueden anidar estructuras paralelas por evento si no es con arrays.
+    # BUG: Algo que tal vez podría funcionar más claramente en Python es usar
+    # BUG: tuple para los datos paralelos, en vez de sub-listas, pero
+    # BUG: igualmente hay que implementar la lógica para todas las llaves posibles.
     @pitch_event.add_function
     def note(self):
         # NOTE: La documentación de Function:performDegreeToKey da un buen ejemplo de cuándo una llave de event puede actuar como una función personalizada con parámetros estándar.
-        return self.scale.degree_to_key(self.degree + self.mtranspose) # BUG, NOTE: si solo se puede usar Scale la llave spo de Event es obsoleta.
+        #return self.scale.degree_to_key(self.degree + self.mtranspose) # BUG, NOTE: si solo se puede usar Scale la llave spo de Event es obsoleta.
+        ret = self._binop_map(op.add, self.degree, self.mtranspose) # NOTE: degree puede ser una lista, xtranspose es escalar.
+        if isinstance(ret, (list, tuple)):
+            return type(ret)(self.scale.degree_to_key(i) for i in ret)
+        else:
+            return self.scale.degree_to_key(ret)
 
     @pitch_event.add_function
     def midinote(self):
-        ret = self.value('note') + self.gtranspose + self.root
-        ret = ret / self.scale.spo() + self.octave - 5.0
-        ret = ret * (12.0 * math.log2(self.scale.octave_ratio)) + 60
-        return ret
+        # ret = self.value('note') + self.gtranspose + self.root
+        # ret = ret / self.scale.spo() + self.octave - 5.0 # BUG, NOTE: si solo se puede usar Scale la llave spo de Event es obsoleta.
+        # ret = ret * (12.0 * math.log2(self.scale.octave_ratio)) + 60
+        # return ret
+        ret = self.value('note')
+        if isinstance(ret, (list, tuple)):
+            # NOTE: este es un ejemplo de cómo se degrada la ejecución, arriba
+            # NOTE: es solución Python, pero no implementa operaciones entre
+            # NOTE: posibles vectores desde 'note'.
+            ret = self._binop_map(op.add, ret, self.gtranspose)
+            ret = self._binop_map(op.add, ret, self.root)
+            ret = self._binop_map(op.truediv, ret, self.scale.spo())
+            ret = self._binop_map(op.add, ret, self.octave)
+            ret = self._binop_map(op.sub, ret, 5.0)
+            ret = self._binop_map(op.mul, ret, 12 * math.log2(self.scale.octave_ratio))
+            ret = self._binop_map(op.add, ret, 60)
+            return ret
+        else:
+            ret = ret + self.gtranspose + self.root
+            ret = ret / self.scale.spo() + self.octave - 5.0 # BUG, NOTE: si solo se puede usar Scale la llave spo de Event es obsoleta.
+            ret = ret * (12.0 * math.log2(self.scale.octave_ratio)) + 60
+            return ret
 
     # NOTE: Vuelto a esta posición de lectura porque las dependencias son:
     # NOTE: degree -> note -> midinote -> freq -> detuned_freq.
@@ -182,11 +258,20 @@ def _pe_pitch():
     # NOTE: cuando se cambia el valor de a través de una llave intermedia.
     @pitch_event.add_function
     def freq(self):
-        return bi.midicps(self.value('midinote') + self.ctranspose) * self.harmonic
+        #return bi.midicps(self.value('midinote') + self.ctranspose) * self.harmonic
+        ret = self.value('midinote')
+        if isinstance(ret, (list, tuple)):
+            ret = self._binop_map(op.add, ret, self.ctranspose)
+            ret = type(ret)(bi.midicps(i) for i in ret)
+            ret = self._binop_map(op.mul, ret, self.harmonic)
+            return ret
+        else:
+            return bi.midicps(ret + self.ctranspose) * self.harmonic # NOTE: considero que 'harmonic' es ESCALAR.
 
     @pitch_event.add_function
     def detuned_freq(self):
-        return self.value('freq') + self.detune
+        #return self.value('freq') + self.detune
+        return self._binop_map(op.add, self.value('freq'), self.detune)
 
     @pitch_event.add_function
     def freq_to_note(self, freq): # BUG: no parece usarse en la librería de clases
@@ -209,6 +294,10 @@ def _pe_dur():
         lag = 0.0,
         strum = 0.0,
         strum_ends_together = False
+        # NOTE: offset sale de timing_offset que es un parámetro de server_event.
+        # NOTE: pero en player_event.note() se lo considera posible lista como
+        # NOTE: parámetro de sched_strummed_bundle. Esto tal vez esté mal conceptualmente en sclang,
+        # NOTE: si es un parámetro del servidor no actúa 'por altura' generada en un acorde.
     )
 
     @dur_event.add_function
@@ -321,24 +410,25 @@ def _pe_server():
             ]
         return _
 
-    # NOTE: transcribo acá la lógica del método schedBundleArrayOnClock de
-    # NOTE: SimpleNumber (método que también define SequenceableCollection).
-    # NOTE: No estoy teniendo en cuenta la nota de eficiencia en sclang.
-    # NOTE: Estoy utilizando el nombre más simple, sched_bundle, porque
-    # NOTE: ~schedBundleArray hace exactamente lo mismo pero sin latency.
-    # NOTE: schedStrumedNote no parece usarse. La última opción sería
-    # NOTE: convertir esta función en método de la clase Event.
+    # NOTE: Transcribo acá la lógica del método schedBundleArrayOnClock de
+    # NOTE: SimpleNumber y SequenceableCollection por separado.
+    # NOTE: schedStrumedNote no parece usarse. La última opción sería convertir
+    # NOTE: esta función en método de la clase Event. Solo se usa acá y el
+    # NOTE: reloj siempre es thisThread.clock.
+    # NOTE: Ahora, schedStrumedNote, detectando los eventos que definen
+    # NOTE: strum simplificaría la implementación factorizando los casos.
+    # NOTE: Sobre todo si se considera que strum es menos habitual.
     @server_event.add_function
     def sched_bundle(self, lag, offset, server, bundle, latency=None):
+        # // "lag" is a tempo independent absolute lag time (in seconds)
+        # // "offset" is the delta time for the clock (usually in beats)
         if latency is None:
             latency = server.latency
         lmbd = lambda: server.send_bundle(latency, *bundle)
-        # // "offset" is the delta time for the clock (usually in beats)
-        # // "lag" is a tempo independent absolute lag time (in seconds)
         if lag != 0:
             if offset != 0:
                 # // schedule on both clocks
-                _main.Main.current_TimeThread.clock(
+                _main.Main.current_TimeThread.clock.sched(
                     offset,
                     lambda: clk.SystemClock.sched(lag, lmbd)
                 )
@@ -347,18 +437,50 @@ def _pe_server():
                 clk.SystemClock.sched(lag, lmbd)
         else:
             if offset != 0:
-                # // only delta specified: schedule only on the clock passed in
-                _main.Main.current_TimeThread.clock(offset, lmbd)
+                # // only delta specified: schedule only on the clock passed in # NOTE: passed in siempre es thisThread.clock
+                _main.Main.current_TimeThread.clock.sched(offset, lmbd)
             else:
                 # // no delays: send directly
                 lmbd()
 
+    @server_event.add_function
+    def sched_strummed_bundle(self, lag, offset, server, bundles, latency=None):
+        # // "lag" is a tempo independent absolute lag time (in seconds)
+        # // "offset" is the delta time for the clock (usually in beats)
+        # NOTE: originalmente offset es this, es SequenceableCollection al usar ~schedBundleArray que usa schedBundleArrayOnClock
+        if latency is None:
+            latency = server.latency
+        lmbd = lambda i: server.send_bundle(latency, bundles[i % len(bundles)])
+        if lag != 0:
+            lag = utl.as_list(lag)
+            for i, delta in enumerate(offset):
+                if delta != 0:
+                    # // schedule on both clocks
+                    _main.Main.current_TimeThread.clock.sched(
+                        delta,
+                        ft.partial(lambda i: clk.SystemClock.sched(
+                            lag[i % len(lag)],
+                            lambda: lmbd(i)
+                        ), i) # NOTE: Esto es feo en Python. Se necesita la evaluación parcial para que la variable libre i quede fija en el contexto de la lambda exterior. En sclang cada iteración es una función e 'i' es un argumetno. Ver refactorizaciones posibles.
+                    )
+                else:
+                    # // only lag specified: schedule only on the system clock
+                    clk.SystemClock.sched(
+                        lag[i % len(lag)],
+                        ft.partial(lambda i: lmbd(i), i)
+                    )
+        else:
+            for i, delta in enumerate(offset):
+                if delta != 0:
+                    # // only delta specified: schedule only on the clock passed in # NOTE: passed in siempre es thisThread.clock
+                    _main.Main.current_TimeThread.clock.sched(
+                        delta,
+                        ft.partial(lambda i: lmbd(i), i)
+                    )
+                else:
+                    # // send directly
+                    lmbd(i)
 
-    # // it is more efficient to directly use schedBundleArrayOnClock
-    # // we keep these for compatibility.
-    # @server_event.add_function
-    # def sched_bundle_list():
-    #     pass
     # @server_event.add_function
     # def sched_strummed_note():
     #     pass
@@ -457,7 +579,7 @@ def _pe_player():
         # // update values in the Event that may be determined by functions
         event.freq = freqs
         event.amp = event.value('amp')
-        sustain = event.sustain = event.value('sustain')
+        sustain = event.sustain = event.value('sustain') # BUG: posiblemente en sclang, el problema es que asume que el evento se crea desde un stream y se descarta.
         lag = event.lag
         offset = event.timing_offset
         strum = event.strum
@@ -466,22 +588,36 @@ def _pe_player():
         add_action = nod.Node.action_number_for(event.add_action)
         # // compute the control values and generate OSC commands
         ids = None # NOTE: Es None por defecto y modifica el mensaje después generando ids.
-        bndl = ['/s_new', instrument_name, ids, add_action, event.value('group')]
+        bndl = ['/s_new', instrument_name, ids, add_action, event.value('group')] # NOTE: ~group en realidad deja una función acá, no el valor de retorno, parece que se evalúa en _NetAddr_SendBundle.
         bndl.extend(msg_func()) # NOTE: si se obtiene como atributo es un bound method de self.
 
+        # NOTE: Esta condición define que sustain, offset (timing_offset) y lag
+        # NOTE: pueden ser listas y que las llaves están todas relacionadas con strum.
         if strum == 0 and ( (send_gate and isinstance(sustain, list))\
         or isinstance(offset, list) or isinstance(lag, list) ):
-            pass # BUG: TODO: flopTogether
+            # NOTE: Creo que flopTogether se está usando para un caso borde.
+            # NOTE: *** AUNQUE NO ESTOY SEGURO ***
+            # NOTE: Como bndl es siempre un array de una dimensión, lo que
+            # NOTE: hace es flop de sustain, lag y offset, que incluso pueden
+            # NOTE: tener una sola dimensión, y luego multiplica bndl, pero
+            # NOTE: se queda con uno solo, bndl[0] ... Tendría que ver todos
+            # NOTE: los casos posibles que están restringidos a los parámetros
+            # NOTE: usados dentro de esta función arriba: instrument_name (que
+            # NOTE: en sclang tira error si instrument es un array), ids
+            # NOTE: (que es siempre None acá), add_action, grupo y msg_func.
+            bndl = utl.flop_together(bndl, [sustain, lag, offset])
+            sustain, lag, offset = utl.flop(bndl[1])
+            bndl = bndl[0]
         else:
-            bndl = utl.flop(bndl)
+            bndl = utl.flop(bndl) # NOTE: flop lo usa como bubble la mayoría de los casos pero es porque puede que sean varios mensajes si algún parámetro es array.
         # // produce a node id for each synth
         event.id = ids = [server.next_node_id() for _ in bndl]
         for i, b in enumerate(bndl):
             b[2] = ids[i]
-            bndl[i] = node_param(b).as_osc_arg_list()
+            bndl[i] = node_param(b).as_osc_arg_list() # NOTE: modifico el item de la lista sobre el cuál itero al final del ciclo, pero no la lista en sí.
         # // schedule when the bundles are sent
         if strum == 0:
-            event.sched_bundle(lag, offset, server, bndl, event.latency)
+            event.sched_bundle(lag, offset, server, bndl, event.latency) # NOTE: puede ser cualquier cantidad de mensajes/notas, esto es algo que no está claro en la implementación de sclang, por eso renombré a sched_strummed_bundle el método de abjo, aquí offset es escalar, en strummed es una lista.
             if send_gate:
                 event.sched_bundle(
                     lag,
@@ -491,7 +627,25 @@ def _pe_player():
                     event.latency
                 )
         else:
-            pass # BUG: TODO: strum
+            if strum < 0:
+                bndl.reverse()
+                ids.reverse() # NOTE: faltaba, eran un bug en sclang.
+            strum = abs(strum) # NOTE: reuso la variable, no se necista más el valor anterior.
+            #strum_offset = offset + [x * strum for x in range(0, len(bndl))] # BUG: offset puede ser un array y/o debe sumarse punto a punto.
+            strum_offset = [offset + x * strum for x in range(0, len(bndl))] # BUG: el if anterior considera que offset puede ser una lista pero offset sale de timmming_offset que es un parámetro de server_event (ver nota arriba), tampoco vi dónde se explica ni por qué está, la latencia del servidor es latency. en sched_strummed_bundle dice: // "offset" is the delta time for the clock (usually in beats)
+            event.sched_strummed_bundle(lag, strum_offset, server, bndl, event.latency)
+            if send_gate:
+                if event.strum_ends_together:
+                    strum_offset = sustain + offset
+                else:
+                    strum_offset = sustain + strum_offset
+                event.sched_strummed_bundle(
+                    lag,
+                    strum_offset,
+                    server,
+                    utl.flop(['/n_set', ids, 'gate', 0]),
+                    event.latency
+                )
 
     # TODO: sigue...
 

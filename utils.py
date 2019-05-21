@@ -61,7 +61,8 @@ def flat(inlist):
     return outlist
 
 
-# nota: también hay flatten2 y flatBelow
+# NOTE: 1. también hay flatten2 y flatBelow
+# NOTE: 2. para flatten se puede usar itertools.chain.from_iterable, está en las recetas de la documentación.
 def flatten(inlist, n_levels=1):
     def _(inlist, outlist, n):
         for item in inlist:

@@ -137,11 +137,12 @@ class Event(dict):
             a = [a]
         else:
             return op(a, b)
+        ret_t = type(a)
         if lena < lenb:
             a = it.cycle(a)
         elif lena > lenb:
             b = it.cycle(b)
-        return type(a)(map(op, a, b))
+        return ret_t(map(op, a, b))
 
     # TODO
 
@@ -636,9 +637,12 @@ def _pe_player():
             event.sched_strummed_bundle(lag, strum_offset, server, bndl, event.latency)
             if send_gate:
                 if event.strum_ends_together:
-                    strum_offset = sustain + offset
+                    strum_offset = event._binop_map(op.add, sustain, offset) # NOTE: sustain puede ser lista definida por el usuario, offset creo que no, pero no estoy seguro, el código de arriba considera que sí, el problema es que nunca vi el uso de timingOffset en sclang.
+                    if not isinstance(strum_offset, (list, tuple)):
+                        strum_offset = [strum_offset] * len(bndl) # BUG: El problema es que sched_strummed_bundle solo acepta listas, por no usar as list y hacer esto allá, pero aún tengo que ver cómo se comportan todas las otras llamadas de ~schedBundleArrya en sclang.
+                                                                  # BUG: Otra cosa, haciendo esta línea me doy cuenta que las operaciones vectoriales de sclang son semánticamente anti-pitónicas.
                 else:
-                    strum_offset = sustain + strum_offset
+                    strum_offset = event._binop_map(op.add, sustain, strum_offset) # NOTE: tanto sustain como strum_offset pueden ser arrays.
                 event.sched_strummed_bundle(
                     lag,
                     strum_offset,

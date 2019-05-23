@@ -3,6 +3,29 @@
 from . import ugens as ugn
 
 
+class Line(ugn.UGen):
+    @classmethod
+    def ar(cls, start=0.0, end=1.0, dur=1.0, mul=1.0, add=0.0, done_action=0):
+        return cls.multi_new('audio', start, end, dur, done_action).madd(mul, add)
+
+    @classmethod
+    def kr(cls, start=0.0, end=1.0, dur=1.0, mul=1.0, add=0.0, done_action=0):
+        return cls.multi_new('control', start, end, dur, done_action).madd(mul, add)
+
+
+class XLine(ugn.UGen):
+    @classmethod
+    def ar(cls, start=1.0, end=2.0, dur=1.0, mul=1.0, add=0.0, done_action=0):
+        return cls.multi_new('audio', start, end, dur, done_action).madd(mul, add)
+
+    @classmethod
+    def kr(cls, start=1.0, end=2.0, dur=1.0, mul=1.0, add=0.0, done_action=0):
+        return cls.multi_new('control', start, end, dur, done_action).madd(mul, add)
+
+
+# TODO: muchas...
+
+
 # SON LAS DOS ÚLTIMAS
 class DC(ugn.PureMultiOutUGen):
     @classmethod

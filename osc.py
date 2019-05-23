@@ -34,3 +34,19 @@ class SinOsc(ug.PureUGen):
     @classmethod
     def kr(cls, freq=440.0, phase=0.0, mul=1.0, add=0.0):
         return cls.multi_new('control', freq, phase).madd(mul, add)
+
+
+# TODO: mucas otras...
+
+
+class VarSaw(ug.PureUGen):
+    @classmethod
+    def ar(cls, freq=440.0, iphase=0.0, width=0.5, mul=1.0, add=0.0):
+        return cls.multi_new('audio', freq, iphase, width).madd(mul, add)
+
+    @classmethod
+    def kr(cls, freq=440.0, phase=0.0, mul=1.0, add=0.0):
+        return cls.multi_new('audio', freq, iphase, width).madd(mul, add)
+
+
+# TODO: muchas más...

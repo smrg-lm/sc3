@@ -20,7 +20,11 @@ _ugs_modules = [
     'supercollie.ugens',
     'supercollie.inout',
     'supercollie.osc',
-    'supercollie.line'
+    'supercollie.line',
+    'supercollie.envgen',
+    'supercollie.noise',
+    'supercollie.filter',
+    'supercollie.pan'
 ]
 
 for _module_name in _ugs_modules:

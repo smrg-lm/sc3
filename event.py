@@ -22,9 +22,10 @@ import supercollie.node as nod
 
 
 class Event(dict):
-    default_parent_event = {}
-    parent_events = {}
-    partial_events = {}
+    # NOTE: Son Event, se inicializan luego por fuera con _make_parent_events
+    # default_parent_event = {}
+    # parent_events = {}
+    # partial_events = {}
 
     # BUG: tengo que ver la documentación, en update los parámetros actúan igual
     def __init__(self, *args, **kwargs): # know = always True
@@ -158,10 +159,103 @@ class Event(dict):
     # TODO...
 
 
-### Partial Events ###
+# #############################################################################
+# NOTE: La esctructura de lo que sigue desde sclang.
+# NOTE: Ver cómo solucionar initClass en general para todas la librería.
+# NOTE: Acá la inicialización de la clase están en función aparte, pero
+# NOTE: podría pasar estos método como estáticos o métodos de clase.
+#
+# *initClass {
+#     Class.initClassTree(Server);
+#     Class.initClassTree(TempoClock);
+#
+#     this.makeParentEvents;
+#
+#     StartUp.add {
+#         Event.makeDefaultSynthDef;
+#     };
+# }
+#
+# *makeDefaultSynthDef { ... }
+#
+# NOTE: Son varibales de clase que contienen intancias de Event
+# NOTE: y se llama en *initClass.
+# *make_parent_events {
+#     // define useful event subsets.
+#     partialEvents = (
+#         pitch_event: (),
+#         dur_event: (),
+#         amp_event: (),
+#         server_event: (),
+#         buffer_event: (),
+#         midi_event: (),
+#         node_event: (),
+#         player_event: (
+#             type: 'note',
+#             play: #{},
+#             free_server_node: #{},
+#             release_server_node: #{},
+#             parent_types: (), // vacío
+#             event_types: (
+#                 rest: #{},
+#                 note: #{},
+#                 grain: #{},
+#                 on: #{},
+#                 set: #{},
+#                 off: #{},
+#                 kill: #{},
+#                 group: #{},
+#                 par_group: #{},
+#                 bus: #{},
+#                 fade_bus: #{},
+#                 gen: #{},
+#                 load: #{},
+#                 read: #{},
+#                 alloc: #{},
+#                 free: #{},
+#                 midi: #{},
+#                 set_properties: #{},
+#                 mono_off: #{},
+#                 mono_set: #{},
+#                 mono_note: #{},
+#                 Synth: #{},
+#                 Group: #{},
+#                 tree: #{},
+#             )
+#         ),
+#     );
+#     parentEvents = (
+#         default: ().putAll(
+#             partialEvents.pitchEvent,
+#             partialEvents.ampEvent,
+#             partialEvents.durEvent,
+#             partialEvents.bufferEvent,
+#             partialEvents.serverEvent,
+#             partialEvents.playerEvent,
+#             partialEvents.midiEvent
+#         ),
+#         group_event: (
+#             lag:
+#             play:
+#         ).putAll(partialEvents.nodeEvent),
+#         synth_event: (
+#             lag:
+#             play:
+#             default_msg_func:
+#         ).putAll(partialEvents.nodeEvent)
+#     );
+#     defaultParentEvent = parentEvents.default;
+# }
+#
 
+def _make_default_synthdef():
+    pass # TODO
 
-def _pe_pitch():
+def _make_parent_events():
+    ### Partial Events ###
+
+    Event.partial_events = Event()
+
     pitch_event = Event(
         # NOTE: De todas estas llaves tendría que revisar y escribir la
         # NOTE: especificación de las relaciones. Por ejemplo, 'harmonic' solo
@@ -173,16 +267,16 @@ def _pe_pitch():
         # NOTE: la estructura de datos jerárquica (operaciones sobre listas).
         # NOTE: VER notas en test_scarray_op.py. Lo mismo pasa en _pe_dur.
         # NOTE: Ver el gráfico en la documentación de Event.
-        mtranspose = 0, # transposición modal, ESCALAR
-        gtranspose = 0.0, # transposición por gamut, ESCALAR
-        ctranspose = 0.0, # transposición cromática, ESCALAR
-        octave = 5.0, # transposición de octava, ESCALAR
-        root = 0.0, # transposición por nota base, ESCALAR
-        degree = 0, # grado de la escala, VECTOR/ESCALAR, actúa en conjunto: degree -> note -> midinote -> freq -> detuned_freq, ver abajo.
-        scale = scl.Scale([0, 2, 4, 5, 7, 9, 11]), # BUG: Scale tiene que ser inmutable como una tupla.
-        #spo = 12.0, # BUG: obsoleta, siempre se usa Scale NOTE steps per octave, steps_per_octave, stepsPerOctave. No sé.
-        detune = 0.0, # desafinación, VECTOR/ESCALAR, se pueden necesitar las notas alteradas en afinación dentro de un acorde, esta sería la única llave que lo permite, tiene doble semántica, con respecto a la afinación y la estructura de datos jerárquica.
-        harmonic = 1.0, # se usa solo para calcular la llave 'freq' tal vez debería ser vector/escalar si un conjunto de armónicos es un *acorde*, PERO: puede estar pensado para una sola altura y lo mismo vale si se define que esta llave no se puede usar para polifonía, es arbitrario.
+        mtranspose=0, # transposición modal, ESCALAR
+        gtranspose=0.0, # transposición por gamut, ESCALAR
+        ctranspose=0.0, # transposición cromática, ESCALAR
+        octave=5.0, # transposición de octava, ESCALAR
+        root=0.0, # transposición por nota base, ESCALAR
+        degree=0, # grado de la escala, VECTOR/ESCALAR, actúa en conjunto: degree -> note -> midinote -> freq -> detuned_freq, ver abajo.
+        scale=scl.Scale([0, 2, 4, 5, 7, 9, 11]), # BUG: Scale tiene que ser inmutable como una tupla.
+        #spo=12.0, # BUG: obsoleta, siempre se usa Scale NOTE steps per octave, steps_per_octave, stepsPerOctave. No sé.
+        detune=0.0, # desafinación, VECTOR/ESCALAR, se pueden necesitar las notas alteradas en afinación dentro de un acorde, esta sería la única llave que lo permite, tiene doble semántica, con respecto a la afinación y la estructura de datos jerárquica.
+        harmonic=1.0, # se usa solo para calcular la llave 'freq' tal vez debería ser vector/escalar si un conjunto de armónicos es un *acorde*, PERO: puede estar pensado para una sola altura y lo mismo vale si se define que esta llave no se puede usar para polifonía, es arbitrario.
         #octave_ratio = 2.0 # BUG: obsoleta, siempre se usa Scale
     )
 
@@ -282,19 +376,17 @@ def _pe_pitch():
     def freq_to_scale(self, freq): # BUG: no parece usarse en la librería de clases
         pass # BUG: TODO. # BUG: podría ser que se tome siempre ~freq y se quite el parámetro para que actúe como propiedad, ver test_event_value_midinote.py
 
-    return pitch_event
+    Event.partial_events.pitch_event = pitch_event
 
-
-def _pe_dur():
     dur_event = Event(
-        tempo = None,
-        dur = 1.0,
-        stretch = 1.0,
-        legato = 0.8,
+        tempo=None,
+        dur=1.0,
+        stretch=1.0,
+        legato=0.8,
         #sustain: #{ ~dur * ~legato * ~stretch }, # BUG IMPORTANTE: aunque e.sustain evalúa la función, usa e.use{ ~sustain.value } y necesita evaluar explícitamente, pero el problema es que value anda para todo y la función se puede reemplazar por un escalar.
-        lag = 0.0,
-        strum = 0.0,
-        strum_ends_together = False
+        lag=0.0,
+        strum=0.0,
+        strum_ends_together=False
         # NOTE: offset sale de timing_offset que es un parámetro de server_event.
         # NOTE: pero en player_event.note() se lo considera posible lista como
         # NOTE: parámetro de sched_strummed_bundle. Esto tal vez esté mal conceptualmente en sclang,
@@ -305,10 +397,8 @@ def _pe_dur():
     def sustain(self):
         return self.dur * self.legato * self.stretch
 
-    return dur_event
+    Event.partial_events.dur_event = dur_event
 
-
-def _pe_amp():
     amp_event = Event(
         #'amp': #{ ~db.dbamp }, # BUG: es curioso que en sclang Event.parentEvents.default; e.amp tira error ~db es nil, hay que hacer e.use { e.amp.postln }, i.e. no se puede usar como llave común y corriente # BUG: es un tanto inconsistente, aunque no se use así, que db no se recalcule si se cambia amp por un escalar, lo mismo define velocity pero no la usa para calcular amp
                                 # BUG: la otra opción es que las llaves se comporten como properties con getter/setter.
@@ -322,10 +412,8 @@ def _pe_amp():
     def amp(self):
         return bi.dbamp(self.db)
 
-    return amp_event
+    Event.partial_events.amp_event = amp_event
 
-
-def _pe_server():
     server_event = Event(
         server=None,
         latency=None,
@@ -393,7 +481,7 @@ def _pe_server():
     # BUG: no veo el sentido del flop, no parece que se pueda hacer expansión
     # BUG: multicanal en eventos. Ver function_flop.scd.
     # BUG: Y creo que en sclang las funciones generadas con SynthDesc:
-    # BUG: make_msg_func no tienen parámetros por defecto, ver, podrían tener.
+    # BUG: `make`_msg_func no tienen parámetros por defecto, ver, podrían tener.
     # @server_event.add_function
     # def get_bundle_args(self):
     #     if isinstance(self.instrument, (list, tuple)):
@@ -486,31 +574,45 @@ def _pe_server():
     # def sched_strummed_note():
     #     pass
 
-    return server_event
+    Event.partial_events.server_event = server_event
 
+    # BUG: ESCRIBURA DE LAS LLAVES. POR QUÉ ES ESPECIAL? DEBERÍA AGREGAR _? LEAVEOPEN ESTABA EN NOTACIÓN CAMELLO.
+    buffer_event = Event(
+        bufnum=0,
+        filename='',
+        frame=0,
+        numframes=0,
+        numchannels=1,
+        gencmd='sine1',
+        genflags=7,
+        genarray=[1],
+        bufpos=0,
+        leaveopen=0
+    )
 
-class BufferEvent(Event):
-    pass
+    Event.partial_events.buffer_event = buffer_event
 
+    # BUG: este 'event' en realidad define la intefaz de las funciones MIDI
+    # BUG: que luego se llaman como Event Types de EventPlayer MidiEvent...
+    # BUG: Partial Events tal vez no sean realmente 'Events', sino parámetros
+    # BUG: (parciales) aplicados a los PlayerEvent Event Types. Pero ver Node,
+    # BUG: Server, Buffer, Amp, Dur, Pitch Events. Poruqe define componentes
+    # BUG: estáticos del servidor.
+    midi_event = Event(
+        # TODO
+    )
 
-### BUG: este 'event' en realidad define la intefaz de las funciones MIDI
-### BUG: que luego se llaman como Event Types de EventPlayer MidiEvent...
-### BUG: Partial Events tal vez no sean realmente 'Events', sino parámetros
-### BUG: (parciales) aplicados a los PlayerEvent Event Types. Pero ver Node,
-### BUG: Server, Buffer, Amp, Dur, Pitch Events. Poruqe define componentes
-### BUG: estáticos del servidor.
-class MidiEvent(Event): # BUG: todo en mayúsculas no me convence...
-    pass
+    Event.partial_events.midi_event = midi_event
 
+    # BUG: Event:node_id es una interfaz hibrida entre evento y nodo, para los
+    # BUG: nodeEvent, está implementada en NodeEvents.sc, ahí explica su posible uso
+    # BUG: con \Synth y \Group
+    node_event = Event(
+        # TODO
+    )
 
-# BUG: Event:node_id es una interfaz hibrida entre evento y nodo, para los
-# BUG: nodeEvent, está implementada en NodeEvents.sc, ahí explica su posible uso
-# BUG: con \Synth y \Group
-class NodeEvent(Event):
-    pass
+    Event.partial_events.node_event = node_event
 
-
-def _pe_player():
     player_event = Event(
         type='note',
         parent_types=Event() # NOTE: está justo antes de event types
@@ -551,17 +653,18 @@ def _pe_player():
 
     @player_event.add_function
     def free_server_node(self):
-        pass
+        pass # TODO
 
     # // for some yet unknown reason, this function is uncommented,
     # // it breaks the play method for gatelesss synths
 
     @player_event.add_function
     def release_server_node(self): # BUG: arg releaseTime
-        pass
+        pass # TODO
 
     ### Event Types ###
 
+    # NOTE: son tipos de player_event en realidad, no sé por qué está hecho como está hecho.
     event_types = Event()
 
     @event_types.add_function
@@ -651,146 +754,144 @@ def _pe_player():
                     event.latency
                 )
 
-    # TODO: sigue...
+    # // optimized version of type \note, about double as efficient.
+    # // Synth must have no gate and free itself after sustain.
+    # // Event supports no strum, no conversion of argument objects to controls
+    @event_types.add_function
+    def grain(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def on(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def set(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def off(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def kill(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def group(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def par_group(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def bus(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def fade_bus(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def gen(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def load(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def read(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def alloc(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def free(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def midi(event, server): ### **** BUG **** se repite con Partial Event ***
+        pass # TODO
+
+    @event_types.add_function
+    def set_properties(event): #, server): # BUG: no tiene server como arg
+        pass # TODO
+
+    @event_types.add_function
+    def mono_off(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def mono_set(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def mono_note(event, server):
+        pass # TODO
+
+    @event_types.add_function
+    def Synth(event, server): # BUG: es con mayúsculas porque tiene significado especial, ### *** BUG *** por qué no sería NodeEvents que es un Partial Event
+        pass # TODO
+
+    @event_types.add_function
+    def Group(event, server): # BUG: es con mayúsculas porque tiene significado especial, ### *** BUG *** por qué no sería NodeEvents que es un Partial Event
+        pass # TODO
+
+    @event_types.add_function
+    def tree(event, server):
+        pass # TODO
 
     player_event.event_types = event_types
-    return player_event
+    Event.partial_events.player_event = player_event
+
+    ### Parent Events ###
+
+    Event.parent_events = Event()
+
+    default = Event(
+        **Event.partial_events.pitch_event,
+        **Event.partial_events.amp_event, # NOTE: el orden de las definiciones, que sigo, está mal en sclang
+        **Event.partial_events.dur_event,
+        **Event.partial_events.buffer_event,
+        **Event.partial_events.server_event,
+        **Event.partial_events.player_event,
+        **Event.partial_events.midi_event
+    )
+
+    Event.parent_events.default = default
+
+    # NOTE: estos definen play, los de arriba definen la función que llama dentro play definido en player_event
+    group_event = Event( # *** BUG *** se repite con Partial Event, tal vez por eso allá estén en mayúscula.
+        lag=0,
+        **Event.partial_events.node_event
+    )
+
+    @group_event.add_function
+    def play(self):
+        pass # TODO
+
+    Event.parent_events.group_event = group_event
+
+    synth_event = Event( ### *** BUG *** se repite con Partial Event, tal vez por eso allá estén en mayúscula.
+        lag=0,
+        **Event.partial_events.node_event
+    )
+
+    @synth_event.add_function
+    def play(self):
+        pass # TODO
+
+    Event.parent_events.synth_event = synth_event
+
+    ### Default Parent Event ###
+
+    Event.default_parent_event = Event.parent_events.default
 
 
-### TEST ###
-### BUG: ir pasando para abajo ###
-### NOTE: ver test_event_value_midinote.py
-### NOTE: hacer serverEvent y playerEvent ahora
-Event.default_parent_event = Event(
-    **_pe_pitch(),
-    **_pe_amp(), # NOTE: el orden de las definiciones, que sigo, está mal en sclang
-    **_pe_dur(),
-    **_pe_server(),
-    **_pe_player()
-    # ...
-)
-
-
-### Event Types ###
-
-# BUG: son tipos de PlayerEvent en realidad, no sé por qué está hecho como está hecho.
-
-class PlayerEvent: pass # BORRAR
-
-class RestEvent(PlayerEvent):
-    pass
-
-
-class NoteEvent(PlayerEvent):
-    pass
-
-
-# // optimized version of type \note, about double as efficient.
-# // Synth must have no gate and free itself after sustain.
-# // Event supports no strum, no conversion of argument objects to controls
-class GrainEvent(PlayerEvent):
-    pass
-
-
-class OnEvent(PlayerEvent):
-    pass
-
-
-class SetEvent(PlayerEvent):
-    pass
-
-
-class OffEvent(PlayerEvent):
-    pass
-
-
-class KillEvent(PlayerEvent):
-    pass
-
-
-class GroupEvent(PlayerEvent):
-    pass
-
-
-class ParGroupEvent(PlayerEvent):
-    pass
-
-
-class BusEvent(PlayerEvent):
-    pass
-
-
-class FadeBusEvent(PlayerEvent):
-    pass
-
-
-class GenEvent(PlayerEvent):
-    pass
-
-
-class LoadEvent(PlayerEvent):
-    pass
-
-
-class ReadEvent(PlayerEvent):
-    pass
-
-
-class AllocEvent(PlayerEvent):
-    pass
-
-
-class FreeEvent(PlayerEvent):
-    pass
-
-
-# class MidiEvent(PlayerEvent): ### **** BUG **** se repite con Partial Event ***
-#     pass
-
-
-class SetPropertiesEvent(PlayerEvent):
-    pass
-
-
-class MonoOffEvent(PlayerEvent):
-    pass
-
-
-class MonoSetEvent(PlayerEvent):
-    pass
-
-
-class MonoNoteEvent(PlayerEvent):
-    pass
-
-
-class SynthEvent(PlayerEvent): ### *** BUG *** por qué no sería NodeEvents que es un Partial Event
-    pass
-
-
-class GroupEvent(PlayerEvent): ### *** BUG *** por qué no sería NodeEvents que es un Partial Event
-    pass
-
-
-class TreeEvent(PlayerEvent):
-    pass
-
-
-### Parent Events ###
-
-
-class DefaultEvent(Event):
-    pass
-
-
-### BUG: estos definen play, los de arriba definen la función que llama dentro
-### BUG: play definido en PlayerEVent
-class GroupEvent(Event): ### *** BUG *** se repite con Partial Event, tal vez por eso allá estén en mayúscula.
-    pass
-
-
-class SynthEvent(Event): ### *** BUG *** se repite con Partial Event, tal vez por eso allá estén en mayúscula.
-    pass
-
-
-# BUG: defaultParentEvent = parentEvents.default;
+# NOTE: se llaman desde init_class/initClass, BUG: ver organización.
+_make_parent_events()
+# StartUp.add { _make_default_synthdef() }

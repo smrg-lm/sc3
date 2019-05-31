@@ -2,6 +2,7 @@
 
 import types
 import math
+import warnings
 import functools as ft
 import itertools as it
 import operator as op
@@ -691,9 +692,10 @@ def _make_parent_events():
         event.is_playing = True
         add_action = nod.Node.action_number_for(event.add_action)
         # // compute the control values and generate OSC commands
-        ids = None # NOTE: Es None por defecto y modifica el mensaje después generando ids.
-        bndl = ['/s_new', instrument_name, ids, add_action, event.value('group')] # NOTE: ~group en realidad deja una función acá, no el valor de retorno, parece que se evalúa en _NetAddr_SendBundle.
-        bndl.extend(msg_func()) # NOTE: si se obtiene como atributo es un bound method de self.
+        ids = None # BUG: debería posponer su declaración al momento en que se usa abajo y acá usar None como literal. NOTE: Es None por defecto y modifica el mensaje después generando ids.
+        group = node_param(event.value('group')).as_control_input() # BUG: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido? VER PERORATA ABAJO EN GRAIN
+        bndl = ['/s_new', instrument_name, ids, add_action, group] # event.value('group')] # NOTE: ~group en realidad deja una función acá, no el valor de retorno, parece que se evalúa en _NetAddr_SendBundle.
+        bndl.extend(msg_func()) # NOTE: si se obtiene como atributo es un bound method de self (msg_func necesita el evento argumento para comprobar las llaves).
 
         # NOTE: Esta condición define que sustain, offset (timing_offset) y lag
         # NOTE: pueden ser listas y que las llaves están todas relacionadas con strum.
@@ -759,7 +761,67 @@ def _make_parent_events():
     # // Event supports no strum, no conversion of argument objects to controls
     @event_types.add_function
     def grain(event, server):
-        pass # TODO
+        freqs = event.detuned_freq()
+
+        # // msgFunc gets the synth's control values from the Event
+        try:
+            if event.synth_lib is None:
+                instrument_desc = sdc.SynthDescLib.default.at(event.instrument)
+            else:
+                instrument_desc = event.synth_lib.at(event.instrument)
+        except KeyError: # ***** BUG: ver synthdesc.py L467 método match de SynthDescLib, es otro caso relacionado, no se si conviene agarrar el error o que SynthDescLib.at() devuelva None si no existe la llave.
+            msg = "Event: instrument '{}' not found in SynthDescLib"
+            warnings.warn(msg.format(event.instrument))
+            return # BUG: en sclang retorno this, que es el intérprete, pero no tiene sentido porque se llama desde playerEvent['play'] y no hace nada con el valor de retorno, debería retornar nil?
+        msg_func = instrument_desc.msg_func
+        instrument_name = event.synthdef_name()
+
+        # // update values in the Event that may be determined by functions
+        event.freq = freqs
+        event.amp = event.value('amp')
+        event.sustain = event.value('sustain') # BUG: posiblemente en sclang, el problema es que asume que el evento se crea desde un stream y se descarta.
+        add_action = nod.Node.action_number_for(event.add_action)
+
+        # BUG IMPORTANTE: PARA TODO ESTO QUEDÓ IMPLEMENTANDO PROVISORIAMENTE NodeParameter.as_control_input como return ugen_param(self).as_control_input()
+        # BUG IMPORTANTE: en sclang usa ~group.asControlInput que retorna nodeID (y debería hacer lo mismo para la función 'note' arriba aunque como anoté deja la función y se evalúa abajo nivel)
+        # BUG IMPORTANTE: de un grupo o this de un entero, y la llave group acá se
+        # BUG IMPORTANTE: define como node id. *********** PERO ***********
+        # BUG IMPORTANTE: en graph_param.py as_control_input funciona para Group
+        # BUG IMPORTANTE: si se llama a node_param: node_param(g).as_control_input()
+        # BUG IMPORTANTE: pero no funciona para int: node_param(1000).as_control_input() -> AttributeError: 'NodeScalar' object has no attribute 'as_control_input'
+        # BUG IMPORTANTE: y funciona para int si se llama a ugen_param: ugen_param(1000).as_control_input()
+        # BUG IMPORTANTE: pero no funicona para Group:ugen_param(g).as_control_input() -> TypeError: UGenParameter: type 'Group' not supported
+        # BUG IMPORTANTE: as_control_input, por más que sea interfaz de los Nodos
+        # BUG IMPORTANTE: TIENE QUE FUNCIONAR TAMBIÉN PARA ENTEROS DESDE NODE_PARAM ¿Por qué no quedó así?
+        # BUG IMPORTANTE: Y buscando, veo que la clase BusPlug tiene el método asControlInput que retorna u símbolo como si fuera asMap !!!!!!!!!!!!!!!
+        # BUG IMPORTANTE: Y la documentacionde Event.asControlInput dice "Enables events to represent the server resources they created in an Event."
+        # BUG IMPORTANTE: Y la documentacion de Ref.asControlInput dice "Returns the value - this is used when sending a Ref as a control value to a server Node."
+        # BUG IMPORTANTE: Vamos ¿Quién miente? Por Ref, ahora creo que asControlInput es interface de Node y UGen.
+        # BUG IMPORTANTE: El problema de pasar as_control_input a GraphParameter es que class UGenList(UGenParameter) lo redefine y se usa en NodeParameter a través de ugen_param.
+        # BUG IMPORTANTE: Pero también es claro que el método tiene que actuar polimoficamente entre int y Group para esta llave.
+        # BUG IMPORTANTE: Tal vez solo convenga definir GraphParameter en vez de dividir entre Node y UGen? Pero no es lo mismo, por UGen no usa as_target.
+        # BUG IMPORTANTE: Otra opción es definir NodeParameter.as_control_input como return ugen_param(self).as_control_input().
+        # BUG IMPORTANTE: Pienso que los as_control_inputs se pueden pasar a los nodos que se pasan a las ugens, que debería ser de ambas.
+        # BUG IMPORTANTE: IMPLEMENTANDO NodeParameter.as_control_input como return ugen_param(self).as_control_input()
+        # BUG IMPORTANTE: EL ÚNICO CASO QUE NO FUNCIONA ES ugen_param(g).as_control_input() -> TypeError: UGenParameter: type 'Group' not supported
+        # BUG IMPORTANTE: PERO LA UGEN Free.kr USA NODE ID COMO PARÁMETRO ASÍ QUE NODE DEBERÍA IMPLEMENTAR LA INTERFAZ.
+        # BUG IMPORTANTE: HAY QUE HACER UNA ESPECIFICACIÓN/MODELO DE LOS DATOS VÁLIDOS, SU SIGNIFICADO Y SUS RELACIONES POSIBLES COMO PARÁMETROS VÁLIDOS PARA DISTINTAS ESTRUCTURAS (E.G. NODOS Y UGENS)
+        # BUG IMPORTANTE: El problema es que ugen_param es una interfaz de polimorfismo que de objetos UGen aplicada a datos integrados (int, str, list, etc.)
+        # BUG IMPORTANTE: y que node_param es una interfaz de polimorfismo que de objetos de objetos Node aplicada a datos integrados (int, str, list, etc.)
+        # BUG IMPORTANTE: y que as_control_input es un método de interfaz presente en ambas UGen y Node, y que en sclang cualquier objeto puede actuar as_control_input.
+        # BUG IMPORTANTE: El problema son los datos de entrada válidos y el abuso de polimofismo en sclang, flata organizar y especificar como puse acá arriba.
+        # BUG IMPORTANTE: VER Pattern Guide 08: Event Types and Parameters.
+        # // compute the control values and generate OSC commands
+        group = node_param(event.value('group')).as_control_input() # BUG: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido?
+        bndl = ['/s_new', instrument_name, -1, add_action, group] # NOTE: ~group en realidad deja una función acá, no el valor de retorno, parece que se evalúa en _NetAddr_SendBundle.
+        bndl.extend(msg_func(event)) # NOTE: como no se obtuvo como atributo de Event no es un bound method de self y hay que pasar event.
+        event.sched_bundle( # NOTE: puede ser cualquier cantidad de mensajes/notas, esto es algo que no está claro en la implementación de sclang, por eso renombré a sched_strummed_bundle el método de abjo, aquí offset es escalar, en strummed es una lista.
+            event.lag, # BUG: en sclang define la variable lag dentro de la funcion de la llave pero no la usa, usa ~lag de event.
+            event.timing_offset,
+            server,
+            utl.flop(bndl),
+            event.latency
+        )
 
     @event_types.add_function
     def on(event, server):

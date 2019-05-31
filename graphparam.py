@@ -200,6 +200,11 @@ class NodeParameter(GraphParameter):
         msg = "invalid value for Node target: '{}'"
         raise TypeError(msg.format(type(self.value).__name__))
 
+    # BUG IMPORTANTE: VER EL VERDADERO SIGNIFICADO DE LA VIDA DE AS_CONTROL_INPUT.
+    # BUG IMPORTANTE: VER LAS NOTAS EN EL TIPO DE EVENTO GRAIN EN event.py.
+    def as_control_input(self):
+        return ugen_param(self).as_control_input()
+
     ### extConvertToOSC.sc interface ###
 
     # // The following interface in an optimized version of asControlInput that

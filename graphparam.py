@@ -202,6 +202,13 @@ class NodeParameter(GraphParameter):
 
     # BUG IMPORTANTE: VER EL VERDADERO SIGNIFICADO DE LA VIDA DE AS_CONTROL_INPUT.
     # BUG IMPORTANTE: VER LAS NOTAS EN EL TIPO DE EVENTO GRAIN EN event.py.
+    # BUG IMPORTANTE: **** Podría llamarse as_osc_arg_control_input, para ser
+    # BUG IMPORTANTE: coherente con la interfaz de abajo dejando claro que se
+    # BUG IMPORTANTE: aplica a nodos (mensajes osc) aunque sea lo mismo que
+    # BUG IMPORTANTE: as_control_input de las UGens. Así quedan más explícitos
+    # BUG IMPORTANTE: los tipos de datos posibles **** Lo que no tengo claro es
+    # BUG IMPORTANTE: si "control" refiere a señal kr o data para Control ugens,
+    # BUG IMPORTANTE: es este caso serían tipos osc permitidos.
     def as_control_input(self):
         return ugen_param(self).as_control_input()
 

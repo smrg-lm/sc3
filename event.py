@@ -24,7 +24,7 @@ import supercollie.node as nod
 
 class Event(dict):
     # NOTE: Son Event, se inicializan luego por fuera con _make_parent_events
-    # default_parent_event = {}
+    # _default_parent_event = {}
     # parent_events = {}
     # partial_events = {}
 
@@ -114,8 +114,25 @@ class Event(dict):
         else:
             return value
 
+    # TODO: falta...
+
+    # // instance methods
+
+    # def next(self, inval):
+    #     pass
+
+    # def delta(self):
+    #     pass
+
+    def play(self):
+        if self.parent is None:
+            super().__setattr__('parent', type(self)._default_parent_event)
+        self.play_func()
+
     def is_rest(self):
         return False # BUG: ************************ TODO: por qué está implementado a bajo nivel?
+
+    # TODO: sigue...
 
     # NOTE: Esta función realiza operaciones matemáticas entre vectores, y
     # NOTE: escalares. Es a la manera de sclang pero no realiza las operaciones
@@ -620,10 +637,14 @@ def _make_parent_events():
     )
 
     @player_event.add_function
-    def play(self): # BUG: esto podría ser un método?
+    def play_func(self):
+        # NOTE: Esto incluso podría no estar, es una customización de la
+        # NOTE: customización, y bastante específica/confusa sobre cómo se
+        # NOTE: puede usar, componer eventos es más fácil. Y esto borra las
+        # NOTE: llaves de defaultParentEvent, eso no lo entiendo.
         parent_type = self.parent_types.get(self.type)
         if parent_type is not None:
-            self.parent = parent_type # BUG: esto escribe parent como una llave y se pierde la propiedad parent, creo que conviene definir parent y proto como @property
+            super(type(self), self).__setattr__('parent', parent_type) # NOTE: creo que es correcto así, el método puede no estar boundeado como en las clases.
         self.server = self.server or srv.Server.default
 
         # NOTE: buscar la documentación de esta llave.
@@ -933,7 +954,7 @@ def _make_parent_events():
     )
 
     @group_event.add_function
-    def play(self):
+    def play_func(self):
         pass # TODO
 
     Event.parent_events.group_event = group_event
@@ -944,14 +965,14 @@ def _make_parent_events():
     )
 
     @synth_event.add_function
-    def play(self):
+    def play_func(self):
         pass # TODO
 
     Event.parent_events.synth_event = synth_event
 
     ### Default Parent Event ###
 
-    Event.default_parent_event = Event.parent_events.default
+    Event._default_parent_event = Event.parent_events.default
 
 
 # NOTE: se llaman desde init_class/initClass, BUG: ver organización.

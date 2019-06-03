@@ -7,6 +7,7 @@ import functools as ft
 import itertools as it
 import operator as op
 
+from supercollie.rest import Rest
 import supercollie.builtins as bi
 import supercollie.scale as scl
 import supercollie.synthdef as sdf
@@ -31,16 +32,20 @@ class Event(dict):
     # BUG: tengo que ver la documentación, en update los parámetros actúan igual
     def __init__(self, *args, **kwargs): # know = always True
         super().__init__(*args, **kwargs)
-        super().__setattr__('proto', self.pop('proto', None)) # BUG: se puede escribir la llave proto/parent luego pero siempre llama al atributo.
+        super().__setattr__('proto', self.pop('proto', None))
         super().__setattr__('parent', self.pop('parent', None))
 
     # NOTE: set/get/del es simplemente para implementar y las llamadas a super
     # __setattr__ son solo por know = always True, no se si realmente hace
-    # alguna diferencia...
+    # alguna diferencia. También sirve para que tire error si se quiere
+    # asignar una llave heredada.
     def __setattr__(self, name, value):
-        if hasattr(type(self), name):
+        if hasattr(type(self), name): # NOTE: son los atributos heredados de dict
             raise AttributeError(f"attribute '{name}' can't be used as key")
-        self[name] = value
+        if name in ('proto', 'parent'):
+            super().__setattr__(name, value)
+        else:
+            self[name] = value
 
     # NOTE: https://docs.python.org/3/howto/descriptor.html#invoking-descriptors
     # NOTE: "Called when the default attribute access fails with an AttributeError"
@@ -52,7 +57,10 @@ class Event(dict):
     # NOTE: y es una manera de pasar self: "Define names for built-in types that aren't directly accessible as a builtin."
     def __getattr__(self, name):
         try:
-            attr = self[name]
+            if name in ('proto', 'parent'):
+                attr = super().__getattr__(name)
+            else:
+                attr = self[name]
         except KeyError:
             attr = KeyError
         if attr is KeyError: # NOTE: así no tira excepción sobre excepción.
@@ -66,7 +74,7 @@ class Event(dict):
             return attr
 
     def __delattr__(self, name):
-        if hasattr(type(self), name):
+        if hasattr(type(self), name) or name in ('proto', 'parent'): # NOTE: los atributos heredados de dict, proto y parent no se pueden borrar
             raise AttributeError(f"attribute '{name}' can't be deleted")
         del self[name]
 
@@ -99,6 +107,12 @@ class Event(dict):
     def __repr__(self):
         return f'{type(self).__name__}({super().__repr__()})'
 
+    def copy(self):
+        obj = type(self)(super().copy())
+        obj.proto = self.proto
+        obj.parent = self.parent
+        return obj
+
     ### Event interface ###
 
     # NOTE: '''Para usar como decorador'''
@@ -113,6 +127,23 @@ class Event(dict):
             return value(self, *args, **kwargs)
         else:
             return value
+
+    @classmethod
+    def default(cls):
+        return cls(parent=cls._default_parent_event)
+
+    @classmethod
+    def silent(cls, dur=1.0, in_event=None):
+        if in_event is None:
+            in_event = cls()
+        else:
+            in_event = in_event.copy()
+        delta = dur * in_event.get('strech', 1) # BUG: *** y is dur no puede ser Rest y ya?! VER comentario en Rest.
+        in_event.update({'dur': Rest(dur), 'delta': delta})
+        in_event.parent = cls._default_parent_event # NOTE: sclang usa put(\parent, x), pero es que no me cierra porque acá esta categorizado como atributos lo mismo que en IdentityDictionary
+        return in_event
+
+    # // event types
 
     # TODO: falta...
 
@@ -243,7 +274,7 @@ class Event(dict):
 #         ),
 #     );
 #     parentEvents = (
-#         default: ().putAll(
+#         default_event: ().putAll( # NOTE: cambia el nombre por el método default de clase.
 #             partialEvents.pitchEvent,
 #             partialEvents.ampEvent,
 #             partialEvents.durEvent,
@@ -262,7 +293,7 @@ class Event(dict):
 #             default_msg_func:
 #         ).putAll(partialEvents.nodeEvent)
 #     );
-#     defaultParentEvent = parentEvents.default;
+#     defaultParentEvent = parentEvents.default_event; # NOTE: cambia el nombre por el método default de clase.
 # }
 #
 
@@ -674,14 +705,14 @@ def _make_parent_events():
     # // values like degree, octave etc.
 
     @player_event.add_function
-    def free_server_node(self):
+    def free_server_node(self): # NOTE: No se usa dentro de Event.
         pass # TODO
 
     # // for some yet unknown reason, this function is uncommented,
     # // it breaks the play method for gatelesss synths
 
     @player_event.add_function
-    def release_server_node(self): # BUG: arg releaseTime
+    def release_server_node(self): # BUG: arg releaseTime. # NOTE: No se usa dentro de Event.
         pass # TODO
 
     ### Event Types ###
@@ -935,7 +966,7 @@ def _make_parent_events():
 
     Event.parent_events = Event()
 
-    default = Event(
+    default_event = Event(
         **Event.partial_events.pitch_event,
         **Event.partial_events.amp_event, # NOTE: el orden de las definiciones, que sigo, está mal en sclang
         **Event.partial_events.dur_event,
@@ -945,7 +976,7 @@ def _make_parent_events():
         **Event.partial_events.midi_event
     )
 
-    Event.parent_events.default = default
+    Event.parent_events.default_event = default_event
 
     # NOTE: estos definen play, los de arriba definen la función que llama dentro play definido en player_event
     group_event = Event( # *** BUG *** se repite con Partial Event, tal vez por eso allá estén en mayúscula.
@@ -972,7 +1003,7 @@ def _make_parent_events():
 
     ### Default Parent Event ###
 
-    Event._default_parent_event = Event.parent_events.default
+    Event._default_parent_event = Event.parent_events.default_event
 
 
 # NOTE: se llaman desde init_class/initClass, BUG: ver organización.

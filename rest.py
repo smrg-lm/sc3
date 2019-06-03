@@ -5,12 +5,18 @@ from supercollie.graphparam import ugen_param
 
 
 class Rest(opd.Operand):
-    # TODO: todo.
+    def __init__(self, value=1.0):
+        super().__init__(value)
 
-    # UGen graph parameter interface #
-    # TODO: ver el resto en UGenParameter
+    @property
+    def dur(self):
+        return self.value
 
-    def as_control_input(self):
-        return ugen_param(self.value).as_control_input()
+    @dur.setter
+    def dur(self, value):
+        self.value = value
 
-    # TODO...
+    # BUG: Aún no vi cómo se usa Rest en Pbind, EventStreamPlayer o similares.
+    # BUG: el método unwrapBoolean es un bug, la clase devuelve objeto de sí misma, no se usa, ver problemas, anuncia que "comparisons just works" si devuelve Boolean.
+
+    # TODO... hereda la capacidad de ops de Operand, luego tiene "event support" con asControlInput, playAndDelta e isRest

@@ -290,8 +290,8 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                             time = sched_time + delta # BUG, TODO: sclang usa wait until que espera en tiempo absoluto y no en offset como acá, no hay esa función en Python
                             self._sched_add(time, task)
                     except StopIteration as e:
-                        # BUG: ver los anidamietnos válidos...
-                        if len(_inspect.trace()) > 1: # Volvió a 1 porque Routine devuelve None ahora. # TODO: sigue solo si la excepción es del frame actual, este patrón se repite en Routine y Clock
+                        # NOTE: compara el nivel de anidamiento a partir del cual el error es de usuario y no de las llamadas de esta implementación.
+                        if len(_inspect.trace()) > 2: # NOTE: Volvió a 2 porque Routine arroja StopIteration. # TODO: sigue solo si la excepción es del frame actual, este patrón se repite en Routine y Clock
                             raise e
                 except Exception:
                     _traceback.print_exception(*_sys.exc_info()) # hay que poder recuperar el loop ante cualquier otra excepción
@@ -355,10 +355,15 @@ class Scheduler():
 
         def wakeup(item):
             try:
-                delta = item() # BUG: item.awake(self._beats, self._seconds, self._clock) # BUG: awake la implementan Function, Nil, Object, PauseStream y Routine,
-                if isinstance(delta, (int, float))\
-                and not isinstance(delta, bool):
-                    self.sched(delta, item) # BUG: ver awake
+                try:
+                    delta = item() # BUG: item.awake(self._beats, self._seconds, self._clock) # BUG: awake la implementan Function, Nil, Object, PauseStream y Routine,
+                    if isinstance(delta, (int, float))\
+                    and not isinstance(delta, bool):
+                        self.sched(delta, item) # BUG: ver awake
+                except StopIteration as e:
+                    # NOTE: compara el nivel de anidamiento a partir del cual el error es de usuario y no de las llamadas de esta implementación.
+                    if len(_inspect.trace()) > 4: # NOTE: 4: wakeup llama Stream.__call___ que llama a Thread.next que arroja excepcion en 319, 3: idem pero la excepción es en 281 llamada a send, raise directo porque ya había terminado en el ciclo anterior, no llama a send (no evalúa sub-código que pueda tirar excepción) # TODO: sigue solo si la excepción es de un frame inferior a la lógica del reloj.
+                        raise e
             except Exception:
                 _traceback.print_exception(*_sys.exc_info())
         self._wakeup = wakeup

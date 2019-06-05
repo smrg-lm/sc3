@@ -332,6 +332,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
         #     self.state = self.State.Suspended
         except StopIteration as e:
             #print('*** StopIteration')
+            # NOTE: compara el nivel de anidamiento a partir del cual el error es de usuario y no de las llamadas de esta implementación.
             if len(inspect.trace()) > 1: # BUG: si no es su propia excepción la tiene que pasar para arriba
                 raise e                  # BUG: tengo que ver qué pasa con el estado de la rutina en este caso. Si se puede dejar "mentiroso" se elimina este if y terminal_value
             self._iterator = None

@@ -164,6 +164,17 @@ class FuncStream(Stream):
     pass
 
 
+# TODO * TODO * TODO * TODO * TODO * TODO * TODO * TODO * TODO * TODO * TODO *
+# Como maestro Zen, lo próximo que tengo que hacer es NotificationCenter
+# con WEAKREFERECE, y TESTs. Ir haciendo los test y los casos de uso, prolijo,
+# detallado por archivo y clase. Ver métodologías de UnitTest. Recién luego
+# volver acá, porque aquello se necesita para Server también. Los casos de uso
+# para las rutinas, streams y patterns, porque me olvido. Anotar el flujo del
+# programa en los tests (luego y sobre todo en SystemClock y AppClock,
+# embed(InStream) y (as)stream, cómo funciona el yield from, etc. Es volver a
+# estudiar y retener. Comenzar con NotificationCenter (y reemplazar dependancy).
+
+
 # // PauseStream is a stream wrapper that can be started and stopped.
 class PauseStream(Stream):
     pass

@@ -5,6 +5,11 @@ This project is a translation of the core features of sclang to Python 3. The re
 
 The main reason for this is Python's capacity of interaction with other libraries and frameworks applicable to composition, sonic-art and digital life in general.
 
+Install (develop Mode)
+----------------------
+
+python3 setup.py develop --user
+
 License
 -------
 

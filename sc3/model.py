@@ -1,8 +1,4 @@
-"""Model.sc
-
-TODO: REEMPLAZAR DEPENDANCY.PY EN SYNTH DESC POR NOTIFICATIONCENTER,
-AMBAS CLASES HACEN LO MISMO Y DEPENDANCY ES INTRUSIVA.
-"""
+"""Model.sc"""
 
 import collections
 
@@ -11,9 +7,7 @@ import collections
 class dendrite():
     # TODO: no tiene toda la funcionalidad de MultiLevelIdentityDictionary
     # solo lo necesario para guardar y recuperar llaves como paths.
-    # TODO: VER SI SE PUEDE IMPLEMENTAR CON WEAKREFERECE PARA QUE
-    # NotificationCenter NO RETENGA OBJETOS QUE ESTÁ PARA LIBERAR,
-    # DESDE ACÁ A EN NotificationCenter, NO LO PENSÉ AÚN.
+    # NOTE: No es posible usar weakref por los objetos pueden ser llave o valor.
 
     def __init__(self):
         self.dictionary = dict()
@@ -105,30 +99,6 @@ class dendrite():
                 self._make_str(sub[key], level + 1)
             else:
                 self._msg += ('  ' * level) + str(key) + ': ' + str(sub[key]) + '\n'
-
-
-class SimpleController():
-    def __init__(self, model):
-        self.model = model
-        self.model.add_dependant(self)
-        self.actions = dict()
-
-    def put(self, what, action):
-        self.actions[what] = action
-
-    def update(self, changer, what, *args):
-        if len(self.actions) > 0 and what in self.actions:
-            self.actions[what](changer, what, *args)
-
-    def remove(self):
-        self.model.remove_dependant(self)
-
-    def remove_at(self, what):
-        if len(self.actions) > 0 and what in self.actions:
-            del self.actions[what]
-
-
-# class TestDependant(): pass # BUG: no sé para qué es esta clase.
 
 
 class NotificationCenter():

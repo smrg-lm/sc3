@@ -14,7 +14,7 @@ import sc3.utils as ut
 import sc3.ugens as ug
 from . import server as sv # cíclico con server a través de synthdef
 import sc3.systemactions as sa
-import sc3.dependancy as dp
+import sc3.model as mdl
 from . import synthdef as sd # cíclico
 
 
@@ -415,7 +415,7 @@ class SynthDesc():
 
 
 @ut.initclass
-class SynthDescLib(dp.Dependancy): # BUG: REEMPLAZAR DEPENDANCY POR NOTIFYCENTER
+class SynthDescLib():
     def __init_class__(cls): # TODO: es para no poner código fuera de la definición, es equivalente a scalng
         cls.all = dict()
         cls.default = cls('global') # BUG era global en vez de default, pero el método default retornaba global. Es default, no global, el mismo patrón que server y client.
@@ -450,8 +450,7 @@ class SynthDescLib(dp.Dependancy): # BUG: REEMPLAZAR DEPENDANCY POR NOTIFYCENTER
 
     def add(self, synth_desc):
         self.synth_descs[synth_desc.name] = synth_desc
-        self.dependancy_changed('synthDescAdded', synth_desc) # BUG: Object Dependancy: changed/update/release/dependants/removeDependant/addDependant
-                                                              # No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
+        mdl.NotificationCenter.notify(self, 'synthDescAdded', synth_desc) # NOTE: era dependancy # NOTE: No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
 
     def remove_at(self, name): # BUG: es remove_at porque es un diccionario, pero es interfaz de esta clase que oculta eso, ver qué problemas puede traer.
         self.synth_descs.pop(name) #, None) # BUG: igualmente self.servers es un set y tirar KeyError con remove
@@ -528,7 +527,7 @@ class SynthDescLib(dp.Dependancy): # BUG: REEMPLAZAR DEPENDANCY POR NOTIFYCENTER
                 desc.sdef.metadata['shouldNotSend'] = True # BUG/TODO: los nombres en metadata tienen que coincidir con las convenciones de sclang... (?)
                 desc.sdef.metadata['loadPath'] = path
         for new_desc in result_set:
-            self.dependancy_changed('synthDescAdded', new_desc) # BUG: Object Dependancy, lo mismo que en add de esta clase.
+            mdl.NotificationCenter.notify(self, 'synthDescAdded', new_desc) # NOTE: era dependancy # NOTE: No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
         return result_set
 
     def read_desc_from_def(self, stream, keep_def, sdef, metadata=None):
@@ -544,5 +543,5 @@ class SynthDescLib(dp.Dependancy): # BUG: REEMPLAZAR DEPENDANCY POR NOTIFYCENTER
         if keep_def: desc.sdef = sdef
         if metadata is not None: desc.metadata = metadata
         self.synth_descs[desc.name] = desc
-        self.dependancy_changed('synthDescAdded', desc) # BUG: Object Dependancy, lo mismo que en add de esta clase.
+        mdl.NotificationCenter.notify(self, 'synthDescAdded', desc) # NOTE: era dependancy # NOTE: No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
         return desc # BUG: esta función se usa para agregar las descs a la libreríá pero el valor de retorno no se usa en SynthDef-add. Ver el resto de la librería de clases.

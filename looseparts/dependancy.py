@@ -34,7 +34,8 @@ class Dependancy():
     def dependancy_changed(self, what, *args): # BUG: nombre chambiado de 'changed' para evitar posibles colisiones.
         """Notify the receiver's dependants that the receiver has changed.
         The object making the change should be passed as the changer."""
-        if self not in Dependancy.dependants_dict: return # no es try porque llama a otros objetos.
+        if self not in Dependancy.dependants_dict:
+            return # no es try porque llama a otros objetos.
         for item in Dependancy.dependants_dict[self].copy(): # RECORDAR: siempre que hace copy.do es porque la colección sobre la que itera puede ser alterada por las operaciones de la iteración.
             item.update_dependant(self, what, *args)
 
@@ -54,3 +55,27 @@ class Dependancy():
             del Dependancy.dependants_dict[self]
         except KeyError:
             pass # TODO: es comportamiento típico de sclang, no se si es correcto acá.
+
+
+class SimpleController():
+    def __init__(self, model):
+        self.model = model
+        self.model.add_dependant(self)
+        self.actions = dict()
+
+    def put(self, what, action):
+        self.actions[what] = action
+
+    def update(self, changer, what, *args):
+        if len(self.actions) > 0 and what in self.actions:
+            self.actions[what](changer, what, *args)
+
+    def remove(self):
+        self.model.remove_dependant(self)
+
+    def remove_at(self, what):
+        if len(self.actions) > 0 and what in self.actions:
+            del self.actions[what]
+
+
+# class TestDependant(): pass # BUG: no sé para qué es esta clase (está en Model.sc)

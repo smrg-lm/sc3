@@ -3,8 +3,7 @@
 import collections
 
 
-# BUG: o es clase privada o no va acá.
-class dendrite():
+class _Dendrite():
     # TODO: no tiene toda la funcionalidad de MultiLevelIdentityDictionary
     # solo lo necesario para guardar y recuperar llaves como paths.
     # NOTE: No es posible usar weakref por los objetos pueden ser llave o valor.
@@ -102,7 +101,10 @@ class dendrite():
 
 
 class NotificationCenter():
-    registrations = dendrite()
+    registrations = _Dendrite()
+
+    def __new__(cls):
+        return cls
 
     @classmethod
     def notify(cls, obj, msg, *args):
@@ -144,7 +146,7 @@ class NotificationCenter():
 
     @classmethod
     def clear(cls):
-        cls.registrations = dendrite()
+        cls.registrations = _Dendrite()
 
 
 class NotificationRegistration():

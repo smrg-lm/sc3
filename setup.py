@@ -18,7 +18,8 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     url="https://github.com/smrg-lm/libsc",
-    packages=setuptools.find_packages(exclude=['devtools', 'docs', 'tests']), # NOTE: o poner ['sc3'], pero no se si luego voy a hacer subpaquetes.
+    #packages=setuptools.find_packages(exclude=['devtools', 'docs', 'looseparts', 'tests']), # NOTE: o poner ['sc3'], pero no se si luego voy a hacer subpaquetes. No es recomendable hacer subpaquetes por el anidamiento según dice el estilo.
+    packages=['sc3'],
     python_requires='>=3.6',
     install_requires=['pyliblo'],
     classifiers=[

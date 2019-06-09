@@ -418,6 +418,11 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     # prStart
 
 
+# decorator syntax
+def routine(gen):
+    return Routine(gen)
+
+
 ### Condition.sc ###
 
 

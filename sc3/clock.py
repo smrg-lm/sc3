@@ -368,8 +368,7 @@ class Scheduler():
                 #     if len(_inspect.trace()) > 4: # NOTE: 4: wakeup llama Stream.__call___ que llama a Thread.next que arroja excepcion en 319, 3: idem pero la excepción es en 281 llamada a send, raise directo porque ya había terminado en el ciclo anterior, no llama a send (no evalúa sub-código que pueda tirar excepción) # TODO: sigue solo si la excepción es de un frame inferior a la lógica del reloj.
                 #         raise e
                 except stm.StopStream:
-                    print('*** StopStream en wakeup')
-                    #pass
+                    pass
             except Exception:
                 _traceback.print_exception(*_sys.exc_info())
         self._wakeup = wakeup

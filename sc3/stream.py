@@ -7,6 +7,10 @@ import sc3.functions as fn
 from . import thread as thr
 
 
+class StopStream(StopIteration):
+    pass
+
+
 class Stream(fn.AbstractFunction): #, ABC):
     ### iterator protocol ###
 

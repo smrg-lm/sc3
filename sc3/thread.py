@@ -278,7 +278,8 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     def next(self, inval=None):
         # _RoutineAlwaysYield (y Done)
         if self.state == self.State.Done:
-            raise StopIteration()
+            #print('*** StopStream from State.Done')
+            raise stm.StopStream()
 
         # prRoutineResume
         # TODO: setea nowExecutingPath, creo que no lo voy a hacer.
@@ -300,7 +301,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
         #     Llama a sendMessage(g, s_prstart, 2), creo que simplemente es una llamada al intérprete que ejecuta prStart definido de Routine
         # TODO: Luego hace para state == tSuspended, y breve para Done (creo que devuelve terminalValue), Running (error), else error.
         try:
-            # NOTA: entiendo que esta llamada se ejecuta en el hilo del reloj,
+            # NOTE: entiendo que esta llamada se ejecuta en el hilo del reloj,
             # no veo que el uso del intérprete tenga un lock. Pero tengo
             # que estar seguro y probar qué pasa con el acceso a los datos.
             # NOTE: que tenga lock cambia la granularidad de la concurrencia
@@ -314,7 +315,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
                 if inspect.isgenerator(self._iterator):
                     self._last_value = next(self._iterator) # NOTE: Igual no anda si este next puede tirar YieldException, por eso quité reset=false, después de tirar esa excepción volvía con StopIteration.
                 else:
-                    raise StopIteration() # NOTE: puede que func sea una función común, esto ignora el valor de retorno que tiene que ser siempre None
+                    raise stm.StopStream() # NOTE: puede que func sea una función común, esto ignora el valor de retorno que tiene que ser siempre None
             else:
                 self._last_value = self._iterator.send(inval) # NOTE: _iterator.send es solo para iteradores generadores, pero en clock está puesto para que evalúe como función lo que no tenga el método next()
             self.state = self.State.Suspended
@@ -330,16 +331,17 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
         #         self._iterator = self.func(inval)
         #     self._last_value = next(self._iterator) # BUG: puede volver a tirar YieldAndReset
         #     self.state = self.State.Suspended
-        except StopIteration as e:
+        except StopIteration as e: # NOTE: Las Routine envuelven generadores para evaluarlas con relojes, se puede usar cualquier generador/iterador en el try por eso hay que filtrar esta excepción.
             #print('*** StopIteration')
             # NOTE: compara el nivel de anidamiento a partir del cual el error es de usuario y no de las llamadas de esta implementación.
             if len(inspect.trace()) > 1: # BUG: si no es su propia excepción la tiene que pasar para arriba
-                raise e                  # BUG: tengo que ver qué pasa con el estado de la rutina en este caso. Si se puede dejar "mentiroso" se elimina este if y terminal_value
+                raise StopIteration() from e # BUG: tengo que ver qué pasa con el estado de la rutina en este caso. Si se puede dejar "mentiroso" se elimina este if y terminal_value
             self._iterator = None
             self._terminal_value = None
             self.state = self.State.Done # BUG: esto no sería necesario con StopIteration?
             self._last_value = self._terminal_value
-            raise e # NOTE: **************** PARA YIELD FROM
+            #print('*** StopStream from except StopIteration')
+            raise stm.StopStream # NOTE: *** PARA YIELD FROM
         except YieldAndReset as e:
             #print('*** YieldAndReset')
             self._iterator = None

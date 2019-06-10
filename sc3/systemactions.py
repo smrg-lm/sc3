@@ -4,6 +4,7 @@ from abc import ABC, abstractclassmethod
 import warnings
 
 from . import server as srv
+import sc3.clock as clk
 
 
 class AbstractSystemAction(ABC):
@@ -36,7 +37,40 @@ class AbstractSystemAction(ABC):
 
 # // things to clear when hitting cmd-.
 class CmdPeriod(AbstractSystemAction):
-    pass
+    era = 0
+    clear_clocks = True
+    free_servers = True
+    free_remote = False
+
+    @classmethod
+    def do_once(cls, object):
+        def do_func():
+            cls.remove(do_func)
+            object.do_on_cmd_period() # BUG: ver extSystemActions.sc, tiene que ser algo como atexit, también cambiaría AbstractServerAction
+        cls.add(do_func)
+
+    @classmethod
+    def run(cls):
+        if cls.clear_clocks:
+            clk.SystemClock.clear()
+            clk.AppClock.clear()
+        for item in cls.objects[:]:
+            item.do_on_cmd_period() # BUG: ver extSystemActions.sc, tal vez es solo comprobar por un método mágico
+        if cls.free_servers:
+            srv.Server.free_all(cls.free_remote) # // stop all sounds on local, or remote servers
+            srv.Server.resume_threads()
+        cls.era += 1
+
+    @classmethod
+    def hard_run(cls):
+        clk.SystemClock.clear()
+        clk.AppClock.clear()
+        clk.TempoClock.default.clear()
+        for item in cls.objects[:]:
+            item.do_on_cmd_period() # BUG: ver extSystemActions.sc, voy a tener que cambiar la interfaz y que registren la función junto con el objeto, que recibe al objeto
+        srv.Server.hard_free_all() # // stop all sounds on local servers
+        srv.Server.resume_threads()
+        cls.era += 1
 
 
 # // things to do after startup file executed

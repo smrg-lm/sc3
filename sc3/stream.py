@@ -8,6 +8,7 @@ from . import thread as thr
 from . import clock as clk
 import sc3.functions as fn
 import sc3.model as mdl
+from . import systemactions as sac
 
 
 class StopStream(StopIteration):
@@ -228,8 +229,7 @@ class PauseStream(Stream):
         self.refresh() # //_stream = originalStream;
         self._stream.clock = self.clock
         self.waiting = True # // make sure that accidental play/stop/play sequences don't cause memory leaks
-        print('*** stream.py PauseStream.play: implementar CmdPeriod')
-        self.era = 0 # xxx.CmdPeriod.era # BUG: implementar
+        self.era = sac.CmdPeriod.era
 
         def pause_stream_play(*args): # BUG: DECIDIR checkeo de argumentos en wakeup: TypeError: pause_stream_play() takes 0 positional arguments but 3 were given
             if self.waiting and self.next_beat is None:
@@ -266,7 +266,7 @@ class PauseStream(Stream):
 
     def was_stopped(self):
         return ((self.stream_has_ended and self._stream is None) # // stopped by clock or stop-message
-               or xxx.CmdPeriod.era != self.era) # // stopped by cmd-period, after stream has ended
+               or sac.CmdPeriod.era != self.era) # // stopped by cmd-period, after stream has ended
 
     def can_pause(self):
         return not self.stream_has_ended

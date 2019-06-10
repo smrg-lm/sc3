@@ -7,6 +7,7 @@ import inspect as _inspect
 import traceback as _traceback
 import math as _math
 from queue import PriorityQueue as _PriorityQueue
+import types as _types
 
 #import sched tal vez sirva para AppClock (ver scd)
 #Event = collections.namedtuple('Event', []) podría servir pero no se pueden agregar campos dinámicamente, creo, VER
@@ -341,7 +342,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
 
 
 class TempoClock(Clock): # se crean desde SystemClock?
-    pass
+    default = SystemClock # BUG: HACK: TO TEST
 
 
 class Scheduler():
@@ -359,7 +360,15 @@ class Scheduler():
         def wakeup(item):
             try:
                 try:
-                    delta = item() # BUG: item.awake(self._beats, self._seconds, self._clock) # BUG: awake la implementan Function, Nil, Object, PauseStream y Routine,
+                    if isinstance(item, _types.FunctionType):
+                        print('*** llama awake para Function')
+                        #if len(inspect.signature(self.item).parameters) == 0: # BUG: debería llamar sin o con otros parámetros?
+                        delta = item(self._beats, self._seconds, self._clock) # NOTE: no implemento awake para funciton.
+                    elif isinstance(item, (thr.Routine, stm.PauseStream)):
+                        print('*** llama awake para Routine o PauseStream')
+                        delta = item.awake(self._beats, self._seconds, self._clock) # NOTE: la implementan solo Routine y PauseStream, pero VER: # BUG: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método.
+                    else:
+                        raise TypeError(f"type '{type(item)}' is not supported by Scheduler")
                     if isinstance(delta, (int, float))\
                     and not isinstance(delta, bool):
                         self.sched(delta, item) # BUG: ver awake
@@ -391,8 +400,8 @@ class Scheduler():
     def clear(self):
         item = None
         while not self.queue.empty():
-            item = self.queue.get()
-            if isinstance(item, (xxx.EventStreamPlayer, xxx.PauseStream)):
+            item = self.queue.get() # NOTE: vacía la cola sacando las Routine, PauseStream o Function
+            if isinstance(item, stm.PauseStream): # NOTE: (PauseStream, stm.EventStreamPlayer)): son los único que definen el método siguiente.
                 item.removed_from_scheduler() # NOTE: cambié el orden, en sclang primero se llama a este método y luego se vacía la cola.
 
     def empty(self): # pythonique

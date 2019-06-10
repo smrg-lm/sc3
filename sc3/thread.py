@@ -27,7 +27,7 @@ import random
 # Es realmente un problema, no sé por qué es 'mal diseño' según comentarios.
 from . import clock as clk
 from . import main as _main
-import sc3.stream as stm
+from . import stream as stm
 
 
 # TODO: TimeThread podría implementar __new__ como singleton y se
@@ -199,21 +199,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
     # checkCanArchive { "cannot archive Threads".warn }
 
 
-# NOTE: para _RoutineYieldAndReset, ver método de Routine
-class YieldAndReset(Exception):
-    def __init__(self, value=None):
-        super().__init__()
-        self.value = value
-
-
-# NOTE: para _RoutineAlwaysYield, ver método de Routine
-class AlwaysYield(Exception):
-    def __init__(self, terminal_value=None):
-        super().__init__()
-        self.terminal_value = terminal_value
-
-
-class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y TimeThread y mro.
+class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y TimeThread y mro. Creo que el úlitmo que se agrega sobreescribe y en sclang thread es subclase de stream, pero Python llama a __init__ del primero en la lista.
     # TODO: como Routine es un envoltorio tengo que ver qué haga con
     # la relación entre generador e iterador y cuándo es una función normal.
 
@@ -248,6 +234,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     def seconds(self):
         # En Routine se queda con los valores de inicialización en __init__
         return self._seconds
+
     @seconds.setter
     def seconds(self, seconds):
         self._seconds = seconds
@@ -329,7 +316,7 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
         #         self._iterator = self.func()
         #     else:
         #         self._iterator = self.func(inval)
-        #     self._last_value = next(self._iterator) # BUG: puede volver a tirar YieldAndReset
+        #     self._last_value = next(self._iterator) # BUG: puede volver a tirar stm.YieldAndReset
         #     self.state = self.State.Suspended
         except StopIteration as e: # NOTE: Las Routine envuelven generadores para evaluarlas con relojes, se puede usar cualquier generador/iterador en el try por eso hay que filtrar esta excepción.
             #print('*** StopIteration')
@@ -342,12 +329,12 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
             self._last_value = self._terminal_value
             #print('*** StopStream from except StopIteration')
             raise stm.StopStream # NOTE: *** PARA YIELD FROM
-        except YieldAndReset as e:
+        except stm.YieldAndReset as e:
             #print('*** YieldAndReset')
             self._iterator = None
             self.state = self.State.Init
             self._last_value = e.value
-        except AlwaysYield as e:
+        except stm.AlwaysYield as e:
             #print('*** AlwaysYield')
             self._iterator = None
             self._terminal_value = e.terminal_value
@@ -367,34 +354,21 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
         #print('return _last_value', self._last_value)
         return self._last_value # BUG: ***************** si se retorna None no funciona yield from en State.Done.
 
-    def yield_and_reset(self, value=None): # BUG: no entiendo por qué reset puede ser false y comportarse exactaemnte igual que yield?
-        if self is _main.Main.current_TimeThread:
-            raise YieldAndReset(value)
-        else:
-            raise Exception('yield_and_reset only works if self is main.Main.current_TimeThread')
-
     def reset(self):
         if self is _main.Main.current_TimeThread: # Running
-            raise YieldAndReset() # BUG: o tirar otra excpeción? Running es un error en sclang (se llama con yieldAndReset)
+            raise stm.YieldAndReset() # BUG: o tirar otra excpeción? Running es un error en sclang (se llama con yieldAndReset)
         elif self.state == self.State.Init:
             return
         else: #if self.state == self.State.Suspended or self.state == self.State.Done:
             self._iterator = None # BUG: es el único caso que manejo fuera de las excepciones, es el que mejor anda...
             self.state = self.State.Init
 
-    def always_yield(self, value=None): # NOTE: no se si es realmente necesario este método, se puede implementar AlwaysYield Exception
-        # solo se puede llamar mediante main.Main.current_TimeThread
-        if self is _main.Main.current_TimeThread:
-            raise AlwaysYield(value) # BUG: ver como afecta a StopIteration
-        else:
-            raise Exception('always_yield only works if self is main.Main.current_TimeThread')
-
     # // the _RoutineStop primitive can't stop the currently running Routine
     # // but a user should be able to use .stop anywhere
     # stop # prStop ->_RoutineStop con otros detalles
     def stop(self):
         if self is _main.Main.current_TimeThread: # Running
-            raise AlwaysYield()
+            raise stm.AlwaysYield()
         elif self.state == self.State.Done:
             return
         else:
@@ -414,7 +388,10 @@ class Routine(TimeThread, stm.Stream): # BUG: ver qué se pisa entre Stream y Ti
     # storeOn
 
     # // PRIVATE
-    # awake, llama a next(inBeats), esta función se llama desde C
+
+    def awake(self, beats, seconds, clock): # NOTE: esta función se llama desde C/C++ y tiene la nota "prevent optimization" en cada clase: Function, Nil, Object y Routine pero no en PauseStream que usa beats.
+        return self.next(beats)
+
     # prStart
 
 

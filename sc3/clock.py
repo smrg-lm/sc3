@@ -361,21 +361,19 @@ class Scheduler():
             try:
                 try:
                     if isinstance(item, _types.FunctionType):
-                        print('*** llama awake para Function')
-                        #if len(inspect.signature(self.item).parameters) == 0: # BUG: debería llamar sin o con otros parámetros?
-                        delta = item(self._beats, self._seconds, self._clock) # NOTE: no implemento awake para funciton.
+                        n = len(_inspect.signature(item).parameters)
+                        if n > 3:
+                            msg = f'Scheduler wakeup function takes between 0 and 3 positional arguments but {n} were given'
+                            raise TypeError(msg)
+                        args = [self._beats, self._seconds, self._clock][:n]
+                        delta = item(*args)
                     elif isinstance(item, (thr.Routine, stm.PauseStream)):
-                        print('*** llama awake para Routine o PauseStream')
-                        delta = item.awake(self._beats, self._seconds, self._clock) # NOTE: la implementan solo Routine y PauseStream, pero VER: # BUG: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método.
+                        delta = item.awake(self._beats, self._seconds, self._clock) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
                     else:
                         raise TypeError(f"type '{type(item)}' is not supported by Scheduler")
                     if isinstance(delta, (int, float))\
                     and not isinstance(delta, bool):
-                        self.sched(delta, item) # BUG: ver awake
-                # except StopIteration as e:
-                #     # NOTE: compara el nivel de anidamiento a partir del cual el error es de usuario y no de las llamadas de esta implementación.
-                #     if len(_inspect.trace()) > 4: # NOTE: 4: wakeup llama Stream.__call___ que llama a Thread.next que arroja excepcion en 319, 3: idem pero la excepción es en 281 llamada a send, raise directo porque ya había terminado en el ciclo anterior, no llama a send (no evalúa sub-código que pueda tirar excepción) # TODO: sigue solo si la excepción es de un frame inferior a la lógica del reloj.
-                #         raise e
+                        self.sched(delta, item)
                 except stm.StopStream:
                     pass
             except Exception:

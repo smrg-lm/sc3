@@ -341,8 +341,57 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
     # luego ver también las funciones que exporta a sclang al final de todo
 
 
+### Quant.sc ###
+# // This class is used to encapsulate quantization issues associated with EventStreamPlayer and TempoClock
+# // quant and phase determine the starting time of something scheduled by a TempoClock
+# // timingOffset is an additional timing factor that allows an EventStream to compute "ahead of time" enough to allow
+# // negative lags for strumming a chord, etc
+class Quant():
+    def __init__(self, quant=0, phase=None, timing_offset=None):
+        self.quant = quant
+        self.phase = phase
+        self.timing_offset = timing_offset
+
+    # *default # NOTE: no se usa acá, no tiene mucho valor, se pasa como responsabilidad del usuario, si alguna clase lo necesita define su propio default.
+
+    # NOTE: LA ÚNICA FUNCIÓN QUE USA QUANT COMO OBJETO ES play DE TempoClock, PASO LA LÓGICA DE asQuant A ESE MÉTODO.
+    # NOTE: como parámetro los valores válidos son None, int, list, tuple y Quant.
+    # NOTE: otra opción es que quant pueda ser solo un entero o una tupla y hacer
+    # NOTE: la lógica de Quant.next_time_on_grid en el método play de TempoClock.
+    # asQuant # NOTE: { ^this.copy() } lo implementan SimpleNumber { ^Quant(this) }, SequenceableCollection { ^Quant(*this) }, Nil { ^Quant.default } y IdentityDictionary { ^this.copy() }
+
+    # NOTE: este método es un método de Clock y TempoClock.
+    # NOTE: acá se implementa recibiendo un reloj, en los relojes recibe quant y phase, es una inversión de los roles.
+    def next_time_on_grid(self, clock):
+        return clock.next_time_on_grid(
+                self.quant,
+                (self.phase or 0) - (self.timing_offset or 0)
+        )
+
+    # printOn
+    # storeArgs
+
+
 class TempoClock(Clock): # se crean desde SystemClock?
     default = SystemClock # BUG: HACK: TO TEST
+
+    def _as_quant(self, quant):
+        if isinstance(quant, int):
+            quant = Quant(quant)
+        elif isinstance(quant, (list, tuple)):
+            quant = Quant(*quant[:3])
+        elif isinstance(quant, Quant):
+            pass
+        elif quant is None:
+            quant = Quant()
+        else:
+            msg = f'unsuported type convertion to Quant: {type(quant)}'
+            raise TypeError(msg)
+        return quant
+
+    def play(self, task, quant=1):
+        quant = self._as_quant(quant)
+        self.sched_abs(quant.next_time_on_grid(self), task)
 
 
 class Scheduler():

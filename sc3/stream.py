@@ -231,14 +231,16 @@ class PauseStream(Stream):
         self.waiting = True # // make sure that accidental play/stop/play sequences don't cause memory leaks
         self.era = sac.CmdPeriod.era
 
-        def pause_stream_play(*args): # BUG: DECIDIR checkeo de argumentos en wakeup: TypeError: pause_stream_play() takes 0 positional arguments but 3 were given
+        def pause_stream_play():
             if self.waiting and self.next_beat is None:
                 self.clock.sched(0, self)
                 self.waiting = False
                 mdl.NotificationCenter.notify(self, 'playing')
 
-        print('*** stream.py PauseStream.play: implementar Quant para TempoClock y que sea parámetro opcional acá o en Clock y Scheduler')
-        self.clock.play(pause_stream_play) #, quant or xxx.Quant()) # NOTE: usa asQuant, nil.asQuant es Quant(0), no lo voy a implementar, pasar Quant o que la implementación se equivalente con tupla
+        if isinstance(self.clock, clk.TempoClock):
+            self.clock.play(pause_stream_play, quant) # NOTE: usaba asQuant, la lógica está en el método play de TempoClock.
+        else:
+            self.clock.play(pause_stream_play)
         mdl.NotificationCenter.notify(self, 'user_played')
 
     def reset(self):
@@ -331,8 +333,8 @@ class Task(PauseStream):
 
 
 # decorator syntax
-def task(func, clock=None):
-    return Task(func, clock)
+def task(func):
+    return Task(func)
 
 
 class EventStreamPlayer(PauseStream):

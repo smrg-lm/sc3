@@ -9,6 +9,7 @@ from . import clock as clk
 import sc3.functions as fn
 import sc3.model as mdl
 from . import systemactions as sac
+#from . import event as ev # *** BUG *** ver EventStreamPlayer __init__, para poder seguir necesito quitar initclass, y tal vez pasar todo a from . import xxx as yyy
 
 
 class StopStream(StopIteration):
@@ -337,8 +338,28 @@ def task(func):
     return Task(func)
 
 
+### EventStreamCleanup.sc ###
+# // Cleanup functions are passed a flag.
+# // The flag is set false if nodes have already been freed by CmdPeriod
+# // This caused a minor change to TempoClock:clear and TempoClock:cmdPeriod
+class EventStreamCleanup():
+    pass # TODO
+
+
 class EventStreamPlayer(PauseStream):
-    pass
+    def __init__(self, stream, event=None):
+        super().__init__(stream)
+        self.event = event # or ev.Event.default # *** BUG *** para poder seguir necesito quitar initclass, y tal vez pasar todo a from . import xxx as yyy
+        self.mute_count = 0
+        self.cleanup = EventStreamCleanup()
+
+        def stream_player_generator(in_time):
+            while True:
+                in_time = yield from self._next(in_time)
+
+        self.routine = thr.Routine(stream_player_generator)
+
+    # TODO: todo...
 
 
 def stream(obj):

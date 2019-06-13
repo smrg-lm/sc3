@@ -3,10 +3,10 @@
 import warnings
 
 from . import clock as clk # es recursivo a través de main y server
-import sc3.model as mdl
-import sc3.thread as thr
-import sc3.systemactions as sac
-import sc3.responsedefs as rdf
+from . import model as mdl
+from . import stream as stm
+from . import systemactions as sac
+from . import responsedefs as rdf
 
 
 class ServerStatusWatcher():
@@ -98,7 +98,7 @@ class ServerStatusWatcher():
                 self.server.sync()
                 if on_complete is not None:
                     on_complete()
-        thr.Routine.run(rtn_func, clk.AppClock)
+        stm.Routine.run(rtn_func, clk.AppClock)
 
     def watch_quit(self, on_complete=None, on_failure=None):
         server_really_quit = False
@@ -168,7 +168,7 @@ class ServerStatusWatcher():
                     self.server.send_status_msg()
                     yield self.alive_thread_period
                     self.update_running_state(self._alive)
-            self.alive_thread = thr.Routine.run(rtn_func, clk.AppClock)
+            self.alive_thread = stm.Routine.run(rtn_func, clk.AppClock)
         return self.alive_thread # TODO: por qué hace return de este atributo en sclang?
 
     def stop_alive_thread(self):
@@ -237,7 +237,7 @@ class ServerStatusWatcher():
             self.server.init_tree()
             self.notified = True
             mdl.NotificationCenter.notify(self.server, 'server_running')
-        thr.Routine.run(rtn_func, clk.AppClock)
+        stm.Routine.run(rtn_func, clk.AppClock)
 
     # // This method attempts to recover from a loss of client-server contact,
     # // which is a serious emergency in live shows. So it posts a lot of info

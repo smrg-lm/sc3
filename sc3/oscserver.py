@@ -5,12 +5,11 @@ import time as _time # BUG: ver qué time es abajos
 
 import liblo as _lo
 
-import sc3.utils as utl
-import sc3.netaddr as nad
-from . import main # cíclico
+from . import utils as utl
+from . import netaddr as nad
 from . import clock as clk # es cíclico a través de main
-import sc3.thread as thr
-import sc3.responsedefs as rdf
+from . import stream as stm
+from . import responsedefs as rdf
 
 
 UDP = _lo.UDP
@@ -136,7 +135,7 @@ class OSCServer():
         self.send_msg('/status')
 
     def sync(self, target, condition=None, bundle=None, latency=0): # BUG: dice array of bundles, los métodos bundle_size y send_bundle solo pueden enviar uno. No me cierra/me confunde en sclang porque usa send bundle agregándole latencia.
-        condition = condition or thr.Condition()
+        condition = condition or stm.Condition()
         if bundle is None:
             id = self._make_sync_responder(target, condition)
             self.send_bundle(target, latency, ['/sync', id])

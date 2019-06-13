@@ -10,19 +10,19 @@ import pathlib as _pathlib
 import liblo as _lo
 
 from . import main
-import sc3.utils as utl
-import sc3.netaddr as nad
-import sc3.model as mdl
-import sc3.engine as eng
+from . import utils as utl
+from . import netaddr as nad
+from . import model as mdl
+from . import engine as eng
 from . import synthdef as sdf
 from . import clock as clk # es cíclico a través de main
-import sc3.systemactions as sac
-import sc3.serverstatus as sst
-import sc3.responsedefs as rdf
-import sc3.thread as thr
-import sc3.node as nod
+from . import systemactions as sac
+from . import serverstatus as sst
+from . import responsedefs as rdf
+from . import stream as stm
+from . import node as nod
 from . import bus
-from sc3.graphparam import NodeParameter, node_param
+from .graphparam import NodeParameter, node_param
 
 
 # BUG: revisar porque hay un patch que cambió esto y otros que cambiaron un par
@@ -324,6 +324,7 @@ class MetaServer(type):
 
 @utl.initclass # BUG: esto es un problema por lo cíclico, initclass o lo tengo que sacar o hacer que sea consistente con los imports, tal vez que initclass acumule los métodos y llame luego de que todo fue importado
 class Server(NodeParameter, metaclass=MetaServer):
+    @classmethod
     def __init_class__(cls): # BUG: ver: __new__ es un método estático tratado de manera especial por el intérprete, tal vez este se podría definir como tal, los métodos estáticos no están ligados ni a la clase ni a la instancia.
                              # BUG: PERO __init_subclass___: "If defined as a normal instance method, this method is implicitly converted to a class method."
         cls._default = cls.local = cls('localhost', nad.NetAddr('127.0.0.1', 57110))
@@ -386,7 +387,7 @@ class Server(NodeParameter, metaclass=MetaServer):
 
         self.pid = None # iniicaliza al bootear, solo tiene getter en la declaración
         self._server_interface = None
-        self._pid_release_condition = thr.Condition(lambda: self.pid is None)
+        self._pid_release_condition = stm.Condition(lambda: self.pid is None)
         type(self) # TODO: .changed(\serverAdded, self) # BUG: usar mdl.NotificationCenter
 
         # TODO: siempre revisar que no esté usando las de variables clase
@@ -611,7 +612,7 @@ class Server(NodeParameter, metaclass=MetaServer):
     #    self.addr.send_raw(raw_bytes)
 
     def send_msg_sync(self, condition, *args): # este método no se usa en la libreríá de clases
-        condition = condition or thr.Condition()
+        condition = condition or stm.Condition()
         cmd_name = str(args[0]) # BUG: TODO: el método reorder de abajo envía con send_msg y el número de mensaje como int, VER que hace sclang a bajo nivel, pero puede que esta conversión esté puesta para convertir símbolos a strings en sclang?
         if cmd_name[0] != '/':
             cmd_name = '/' + cmd_name # BUG: ver reorder abajo, ver por qué agrega la barra acá y no en otras partes.
@@ -639,11 +640,11 @@ class Server(NodeParameter, metaclass=MetaServer):
         self.sync_tasks.append(func) # NOTE: las func tienen que ser generadores que hagna yield form cond.wait()?
         if self.sync_thread is None:
             def sync_thread_rtn():
-                cond = thr.Condition()
+                cond = stm.Condition()
                 while len(self.sync_tasks) > 0:
                     yield from self.sync_tasks.pop(0)(cond) # BUG: no se si esto funcione así como así, sin más, por cond. Si el control vuelve a sync_thread_rtn nunc ase ejecuta el código en espera.
                 self.sync_thread = None
-            self.sync_thread = thr.Routine.run(sync_thread_rtn, clk.AppClock) # BUG:s en sclang usa TempoClock, ver arriba, acá deberíá pasar todos los AppClock a SystemClock (el reloj por defecto orginialmente de las rutinas).
+            self.sync_thread = stm.Routine.run(sync_thread_rtn, clk.AppClock) # BUG:s en sclang usa TempoClock, ver arriba, acá deberíá pasar todos los AppClock a SystemClock (el reloj por defecto orginialmente de las rutinas).
 
     # def list_send_msg(self, msg): # TODO: creo que es un método de conveniencia que genera confusión sobre la interfaz, acá msg es una lista no más.
     #     pass
@@ -690,7 +691,7 @@ class Server(NodeParameter, metaclass=MetaServer):
     ### scheduling ###
 
     def wait(self, response_name): # BUG: la implementación en sclang parece un bug, pero tendríá que ver cómo responde _RoutineResume y cómo se hace el reschedule.
-        cond = thr.Condition()
+        cond = stm.Condition()
 
         def resp_func():
             cond.test = True
@@ -729,7 +730,7 @@ class Server(NodeParameter, metaclass=MetaServer):
         # NOTE: Ídem.
 
     def boot_sync(self, condition=None):
-        condition = condition or thr.Condition()
+        condition = condition or stm.Condition()
         condition.test = False
 
         def func():
@@ -759,7 +760,7 @@ class Server(NodeParameter, metaclass=MetaServer):
                 print(msg.format(self.name, result))
 
         def ping_func():
-            thr.Routine.run(task, clk.SystemClock) # NOTE: Routine.run usa SystemClock por defecto (con un checkeo puesto demás en sclang, y acá, porque es lo que pasa a bajo nivel)
+            stm.Routine.run(task, clk.SystemClock) # NOTE: Routine.run usa SystemClock por defecto (con un checkeo puesto demás en sclang, y acá, porque es lo que pasa a bajo nivel)
         ping_func()
 
     def cached_buffers_do(self, func):
@@ -950,7 +951,7 @@ class Server(NodeParameter, metaclass=MetaServer):
                 pass # no hace nada
 
         resp = rdf.OSCFunc(resp_func, '/synced', self.addr) # TODO: agregar decorador
-        thr.Routine.run(task, clk.AppClock) # TODO: agregar decorador
+        stm.Routine.run(task, clk.AppClock) # TODO: agregar decorador
         self.addr.send_msg('/sync', id)
 
     def _wait_for_pid_release(self, on_complete, on_failure=None, timeout=1):
@@ -974,7 +975,7 @@ class Server(NodeParameter, metaclass=MetaServer):
                 on_complete()
             else:
                 on_failure()
-        thr.Routine.run(task, clk.AppClock)
+        stm.Routine.run(task, clk.AppClock)
 
     def boot_server_app(self, on_complete):
         print('* boot_server_app: falta implementar todo lo relacionado con popen y options')
@@ -1206,10 +1207,10 @@ class _ServerProcess(object):
                     print(line, end='')
 
         def make_thread(out, flag):
-            thr = _threading.Thread(target=read, args=(out, flag))
-            thr.daemon = True
-            thr.start()
-            return thr
+            t = _threading.Thread(target=read, args=(out, flag))
+            t.daemon = True
+            t.start()
+            return t
 
         self._tflag = _threading.Event()
         self._tout = make_thread(self.proc.stdout, self._tflag) # 'SCOUT:'

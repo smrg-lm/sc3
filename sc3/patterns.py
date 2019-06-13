@@ -1,8 +1,7 @@
 """Patterns.sc"""
 
-import sc3.functions as fn
-import sc3.thread as thr
-import sc3.stream as stm
+from . import functions as fn
+from . import stream as stm
 
 
 # NOTE: No define ningún método como responsabilidad de subclase,
@@ -27,7 +26,7 @@ class Pattern(fn.AbstractFunction):
             yield from self.__embed__(inval)
         _.__name__ = type(self).__name__ + '_stream_gf' # e.g. Pseq_stream_gf
         _.__qualname__ += _.__name__
-        return thr.Routine(_)
+        return stm.Routine(_)
 
     def __embed__(self, inval=None): # NOTE: es embedInStream para Stream sin la funcionalidad del yield from que se define en __stream__
         print('*** usa Pattern __embed__')

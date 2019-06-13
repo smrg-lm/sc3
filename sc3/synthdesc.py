@@ -6,15 +6,15 @@ import warnings
 import glob # sclang usa glob y glob se encarga de '*' (que no lista los archivos ocultos), hace str(path) para poder usar Path en la interfaz
 #from pathlib import Path # BUG: no se si es necesario, se usa cuando sd.SynthDef.synthdef_dir devuelve un objeto Path en SynthDescLib:read.
 
-import sc3._hackprovisorio_borrar as _hkpb
+from . import _hackprovisorio_borrar as _hkpb
 
-import sc3._global as _gl
-import sc3.inout as scio
-import sc3.utils as ut
-import sc3.ugens as ug
+from . import _global as _gl
+from . import inout as scio
+from . import utils as ut
+from . import ugens as ug
 from . import server as sv # cíclico con server a través de synthdef
-import sc3.systemactions as sa
-import sc3.model as mdl
+from . import systemactions as sa
+from . import model as mdl
 from . import synthdef as sd # cíclico
 
 
@@ -416,6 +416,7 @@ class SynthDesc():
 
 @ut.initclass
 class SynthDescLib():
+    @classmethod
     def __init_class__(cls): # TODO: es para no poner código fuera de la definición, es equivalente a scalng
         cls.all = dict()
         cls.default = cls('global') # BUG era global en vez de default, pero el método default retornaba global. Es default, no global, el mismo patrón que server y client.

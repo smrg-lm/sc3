@@ -7,12 +7,28 @@ Utility classes and functions from sclang style.
 import itertools as _itertools
 
 
+# BUG: imita pero no hace lo mismo, initClass inicializa el árbol de clases
+# luego de que toda fueron compiladas primero en profundidad transversal.
+# Como está puede fallar si main.py no importa todas las clases que tienen initclass.
+class ClassLibrary():
+    classes = []
+
+    @classmethod
+    def add(cls, item):
+        cls.classes.append(item)
+
+    @classmethod
+    def init(cls):
+        while len(cls.classes) > 0:
+            item = cls.classes.pop()
+            print(f'+ initclass for {item.__name__} in {item.__module__}')
+            item.__init_class__()
+
+
 # decorador
-class initclass():
-    def __new__(_, cls):
-        print('+ initclass for {} in {}'.format(cls.__name__, cls.__module__))
-        cls.__init_class__(cls) # TODO: solo para métodos comunes, ver test_init_class.py
-        return cls
+def initclass(cls):
+    ClassLibrary.add(cls)
+    return cls
 
 
 class UniqueID(): # TODO: en sclang está en Common/Collections/ObjectTable.sc

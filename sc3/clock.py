@@ -12,10 +12,10 @@ import types as _types
 #import sched tal vez sirva para AppClock (ver scd)
 #Event = collections.namedtuple('Event', []) podría servir pero no se pueden agregar campos dinámicamente, creo, VER
 
+from . import utils as utl
 from . import main as _main
-from . import thread as thr
-import sc3.builtins as bi
-import sc3.stream as stm
+from . import builtins as bi
+from . import stream as stm
 
 
 # // clocks for timing threads.
@@ -59,7 +59,7 @@ class Clock(_threading.Thread): # ver std::copy y std::bind
         return bi.roundup(cls.beats() - bi.mod(phase, quant), quant) + phase
 
 
-# TODO: Usar init class para hacer singletons
+@utl.initclass
 class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singletona
     _SECONDS_FROM_1900_TO_1970 = 2208988800 # (int32)UL # 17 leap years
     _NANOS_TO_OSC = 4.294967296 # PyrSched.h: const double kNanosToOSC  = 4.294967296; // pow(2,32)/1e9
@@ -69,6 +69,10 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
     _OSC_TO_SECONDS = 2.328306436538696e-10 # PyrSched.h: const double kOSCtoSecs = 2.328306436538696e-10;  // 1/pow(2,32)
 
     _instance = None # singleton instance of Thread
+
+    @classmethod
+    def __init_class__(cls):
+        cls()
 
     def __new__(cls):
         #_host_osc_offset = 0 # int64
@@ -189,7 +193,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al querer comparar tasks, hacer que '<' devuelva el id del objeto
         self._task_queue.put(item) #, block=False) Full exception, put de PriorityQueue es infinita por defecto, pero put(block=False) solo agrega si hay espacio libre inmediatamente o tira Full.
         self._task_queue.task_done() # se puede llamar concurrentemente o con _sched_cond ya está?
-        if isinstance(task, thr.TimeThread):
+        if isinstance(task, stm.TimeThread):
             task.next_beat = secs
         if self._task_queue.queue[0][0] != prev_time:
             with self._sched_cond:
@@ -247,7 +251,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                 item = self._task_queue.get()
                 sched_time = item[0]
                 task = item[1]
-                if isinstance(task, thr.TimeThread): # BUG: esto lo hace para todas las Routines o solo TimeThread? la implementación puede ser distinta acá...
+                if isinstance(task, stm.TimeThread): # BUG: esto lo hace para todas las Routines o solo TimeThread? la implementación puede ser distinta acá...
                     task.next_beat = None
                 try:
                     try:
@@ -416,7 +420,7 @@ class Scheduler():
                             raise TypeError(msg)
                         args = [self._beats, self._seconds, self._clock][:n]
                         delta = item(*args)
-                    elif isinstance(item, (thr.Routine, stm.PauseStream)):
+                    elif isinstance(item, (stm.Routine, stm.PauseStream)):
                         delta = item.awake(self._beats, self._seconds, self._clock) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
                     else:
                         raise TypeError(f"type '{type(item)}' is not supported by Scheduler")
@@ -491,7 +495,7 @@ class Scheduler():
                 self._seconds = time
                 self._beats = self._clock.secs2beats(time)
                 # import inspect
-                # if isinstance(item, thr.Routine):
+                # if isinstance(item, stm.Routine):
                 #     print('******* sched _wakeup item *** ***', inspect.getsource(item.func))
                 self._wakeup(item)
             self._expired.clear()
@@ -499,8 +503,13 @@ class Scheduler():
         self._beats = self._clock.secs2beats(value)
 
 
+@utl.initclass
 class AppClock(Clock): # ?
     _instance = None # singleton instance of Thread
+
+    @classmethod
+    def __init_class__(cls):
+        cls()
 
     def __new__(cls):
         if cls._instance is None:

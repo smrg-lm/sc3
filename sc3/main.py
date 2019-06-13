@@ -21,9 +21,10 @@ import time
 
 from . import server as srv
 from . import clock as clk
-from . import thread as thr
+from . import stream as stm
 from . import oscserver as osr
 from . import responsedefs as rdf
+from . import utils as utl
 
 
 # Kernel.sc
@@ -36,7 +37,7 @@ class Process(type):
         cls._time_of_initialization = time.time()
         cls._main_lock = threading.Condition() # ver, pasada desde abajo
 
-        cls.main_TimeThread = thr.TimeThread.singleton() # el reloj en el que corre Process sería AppClock es un threading.Thread con un modelo diferente de programación de eventos, pero la verdad es que no estoy seguro.
+        cls.main_TimeThread = stm.TimeThread.singleton() # el reloj en el que corre Process sería AppClock es un threading.Thread con un modelo diferente de programación de eventos, pero la verdad es que no estoy seguro.
         cls.current_TimeThread = cls.main_TimeThread
 
         cls.osc_server = osr.OSCServer() # BUG: options, y ver si se pueden crear más servidores, ver abajo
@@ -113,6 +114,4 @@ class Main(metaclass=Process):
     pass
 
 
-# BUG: TEST, luego va a ser necesario organizar todo
-clk.SystemClock() # BUG: estas sentencias hacen que clock no se pueda importar directamente
-clk.AppClock() # BUG: porque es cíclo con main, hay que importar antes main para que importe clock
+utl.ClassLibrary.init()

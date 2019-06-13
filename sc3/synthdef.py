@@ -20,13 +20,13 @@ import io
 import struct
 import pathlib
 
-import sc3.inout as scio
-import sc3._global as _gl
-import sc3.utils as ut
-import sc3.ugens as ug
+from . import _global as _gl
+from . import inout as scio
+from . import utils as ut
+from . import ugens as ug
 from . import server as sv
-import sc3.platform as pt
-import sc3.systemactions as sa
+from . import platform as pt
+from . import systemactions as sa
 from . import synthdesc as ds # cíclico
 
 

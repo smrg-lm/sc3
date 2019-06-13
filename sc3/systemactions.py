@@ -4,7 +4,7 @@ from abc import ABC, abstractclassmethod
 import warnings
 
 from . import server as srv
-import sc3.clock as clk
+from . import clock as clk
 
 
 class AbstractSystemAction(ABC):

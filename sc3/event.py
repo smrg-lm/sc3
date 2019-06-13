@@ -7,17 +7,17 @@ import functools as ft
 import itertools as it
 import operator as op
 
-from sc3.rest import Rest
-import sc3.builtins as bi
-import sc3.scale as scl
-import sc3.synthdef as sdf
-import sc3.synthdesc as sdc
-import sc3.main as _main
-import sc3.utils as utl
-from sc3.graphparam import node_param
-import sc3.clock as clk
-import sc3.server as srv
-import sc3.node as nod
+from .rest import Rest
+from . import builtins as bi
+from . import scale as scl
+from . import synthdef as sdf
+from . import synthdesc as sdc
+from . import main as _main
+from . import utils as utl
+from .graphparam import node_param
+from . import clock as clk
+from . import server as srv
+from . import node as nod
 
 
 # NOTE: para putAll -> Event({**a, **b, **c, ...}) en vez de updates... (>= Python 3.5)

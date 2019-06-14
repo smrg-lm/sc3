@@ -792,7 +792,54 @@ def task(func):
 # // The flag is set false if nodes have already been freed by CmdPeriod
 # // This caused a minor change to TempoClock:clear and TempoClock:cmdPeriod
 class EventStreamCleanup():
-    pass # TODO
+    def __init__(self):
+        self.functions = set() # // cleanup functions from child streams and parent stream
+
+    def add_function(self, event, func):
+        if isinstance(event, dict):
+            self.functions.add(func)
+            if 'add_to_cleanup' not in event:
+                event.add_to_cleanup = []
+            event.add_to_cleanup.append(func)
+
+    def add_node_cleanup(self, event, func):
+        if isinstance(event, dict):
+            self.functions.add(func)
+            if 'add_to_node_cleanup' not in event:
+                event.add_to_node_cleanup = []
+            event.add_to_node_cleanup.append(func)
+
+    def update(self, event):
+        if isinstance(event, dict):
+            if 'add_to_node_cleanup' in event:
+                self.functions.update(event.add_to_node_cleanup)
+            if 'add_to_cleanup' in event:
+                self.functions.update(event.add_to_cleanup)
+            if 'remove_from_cleanup' in event:
+                for item in event.remove_from_cleanup:
+                    self.functions.discard(item)
+            print('*** ver por qué EventStreamCleanup.update retorna el argumento event (además inalterado)')
+            return event # TODO: Why?
+
+    def exit(self, event, free_nodes=True):
+        if isinstance(event, dict):
+            self.update(event)
+            for func in self.functions:
+                func(free_nodes)
+            if 'remove_from_cleanup' not in event:
+                event.remove_from_cleanup = [] # NOTE: es necesario porque hace reasignación del array como si creara uno nuevo, por eso entiendo que es un array también.
+            event.remove_from_cleanup.extend(self.functions)
+            self.clear()
+            print('*** ver por qué EventStreamCleanup.exit retorna el argumento event (aunque acá sí alterado)')
+            return event
+
+    def terminate(self, free_nodes=True):
+        for func in self.functions:
+            func(free_nodes)
+        self.clear()
+
+    def clear(self): # NOTE: no usar para init, así es más claro.
+        self.functions = set()
 
 
 class EventStreamPlayer(PauseStream):

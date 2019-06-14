@@ -22,6 +22,8 @@ from . import node as nod
 
 # NOTE: para putAll -> Event({**a, **b, **c, ...}) en vez de updates... (>= Python 3.5)
 
+# NOTE: *** VER EventTypesWithCleanup.sc ***
+
 
 class Event(dict):
     # NOTE: Son Event, se inicializan luego por fuera con _make_parent_events
@@ -109,8 +111,8 @@ class Event(dict):
 
     def copy(self):
         obj = type(self)(super().copy())
-        obj.proto = self.proto
-        obj.parent = self.parent
+        super(type(obj), obj).__setattr__('proto', self.proto)
+        super(type(obj), obj).__setattr__('parent', self.parent)
         return obj
 
     ### Event interface ###

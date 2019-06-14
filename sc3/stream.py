@@ -130,7 +130,7 @@ class UnaryOpStream(Stream):
         self.a = a
 
     def next(self, inval=None):
-        a = self.a.next(inval) # NOTE: tira StopIteration
+        a = self.a.next(inval) # NOTE: tira StopStream
         if hasattr(self.selector, '__scbuiltin__'):
             return self.selector(a)
         else:
@@ -149,7 +149,7 @@ class BinaryOpStream(Stream):
         self.b = b
 
     def next(self, inval=None):
-        a = self.a.next(inval) # NOTE: tira StopIteration
+        a = self.a.next(inval) # NOTE: tira StopStream
         b = self.b.next(inval)
         if hasattr(self.selector, '__scbuiltin__'):
             return self.selector(a, b)
@@ -173,11 +173,11 @@ class NAryOpStream(Stream):
         self.args = args # BUG: cambié el nombres arglist, no uso la optimización isNumeric, todos los args son stream (convertidos en la llamada)
 
     def next(self, inval=None):
-        a = self.a.next(inval) # NOTE: tira StopIteration
+        a = self.a.next(inval) # NOTE: tira StopStream
         args = []
         res = None
         for item in self.args:
-            res = item.next(inval) # NOTE: tira StopIteration
+            res = item.next(inval) # NOTE: tira StopStream
             args.append(res)
         if hasattr(self.selector, '__scbuiltin__'):
             return self.selector(a, *args)
@@ -717,7 +717,7 @@ class PauseStream(Stream):
         self.stream_has_ended = True
 
     def was_stopped(self):
-        return ((self.stream_has_ended and self._stream is None) # // stopped by clock or stop-message
+        return ((not self.stream_has_ended and self._stream is None) # // stopped by clock or stop-message
                or sac.CmdPeriod.era != self.era) # // stopped by cmd-period, after stream has ended
 
     def can_pause(self):
@@ -740,7 +740,7 @@ class PauseStream(Stream):
         try:
             if self._stream is None: # NOTE: self._stream puede ser nil por el check de abajo o tirar la excepción si finalizó, por eso se necesita esta comprobación, acá los stream no retornan None, tiran excepción.
                 raise StopStream('_stream is None')
-            next_time = self._stream.next(inval)
+            next_time = self._stream.next(inval) # NOTE: tira StopStream
             self.next_beat = inval + next_time # // inval is current logical beat
             return next_time
         except StopStream as e:
@@ -759,11 +759,12 @@ class PauseStream(Stream):
     @stream.setter
     def stream(self, value): # NOTE: OJO: No usa este setter en la implementación interna
         self.original_stream.thread_player = None # // not owned any more
-        value.thread_player = self
-        self.original_stream = value.thread_player
+        if value is not None:
+            value.thread_player = self
+        self.original_stream = value
         if self._stream is not None:
             self._stream = value
-            self.stream_has_ended = value is not None
+            self.stream_has_ended = value is None
 
     @property
     def thread_player(self):
@@ -851,11 +852,70 @@ class EventStreamPlayer(PauseStream):
 
         def stream_player_generator(in_time):
             while True:
-                in_time = yield self._next(in_time) # BUG: creo que es solo yield, falta _next
+                in_time = yield self._next(in_time)
 
         self.routine = Routine(stream_player_generator)
 
-    # TODO: todo...
+    # // freeNodes is passed as false from
+    # // TempoClock:cmdPeriod
+    def removed_from_scheduler(self, free_nodes=True):
+        self.next_beat = None # BUG?
+        self.cleanup.terminate(free_nodes)
+        self._stop()
+        mdl.NotificationCenter.notify(self, 'stopped')
+
+    def _stop(self):
+        self._stream = None
+        self.next_beat = None # BUG? lo setea a nil acá y en el método de arriba que llama a este (no debería estar allá), además stop abajo es igual que arriba SALVO que eso haga que se detenga antes por alguna razón.
+        self.waiting = False
+
+    def stop(self):
+        self.cleanup.terminate()
+        self._stop()
+        mdl.NotificationCenter.notify(self, 'user_stopped')
+
+    def reset(self):
+        self.routine.reset()
+        super().reset()
+
+    def mute(self):
+        self.mute_count += 1
+
+    def unmute(self):
+        self.mute_count -= 1
+
+    def can_pause(self):
+        return not self.stream_has_ended and len(self.cleanup.functions) == 0
+
+    def next(self, in_time):
+        return self.routine.next(in_time)
+
+    def _next(self, in_time):
+        try: # BUG(s). Revisar next de PauseStream
+            if self._stream is None:
+                raise StopStream()
+            else:
+                out_event = self._stream.next(self.event.copy())
+                next_time = out_event.play_and_delta(self.cleanup, self.mute_count > 0)
+                # if (nextTime.isNil) { this.removedFromScheduler; ^nil }; # *** BUG ***
+                # BUG: para event.play_and_delta/event.delta, los patterns no van a devolver
+                # BUG: nil y setear la llave, van a tirar StopStream.
+                # BUG: Igualmente tampoco encuentro un caso que de nil en sclang,
+                # BUG: outEvent no puede ser nil porque comprueba, playAndDelta
+                # BUG: no parece que pueda retornar nil (según pruebas con Pbind, \delta, nil va al if, (delta: nil) es 0). VER _Event_Delta
+                self.next_beat = in_time + next_time # // inval is current logical beat
+                return next_time
+        except StopStream:
+            self.stream_has_ended = self._stream is not None
+            self.cleanup.clear()
+            self.removed_from_scheduler() # BUG? Hay algo raro, llama cleanup.clear() en la línea anterior, que borras las funciones de cleanup, pero luego llama a cleanup.terminate a través removed_from_scheduler en esta línea que evalúa las funciones que borró (no las evalúa)
+            raise StopStream()
+
+    def as_event_stream_player(self): # BUG: VER: lo implementan Event, EventStreamPlayer, Pattern y Stream, parece protocolo.
+        return self
+
+    def play(self, clock=None, reset=False, quant=None):
+        pass # TODO * TODO * TODO
 
 
 def stream(obj):

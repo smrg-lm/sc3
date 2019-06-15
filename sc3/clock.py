@@ -358,11 +358,25 @@ class Quant():
 
     # *default # NOTE: no se usa acá, no tiene mucho valor, se pasa como responsabilidad del usuario, si alguna clase lo necesita define su propio default.
 
-    # NOTE: LA ÚNICA FUNCIÓN QUE USA QUANT COMO OBJETO ES play DE TempoClock, PASO LA LÓGICA DE asQuant A ESE MÉTODO.
-    # NOTE: como parámetro los valores válidos son None, int, list, tuple y Quant.
-    # NOTE: otra opción es que quant pueda ser solo un entero o una tupla y hacer
+    # NOTE: Quant se usa en TempoClock.play y Event.sync_with_quant (hasta donde vi)
+    # NOTE: Para asQuant los valores válidos son None, int, list, tuple y Quant.
+    # NOTE: Otra opción es que quant pueda ser solo un entero o una tupla y hacer
     # NOTE: la lógica de Quant.next_time_on_grid en el método play de TempoClock.
-    # asQuant # NOTE: { ^this.copy() } lo implementan SimpleNumber { ^Quant(this) }, SequenceableCollection { ^Quant(*this) }, Nil { ^Quant.default } y IdentityDictionary { ^this.copy() }
+    # NOTE: asQuant { ^this.copy() } lo implementan SimpleNumber { ^Quant(this) }, SequenceableCollection { ^Quant(*this) }, Nil { ^Quant.default } y IdentityDictionary { ^this.copy() }
+    @classmethod
+    def as_quant(cls, quant):
+        if isinstance(quant, cls):
+            pass
+        elif isinstance(quant, int):
+            quant = cls(quant)
+        elif isinstance(quant, (list, tuple)):
+            quant = cls(*quant[:3])
+        elif quant is None:
+            quant = cls()
+        else:
+            msg = f'unsuported type convertion to Quant: {type(quant)}'
+            raise TypeError(msg)
+        return quant
 
     # NOTE: este método es un método de Clock y TempoClock.
     # NOTE: acá se implementa recibiendo un reloj, en los relojes recibe quant y phase, es una inversión de los roles.
@@ -379,22 +393,8 @@ class Quant():
 class TempoClock(Clock): # se crean desde SystemClock?
     default = SystemClock # BUG: HACK: TO TEST
 
-    def _as_quant(self, quant):
-        if isinstance(quant, int):
-            quant = Quant(quant)
-        elif isinstance(quant, (list, tuple)):
-            quant = Quant(*quant[:3])
-        elif isinstance(quant, Quant):
-            pass
-        elif quant is None:
-            quant = Quant()
-        else:
-            msg = f'unsuported type convertion to Quant: {type(quant)}'
-            raise TypeError(msg)
-        return quant
-
     def play(self, task, quant=1):
-        quant = self._as_quant(quant)
+        quant = Quant.as_quant(quant)
         self.sched_abs(quant.next_time_on_grid(self), task)
 
 

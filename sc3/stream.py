@@ -387,7 +387,10 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
         if isinstance(self.clock, clk.TempoClock):
             self.clock.play(self, quant) # clk.Quant.as_quant(quant)) # NOTE: no se necesita porque lo crea TempoClock.play
         else:
-            self.clock.aply(self)
+            self.clock.play(self)
+        # NOTE: no estoy retornando self a propósito, ver si conviene que
+        # NOTE: solor retornen self los métodos play que devuelven una rutina
+        # NOTE: creada a partir de otro objeto, por ejemplo, Pattern.
 
     @property
     def clock(self):
@@ -674,7 +677,7 @@ class PauseStream(Stream):
     def play(self, clock=None, reset=False, quant=None):
         if self._stream is not None:
             print('already playing')
-            return # NOTE: sclang retorna self, esto es un comportamiento global de la librería que habría que ver, pero creo que no es muy Python.
+            return self # NOTE: sclang retorna self porque los Patterns devuelven la Routine que genéra este método.
         if reset:
             self.reset()
         self.clock = clock or self.clock or clk.TempoClock.default
@@ -695,6 +698,7 @@ class PauseStream(Stream):
         else:
             self.clock.play(pause_stream_play)
         mdl.NotificationCenter.notify(self, 'user_played')
+        return self
 
     def reset(self):
         self.original_stream.reset()
@@ -849,7 +853,7 @@ class EventStreamCleanup():
 class EventStreamPlayer(PauseStream):
     def __init__(self, stream, event=None):
         super().__init__(stream)
-        self.event = event or evt.Event.default
+        self.event = event or evt.Event.default() # BUG: tal vez debería ser una property de clase? o que todos los default sean funciones (SIMPLIFICA EL CÓDIGO) o propiedades. Pero Event *default crea un nuevo evento cada vez.
         self.mute_count = 0
         self.cleanup = EventStreamCleanup()
 
@@ -920,7 +924,7 @@ class EventStreamPlayer(PauseStream):
     def play(self, clock=None, reset=False, quant=None):
         if self._stream is not None:
             print('already playing')
-            return
+            return self
         if reset:
             self.reset()
         self.clock = clock or self.clock or clk.TempoClock.default
@@ -930,7 +934,7 @@ class EventStreamPlayer(PauseStream):
         self.waiting = True # // make sure that accidental play/stop/play sequences don't cause memory leaks
         self.era = sac.CmdPeriod.era
         quant = clk.Quant.as_quant(quant) # NOTE: se necesita porque lo actualiza event.sync_with_quant
-        self.event = event.sync_with_quant(quant) # NOTE: actualiza el evento y retorna una copia o actualiza el objeto Quant pasado.
+        self.event = self.event.sync_with_quant(quant) # NOTE: actualiza el evento y retorna una copia o actualiza el objeto Quant pasado.
 
         def event_stream_play():
             if self.waiting and self.next_beat is None:
@@ -943,6 +947,7 @@ class EventStreamPlayer(PauseStream):
         else:
             self.clock.play(event_stream_play)
         mdl.NotificationCenter.notify(self, 'user_played')
+        return self
 
 
 def stream(obj):

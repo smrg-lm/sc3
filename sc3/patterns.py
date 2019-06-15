@@ -7,16 +7,13 @@ from . import stream as stm
 # NOTE: No define ningún método como responsabilidad de subclase,
 # por eso es que Pattern no es una ABC.
 class Pattern(fn.AbstractFunction):
-    def __call__(cls): # BUG: pattern también no es estrictamente una función, se podría declarar AbstractObject o SCObject
-        pass
+    def __call__(self): # BUG: pattern también no es estrictamente una función, se podría declarar AbstractObject o SCObject
+        return self # NOTE: RECORDAR, que lo más lógico es retornar self object() is object.
 
     # // concatenate Patterns
     # ++
     # // compose Patterns
     # <>
-
-    def play(self, clock, proto, quant):
-        pass # TODO
 
     def __iter__(self):
         return self.__stream__()
@@ -32,11 +29,13 @@ class Pattern(fn.AbstractFunction):
         print('*** usa Pattern __embed__')
         yield from self.__stream__().__embed__(inval)
 
+    def play(self, clock=None, proto_event=None, quant=None):
+        return self.as_event_stream_player(proto_event).play(clock, False, quant)
+
+    def as_event_stream_player(self, proto_event=None):
+        return stm.EventStreamPlayer(self.__stream__(), proto_event)
+
     # stream_args
-
-    def event_stream_player(self, proto):
-        return EventStreamPlayer(self.stream, proto)
-
     # do
     # collect
     # select
@@ -188,7 +187,48 @@ class Pevent(Pattern):
 
 
 class Pbind(Pattern):
-    pass
+    def __init__(self, *args):
+        if len(args) % 2 != 0:
+            raise TypeError('Pbind should have even number of args')
+        self.pattern_pairs = args
+
+    def __embed__(self, in_event=None):
+        event = None
+        #saw_none = False # BUG: en sclang, no se usa.
+        stream_pairs = list(self.pattern_pairs)
+        stop = len(stream_pairs)
+
+        for i in range(1, stop, 2):
+            stream_pairs[i] = stm.stream(stream_pairs[i])
+
+        while True:
+            if in_event is None:
+                return # NOTE: es next quién tira la excepción
+            event = in_event.copy()
+            for i in range(0, stop, 2):
+                name = stream_pairs[i]
+                stream = stream_pairs[i + 1]
+                try:
+                    stream_out = stream.next(event)
+                except stm.StopStream:
+                    return in_event # NOTE: ver.
+                if isinstance(name, (list, tuple)):
+                    if isinstance(stream_out, (list, tuple))\
+                    and len(name) > len(stream_out)\
+                    or not isinstance(stream_out, (list, tuple)):
+                        warnings.warn(
+                            "the pattern is not providing enough "
+                            f"values to assign to the key set: {name}"
+                        )
+                        return in_event
+                    for i, key in enumerate(name):
+                        event[key] = stream_out[i]
+                else:
+                    event[name] = stream_out
+            in_event = yield event
+
+
+    # storeArgs # TODO
 
 
 class Pmono(Pattern):

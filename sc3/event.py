@@ -154,8 +154,23 @@ class Event(dict):
     # def next(self, inval):
     #     pass
 
-    # def delta(self):
-    #     pass
+    # NOTE: Se llamaba delta y se usa como llave y método en sclang usando
+    # NOTE: put(\delta, value) o e[\delta] en playAndDelta y algunos patterns.
+    # NOTE: En esta implementación se se puede tener atributos y llaves
+    # NOTE: con el mismo nombre, cambio el nombre. Ahora, esto hay que
+    # NOTE: recordarlo y revisarlo al implementar los patterns. Posbles BUG(s).
+    def calc_delta(self):
+        delta = self.get('delta')
+        if delta is not None:
+            return delta # NOTE: considero que no puede ser Rest.
+        dur = self.get('dur')
+        if dur is None:
+            return None
+        if isinstance(dur, Rest):
+            dur = dur.value
+        stretch = self.get('stretch', 1)
+        # NOTE: considero que strech no puede ser Rest tampoco.
+        return dur * stretch
 
     def play(self):
         if self.parent is None:
@@ -166,6 +181,14 @@ class Event(dict):
         return False # BUG: ************************ TODO: por qué está implementado a bajo nivel?
 
     # TODO: falta...
+
+    # // this method is called by EventStreamPlayer so it can schedule Routines as well
+    def play_and_delta(self, cleanup, mute):
+        if mute:
+            self.type = 'rest'
+        cleanup.update(self)
+        self.play()
+        return self.calc_delta()
 
     # // A Quant specifies the quant and phase at which a TempoClock starts an EventStreamPlayer
     # // Its offset specifies how far ahead of time events are actually computed by the EventStream.

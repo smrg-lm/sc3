@@ -165,6 +165,23 @@ class Event(dict):
     def is_rest(self):
         return False # BUG: ************************ TODO: por qué está implementado a bajo nivel?
 
+    # TODO: falta...
+
+    # // A Quant specifies the quant and phase at which a TempoClock starts an EventStreamPlayer
+    # // Its offset specifies how far ahead of time events are actually computed by the EventStream.
+    # // offset allows ~strum to be negative, so strummed chords complete on the beat
+    # // it also makes it possible for one pattern to run a little ahead of another to set values
+    # // This method keeps ~timingOffset and Quant.offset the same.
+    def sync_with_quant(self, quant):
+        quant = clk.Quant.as_quant(quant)
+        if quant.timing_offset is not None:
+            e = self.copy()
+            e.timing_offset = quant.timing_offset
+            return e
+        else:
+            quant.timing_offset = self.get('timing_offset')
+            return self
+
     # TODO: sigue...
 
     # NOTE: Esta función realiza operaciones matemáticas entre vectores, y
@@ -438,10 +455,11 @@ def _make_parent_events():
         lag=0.0,
         strum=0.0,
         strum_ends_together=False
-        # NOTE: offset sale de timing_offset que es un parámetro de server_event.
-        # NOTE: pero en player_event.note() se lo considera posible lista como
-        # NOTE: parámetro de sched_strummed_bundle. Esto tal vez esté mal conceptualmente en sclang,
-        # NOTE: si es un parámetro del servidor no actúa 'por altura' generada en un acorde.
+        # NOTE: offset sale de timing_offset. timing_offset, según la nota en
+        # NOTE: sync_with_quant, es para hacer anticipaciones temporales, y que
+        # NOTE: por ejemplo un arpegio comience antes del beat.
+        # BUG: La implementación actual de sclang solo invierte el orden y no usa
+        # BUG: schedStrummedNote que supongo se encarga de eso?
     )
 
     @dur_event.add_function
@@ -584,7 +602,7 @@ def _make_parent_events():
                 lmbd()
 
     @server_event.add_function
-    def sched_strummed_bundle(self, lag, offset, server, bundles, latency=None):
+    def sched_bundle_list(self, lag, offset, server, bundles, latency=None):
         # // "lag" is a tempo independent absolute lag time (in seconds)
         # // "offset" is the delta time for the clock (usually in beats)
         # NOTE: originalmente offset es this, es SequenceableCollection al usar ~schedBundleArray que usa schedBundleArrayOnClock
@@ -777,7 +795,7 @@ def _make_parent_events():
             bndl[i] = node_param(b).as_osc_arg_list() # NOTE: modifico el item de la lista sobre el cuál itero al final del ciclo, pero no la lista en sí.
         # // schedule when the bundles are sent
         if strum == 0:
-            event.sched_bundle(lag, offset, server, bndl, event.latency) # NOTE: puede ser cualquier cantidad de mensajes/notas, esto es algo que no está claro en la implementación de sclang, por eso renombré a sched_strummed_bundle el método de abjo, aquí offset es escalar, en strummed es una lista.
+            event.sched_bundle(lag, offset, server, bndl, event.latency) # NOTE: puede ser cualquier cantidad de mensajes/notas, esto es algo que no está claro en la implementación de sclang, aquí offset es escalar, en strummed es una lista.
             if send_gate:
                 event.sched_bundle(
                     lag,
@@ -787,22 +805,22 @@ def _make_parent_events():
                     event.latency
                 )
         else:
-            if strum < 0:
+            if strum < 0: # *** BUG *** ESTO ESTABA MAL EN SCLANG SEGÚN EL COMENTARIO DE sync_with_quant, timing_offset permite que los strum sean en levare (!) entonces no invierte el orden de las notas (!)
                 bndl.reverse()
                 ids.reverse() # NOTE: faltaba, eran un bug en sclang.
             strum = abs(strum) # NOTE: reuso la variable, no se necista más el valor anterior.
             #strum_offset = offset + [x * strum for x in range(0, len(bndl))] # BUG: offset puede ser un array y/o debe sumarse punto a punto.
-            strum_offset = [offset + x * strum for x in range(0, len(bndl))] # BUG: el if anterior considera que offset puede ser una lista pero offset sale de timmming_offset que es un parámetro de server_event (ver nota arriba), tampoco vi dónde se explica ni por qué está, la latencia del servidor es latency. en sched_strummed_bundle dice: // "offset" is the delta time for the clock (usually in beats)
-            event.sched_strummed_bundle(lag, strum_offset, server, bndl, event.latency)
+            strum_offset = [offset + x * strum for x in range(0, len(bndl))] # BUG: el if anterior considera que offset puede ser una lista pero offset sale de timmming_offset que es un parámetro de server_event (ver nota arriba), tampoco vi dónde se explica ni por qué está, la latencia del servidor es latency. en sched_bundle(_list), implementado como schedBundleArrayOnClock dice: // "offset" is the delta time for the clock (usually in beats)
+            event.sched_bundle_list(lag, strum_offset, server, bndl, event.latency)
             if send_gate:
                 if event.strum_ends_together:
                     strum_offset = event._binop_map(op.add, sustain, offset) # NOTE: sustain puede ser lista definida por el usuario, offset creo que no, pero no estoy seguro, el código de arriba considera que sí, el problema es que nunca vi el uso de timingOffset en sclang.
                     if not isinstance(strum_offset, (list, tuple)):
-                        strum_offset = [strum_offset] * len(bndl) # BUG: El problema es que sched_strummed_bundle solo acepta listas, por no usar as list y hacer esto allá, pero aún tengo que ver cómo se comportan todas las otras llamadas de ~schedBundleArrya en sclang.
+                        strum_offset = [strum_offset] * len(bndl) # BUG: El problema es que sched_bundle_list solo acepta listas, por no usar as list y hacer esto allá, pero aún tengo que ver cómo se comportan todas las otras llamadas de ~schedBundleArrya en sclang.
                                                                   # BUG: Otra cosa, haciendo esta línea me doy cuenta que las operaciones vectoriales de sclang son semánticamente anti-pitónicas.
                 else:
                     strum_offset = event._binop_map(op.add, sustain, strum_offset) # NOTE: tanto sustain como strum_offset pueden ser arrays.
-                event.sched_strummed_bundle(
+                event.sched_bundle_list(
                     lag,
                     strum_offset,
                     server,
@@ -869,7 +887,7 @@ def _make_parent_events():
         group = node_param(event.value('group')).as_control_input() # BUG: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido?
         bndl = ['/s_new', instrument_name, -1, add_action, group] # NOTE: ~group en realidad deja una función acá, no el valor de retorno, parece que se evalúa en _NetAddr_SendBundle.
         bndl.extend(msg_func(event)) # NOTE: como no se obtuvo como atributo de Event no es un bound method de self y hay que pasar event.
-        event.sched_bundle( # NOTE: puede ser cualquier cantidad de mensajes/notas, esto es algo que no está claro en la implementación de sclang, por eso renombré a sched_strummed_bundle el método de abjo, aquí offset es escalar, en strummed es una lista.
+        event.sched_bundle( # NOTE: puede ser cualquier cantidad de mensajes/notas, esto es algo que no está claro en la implementación de sclang
             event.lag, # BUG: en sclang define la variable lag dentro de la funcion de la llave pero no la usa, usa ~lag de event.
             event.timing_offset,
             server,

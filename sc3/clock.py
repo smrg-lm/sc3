@@ -363,6 +363,8 @@ class Quant():
     # NOTE: Otra opción es que quant pueda ser solo un entero o una tupla y hacer
     # NOTE: la lógica de Quant.next_time_on_grid en el método play de TempoClock.
     # NOTE: asQuant { ^this.copy() } lo implementan SimpleNumber { ^Quant(this) }, SequenceableCollection { ^Quant(*this) }, Nil { ^Quant.default } y IdentityDictionary { ^this.copy() }
+    # NOTE: asQuant se usa en EventStreamPlayer.play, Quant.default, PauseStream.play,
+    # NOTE: Routine.play y Stream.play.
     @classmethod
     def as_quant(cls, quant):
         if isinstance(quant, cls):
@@ -378,12 +380,16 @@ class Quant():
             raise TypeError(msg)
         return quant
 
-    # NOTE: este método es un método de Clock y TempoClock.
-    # NOTE: acá se implementa recibiendo un reloj, en los relojes recibe quant y phase, es una inversión de los roles.
+    # NOTE: Este método es un método de Clock y TempoClock y reciben quant como escalar (!)
+    # NOTE: De los objetos que implementan next_time_on_grid Clock y TempoClock
+    # NOTE: reciben quant como valór numérico. Los demás objetos reciben un
+    # NOTE: reloj y llama al método next_time_on_grid del reloj. Es muy rebuscada
+    # NOTE: la implementación, tal vez algo cambió y esos métodos quedaron
+    # NOTE: confusos. Acá solo lo implemento en Quant, Clock y TempoClock.
     def next_time_on_grid(self, clock):
         return clock.next_time_on_grid(
-                self.quant,
-                (self.phase or 0) - (self.timing_offset or 0)
+            self.quant,
+            (self.phase or 0) - (self.timing_offset or 0)
         )
 
     # printOn

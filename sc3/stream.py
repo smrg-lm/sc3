@@ -374,7 +374,7 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
         obj.play(clock, quant)
         return obj
 
-    def play(self, clock=None, quant=None): # BUG: quant no está implementado ni la lógica acá
+    def play(self, clock=None, quant=None):
         '''el argumento clock pordía soportar un string además de un objeto
         clock, 'clojure', para el reloj en que se creó el objeto Routine,
         'parent' para el reloj de la rutina desde la que se llama a play y
@@ -384,7 +384,10 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
         a run o play.'''
         clock = clock or _main.Main.current_TimeThread.clock # BUG: perooooooo! esto no es así en sclang! es self.clock que el el reloj de la creación del objeto
         self.clock = clock
-        clock.sched(0, self)
+        if isinstance(self.clock, clk.TempoClock):
+            self.clock.play(self, quant) # clk.Quant.as_quant(quant)) # NOTE: no se necesita porque lo crea TempoClock.play
+        else:
+            self.clock.aply(self)
 
     @property
     def clock(self):
@@ -688,7 +691,7 @@ class PauseStream(Stream):
                 mdl.NotificationCenter.notify(self, 'playing')
 
         if isinstance(self.clock, clk.TempoClock):
-            self.clock.play(pause_stream_play, quant) # NOTE: usaba asQuant, la lógica está en el método play de TempoClock.
+            self.clock.play(pause_stream_play, quant) # clk.Quant.as_quant(quant)) NOTE: no se necesita porque lo crea TempoClock.play
         else:
             self.clock.play(pause_stream_play)
         mdl.NotificationCenter.notify(self, 'user_played')
@@ -909,13 +912,37 @@ class EventStreamPlayer(PauseStream):
             self.stream_has_ended = self._stream is not None
             self.cleanup.clear()
             self.removed_from_scheduler() # BUG? Hay algo raro, llama cleanup.clear() en la línea anterior, que borras las funciones de cleanup, pero luego llama a cleanup.terminate a través removed_from_scheduler en esta línea que evalúa las funciones que borró (no las evalúa)
-            raise StopStream()
+            raise StopStream() # NOTE: podría ir afuera
 
     def as_event_stream_player(self): # BUG: VER: lo implementan Event, EventStreamPlayer, Pattern y Stream, parece protocolo.
         return self
 
     def play(self, clock=None, reset=False, quant=None):
-        pass # TODO * TODO * TODO
+        if self._stream is not None:
+            print('already playing')
+            return
+        if reset:
+            self.reset()
+        self.clock = clock or self.clock or clk.TempoClock.default
+        self.stream_has_ended = False
+        self._stream = self.original_stream
+        self._stream.clock = self.clock
+        self.waiting = True # // make sure that accidental play/stop/play sequences don't cause memory leaks
+        self.era = sac.CmdPeriod.era
+        quant = clk.Quant.as_quant(quant) # NOTE: se necesita porque lo actualiza event.sync_with_quant
+        self.event = event.sync_with_quant(quant) # NOTE: actualiza el evento y retorna una copia o actualiza el objeto Quant pasado.
+
+        def event_stream_play():
+            if self.waiting and self.next_beat is None:
+                self.clock.sched(0, self)
+                self.waiting = False
+                mdl.NotificationCenter.notify(self, 'playing')
+
+        if isinstance(self.clock, clk.TempoClock):
+            self.clock.play(event_stream_play, quant)
+        else:
+            self.clock.play(event_stream_play)
+        mdl.NotificationCenter.notify(self, 'user_played')
 
 
 def stream(obj):

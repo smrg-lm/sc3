@@ -173,7 +173,7 @@ class Event(dict):
     # // it also makes it possible for one pattern to run a little ahead of another to set values
     # // This method keeps ~timingOffset and Quant.offset the same.
     def sync_with_quant(self, quant):
-        quant = clk.Quant.as_quant(quant)
+        # quant = clk.Quant.as_quant(quant) # NOTE: aunque la implementación actual no crea otro objeto esta función DEBE recibir un objeto Quant.
         if quant.timing_offset is not None:
             e = self.copy()
             e.timing_offset = quant.timing_offset

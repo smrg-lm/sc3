@@ -1,5 +1,6 @@
 """Stream.sc"""
 
+import sys
 import inspect
 import enum
 import random
@@ -491,9 +492,16 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
         #     self.state = self.State.Suspended
         except StopIteration as e: # NOTE: Las Routine envuelven generadores para evaluarlas con relojes, se puede usar cualquier generador/iterador en el try por eso hay que filtrar esta excepción.
             #print('*** StopIteration')
-            # NOTE: compara el nivel de anidamiento a partir del cual el error es de usuario y no de las llamadas de esta implementación.
-            if len(inspect.trace()) > 1: # BUG: si no es su propia excepción la tiene que pasar para arriba
-                raise StopIteration() from e # BUG: tengo que ver qué pasa con el estado de la rutina en este caso. Si se puede dejar "mentiroso" se elimina este if y terminal_value
+            # NOTE: La excepción de los generadores siempre es del frame actual
+            # (solo un frame en traceback) aunque hayan yield y yield from anidados.
+            # Si no es su propia excepción la tiene que pasar para arriba, puede
+            # ser el caso de llamadas a funciones anidadas como error de usuario.
+            # Si se produce dentro de un generador tira un deprecation warning,
+            # lo cuál sería confuso, tal vez por eso en versiones más recientes
+            # de python tira error de systema (creo) lo cuál me ahorraría este
+            # if y la excepción StopStream. TODO: *** PROBAR FUNCIONES ***
+            if sys.exc_info()[2].tb_next is not None:
+                raise e
             self._iterator = None
             self._terminal_value = None
             self.state = self.State.Done # BUG: esto no sería necesario con StopIteration?

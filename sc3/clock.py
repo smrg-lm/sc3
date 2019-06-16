@@ -295,10 +295,6 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                         if isinstance(delta, (int, float)) and not isinstance(delta, bool):
                             time = sched_time + delta # BUG, TODO: sclang usa wait until que espera en tiempo absoluto y no en offset como acá, no hay esa función en Python
                             self._sched_add(time, task)
-                    # except StopIteration as e:
-                    #     # NOTE: compara el nivel de anidamiento a partir del cual el error es de usuario y no de las llamadas de esta implementación.
-                    #     if len(_inspect.trace()) > 2: # NOTE: Volvió a 2 porque Routine arroja StopIteration. # TODO: sigue solo si la excepción es del frame actual, este patrón se repite en Routine y Clock
-                    #         raise e
                     except stm.StopStream: # NOTE: Routine arroja StopStream en vez de StopIteration
                         pass
                 except Exception:

@@ -357,11 +357,14 @@ class Server(NodeParameter, metaclass=MetaServer):
         self.latency = 0.2
         self.dump_mode = 0
 
-        self.node_allocator = None # se inicializa en new_node_allocators
-        self.control_bus_allocator = None # se inicializa en new_bus_allocators
-        self.audio_bus_allocator = None # se inicializa en new_bus_allocators
-        self.buffer_allocator = None # se inicializa en new_buffer_allocators
-        self.scope_buffer_allocator = None # se inicializa en new_scope_buffer_allocators
+        # NOTE: Estos valores se inicializan al llamar self.client_id = x abajo.
+        # self.node_allocator = None # se inicializa en new_node_allocators
+        # self.default_group = None # se inicializa en node_allocator -> make default_groups # solo tiene getter en la declaración, init en make_default_groups
+        # self.default_groups = None # se inicializa en node_allocator -> make default_groups # solo tienen getter en la declaración, init en make_default_groups
+        # self.control_bus_allocator = None # se inicializa en new_bus_allocators
+        # self.audio_bus_allocator = None # se inicializa en new_bus_allocators
+        # self.buffer_allocator = None # se inicializa en new_buffer_allocators
+        # self.scope_buffer_allocator = None # se inicializa en new_scope_buffer_allocators
 
         # // make statusWatcher before clientID, so .serverRunning works
         self.status_watcher = sst.ServerStatusWatcher(server=self)
@@ -377,8 +380,6 @@ class Server(NodeParameter, metaclass=MetaServer):
 
         #self._max_num_clients = None # // maxLogins as sent from booted scsynth # la setea en _handle_client_login_info_from_server
         self.tree = lambda *args: None # TODO: ver dónde se inicializa (en la clase no lo hace), se usa en init_tree
-        self.default_group = None # solo tiene getter en la declaración, init en make_default_groups
-        self.default_groups = None # solo tienen getter en la declaración, init en make_default_groups
 
         self.sync_thread = None # solo getter en la declaración # se usa en sched_sync
         self.sync_tasks = [] # solo getter en la declaración # se usa en sched_sync

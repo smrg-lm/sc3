@@ -28,8 +28,10 @@ class Clock(_threading.Thread): # ver std::copy y std::bind
     def play(cls, task):
         cls.sched(0, task)
     @classmethod
-    def seconds(cls): # seconds es el tiempo lógico de cada thread
-        return _main.Main.current_TimeThread.seconds # BUG: no me quedan claras las explicaciones dispersas en al documentación Process, Thread, Clock(s)
+    def seconds(cls): # seconds es el *tiempo lógico* de cada thread
+        if _main.Main.current_TimeThread is _main.Main.main_TimeThread:
+            _main.Main.update_logical_time() # NOTE: Esto actualiza cada vez que SystemClock y AppClock se consultan fuera de una Routine.
+        return _main.Main.current_TimeThread.seconds
 
     # // tempo clock compatibility
     @classmethod
@@ -93,11 +95,11 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             obj.start()
             obj._sched_init()
             cls._instance = obj
-        return cls # no llama a __init__
+        return cls
 
     def _sched_init(self): # L253 inicia los atributos e.g. _time_of_initialization
         #time.gmtime(0).tm_year # must be unix time
-        self._time_of_initialization = _time.time() # TODO: ver time.perf_counter() que no es time since epoch pero garantiza que sea el reloj con mayor resolución y se puede sacar un coeficiente en relación a time.time()
+        self._time_of_initialization = _main.Main._time_of_initialization # NOTE: es hrTimeOfInitialization que se usa en la primitiva _ElapsedTime, lo pasé a Process.
         self._host_osc_offset = 0 # int64
 
         self._sync_osc_offset_with_tod()
@@ -165,22 +167,15 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             self._resync_cond.notify() # tiene que interrumpir el wait
         self._resync_thread.join()
 
-    # PASADAS A PROCESS, van ahí
-    # ver si estas funciones no serían globales y cuales no usa en esta clase, ver PyrSched.h
-    # def elapsed_time(self) -> float: # devuelve el tiempo del reloj de mayor precisión menos _time_of_initialization
-    #     return _time.time() - self._time_of_initialization
-    # def monotonic_clock_time(self) -> float: # monotonic_clock::now().time_since_epoch(), no sé dónde usa esto
-    #     return _time.monotonic() # en linux es hdclock es time.perf_counter(), no se usa la variable que declara
-
-    # se llama en OSCData.cpp makeSynthBundle y otras funciones de PyrSched.cpp
+    # NOTE: se llama en OSCData.cpp makeSynthBundle y otras funciones de PyrSched.cpp
     def elapsed_time_to_osc(self, elapsed: float) -> int: # retorna int64
         return int(elapsed * SystemClock._SECONDS_TO_OSC) + self._elapsed_osc_offset
 
-    # se llama en OSCData.cpp también en funciones relacionadas a bundles/osc
+    # NOTE: se llama en OSCData.cpp también en funciones relacionadas a bundles/osc
     def osc_to_elapsed_time(self, osctime: int) -> float: # L286
         return float(osctime - self._elapsed_osc_offset) * SystemClock._OSC_TO_SECONDS
 
-    # se llama en las funciones de los servidores a bajo nivel
+    # NOTE: se llama en las funciones de los servidores a bajo nivel
     def osc_time(self) -> int: # L309, devuleve elapsed_time_to_osc(elapsed_time())
         return self.elapsed_time_to_osc(_main.Main.elapsed_time()) # BUG: REVER qué elapsedTime llama (self.elapsed_time())
 
@@ -218,7 +213,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                 self._task_queue = _PriorityQueue()
                 self._sched_cond.notify_all()
 
-    #def sched_run_func(self): # L422, es la función de este hilo, es una función estática, es run acá (salvo que no subclasee)
+    # NOTE: def sched_run_func(self): # L422, es la función de este hilo, es una función estática, es run acá (salvo que no subclasee)
     def run(self):
         self._run_sched = True
         now = sched_secs = sched_point = None
@@ -228,7 +223,6 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             # // wait until there is something in scheduler
             while self._task_queue.empty():
                 with self._sched_cond:
-                    #print('clock empty wait')
                     self._sched_cond.wait() # BUG: es Main._main_lock, tal vez asignar al crear el reloj
                 if not self._run_sched: return
 
@@ -237,12 +231,10 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             while not self._task_queue.empty():
                 now = _time.time()
                 sched_secs = self._task_queue.queue[0][0]
-                sched_point = self._time_of_initialization + sched_secs # sched_secs (el retorno del generador) se tiene que setear desde afuera con + elapsed_time()
-                #print('now: {}, sched_point: {}'.format(now, sched_point))
-                if now > sched_point: break # va directo al loop siguiente
+                sched_point = self._time_of_initialization + sched_secs # NOTE: sched_secs (el retorno del generador) se tiene que setear desde afuera con + elapsed_time()
+                if now > sched_point: break # NOTE: va directo al loop siguiente
                 with self._sched_cond:
-                    #print('clock no empty wait sched_secs:', sched_secs)
-                    self._sched_cond.wait(sched_point - now) # (sched_secs) # sclang usa wait until que espera en tiempo absoluto y no deltas, Python no tiene esa funcion que yo sepa # ver por qué usa wait_until en c++ que usa tod (probable drift)
+                    self._sched_cond.wait(sched_point - now)
                 if not self._run_sched: return
 
             # // perform all events that are ready
@@ -291,7 +283,22 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                         # elapsed_time entre procesos, supongo.
                         # NOTE: deshabilitar y rehabilitar gc podría ayudar o la operación es
                         # costosa de por sí? gc.isenabled() gc.disable() gc.enable().
-                        delta = getattr(task, 'next', task)() # routine y callable
+
+                        _main.Main.update_logical_time(sched_time) # NOTE: TEST, es menos eficiente pero más claro.
+                        #_main.Main.main_TimeThread.seconds = sched_time # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread.
+
+                        if isinstance(task, _types.FunctionType):
+                            n = len(_inspect.signature(task).parameters)
+                            if n > 3:
+                                msg = f'SystemClock scheduled function takes between 0 and 3 positional arguments but {n} were given'
+                                raise TypeError(msg)
+                            args = [sched_time, sched_time, self][:n]
+                            delta = task(*args)
+                        elif isinstance(task, (stm.Routine, stm.PauseStream)):
+                            delta = task.awake(sched_time, sched_time, self) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
+                        else:
+                            raise TypeError(f"type '{type(item)}' is not supported by SystemClock scheduler")
+
                         if isinstance(delta, (int, float)) and not isinstance(delta, bool):
                             time = sched_time + delta # BUG, TODO: sclang usa wait until que espera en tiempo absoluto y no en offset como acá, no hay esa función en Python
                             self._sched_add(time, task)
@@ -412,28 +419,30 @@ class Scheduler():
         self.queue = _PriorityQueue()
         self._expired = []
 
-        def wakeup(item):
+    def _wakeup(self, item):
+        try:
             try:
-                try:
-                    if isinstance(item, _types.FunctionType):
-                        n = len(_inspect.signature(item).parameters)
-                        if n > 3:
-                            msg = f'Scheduler wakeup function takes between 0 and 3 positional arguments but {n} were given'
-                            raise TypeError(msg)
-                        args = [self._beats, self._seconds, self._clock][:n]
-                        delta = item(*args)
-                    elif isinstance(item, (stm.Routine, stm.PauseStream)):
-                        delta = item.awake(self._beats, self._seconds, self._clock) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
-                    else:
-                        raise TypeError(f"type '{type(item)}' is not supported by Scheduler")
-                    if isinstance(delta, (int, float))\
-                    and not isinstance(delta, bool):
-                        self.sched(delta, item)
-                except stm.StopStream:
-                    pass
-            except Exception:
-                _traceback.print_exception(*_sys.exc_info())
-        self._wakeup = wakeup
+                _main.Main.update_logical_time(self._seconds) # NOTE: Parece correcto el comportamiento, se debe actualizar en wakeup o en awake, acá los estoy haciendo antes pero el tiempo lógico es el mismo que se le pasa a awake.
+
+                if isinstance(item, _types.FunctionType):
+                    n = len(_inspect.signature(item).parameters)
+                    if n > 3:
+                        msg = f'Scheduler wakeup function takes between 0 and 3 positional arguments but {n} were given'
+                        raise TypeError(msg)
+                    args = [self._beats, self._seconds, self._clock][:n]
+                    delta = item(*args)
+                elif isinstance(item, (stm.Routine, stm.PauseStream)):
+                    delta = item.awake(self._beats, self._seconds, self._clock) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
+                else:
+                    raise TypeError(f"type '{type(item)}' is not supported by Scheduler")
+
+                if isinstance(delta, (int, float))\
+                and not isinstance(delta, bool):
+                    self.sched(delta, item)
+            except stm.StopStream:
+                pass
+        except Exception:
+            _traceback.print_exception(*_sys.exc_info())
 
     def play(self, task):
         self.sched(0, task)

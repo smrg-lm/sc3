@@ -196,30 +196,10 @@ class NAryOpStream(Stream):
 ### Thread.sc ###
 
 
-# TODO: TimeThread podría implementar __new__ como singleton y se
-# pasa la implementación de __init__ a Routine, pero ver qué pasa
-# con AppClock y el posbile NRTClock (NrtClock?)
 class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, pero acá puede haber herencia múltiple. Además, me puse poético con el nombre.
     # ./lang/LangSource/PyrKernel.h: enum { tInit, tStart, tReady, tRunning, tSleeping, tSuspended, tDone };
     # ./lang/LangSource/PyrKernel.h: struct PyrThread : public PyrObjectHdr
-
-    State = enum.Enum('State', [
-        'Init', 'Running', 'Suspended', 'Done' # NOTE: tStart, tReady y tSleeping no se usan en ninguna parte
-    ])
-    _instance = None
-
-    @classmethod
-    def singleton(cls):
-        if cls._instance is not None:
-            return cls._instance
-        obj = cls.__new__(cls)
-        obj.parent = None
-        obj.func = None
-        # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al quere comparar tasks.
-        obj.state = cls.State.Init # ver qué estado tiene, sclang thisThread.isPlaying devuelve false desde arriba de todo
-        obj._thread_player = None
-        obj._rand_state = random.getstate() # Esto es para que funcione el getter pero creoq que no es necesario para TimeThread
-        return obj
+    State = enum.Enum('State', ['Init', 'Running', 'Suspended', 'Done']) # NOTE: tStart, tReady y tSleeping no se usan en ninguna parte
 
     def __init__(self, func):
         # _Thread_Init -> prThreadInit -> initPyrThread
@@ -238,10 +218,10 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
 
         self.func = func
         self.state = self.State.Init
-        if _main.Main.current_TimeThread.clock is None:
+        if _main.Main.current_TimeThread.clock is None: # BUG: si mainThread siempre devuelve SystemClock y siempre es curThread por defecto, esta comprobación es necesaria?
             self._clock = clk.SystemClock
         else:
-            self._clock = _main.Main.current_TimeThread.clock # hace slotCopy y lo registra en GC, puede que solo esté marcando una referencia más, más arriba a GCWriteNew con el array de la pila que es nuevo
+            self._clock = _main.Main.current_TimeThread.clock
 
         # NOTA: No guarda la propiedad <parent cuando crea el thread, es
         # &g->thread que la usa para setear beats y seconds pero no la guarda,
@@ -273,33 +253,30 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         return self
 
     @property
-    def clock(self): # mainThread clock (SystemClock) no se puede setear y siempre devuelve elapsedTime en seconds
-        # Ídem seconds
+    def clock(self): # NOTE: mainThread clock (SystemClock) no se puede cambiar. Esto es distinto en sclang que define el setter en esta clase pero solo lo usa Routine.
         return clk.SystemClock
 
     @clock.setter
-    def clock(self, value): # definido por compatibilidad, se comporta igual y no hace nada
+    def clock(self, value): # NOTE: se necesita por compatibilidad/generalidad para no checkear qué reloj es. Routine sobreescribe.
         pass
 
     @property
     def seconds(self):
-        # Los segundos de Thread (NO DE ROUTINE) en sclang avanzan constantemente, no encuentro cómo está definido eso
-        # En Routine se queda con los valores de inicialización en __init__
-        # Esta propiedad se sebreescribe y tiene setter
-        return _main.Main.elapsed_time()
+        return self._seconds
 
     @seconds.setter
-    def seconds(self, value): # definido por compatibilidad, se comporta igual y no hace nada
-        pass
+    def seconds(self, seconds):
+        self._seconds = seconds
+        self._beats = self.clock.secs2beats(seconds)
 
     @property
     def beats(self):
-        # Ídem seconds.
-        return _main.Main.elapsed_time()
+        return self._beats
 
     @beats.setter
-    def beats(self, value): # definido por compatibilidad, se comporta igual y no hace nada
-        pass
+    def beats(self, beats):
+        self._beats = beats
+        self._seconds = self.clock.beats2secs(beats)
 
     def playing(self): # BUG: era is_playing, está pitonizado
         return self.state == self.State.Suspended
@@ -402,25 +379,6 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
         self._clock = clock
         self._beats = clock.secs2beats(self.seconds) # no llama al setter de beats, convierte los valores en sesgundos de este thread según el nuevo clock
 
-    @property
-    def seconds(self):
-        # En Routine se queda con los valores de inicialización en __init__
-        return self._seconds
-
-    @seconds.setter
-    def seconds(self, seconds):
-        self._seconds = seconds
-        self._beats = self.clock.secs2beats(seconds)
-
-    @property
-    def beats(self):
-        return self._beats
-
-    @beats.setter
-    def beats(self, beats):
-        self._beats = beats
-        self._seconds = self.clock.beats2secs(beats)
-
     # Se definen en Stream
     # def __iter__(self):
     #     return self
@@ -446,16 +404,9 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
         random.setstate(self._rand_state) # hay que llamarlo ANTES de setear current_TimeThread o usar el atributo privado _rand_state
         self.parent = _main.Main.current_TimeThread
         _main.Main.current_TimeThread = self
-        # BUG: le asigna los valores de parent a beats, seconds, clock de este hilo.
-        # si el estado del thread es tInit o tSuspended. Es correcto que le pase
-        # el reloj? no me doy cuenta cómo, pero en sclang el reloj no se lo cambia
-        # cuando con/next/play/value. Realmente no lo entiendo, además ya se están
-        # ejecutando en un reloj y no va a cambiar por esto pero si me cambiaría
-        # el dato en la estructura, pero en sclang no cambia... (!) en: prRoutineResume
-        # hace slotCopy(&thread->clock,&g->thread->clock); L3315. Me faltan cosas.
-        # self._clock = self.parent.clock
-        self.seconds = self.parent.seconds # seconds setea beats también
-        self.state = self.State.Running # lo define en switchToThread al final
+        # self._clock = self.parent.clock # BUG: No puede heredar el reloj acá, sclang no lo cambia, así sin esto el comportamiento es igual, ver qué me confundió en prRoutineResume.
+        self.seconds = self.parent.seconds # NOTE: seconds setea beats también
+        self.state = self.State.Running # NOTE: Lo define en switchToThread al final
         # prRoutineResume
         #     Llama a sendMessage(g, s_prstart, 2), creo que simplemente es una llamada al intérprete que ejecuta prStart definido de Routine
         # TODO: Luego hace para state == tSuspended, y breve para Done (creo que devuelve terminalValue), Running (error), else error.

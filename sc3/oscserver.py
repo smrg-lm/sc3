@@ -55,6 +55,7 @@ class OSCServer():
 
     @staticmethod
     def _recv(*msg):
+        # *** BUG: tienen que llamar a Main.update_logical_time(). OSCServer también necesita revisión.
         obj = msg[4]
         if obj._bundle_timestamp is not None:
             time = obj._bundle_timestamp # BUG: lo tiene otra referencia temporal
@@ -72,6 +73,7 @@ class OSCServer():
 
     @staticmethod
     def _start_handler(*msg):
+        # *** BUG: tienen que llamar a Main.update_logical_time(). OSCServer también necesita revisión.
         print('start handler')
         msg[1]._bundle_timestamp = msg[0]
 

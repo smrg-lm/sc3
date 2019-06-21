@@ -430,11 +430,11 @@ class SynthDescLib():
                 cls.default.send(server, False)
         sa.ServerBoot.add(action) # NOTE: *send llama a global.send if server has booted, ver abajo
 
-    def __init__(self, name, servers=[]):
+    def __init__(self, name, servers=None):
         self.name = name
         self.all[name] = self
         self.synth_descs = dict()
-        #self.servers = set(servers or [sv.Server.default]) # BUG: para esto hay que asegurarse que Server se inicialice antes, tal vez con un import en __init_class__
+        self.servers = set(servers or [sv.Server.default]) # BUG: para esto hay que asegurarse que Server se inicialice antes, tal vez con un import en __init_class__
 
     @classmethod
     def get_lib(cls, libname):

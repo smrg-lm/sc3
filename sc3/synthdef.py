@@ -73,12 +73,12 @@ class SynthDef():
 
     #*new L35
     #rates y prependeargs pueden ser anotaciones de tipo, ver variantes y metadata, le constructor hace demasiado...
-    def __init__(self, name, graph_func, rates=[], # ALGO HABÍA LEIDO SOBRE NO PONER ALGO POR DEFECTO Y CHECKAR NONE
-                 prepend_args=[], variants={}, metadata={}): # rates y prepend args pueden ser anotaciones, prepargs puede ser un tipo especial en las anotaciones, o puede ser otro decorador?
+    def __init__(self, name, graph_func, rates=None,
+                 prepend_args=None, variants=None, metadata=None): # rates y prepend args pueden ser anotaciones, prepargs puede ser un tipo especial en las anotaciones, o puede ser otro decorador?
         self.name = name
         self.func = None # la inicializa en build luego de finishBuild de lo contrario no funciona wrap
-        self.variants = variants # # BUG: comprobar tipo, no es un valor que se genere internamente. No sé por qué está agrupada como propiedad junto con las variables de topo sort
-        self.metadata = metadata
+        self.variants = variants or {} # # BUG: comprobar tipo, no es un valor que se genere internamente. No sé por qué está agrupada como propiedad junto con las variables de topo sort
+        self.metadata = metadata or {}
         self.desc = None # *** Aún no vi dónde inicializa
 
         #self.controls = None # inicializa en initBuild, esta propiedad la setean las ugens mediante _gl.current_synthdef agregando controles
@@ -96,7 +96,7 @@ class SynthDef():
         self._width_first_ugens = [] # se puebla desde nil con WidthFirstUGen.addToSynth (solo para IFFT)
         self._rewrite_in_progress = False # = la inicializa a True en optimizeGraph L472 y luego la vuelve a nil, pero es mejor que sea false por los 'if'
 
-        self._build(graph_func, rates, prepend_args)
+        self._build(graph_func, rates or [], prepend_args or [])
 
     # BUG: este es un método especial en varios tipos de clases tengo
     # que ver cuál es el alcance global dentro de la librería,
@@ -122,9 +122,10 @@ class SynthDef():
 
     # L53
     @classmethod
-    def wrap(cls, func, rates=[], prepend_args=[]): # TODO: podría ser, además, un decorador en Python pero para usar dentro de una @synthdef o graph_func
+    def wrap(cls, func, rates=None, prepend_args=None): # TODO: podría ser, además, un decorador en Python pero para usar dentro de una @synthdef o graph_func
         if _gl.current_synthdef is not None:
-            return _gl.current_synthdef._build_ugen_graph(func, rates, prepend_args)
+            return _gl.current_synthdef._build_ugen_graph(
+                func, rates or [], prepend_args or [])
         else:
             msg = 'SynthDef wrap should be called inside a SynthDef graph function'
             raise Exception(msg)

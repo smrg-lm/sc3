@@ -11,13 +11,14 @@ import sc3.patterns as ptt
 
 
 class ListPattern(ptt.Pattern):
-    def __init__(self, lst=[], repeats=1):
+    def __init__(self, lst=None, repeats=1):
+        lst = lst or []
         if len(lst) > 0:
             self.lst = lst
             self.repeats = repeats
         else:
-            msg = "ListPattern '{}' requires a non empty collection, received: {}"
-            raise Exception(msg.format(type(self).__name__, lst))
+            msg = "ListPattern '{}' requires a non empty collection"
+            raise ValueError(msg.format(type(self).__name__))
 
     # copy # BUG: copia la lista lst
     # storeArgs # TODO

@@ -418,7 +418,7 @@ class RootNode(Group):
 
 class Synth(Node):
     # /** immediately sends **/
-    def __init__(self, def_name, args=[], target=None, add_action='addToHead'):
+    def __init__(self, def_name, args=None, target=None, add_action='addToHead'):
         target = node_param(target).as_target()
         # BUG: revisar, estoy reemplazando la llamada a basic_new (que acá reimplementa además)
         # server = target.server
@@ -437,7 +437,7 @@ class Synth(Node):
             '/s_new', # 9
             self.def_name, self.node_id,
             add_action_id, target.node_id,
-            *node_param(args).as_osc_arg_list()
+            *node_param(args or []).as_osc_arg_list()
         )
 
     # // does not send (used for bundling)
@@ -448,7 +448,7 @@ class Synth(Node):
         return obj
 
     @classmethod
-    def new_paused(cls, def_name, args=[], target=None, add_action='addToHead'):
+    def new_paused(cls, def_name, args=None, target=None, add_action='addToHead'):
         target = node_param(target).as_target()
         server = target.server
         add_action_id = cls.add_actions[add_action]
@@ -463,7 +463,7 @@ class Synth(Node):
                 '/s_new', # 9
                 synth.def_name, synth.node_id,
                 add_action_id, target.node_id,
-                *node_param(args).as_osc_arg_list()
+                *node_param(args or []).as_osc_arg_list()
             ],
             [
                 '/n_run', # 12
@@ -473,7 +473,7 @@ class Synth(Node):
         return synth
 
     @classmethod
-    def new_replace(cls, node_to_replace, def_name, args=[], same_id=False): # BUG: renombrado porque no pueden haber métodos de instancia y clase con el mismo nombre.
+    def new_replace(cls, node_to_replace, def_name, args=None, same_id=False): # BUG: renombrado porque no pueden haber métodos de instancia y clase con el mismo nombre.
         if same_id:
             new_node_id = node_to_replace.node_id
         else:
@@ -484,23 +484,23 @@ class Synth(Node):
             '/s_new', # 9
             synth.def_name, synth.node_id,
             4, node_to_replace.node_id, # 4 -> 'addReplace'
-            *node_param(args).as_osc_arg_list()
+            *node_param(args or []).as_osc_arg_list()
         )
         return synth
 
     # node_id -1
     @classmethod # TODO: este tal vez debería ir arriba
-    def grain(cls, def_name, args=[], target=None, add_action='addToHead'):
+    def grain(cls, def_name, args=None, target=None, add_action='addToHead'):
         target = node_param(target).as_target()
         server = target.server
         server.send_msg(
             '/s_new', # 9
             def_name.as_def_name(), -1, # BUG: as_def_name no está implementado puede ser método de Object
             cls.add_actions[add_action], target.node_id,
-            *node_param(args).as_osc_arg_list()
+            *node_param(args or []).as_osc_arg_list()
         )
 
-    def new_msg(self, target=None, args=[], add_action='addToHead'):
+    def new_msg(self, target=None, args=None, add_action='addToHead'):
         add_action_id = self.add_actions[add_action]
         target = node_param(target).as_target()
         if add_action_id < 2:
@@ -508,26 +508,26 @@ class Synth(Node):
         else:
             self.group = target.group
         return ['/s_new', self.def_name, self.node_id, add_action_id,
-                target.node_id, *node_param(args).as_osc_arg_list()] # 9
+                target.node_id, *node_param(args or []).as_osc_arg_list()] # 9
 
     @classmethod
-    def after(cls, node, def_name, args=[]):
-        return cls(def_name, args, node, 'addAfter')
+    def after(cls, node, def_name, args=None):
+        return cls(def_name, args or [], node, 'addAfter')
 
     @classmethod
-    def before(cls, node, def_name, args=[]):
-        return cls(def_name, args, node, 'addBefore')
+    def before(cls, node, def_name, args=None):
+        return cls(def_name, args or [], node, 'addBefore')
 
     @classmethod
-    def head(cls, group, def_name, args=[]):
-        return cls(def_name, args, group, 'addToHead')
+    def head(cls, group, def_name, args=None):
+        return cls(def_name, args or [], group, 'addToHead')
 
     @classmethod
-    def tail(cls, group, def_name, args=[]):
-        return cls(def_name, args, group, 'addToTail')
+    def tail(cls, group, def_name, args=None):
+        return cls(def_name, args or [], group, 'addToTail')
 
-    def replace(self, def_name, args=[], same_id=False):
-        return type(self).new_replace(self, def_name, args, same_id)
+    def replace(self, def_name, args=None, same_id=False):
+        return type(self).new_replace(self, def_name, args or [], same_id)
 
     # // for bundling
     def add_to_head_msg(self, group, args):
@@ -548,15 +548,15 @@ class Synth(Node):
         return ['/s_new', self.def_name, self.node_id, 1,
                 self.group.node_id, *node_param(args).as_osc_arg_list()] # 9
 
-    def add_after_msg(self, node, args=[]):
+    def add_after_msg(self, node, args=None):
         self.group = node.group
         return ['/s_new', self.def_name, self.node_id, 3,
-                node.node_id, *node_param(args).as_osc_arg_list()] # 9
+                node.node_id, *node_param(args or []).as_osc_arg_list()] # 9
 
-    def add_before_msg(self, node, args=[]):
+    def add_before_msg(self, node, args=None):
         self.group = node.group
         return ['/s_new', self.def_name, self.node_id, 2,
-                node.node_id, *node_param(args).as_osc_arg_list()] # 9
+                node.node_id, *node_param(args or []).as_osc_arg_list()] # 9
 
     def add_replace_msg(self, node_to_replace, args):
         self.group = node_to_replace.group

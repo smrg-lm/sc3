@@ -324,6 +324,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
 
     @classmethod
     def sched(cls, delta, item): # Process.elapsedTime es el tiempo físico (desde que se inició la aplicación), que también es elapsedTime de SystemClock (elapsed_time acá) [Process.elapsedTime, SystemClock.seconds, thisThread.seconds] thisThread sería mainThread si se llama desde fuera de una rutina, thisThread.clock === SystemClock, es la clase singleton
+        _main.Main.update_logical_time() # NOTE: TODAS LAS ACCIONES QUE PUEDAN DEPENDER DEL TIEMPO DE LAS ROUTINAS TIENEN QUE ACTUALIZAR ANTES DE EVALUAR.
         seconds = _main.Main.current_TimeThread.seconds
         seconds += delta
         if seconds == _math.inf: return # // return nil OK, just don't schedule
@@ -451,7 +452,8 @@ class Scheduler():
         if self._drift:
             from_time = _main.Main.elapsed_time()
         else:
-            from_time = self.seconds
+            _main.Main.update_logical_time() # BUG: ASÍ FUNCIONA IGUAL DE MAL QUE SCLANG (es drift=False)
+            from_time = self.seconds = _main.Main.current_TimeThread.seconds # BUG: SINCORNIZANDO CON CURRENT_THREAD FUNCIONA BIEN (AGREGADO), PERO NO LE VEO SENTIDO.
         self.queue.put((from_time + delta, item))
         #self.queue.task_done() # es una anotación por si es útil luego
 

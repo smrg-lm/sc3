@@ -720,17 +720,20 @@ class SynthDef():
 class synthdef():
     '''Clase para ser usada como decorador y espacio de nombres de decoradores,
     decoradores para ser usados simplemente como atajo sintáctico de las
-    funciones más comunes con los argumentos por defecto.
+    funciones más comunes, instancia sin y con parámetros y add.
 
     @synthdef
     def synth1():
         pass
 
-    @synthdef.add
+    @synthdef.params(
+        rates=[],
+        variants={},
+        metadata={})
     def synth2():
         pass
 
-    @synthdef.send
+    @synthdef.add()
     def synth3():
         pass
     '''
@@ -739,16 +742,23 @@ class synthdef():
         return SynthDef(graph_func.__name__, graph_func)
 
     @staticmethod
-    def add(graph_func):
-        sdef = synthdef(graph_func)
-        sdef.add()
-        return sdef
+    def params(rates=None, prepend_args=None, variants=None, metadata=None):
+        def make_def(graph_func):
+            return SynthDef(graph_func.__name__, graph_func,
+                            rates, prepend_args, variants, metadata)
+        return make_def
 
     @staticmethod
-    def send(graph_func):
-        sdef = synthdef(graph_func)
-        sdef.send()
-        return sdef
+    def add(libname=None, completion_msg=None, keep_def=True):
+        '''Es atajo solo para add, la SynthDef se construye con los parametros
+        por defecto, el caso más simple, si se quieren más parámetros no tiene
+        sentido agregar todo acá, se crea con params y luego se llama a add.
+        De lo contrario el atajo termina siendo más largo y menos claro.'''
+        def make_def(graph_func):
+            sdef = synthdef(graph_func)
+            sdef.add(libname, completion_msg, keep_def)
+            return sdef
+        return make_def
 
 
 # Collection SynthDef support.

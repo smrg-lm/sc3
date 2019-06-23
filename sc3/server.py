@@ -308,16 +308,16 @@ class MetaServer(type):
     bus_alloc_class = eng.ContiguousBlockAllocator
 
     @property
-    def default(self):
-        return self._default
+    def default(cls):
+        return cls._default
 
     @default.setter
-    def default(self, value):
-        self._default = value
-        if self.sync_s:
+    def default(cls, value):
+        cls._default = value
+        if cls.sync_s:
             global s
-            s = value
-        for server in self.all:
+            s = value # BUG: ver, puede que no sea bueno para Python.
+        for server in cls.all:
             #server # .changed(\default, value) # BUG: usar mdl.NotificationCenter
             raise Exception('Implementar la funcionalidad mdl.NotificationCenter en MetaServer @default.setter')
 

@@ -509,7 +509,7 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
     # next, ver arriba
     # value
     # resume
-    # run (de instancia, no se puede)
+    # run (de instancia, no se puede) # BUG: Igualmente run de clase es un constructor alternativo que podría ser docorador como synthdef.add.
 
     # valueArray se define como ^this.value(inval), opuesto a Stream valueArray que no recibe inval... BUG del tipo desprolijidad? o hay una razón?
 
@@ -525,7 +525,7 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
     # prStart
 
 
-# decorator syntax
+# decorator syntax # BUG: rehacer como synthdef *run de Routine es como el decorador synthdef.add (y dejar solo run de instancia, es redundante y confuso en sclang porque se llaman igual pero no hacen lo mismo).
 def routine(gen):
     return Routine(gen)
 

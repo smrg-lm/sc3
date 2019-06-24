@@ -233,7 +233,8 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                 now = _time.time()
                 sched_secs = self._task_queue.queue[0][0]
                 sched_point = self._time_of_initialization + sched_secs # NOTE: sched_secs (el retorno del generador) se tiene que setear desde afuera con + elapsed_time()
-                if now > sched_point: break # NOTE: va directo al loop siguiente
+                if now >= sched_point:
+                    break
                 with self._sched_cond:
                     self._sched_cond.wait(sched_point - now)
                 if not self._run_sched: return
@@ -244,7 +245,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                 item = self._task_queue.get()
                 sched_time = item[0]
                 task = item[1]
-                if isinstance(task, stm.TimeThread): # BUG: esto lo hace para todas las Routines o solo TimeThread? la implementación puede ser distinta acá...
+                if isinstance(task, stm.TimeThread):
                     task.next_beat = None
                 try:
                     try:
@@ -301,7 +302,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                             raise TypeError(f"type '{type(item)}' is not supported by SystemClock scheduler")
 
                         if isinstance(delta, (int, float)) and not isinstance(delta, bool):
-                            time = sched_time + delta # BUG, TODO: sclang usa wait until que espera en tiempo absoluto y no en offset como acá, no hay esa función en Python
+                            time = sched_time + delta
                             self._sched_add(time, task)
                     except stm.StopStream: # NOTE: Routine arroja StopStream en vez de StopIteration
                         pass
@@ -631,7 +632,10 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # // collection from which you're removing items
         for item in cls.all[:]:
             if not item.permanent:
-                item.stop() # BUG: supongo que stop quita de all, llama a _TempoClock_Free
+                item.stop() # NOTE: stop hace type(self)._all.remove(self)
+
+    # BUG: C++ TempoClock_stopAll se usa en ./lang/LangSource/PyrLexer.cpp
+    # BUG: shutdownLibrary(), no importa si hay permanentes, va para Main, VER.
 
     def __init__(self, tempo=None, beats=None, seconds=None):
         # NOTE: en init
@@ -651,16 +655,12 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         self._beat_dur = 1.0 / tempo
         self._base_seconds = seconds
         self._base_beats = beats
-        # self._beats = 0.0 # NOTE: no lo setea el constructor
+        # self._beats = 0.0 # BUG: no lo setea el constructor, lo setea a bajo nivel el loop del hilo del reloj. VER.
 
         # NOTE: mRun(true) setea el contstructor, es la condición del loop del hilo.
         # NOTE: acá es self._run_sched como en las clases de arriba, se crea e inicia en python Thread.run().
 
-        self._prev = None
-        self._next = sAll # BUG: sAll es una lista ligada, acá _all lo vengo suponiendo array.
-        if sAll is not None:
-            sAll._prev = self
-        sAll = self
+        type(self)._all.append(self)
 
         _threading.Thread.__init__(self)
         self._task_queue = _PriorityQueue() # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al querer comparar tasks, hacer que '<' devuelva el id del objeto
@@ -680,10 +680,78 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def run(self):
         self._run_sched = True
-        # TODO
+        elapsed_beats = sched_secs = sched_point = None
+        item = task = delta = None
+
+        while True:
+            # // wait until there is something in scheduler
+            while self._task_queue.empty():
+                with self._sched_cond:
+                    self._sched_cond.wait() # BUG: es Main._main_lock, tal vez asignar al crear el reloj
+                if not self._run_sched: return
+
+        # // wait until an event is ready
+        elapsed_beats = 0
+        while not self._task_queue.empty():
+            elapsed_beats = self.elapsed_beats()
+            if elapsed_beats >= self._task_queue.queue[0][0]: # NOTE: la pila guarda el tiempo físico transcurrido en beats según el tempo del reloj.
+                break
+            sched_secs = self.beats2secs(self._task_queue.queue[0][0]) # NOTE: convierte elapsed_beats + wait (en beats) a tiempo físico en segundos. En la cola está elapsed_beats + wait.
+            sched_point = self._time_of_initialization + sched_secs
+            with self._sched_cond:
+                self._sched_cond.wait(sched_point - _time.time()) # NOTE: se se puede esperar a un punto temporal en el futuro en Python, solo se puede esperar una cantidad de segundos.
+            if not self._run_sched: return
+
+        while not self._task_queue.empty()\
+        and elapsed_beats >= self._task_queue.queue[0][0]: # NOTE: la diferencia con SystemClock es que en TempoClock las comparaciones se hacen en tiempo lógico.
+            item = self._task_queue.get()
+            self._beats = item[0] # NOTE: setea mBeats, la propiedad de la clase, SystemClock usa la variable sched_time
+            task = item[1]
+            if isinstance(task, stm.TimeThread):
+                task.next_beat = None
+            try:
+                try:
+                    _main.Main.update_logical_time(sched_secs) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread.
+
+                    # runAwakeMessage NOTE: que se llama con la preparación previa de la pila del intérprete
+                    if isinstance(task, _types.FunctionType):
+                        n = len(_inspect.signature(task).parameters)
+                        if n > 3:
+                            msg = f'SystemClock scheduled function takes between 0 and 3 positional arguments but {n} were given'
+                            raise TypeError(msg)
+                        args = [self._beats, self.beats2secs(self._beats), self][:n]
+                        delta = task(*args)
+                    elif isinstance(task, (stm.Routine, stm.PauseStream)):
+                        delta = task.awake(self._beats, self.beats2secs(self._beats), self) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
+                    else:
+                        raise TypeError(f"type '{type(item)}' is not supported by SystemClock scheduler")
+
+                    if isinstance(delta, (int, float)) and not isinstance(delta, bool):
+                        time = self._beats + delta
+                        self._sched_add(time, task) # BUG: NO ESTÁ DEFINIDA AÚN, en C++ se llama Add
+                except stm.StopStream: # NOTE: Routine arroja StopStream en vez de StopIteration
+                    pass
+            except Exception:
+                _traceback.print_exception(*_sys.exc_info()) # hay que poder recuperar el loop ante cualquier otra excepción
 
     def stop(self):
-        # TODO: prStop -> TempoClock_Free
+        # TODO: prStop -> prTempoClock_Free -> StopReq -> StopAndDelete -> Stop
+        # prTempoClock_Free
+        if not self.is_alive():
+            raise RuntimeError(f'{self} is not running')
+
+        # StopAndDelete
+        def stop_func(clock):
+            # Stop
+            with clock._sched_cond: # lock_guard
+                clock._run_sched = False # NOTE: son daemon y se liberan solas cuando terminan sin join.
+                type(clock)._all.remove(clock)
+                clock._sched_cond.notify_all()
+
+        # StopReq
+        stop_thread = _threading.Thread(
+            target=stop_func, args=(self,), daemon=True)
+        stop_thread.start()
 
     def play(self, task, quant=1):
         quant = Quant.as_quant(quant)

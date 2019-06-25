@@ -224,7 +224,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             # // wait until there is something in scheduler
             while self._task_queue.empty():
                 with self._sched_cond:
-                    self._sched_cond.wait() # BUG: es Main._main_lock, tal vez asignar al crear el reloj
+                    self._sched_cond.wait()
                 if not self._run_sched: return
 
             # // wait until an event is ready
@@ -622,7 +622,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     def __init_class__(cls):
         cls.default = cls()
         cls.default.permanent = True
-        sac.CmdPeriod(cls)
+        sac.CmdPeriod.add(cls)
 
     @classmethod
     def cmd_period(cls):
@@ -687,7 +687,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             # // wait until there is something in scheduler
             while self._task_queue.empty():
                 with self._sched_cond:
-                    self._sched_cond.wait() # BUG: es Main._main_lock, tal vez asignar al crear el reloj
+                    self._sched_cond.wait()
                 if not self._run_sched: return
 
         # // wait until an event is ready
@@ -702,6 +702,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 self._sched_cond.wait(sched_point - _time.time()) # NOTE: se se puede esperar a un punto temporal en el futuro en Python, solo se puede esperar una cantidad de segundos.
             if not self._run_sched: return
 
+        # // perform all events that are ready
         while not self._task_queue.empty()\
         and elapsed_beats >= self._task_queue.queue[0][0]: # NOTE: la diferencia con SystemClock es que en TempoClock las comparaciones se hacen en tiempo lógico.
             item = self._task_queue.get()
@@ -735,7 +736,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 _traceback.print_exception(*_sys.exc_info()) # hay que poder recuperar el loop ante cualquier otra excepción
 
     def stop(self):
-        # TODO: prStop -> prTempoClock_Free -> StopReq -> StopAndDelete -> Stop
+        # prStop -> prTempoClock_Free -> StopReq -> StopAndDelete -> Stop
         # prTempoClock_Free
         if not self.is_alive():
             raise RuntimeError(f'{self} is not running')
@@ -789,47 +790,69 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 "'etempo' can be used instead.")
         # TempoClock::SetTempoAtBeat
         self._base_seconds = self.beats2secs(self.beats) # BUG: revisar es mBaseSeconds
-        self._base_beats = self.beats # BUG: supongo que no cambia entre llamadas, es argumento en C++.
+        self._base_beats = self.beats # BUG: supongo que no cambia entre llamadas, es argumento en C++ pero ese argumento recibe this.beats, y tempo_ es la única función donde se usa.
         self._tempo = value
         self._beat_dur = 1.0 / value
-        self._sched_cond.notify() # BUG: es notify_one en C++, comprobar que TempoClock no use otra condición, aún no la definí.
+        self._sched_cond.notify() # NOTE: es notify_one en C++
         # en tempo_
         mdl.NotificationCenter.notify(self, 'tempo')
 
     def beat_dur(self):
-        # TODO: _TempoClock_BeatDur
+        # _TempoClock_BeatDur
+        if not self.is_alive():
+            raise RuntimeError(f'{self} is not running')
+        return self._beat_dur
 
     def elapsed_beats(self):
-        # TODO: _TempoClock_ElapsedBeats
-        # // primitive does this: ^this.secs2beats(Main.elapsedTime).
+        # _TempoClock_ElapsedBeats
+        if not self.is_alive():
+            raise RuntimeError(f'{self} is not running')
+        return self.secs2beats(_main.Main.elapsed_time())
 
     @property
     def beats(self):
-        # TODO: _TempoClock_Beats
+        # _TempoClock_Beats
         # // returns the appropriate beats for this clock from any thread
         # // primitive does this:
-        # if (thisThread.clock == this) { ^thisThread.beats }
-        # ^this.secs2beats(thisThread.seconds)
+        # // if (thisThread.clock == this) { ^thisThread.beats }
+        # // ^this.secs2beats(thisThread.seconds)
+        if _main.Main.current_TimeThread.clock is self:
+            return _main.Main.current_TimeThread.beats
+        else:
+            if not self.is_alive():
+                raise RuntimeError(f'{self} is not running')
+            return self.secs2beats(_main.Main.current_TimeThread.seconds)
 
     @beats.setter
     def beats(self, value):
-        # TODO: _TempoClock_SetBeats
+        # _TempoClock_SetBeats
+        if not self.is_alive():
+            raise RuntimeError(f'{self} is not running')
+        seconds = _main.Main.current_TimeThread.seconds # BUG: revisar en C++ las veces que obtiene beats o seconds de &g->thread que es current_TimeThread
+        # TempoClock::SetAll # NOTE: _TempoClock_SetAll no se usa en sclang, creo que no están bien nombrasdos SetAll (para setea beats), SetTempoAtTime (para setea etempo) y SetTempoAtBeat (para setear tempo)
+        self._base_seconds = seconds
+        self._base_beats = value
+        #self._tempo = self._tempo # NOTE: la llamada a SetAll es clock->SetAll(clock->mTempo, beats, seconds)
+        self._beat_dur = 1.0 / self._tempo
+        self._sched_cond.notify() # NOTE: es notify_one en C++
 
     @property
     def seconds(self): # NOTE: definido solo como getter es thisThread.seconds, en TimeThread es property, acá también por consistencia?
         return _main.Main.current_TimeThread.seconds
 
+    # BUG: ver TempoClock::Add (acá es _sched_add)
     def sched(self, delta, item):
-        # TODO: _TempoClock_Sched
+        pass # TODO: _TempoClock_Sched
 
     def sched_abs(self, beat, item):
-        # TODO: _TempoClock_SchedAbs
+        pass # TODO: _TempoClock_SchedAbs
 
     def clear(self, release_nodes=True):
         # // flag tells EventStreamPlayers that CmdPeriod is removing them, so
         # // nodes are already freed
         # // NOTE: queue is an Array, not a PriorityQueue, but it's used as such internally. That's why each item uses 3 slots.
         # TODO: llama a prClear -> _TempoClock_Clear
+        pass
 
     @property
     def beats_per_bar(self):
@@ -837,7 +860,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     @beats_per_bar.setter
     def beats_per_bar(self, value):
-        # TODO
+        pass # TODO
 
     @property # TODO: no parece tener setter.
     def base_bar_beat(self):
@@ -851,12 +874,19 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     def etempo(self, value):
         # TODO: this.setTempoAtSec(newTempo, Main.elapsedTime);
         #mdl.NotificationCenter.notify(self, 'tempo')
+        pass
 
     def beats2secs(self, beats):
-        # TODO: _TempoClock_BeatsToSecs
+        # _TempoClock_BeatsToSecs
+        if not self.is_alive():
+            raise RuntimeError(f'{self} is not running')
+        return (beats - self._base_beats) * self._beat_dur + self._base_seconds
 
     def secs2beats(self, seconds):
-        # TODO: _TempoClock_SecsToBeats
+        # _TempoClock_SecsToBeats
+        if not self.is_alive():
+            raise RuntimeError(f'{self} is not running')
+        return (seconds - self._base_seconds) * self._tempo + self._base_beats
 
     def dump(self): # NOTE: es prDump, como privado, parece método para debug.
         # _(pr)TempoClock_Dump -> TepmoClock::Dump
@@ -867,28 +897,29 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # post("seconds %g\n", BeatsToSecs(mBeats));
         # post("mBaseSeconds %g\n", mBaseSeconds);
         # post("mBaseBeats %g\n", mBaseBeats);
+        pass
 
     def next_time_on_grid(self, quant=1.0, phase=0):
-        # TODO
+        pass # TODO
 
     # // logical time to next beat
     def time_to_next_beat(self, quant=1.0):
-        # TODO
+        pass # TODO
 
     def beats2bars(self, beats):
-        # TODO
+        pass # TODO
 
     def bars2beats(self, bars):
-        # TODO
+        pass # TODO
 
     def bar(self):
-        # TODO
+        pass # TODO
 
     def next_bar(self, beat):
-        # TODO
+        pass # TODO
 
     def beat_in_bar(self):
-        # TODO
+        pass # TODO
 
     # isRunning { ^ptr.notNil } # NOTE: es is_alive() de Thread acá.
 

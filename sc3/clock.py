@@ -191,7 +191,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         if self._task_queue.queue[0][0] != prev_time:
             with self._sched_cond:
                 #print('_sched_add llama a notify_all')
-                self._sched_cond.notify_all() # *** BUG: es notify_one, notify() acá, no recuerdo por qué lo cambié.
+                self._sched_cond.notify_all() # NOTE: acá es notify_all o no funciona.
 
     # TODO: se llama en PyrLexer shutdownLibrary
     def sched_stop(self):
@@ -825,7 +825,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         if self._task_queue.queue[0][0] != prev_beat:
             with self._sched_cond:
                 #print('_sched_add llama a notify_all')
-                self._sched_cond.notify_all() # *** BUG: es notify_one, notify() acá, no recuerdo por qué lo cambié.
+                self._sched_cond.notify_all() # NOTE: acá es notify_all o no funciona.
 
     def sched(self, delta, item):
         # _TempoClock_Sched

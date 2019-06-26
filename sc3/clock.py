@@ -31,8 +31,6 @@ class Clock(_threading.Thread): # ver std::copy y std::bind
         cls.sched(0, task)
     @classmethod
     def seconds(cls): # seconds es el *tiempo lógico* de cada thread
-        if _main.Main.current_TimeThread is _main.Main.main_TimeThread: # NOTE: Con solo actualizar mainThread actualiza todo porque es el hilo del cuál deriva todo el resto.
-            _main.Main.update_logical_time()
         return _main.Main.current_TimeThread.seconds
 
     # // tempo clock compatibility
@@ -248,48 +246,11 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                     task.next_beat = None
                 try:
                     try:
-                        # BUG: VER: es next estilo sclang y qué pasa cuando se programan otros objetos
                         # BUG: interesante que se puede SystemClock.sched(0, 0) para clavar sclang
-                        # BUG: Entiendo que la llamada a next se produce en este mismo hilo, no veo que
-                        # Interpret tenga un lock. Ver si esto salva de que se ejecuten cambios
-                        # entre hilos usando distintos relojes. También está loa posibilidad de implementar
-                        # esta parte en el hilo de TimeThread enviando la función a una cola y esta
-                        # lógica al loop de allá, sería mejor de por sí? todo corre en el mismo
-                        # procesador, pero los hilos se pueden interrumpir en el medio?
-                        # TODO: Reproducir test_concurrente.scd cuando implemente TempoClock,
-                        # y puede que usando una cola en otro proceso afecte menos el timming,
-                        # el único problema en realidad es no crashear el intérprete Python, entonces:
-                        # NOTE: Ahora pienso, si el código de las rutinas que se programan en distintos
-                        # relojes se corren distintos hilos del os se puede considerar que es
-                        # responsabilidad del músico-programador coordinar su ejecución y no del
-                        # lenguaje/librería. Igualmente, proveer un mecanismo que facilite
-                        # las cosas sin tener que acceder a constructos de programación demasiado
-                        # alejados del dominio musical puede ser más productivo para el usuario
-                        # común, siempre está ese tire y afloje. Reveer el módulo threading nativo
-                        # y pensar en mainThread como el punto de ingreso de la librería, será quién
-                        # llama a tick. Luego osc/midi y otras cosas tal vez puedan correr en otros hilos
-                        # aunque en sclang no estoy seguro de cómo se maneja eso.
-                        #delta = task.next()
-                        # NOTE: otra cosa que se puede hacer es usar sched_cond en esta llamada
-                        # para que sí sean atómicas las ejecuciones de cada rutina. Lo que
-                        # puede pasar es que si dos funciones iguales se ejecutan al mismo tiempo, en
-                        # vez de distribuir el tiempo entre ambas, pj. que lleguen tarde al mismo tiempo,
-                        # va a pasar que una va a llegar seguro más tarde que la otra, pj. perdiendo sincronía,
-                        # pero p3 sys.getswitchinterval() / sys.setswitchinterval(n) (default es 5ms,
-                        # un montón). Posible BUG, si sclang llama con gLangMutex a next las rutinas
-                        # ya de por sí aplican esta lógica y tendría que aplicar main_lock acá,
-                        # main_lock sería simplemente un lock del cual no se esperan notificaciones.
-                        # NOTE: otra cosa que se puede hacer es probar esto mismo pero con
-                        # relojes (opcionales) que sean procesos python, habrá que sincronizar
-                        # elapsed_time entre procesos, supongo.
-                        # NOTE: deshabilitar y rehabilitar gc podría ayudar o la operación es
-                        # costosa de por sí? gc.isenabled() gc.disable() gc.enable().
+                        # NOTE: ver qué pasa con la granulariadad de lock.
+                        # NOTE: deshabilitar y rehabilitar gc podría ayudar o la operación es: gc.isenabled() gc.disable() gc.enable().
 
-                        # *** BUG: no recuerdo por qué lo actualizo con sched_time que es el tiempo de la cola.
-                        # *** BUG: esto es lo que deja actualizado el tiempo lógico correcto
-                        # *** BUG: en las rutinas, parece estar bien pero no lo recuerdo.
-                        _main.Main.update_logical_time(sched_time) # NOTE: TEST, es menos eficiente pero más claro.
-                        #_main.Main.main_TimeThread.seconds = sched_time # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread.
+                        _main.Main.update_logical_time(sched_time) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
 
                         if isinstance(task, _types.FunctionType):
                             n = len(_inspect.signature(task).parameters)
@@ -327,8 +288,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             # BUG: llama a prClear, VER!
 
     @classmethod
-    def sched(cls, delta, item): # Process.elapsedTime es el tiempo físico (desde que se inició la aplicación), que también es elapsedTime de SystemClock (elapsed_time acá) [Process.elapsedTime, SystemClock.seconds, thisThread.seconds] thisThread sería mainThread si se llama desde fuera de una rutina, thisThread.clock === SystemClock, es la clase singleton
-        _main.Main.update_logical_time() # NOTE: TODAS LAS ACCIONES QUE PUEDAN DEPENDER DEL TIEMPO DE LAS ROUTINAS TIENEN QUE ACTUALIZAR ANTES DE EVALUAR.
+    def sched(cls, delta, item):
         seconds = _main.Main.current_TimeThread.seconds
         seconds += delta
         if seconds == _math.inf: return # // return nil OK, just don't schedule
@@ -368,7 +328,8 @@ class Scheduler():
     def _wakeup(self, item):
         try:
             try:
-                _main.Main.update_logical_time(self._seconds) # NOTE: Parece correcto el comportamiento, se debe actualizar en wakeup o en awake, acá los estoy haciendo antes pero el tiempo lógico es el mismo que se le pasa a awake.
+                # NOTE: Parece correcto el comportamiento, se debe actualizar en wakeup o en awake, acá los estoy haciendo antes pero el tiempo lógico es el mismo que se le pasa a awake.
+                _main.Main.update_logical_time(self._seconds) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
 
                 if isinstance(item, _types.FunctionType):
                     n = len(_inspect.signature(item).parameters)
@@ -397,7 +358,6 @@ class Scheduler():
         if self._drift:
             from_time = _main.Main.elapsed_time()
         else:
-            _main.Main.update_logical_time() # BUG: ASÍ FUNCIONA IGUAL DE MAL QUE SCLANG (es drift=False)
             from_time = self.seconds = _main.Main.current_TimeThread.seconds # BUG: SINCORNIZANDO CON CURRENT_THREAD FUNCIONA BIEN (AGREGADO), PERO NO LE VEO SENTIDO.
         self.queue.put((from_time + delta, item))
         #self.queue.task_done() # es una anotación por si es útil luego
@@ -718,10 +678,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                     task.next_beat = None
                 try:
                     try:
-                        # *** BUG: no recuerdo por qué actualizo con el tiempo de la cola.
-                        # *** BUG: esto es lo que deja actualizado el tiempo lógico correcto
-                        # *** BUG: pero para TempoClock PARECE QUE NO ES CORRECTO USAR self.beats2secs(self._beats)
-                        _main.Main.update_logical_time() # (self.beats2secs(self._beats)) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread.
+                        _main.Main.update_logical_time(self.beats2secs(self._beats)) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
 
                         # runAwakeMessage NOTE: que se llama con la preparación previa de la pila del intérprete
                         if isinstance(task, _types.FunctionType):
@@ -826,8 +783,6 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # // primitive does this:
         # // if (thisThread.clock == this) { ^thisThread.beats }
         # // ^this.secs2beats(thisThread.seconds)
-        if _main.Main.current_TimeThread is _main.Main.main_TimeThread: # NOTE: Con solo actualizar mainThread actualiza todo porque es el hilo del cuál deriva todo el resto.
-            _main.Main.update_logical_time() # *** BUG/NOTE: ESTO HACE QUE FUNCIONE SCHED_ABS TAMBIÉN... VER.
         if _main.Main.current_TimeThread.clock is self:
             return _main.Main.current_TimeThread.beats
         else:
@@ -873,7 +828,6 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def sched(self, delta, item):
         # _TempoClock_Sched
-        _main.Main.update_logical_time() # NOTE: ACCIÓN QUE DEPENDE DEL TIEMPO DE LAS RUTINAS.
         if not self.is_alive():
             raise RuntimeError(f'{self} is not running')
         if _main.Main.current_TimeThread.clock is self:
@@ -940,16 +894,20 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             raise RuntimeError(f'{self} is not running')
         return (seconds - self._base_seconds) * self._tempo + self._base_beats
 
-    def dump(self): # NOTE: es prDump, como privado, parece método para debug.
+    def dump(self):
         # _(pr)TempoClock_Dump -> TepmoClock::Dump
-        # if self.is_alive(): # NOTE de lo contrario no hace nada.
-        # post("mTempo %g\n", mTempo);
-        # post("mBeatDur %g\n", mBeatDur);
-        # post("mBeats %g\n", mBeats);
-        # post("seconds %g\n", BeatsToSecs(mBeats));
-        # post("mBaseSeconds %g\n", mBaseSeconds);
-        # post("mBaseBeats %g\n", mBaseBeats);
-        pass
+        # BUG: Pero no usa este método sclang, usa dump de Object (_ObjectDump)
+        if self.is_alive():
+            msg = self.__repr__()
+            msg += (f'\n    tempo: {self.tempo}'
+                    f'\n    beats: {self.beats}'
+                    f'\n    seconds: {self.seconds}'
+                    f'\n    _beat_dur: {self._beat_dur}'
+                    f'\n    _base_seconds: {self._base_seconds}'
+                    f'\n    _base_beats: {self._base_beats}')
+            print(msg)
+        else:
+            raise RuntimeError(f'{self} is not running')
 
     def next_time_on_grid(self, quant=1, phase=0): # *** BUG: son siempre/solo enteros?
         if quant == 0:

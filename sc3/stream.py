@@ -262,6 +262,13 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
 
     @property
     def seconds(self):
+        # NOTE: En la documentación de Thread:
+        # // When code is run from the code editor, the command line, or in
+        # // response to OSC and MIDI messages, the main Thread's logical
+        # // time is set to the current physical time (see Process: *elapsedTime).
+        # NOTE: En Python es cada vez que se requiere el tiempo de una ruitna.
+        if self is _main.Main.main_TimeThread:
+            _main.Main.update_logical_time()
         return self._seconds
 
     @seconds.setter
@@ -271,6 +278,9 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
 
     @property
     def beats(self):
+        # NOTE: Ver seconds arriba.
+        if self is _main.Main.main_TimeThread:
+            _main.Main.update_logical_time()
         return self._beats
 
     @beats.setter

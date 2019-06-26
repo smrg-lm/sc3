@@ -207,8 +207,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
     def sched_clear(self): # L387, llama a schedClearUnsafe() con gLangMutex locks, esta función la exporta con SCLANG_DLLEXPORT_C
         with self._sched_cond:
             if self._run_sched:
-                del self._task_queue # BUG: en realidad tiene un tamaño que reusa y no borra, pero no sé dónde se usa esta función, desde sclang usa *clear
-                self._task_queue = _PriorityQueue()
+                self._task_queue.queue = []
                 self._sched_cond.notify_all()
 
     # NOTE: def sched_run_func(self): # L422, es la función de este hilo, es una función estática, es run acá (salvo que no subclasee)
@@ -275,14 +274,14 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
     # sclang methods
 
     @classmethod
-    def clear(cls): # la diferencia con sched_clear es que aquel libera y crea un nuevo objeto # método de SystemClock en sclang, llama a schedClearUnsafe() mediante prClear/_SystemClock_Clear después de vaciar la cola prSchedulerQueue que es &g->process->sysSchedulerQueue
+    def clear(cls):
         with cls._instance._sched_cond: # BUG: VER SI USA COND!
             item = None
             # BUG: NO SÉ QUE ESTABA PENSANDO CUANOD HICE ESTE, FALTA:
             # BUG: queue es thisProcess.prSchedulerQueue, VER!
             while not cls._instance._task_queue.empty():
                 item = cls._instance._task_queue.get()[1] # de por sí PriorityQueue es thread safe, la implementación de SuperCollider es distinta
-                if isinstance(item, (xxx.EventStreamPlayer, xxx.PauseStream)):
+                if isinstance(item, (stm.EventStreamPlayer, stm.PauseStream)):
                     item.removed_from_scheduler()
             cls._instance._sched_cond.notify_all()
             # BUG: llama a prClear, VER!
@@ -749,11 +748,11 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         if self._tempo < 0.0: # BUG: NO ES CLARO: usa _tempo (mTempo), que puede ser negativo mediante etempo y en ese caso no deja setear acá, ES RARO.
             raise ValueError(
                 "cannot set tempo from this method. "
-                "The method 'etempo' can be used instead")
+                "The method 'etempo()' can be used instead")
         if value < 0.0:
             raise ValueError(
                 f"invalid tempo {value}. The method "
-                "'etempo' can be used instead.")
+                "'etempo()' can be used instead.")
         # TempoClock::SetTempoAtBeat
         beats = self.beats # NOTE: hay obtenerlo solo una vez porque el getter cambia al setear las variables, en C++ es el argumento de una función.
         self._base_seconds = self.beats2secs(beats)
@@ -763,6 +762,23 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         with self._sched_cond:
             self._sched_cond.notify() # NOTE: es notify_one en C++
         # en tempo_
+        mdl.NotificationCenter.notify(self, 'tempo')
+
+    # // for setting the tempo at the current elapsed time.
+    def etempo(self, value):
+        # TODO: this.setTempoAtSec(newTempo, Main.elapsedTime);
+        # _TempoClock_SetTempoAtTime
+        if not self.is_alive():
+            raise RuntimeError(f'{self} is not running')
+        # TempoClock::SetTempoAtTime
+        seconds = _main.Main.elapsed_time()
+        self._base_beats = self.secs2beats(seconds)
+        self._base_seconds = seconds
+        self._tempo = value
+        self._beat_dur = 1 / value
+        with self._sched_cond:
+            self._sched_cond.notify() # NOTE: es notify_one en C++
+        # etempo_
         mdl.NotificationCenter.notify(self, 'tempo')
 
     def beat_dur(self):
@@ -855,11 +871,17 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         self._sched_add(beat, item)
 
     def clear(self, release_nodes=True):
-        # // flag tells EventStreamPlayers that CmdPeriod is removing them, so
-        # // nodes are already freed
-        # // NOTE: queue is an Array, not a PriorityQueue, but it's used as such internally. That's why each item uses 3 slots.
-        # TODO: llama a prClear -> _TempoClock_Clear
-        pass
+        # // flag tells EventStreamPlayers that CmdPeriod
+        # // is removing them, so nodes are already freed
+        # clear -> prClear -> _TempoClock_Clear -> TempoClock::Clear
+        if self.is_alive() and self._run_sched:
+            item = None
+            with self._sched_cond:
+                while not self._task_queue.empty():
+                    item = self._task_queue.get()[1] # de por sí PriorityQueue es thread safe, la implementación de SuperCollider es distinta, ver SystemClock*clear.
+                    if isinstance(item, (stm.EventStreamPlayer, stm.PauseStream)):
+                        item.removed_from_scheduler(release_nodes)
+                self._sched_cond.notify() # NOTE: es notify_one en C++
 
     @property
     def beats_per_bar(self):
@@ -867,7 +889,18 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     @beats_per_bar.setter
     def beats_per_bar(self, value):
-        pass # TODO
+        if _main.Main.current_TimeThread is not self:
+            RuntimeError('should only change beats_per_bar'
+                         'within the scheduling thread')
+        # setMeterAtBeat
+        beats = self.beats
+        self._base_bar = bi.round(
+            (beats - self._base_bar_beat) *
+            self._bars_per_beat + self._base_bar, 1)
+        self._base_bar_beat = beats
+        self._beats_per_bar = value
+        self._bars_per_beat = 1 / value
+        mdl.NotificationCenter.notify(self, 'meter')
 
     @property # TODO: no parece tener setter.
     def base_bar_beat(self):
@@ -876,12 +909,6 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     @property # TODO: no parece tener setter.
     def base_bar(self):
         return self._base_bar
-
-    # // for setting the tempo at the current elapsed time.
-    def etempo(self, value):
-        # TODO: this.setTempoAtSec(newTempo, Main.elapsedTime);
-        #mdl.NotificationCenter.notify(self, 'tempo')
-        pass
 
     def beats2secs(self, beats):
         # _TempoClock_BeatsToSecs
@@ -924,35 +951,30 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     # // logical time to next beat
     def time_to_next_beat(self, quant=1.0):
-        pass # TODO
+        return Quant.as_quant(quant).next_time_on_grid(self) - self.beats
 
     def beats2bars(self, beats):
-        pass # TODO
+        return (beats - self._base_bar_beat) * self._bars_per_beat\
+               + self._base_bar
 
     def bars2beats(self, bars):
-        pass # TODO
+        return (bars - self._base_bar) * self._beats_per_bar\
+               + self._base_bar_beat
 
-    def bar(self):
-        pass # TODO
+    # // return the current bar.
+    def bar(self): # NOTE: bar podría ser propiedad de solo lectura
+        return bi.floor(self.beats2bars(self.beats))
 
+    # // given a number of beats, determine number beats at the next bar line.
     def next_bar(self, beat):
-        pass # TODO
+        beat = beat or self.beats
+        return self.bars2beats(bi.ceil(self.beats2bars(beat)))
 
+    # // return the beat of the bar, range is 0 to < t.beatsPerBar
     def beat_in_bar(self):
-        pass # TODO
+        return self.beats - self.bars2beats(self.bar())
 
     # isRunning { ^ptr.notNil } # NOTE: es is_alive() de Thread acá.
-
-    # // PRIVATE
-    # prStart # pasada adentro de __init__
-    # prStop # seguro pase a stop
-    # prClear # seguro pase a clear
-
-    # setTempoAtBeat # lógica pasada a al setter de tempo.
-
-    # setTempoAtSec
-    # // meter should only be changed in the TempoClock's thread.
-    # setMeterAtBeat
 
     # // these methods allow TempoClock to act as TempoClock.default
     # TODO: VER SI VAN O NO

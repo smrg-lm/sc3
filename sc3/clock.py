@@ -910,15 +910,15 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         else:
             raise RuntimeError(f'{self} is not running')
 
-    def next_time_on_grid(self, quant=1, phase=0): # *** BUG: son siempre/solo enteros?
+    def next_time_on_grid(self, quant=1, phase=0):
         if quant == 0:
             return self.beats + phase
         if quant < 0:
             quant = self.beats_per_bar * -quant
         if phase < 0:
-            phase = phase % quant # *** BUG: 1 % 0.2 módulo no se comporta igual en Python.
+            phase = bi.mod(phase, quant)
         return bi.roundup(
-            self.beats - self._base_bar_beat - (phase % quant),
+            self.beats - self._base_bar_beat - bi.mod(phase, quant),
             quant
         ) + self._base_bar_beat + phase
 

@@ -755,8 +755,9 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 f"invalid tempo {value}. The method "
                 "'etempo' can be used instead.")
         # TempoClock::SetTempoAtBeat
-        self._base_seconds = self.beats2secs(self.beats) # BUG: revisar es mBaseSeconds
-        self._base_beats = self.beats # BUG: supongo que no cambia entre llamadas, es argumento en C++ pero ese argumento recibe this.beats, y tempo_ es la única función donde se usa.
+        beats = self.beats # NOTE: hay obtenerlo solo una vez porque el getter cambia al setear las variables, en C++ es el argumento de una función.
+        self._base_seconds = self.beats2secs(beats)
+        self._base_beats = beats
         self._tempo = value
         self._beat_dur = 1.0 / value
         with self._sched_cond:

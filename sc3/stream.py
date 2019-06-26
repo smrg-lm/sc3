@@ -353,15 +353,6 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
 
 
 class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeThread y mro. Creo que el úlitmo que se agrega sobreescribe y en sclang thread es subclase de stream, pero Python llama a __init__ del primero en la lista.
-    # TODO: como Routine es un envoltorio tengo que ver qué haga con
-    # la relación entre generador e iterador y cuándo es una función normal.
-
-    @classmethod
-    def run(cls, func, clock=None, quant=None):
-        obj = cls(func)
-        obj.play(clock, quant)
-        return obj
-
     def play(self, clock=None, quant=None):
         '''el argumento clock pordía soportar un string además de un objeto
         clock, 'clojure', para el reloj en que se creó el objeto Routine,
@@ -519,7 +510,7 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
     # next, ver arriba
     # value
     # resume
-    # run (de instancia, no se puede) # BUG: Igualmente run de clase es un constructor alternativo que podría ser docorador como synthdef.add.
+    # run (de instancia, no va)
 
     # valueArray se define como ^this.value(inval), opuesto a Stream valueArray que no recibe inval... BUG del tipo desprolijidad? o hay una razón?
 
@@ -535,9 +526,18 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
     # prStart
 
 
-# decorator syntax # BUG: rehacer como synthdef *run de Routine es como el decorador synthdef.add (y dejar solo run de instancia, es redundante y confuso en sclang porque se llaman igual pero no hacen lo mismo).
-def routine(gen):
-    return Routine(gen)
+# decorator syntax
+class routine():
+    def __new__(cls, func):
+        return Routine(func)
+
+    @staticmethod
+    def run(clock=None, quant=None):
+        def make_routine(func):
+            obj = Routine(func)
+            obj.play(clock, quant)
+            return obj
+        return make_routine
 
 
 ### Condition.sc ###

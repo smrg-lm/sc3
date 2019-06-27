@@ -849,11 +849,11 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             raise RuntimeError(f'{self} is not running')
         if _main.Main.current_TimeThread.clock is self:
             beats = _main.Main.current_TimeThread.beats
-            if beats is None:
+            if beats is None: # NOTE: esta comprobación es de bajo nivel, no se si es necesaria acá.
                 return
         else:
             seconds = _main.Main.current_TimeThread.seconds
-            if seconds is None:
+            if seconds is None: # NOTE: esta comprobación es de bajo nivel, no se si es necesaria acá.
                 return
             beats = self.secs2beats(seconds)
         #if delta is None: return # NOTE: no va, no debe ser None el dato de entrada.

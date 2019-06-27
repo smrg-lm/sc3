@@ -318,8 +318,8 @@ class MetaServer(type):
             global s
             s = value # BUG: ver, puede que no sea bueno para Python.
         for server in cls.all:
-            #server # .changed(\default, value) # BUG: usar mdl.NotificationCenter
-            raise Exception('Implementar la funcionalidad mdl.NotificationCenter en MetaServer @default.setter')
+            # server.changed(\default, value)
+            mdl.NotificationCenter.notify(server, 'default', value)
 
 
 @utl.initclass # BUG: esto es un problema por lo cíclico, initclass o lo tengo que sacar o hacer que sea consistente con los imports, tal vez que initclass acumule los métodos y llame luego de que todo fue importado
@@ -389,7 +389,7 @@ class Server(NodeParameter, metaclass=MetaServer):
         self.pid = None # iniicaliza al bootear, solo tiene getter en la declaración
         self._server_interface = None
         self._pid_release_condition = stm.Condition(lambda: self.pid is None)
-        type(self) # TODO: .changed(\serverAdded, self) # BUG: usar mdl.NotificationCenter
+        mdl.NotificationCenter.notify(type(self), 'server_added', self)
 
         # TODO: siempre revisar que no esté usando las de variables clase
         # porque no va a funcionar con metaclass sin llamar a __class__.
@@ -1046,7 +1046,7 @@ class Server(NodeParameter, metaclass=MetaServer):
         # 3 - print both the parsed and hexadecimal representations of the contents.
         self.dump_mode = code
         self.send_msg('/dumpOSC', code)
-        mdl.NotificationCenter.notify(self, 'dumpOSC', code)
+        mdl.NotificationCenter.notify(self, 'dump_osc', code)
 
     def quit(self, on_complete=None, on_failure=None, watch_shutdown=True):
         self.addr.send_msg('/quit')

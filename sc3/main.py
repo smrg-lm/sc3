@@ -38,8 +38,7 @@ class Process(type):
 
     def __init__(cls, name, bases, dict):
         cls._time_of_initialization = time.time()
-        cls._main_lock = threading.Condition() # ver, pasada desde abajo
-
+        self._main_lock = threading.RLock()
         cls._create_main_thread()
 
         cls.osc_server = osr.OSCServer() # BUG: options, y ver si se pueden crear más servidores, ver abajo

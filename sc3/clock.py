@@ -572,10 +572,95 @@ class AppClock(Clock): # ?
 # NOTE: contraposición al tiempo lógico. La base temporal es el tempo.
 
 
-# *** BUG: IMPORTANTE: CON METACLASES SE PUEDE TENER EL MISMO NOMBRE PARA UNA
-# *** BUG: PROPIEDAD DE CLASE Y DE INSTANCIA. REVISAR PORQUE HABÍAN CASOS QUE
-# *** BUG: NO RECUERDO SI NO DECIDÍ CAMBIAR ALGO PORQUE NO SABÍA ESTO.
-# *** BUG: IGUALMENTE NO SE PUEDE HACER CON MÉTODOS, SOLO CON PROPERTY.
+class ClockScheduler(threading.Thread):
+    def __init__(self):
+        self._sched_cond = threading.Condition(main._main_lock)
+        self.queue = tkq.TaskQueue()
+        self.prev_elapsed_time = 0.0 # NOTE: para volver en tiempo atrás en StopStream con el tiempo previo del scheduler (no de la rutina como en rt!), ver abajo.
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.start()
+
+    def run(self):
+        self._sched_run = True
+        with self._sched_cond:
+            while True:
+                while self.queue.empty():
+                    self._sched_cond.wait()
+                    if not self._sched_run:
+                        return
+                while not self.queue.empty():
+                    time, clock_task = self.queue.pop()
+                    if not self.queue.empty():
+                        next_time = self.queue.peek()[0]
+                    else:
+                        next_time = math.inf
+                    clock_task.run(time, next_time)
+                    self._sched_cond.wait()
+                    if not self._sched_run:
+                        return
+
+    def add(self, time, clock_task):
+        with self._sched_cond:
+            self.queue.add(clock_task, time) # NOTE: add podría/debería ser al revés.
+            self._sched_cond.notify()
+
+    def stop(self):
+        with self._sched_cond:
+            self._sched_run = False
+            self._sched_cond.notify()
+
+
+class ClockTask():
+    def __init__(self, beats, clock, task, scheduler):
+        self.clock = clock
+        self.task = task
+        self.scheduler = scheduler
+        if scheduler.is_alive():
+            scheduler.add(clock.beats2secs(beats), self)
+        else:
+            RuntimeError('ClockScheduler is not running')
+
+    def run(self, time, next_time): # NOTE: se llama desde el loop de scheduler
+        with self.clock._sched_cond:
+            self.time = time
+            self.next_time = next_time
+            self.clock._clock_task = self
+            self.clock._sched_cond.notify()
+
+    def wakeup(self): # NOTE: se llama desde el loop de clock, con el lock
+        try:
+            try:
+                main.update_logical_time(self.time)
+                if isinstance(self.task, _types.FunctionType):
+                    n = len(_inspect.signature(self.task).parameters)
+                    if n > 3:
+                        raise TypeError(
+                            'clock scheduled function takes between 0 and 3 '
+                            f'positional arguments but {n} were given')
+                    args = [self.clock.secs2beats(self.time),
+                           self.time, self.clock][:n]
+                    delta = self.task(*args)
+                elif isinstance(self.task, (stm.Routine, stm.PauseStream)):
+                    delta = self.task.awake(
+                        self.clock.secs2beats(self.time),
+                        self.time, self.clock)
+                else:
+                    raise TypeError(f"type '{type(item)}' is not "
+                                    "supported by clock scheduler")
+                if isinstance(delta, (int, float))\
+                and not isinstance(delta, bool):
+                    self.scheduler.prev_elapsed_time = self.time # NOTE: tiene que ir acá, si la rutina devuelve una valor que no hace avanzar el tiempo (p.e. 'hang') no cambia el tiempo previo.
+                    self.time = self.time + self.clock.beats2secs(delta)
+                    self.scheduler.add(self.time, self)
+            except stm.StopStream:
+                main.update_logical_time(self.scheduler.prev_elapsed_time) # NOTE: No es el tiempo de la rutina sino del scheduler en este caso, prev_time podía ser el tiempo previo de otra rutina!
+        except Exception:
+            _traceback.print_exception(*_sys.exc_info())
+
+    def notify_scheduler(self):
+        with self.scheduler._sched_cond:
+            self.scheduler._sched_cond.notify()
 
 
 ### Quant.sc ###

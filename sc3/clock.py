@@ -572,12 +572,12 @@ class AppClock(Clock): # ?
 # NOTE: contraposición al tiempo lógico. La base temporal es el tempo.
 
 
-class ClockScheduler(threading.Thread):
+class ClockScheduler(_threading.Thread):
     def __init__(self):
-        self._sched_cond = threading.Condition(main._main_lock)
+        self._sched_cond = _threading.Condition(main._main_lock)
         self.queue = tkq.TaskQueue()
         self.prev_elapsed_time = 0.0 # NOTE: para volver en tiempo atrás en StopStream con el tiempo previo del scheduler (no de la rutina como en rt!), ver abajo.
-        threading.Thread.__init__(self)
+        _threading.Thread.__init__(self)
         self.daemon = True
         self.start()
 

@@ -37,14 +37,15 @@ class Process(type):
     # current_TimeThread = None; main_TimeThread = None
 
     def __init__(cls, name, bases, dict):
-        cls._time_of_initialization = time.time()
-        self._main_lock = threading.RLock()
-        cls._create_main_thread()
-
-        cls.osc_server = osr.OSCServer() # BUG: options, y ver si se pueden crear más servidores, ver abajo
-        cls.osc_server.start()
-
+        cls.__init_class__(cls)
         atexit.register(cls.shutdown)
+
+    # *** BUG: Los métodos definidos en el tipo no pertenecen al diccionario
+    # *** BUG: de la clase, pero se pueden sobreescribir con @classmethod.
+    # *** BUG: Esto no es bueno para los métodos pero permite tener
+    # *** BUG: @property de clase y de instancia con el mismo nombre.
+    # *** BUG: PERO NO SE SI ES CORRECTO, aunque es un método de la superclass
+    # *** BUG: ligado a la clase: <bound method Process.metodo of <class '__main__.RTMain'>>
 
     def _create_main_thread(cls):
         # init main time thread # NOTE: ver PyrInterpreter3 L157 newPyrProcess y PyrPrimitive initPyrThread
@@ -83,7 +84,7 @@ class Process(type):
     # acá se puede hacer un servidor por puerto con distinto protocolo,
     # que es algo que sclang maneja desde NetAddr. Tengo que ver.
     # def open_osc_port(cls, port, protocol=osr.DEFAULT_CLIENT_PROTOCOL):
-    #     self._osc_servers.append(osr.OSCServer(port, protocol))
+    #     cls._osc_servers.append(osr.OSCServer(port, protocol))
     # def open_ports
 
     def add_osc_recv_func(cls, func):
@@ -129,11 +130,36 @@ class Process(type):
             cls.main_TimeThread.seconds = seconds
 
 
-# Main.sc
-class Main(metaclass=Process):
-    # TODO: REVISAR: Process (__init__) se instancia en Main cuando se compila la clase (en el primer import, supongo)
-    # BUG: Al ser una librería esto es debatible...
-    pass
+### Main.sc ###
 
 
+class RTMain(metaclass=Process):
+    def __init_class__(cls):
+        cls._time_of_initialization = time.time()
+        cls._main_lock = threading.RLock()
+        cls._create_main_thread()
+        cls.osc_server = osr.OSCServer() # BUG: options, y ver si se pueden crear más servidores, ver abajo
+        cls.osc_server.start()
+
+
+class NRTMain(metaclass=Process):
+    def __init_class__(cls):
+        cls._time_of_initialization = 0.0
+        cls._time_of_initialization = time.time()
+        cls._main_lock = threading.RLock()
+        cls._create_main_thread()
+
+    @classmethod
+    def elapsed_time(cls) -> float:
+        '''Physical time is main_Thread.seconds in nrt.'''
+        return float(cls.main_TimeThread.seconds)
+
+    @classmethod
+    def update_logical_time(cls, seconds=None):
+        if seconds is None:
+            return
+        else:
+            cls.main_TimeThread.seconds = seconds
+
+main = RTMain
 utl.ClassLibrary.init()

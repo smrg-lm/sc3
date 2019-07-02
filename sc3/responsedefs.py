@@ -3,10 +3,10 @@
 from abc import ABC, abstractmethod
 import inspect
 
-import sc3.systemactions as sac
-import sc3.model as mdl
+from . import systemactions as sac
+from . import model as mdl
 from . import main as main
-import sc3.utils as utl
+from . import utils as utl
 
 
 class AbstractResponderFunc(ABC):

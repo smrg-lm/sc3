@@ -355,6 +355,12 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
 
 
 class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeThread y mro. Creo que el úlitmo que se agrega sobreescribe y en sclang thread es subclase de stream, pero Python llama a __init__ del primero en la lista.
+    @classmethod
+    def run(cls, func, clock=None, quant=None):
+        obj = cls(func)
+        obj.play(clock, quant)
+        return obj
+
     def play(self, clock=None, quant=None):
         '''el argumento clock pordía soportar un string además de un objeto
         clock, 'clojure', para el reloj en que se creó el objeto Routine,

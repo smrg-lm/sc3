@@ -529,7 +529,7 @@ class AppClock(Clock): # ?
         if cls._instance._scheduler.queue.empty():
             return None # BUG: es un valor que se comprueba para saber si client::tick deja de llamarse a sí mismo.
         else:
-            return cls._instance._scheduler.queue.queue[0][0] # topPriority()
+            return cls._instance._scheduler.queue.peek()[0]
 
     # NOTE: Este comentario es un recordatorio.
     # def _sched_notify(cls):

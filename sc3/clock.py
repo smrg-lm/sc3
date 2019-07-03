@@ -165,7 +165,8 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         self._sync_osc_offset_with_tod()
         self._host_start_nanos = int(_libsc3.main._time_of_initialization / 1e9) # time.time_ns() -> int v3.7
         self._elapsed_osc_offset = int(
-            self._host_start_nanos * SystemClock._NANOS_TO_OSC) + self._host_osc_offset
+            self._host_start_nanos * SystemClock._NANOS_TO_OSC
+        ) + self._host_osc_offset
 
         #print('SystemClock _sched_init fork thread')
 
@@ -202,8 +203,10 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                 system_time_between = system_time_before + diff // 2
                 system_time_in_osc_units = int(
                     system_time_between * SystemClock._NANOS_TO_OSC)
-                time_of_day_in_osc_units = (int(
-                    time_of_day + SystemClock._SECONDS_FROM_1900_TO_1970) << 32) + int(time_of_day / 1e6 * SystemClock._MICROS_TO_OSC)
+                time_of_day_in_osc_units = (
+                    (int(time_of_day + SystemClock._SECONDS_FROM_1900_TO_1970)
+                    << 32) + int(time_of_day / 1e6 * SystemClock._MICROS_TO_OSC)
+                )
 
                 new_offset = time_of_day_in_osc_units - system_time_in_osc_units
         # end for
@@ -212,28 +215,32 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
 
     def _resync_thread_func(self): # L408, es la función de _rsync_thread
         self._run_resync = True
-        while self._run_resync:
-            with self._resync_cond:
+        with self._resync_cond:
+            while self._run_resync:
                 self._resync_cond.wait(20)
-            if not self._run_resync: return
-
-            self._sync_osc_offset_with_tod()
-            self._elapsed_osc_offset = int(
-                self._host_start_nanos * SystemClock._NANOS_TO_OSC) + self._host_osc_offset
+                if not self._run_resync:
+                    return
+                self._sync_osc_offset_with_tod()
+                self._elapsed_osc_offset = int(
+                    self._host_start_nanos * SystemClock._NANOS_TO_OSC
+                ) + self._host_osc_offset
 
     def _sched_cleanup(self): # L265 es para rsync_thread join, la exporta como interfaz, pero no sé si no está mal llamada 'sched'
         with self._resync_cond:
             self._run_resync = False
-            self._resync_cond.notify() # tiene que interrumpir el wait
-        self._resync_thread.join()
+            self._resync_cond.notify()
 
     # NOTE: se llama en OSCData.cpp makeSynthBundle y otras funciones de PyrSched.cpp
     def elapsed_time_to_osc(self, elapsed: float) -> int: # retorna int64
-        return int(elapsed * SystemClock._SECONDS_TO_OSC) + self._elapsed_osc_offset
+        return int(
+            elapsed * SystemClock._SECONDS_TO_OSC
+        ) + self._elapsed_osc_offset
 
     # NOTE: se llama en OSCData.cpp también en funciones relacionadas a bundles/osc
     def osc_to_elapsed_time(self, osctime: int) -> float: # L286
-        return float(osctime - self._elapsed_osc_offset) * SystemClock._OSC_TO_SECONDS
+        return float(
+            osctime - self._elapsed_osc_offset
+        ) * SystemClock._OSC_TO_SECONDS
 
     # NOTE: se llama en las funciones de los servidores a bajo nivel
     def osc_time(self) -> int: # L309, devuleve elapsed_time_to_osc(elapsed_time())
@@ -254,12 +261,10 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
     def sched_stop(self):
         # usa gLangMutex locks
         with self._sched_cond:
+            self._sched_cleanup() # NOTE: anida otra condición pero creo que no es problema.
             if self._run_sched:
                 self._run_sched = False
                 self._sched_cond.notify_all()
-        self.join() # *** BUG: son todas daemon acá y se liberan solas. VER esto.
-                    # *** BUG: En sc la función sched_stop se llama desde otro hilo y es sincrónica allí
-                    # *** BUG: tal vez debería juntar con _resync_thread.
 
     # TODO: se declara como sclang export en SCBase.h pero no se usa en ninguna parte
     def sched_clear(self): # L387, llama a schedClearUnsafe() con gLangMutex locks, esta función la exporta con SCLANG_DLLEXPORT_C
@@ -575,12 +580,12 @@ class ClockScheduler(_threading.Thread):
         self.start()
 
     def run(self):
-        self._sched_run = True
+        self._run_sched = True
         with self._sched_cond:
             while True:
                 while self.queue.empty():
                     self._sched_cond.wait()
-                    if not self._sched_run:
+                    if not self._run_sched:
                         return
                 while not self.queue.empty():
                     time, clock_task = self.queue.pop()
@@ -590,7 +595,7 @@ class ClockScheduler(_threading.Thread):
                         next_time = _math.inf
                     clock_task.run(time, next_time)
                     self._sched_cond.wait()
-                    if not self._sched_run:
+                    if not self._run_sched:
                         return
 
     def add(self, time, clock_task):
@@ -600,7 +605,7 @@ class ClockScheduler(_threading.Thread):
 
     def stop(self):
         with self._sched_cond:
-            self._sched_run = False
+            self._run_sched = False
             self._sched_cond.notify()
 
 
@@ -786,16 +791,18 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 self._nrt_run()
 
     def _nrt_run(self):
-        self._sched_run = True
+        self._run_sched = True
 
         while True:
             while self._clock_task is None:
                 self._sched_cond.wait()
-                if not self._sched_run:
+                if not self._run_sched:
                     return
             self._clock_task.wakeup()
             self._clock_task.notify_scheduler() # NOTE: Siempre noficia, aunque no reprograme.
             self._sched_cond.wait()
+            if not self._run_sched:
+                return
 
     def _rt_run(self):
         self._run_sched = True
@@ -881,6 +888,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             # *** BUG: No estoy seguro de si en C++ notify_all notifica a todas
             # *** BUG: las condiciones sobre el mismo lock. En Python no funciona
             # *** BUG: así y clock._sched_cond trabaja sobre un solo hilo.
+            # *** BUG: Pero también puede ser que notifique varias veces a
+            # *** BUG: la misma condición por los distintos wait? Desconocimiento.
 
         # StopReq
         stop_thread = _threading.Thread(

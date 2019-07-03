@@ -896,6 +896,11 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             target=stop_func, args=(self,), daemon=True)
         stop_thread.start()
 
+    def __del__(self):
+        # BUG: threading mantiene referencias al hilo mientras está vivo,
+        # BUG: nunca llama. Posiible solución: que no herede de Thread.
+        self.stop()
+
     def play(self, task, quant=1):
         quant = Quant.as_quant(quant)
         self.sched_abs(quant.next_time_on_grid(self), task)

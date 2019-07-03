@@ -9,7 +9,7 @@ import pathlib as _pathlib
 
 import liblo as _lo
 
-from . import main
+from . import main as _libsc3
 from . import utils as utl
 from . import netaddr as nad
 from . import model as mdl
@@ -175,7 +175,7 @@ class ServerOptions(object):
             o.append('-O')
             o.append(self.output_streams_enabled) # es un string
 
-        # if main.Main.singleton.platform.name != 'osx'\
+        # if _libsc3.main.platform.name != 'osx'\
         # or self.in_device == self.out_device: # BUG: no está implementado: thisProcess.platform.name
         if self.in_device == self.out_device: # BUG: borrar, va lo de arriba pero implementado
             if self.in_device is not None:
@@ -748,9 +748,9 @@ class Server(NodeParameter, metaclass=MetaServer):
         result = 0
 
         def task():
-            t = main.Main.elapsedTime()
+            t = _libsc3.main.elapsed_time()
             self.sync()
-            dt = main.Main.elapsedTime() - t
+            dt = _libsc3.main.elapsed_time() - t
             print('measured latency: {}s'.format(dt))
             result = max(result, dt)
             n -= 1
@@ -983,7 +983,7 @@ class Server(NodeParameter, metaclass=MetaServer):
         if self.in_process:
             print('booting internal server')
             self.boot_in_process() # BUG: no está implementado
-            self.pid = main.Main.pid # BUG: no está implementado
+            self.pid = _libsc3.main.pid # BUG: no está implementado
             on_complete()
         else:
             self.disconnect_shared_memory() # BUG: no está implementado

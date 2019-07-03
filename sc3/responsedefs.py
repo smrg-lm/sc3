@@ -5,7 +5,7 @@ import inspect
 
 from . import systemactions as sac
 from . import model as mdl
-from . import main as main
+from . import main as _libsc3
 from . import utils as utl
 
 
@@ -266,11 +266,11 @@ class OSCMessageDispatcher(AbstractWrappingDispatcher):
                 raise e
 
     def register(self):
-        main.Main.add_osc_recv_func(self) # thisProcess.addOSCRecvFunc(this)
+        _libsc3.main.add_osc_recv_func(self) # thisProcess.addOSCRecvFunc(this)
         self.registered = True
 
     def unregister(self):
-        main.Main.remove_osc_recv_func(self) # thisProcess.removeOSCRecvFunc(this)
+        _libsc3.main.remove_osc_recv_func(self) # thisProcess.removeOSCRecvFunc(this)
         self.registered = False
 
     def type_key(self):
@@ -324,7 +324,7 @@ class OSCFunc(AbstractResponderFunc):
         self.src_id = src_id
         self.recv_port = recv_port
         if recv_port is not None\
-        and main.Main.open_udp_port(recv_port): # BUG: implementar, thisProcess openUDPPort(recvPort).not
+        and _libsc3.main.open_udp_port(recv_port): # BUG: implementar, thisProcess openUDPPort(recvPort).not
             raise Exception('could not open UDP port {}'.format(recv_port))
         self.arg_template = arg_template
         self._func = func

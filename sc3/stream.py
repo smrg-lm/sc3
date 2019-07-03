@@ -5,7 +5,7 @@ import inspect
 import enum
 import random
 
-from . import main as _main
+from . import main as _libsc3
 from . import clock as clk
 from . import functions as fn
 from . import model as mdl
@@ -51,16 +51,18 @@ class Stream(fn.AbstractFunction): #, ABC):
         return self.next(inval)
 
     def yield_and_reset(self, value=None):
-        if self is _main.Main.current_TimeThread:
+        if self is _libsc3.main.current_tt:
             raise YieldAndReset(value)
         else:
-            raise Exception('yield_and_reset only works if self is main.Main.current_TimeThread')
+            raise Exception(
+                'yield_and_reset only works if self is main.current_tt')
 
     def always_yield(self, value=None):
-        if self is _main.Main.current_TimeThread:
+        if self is _libsc3.main.current_tt:
             raise AlwaysYield(value) # BUG: ver como afecta a StopIteration
         else:
-            raise Exception('always_yield only works if self is main.Main.current_TimeThread')
+            raise Exception(
+                'always_yield only works if self is main.current_tt')
 
     #@abstractmethod # NOTE: la clase que se usa como Stream por defecto es Routine (hay otras)
     def next(self, inval=None): # se define en Object y se sobreescribe con subclassResponsibility en Stream
@@ -210,18 +212,18 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         # se sobreescribe el reloj por TempoClock.default en Stream:play
         # y Routine:run vuelve a escribir SystemClock (cuando ya lo hizo en
         # PyrPrimitive). La única manera de usar el reloj heredado es llamando a next.
-        self._beats = _main.Main.current_TimeThread.beats
-        self._seconds = _main.Main.current_TimeThread.seconds # ojo que tienen setters porque son dependientes...
+        self._beats = _libsc3.main.current_tt.beats
+        self._seconds = _libsc3.main.current_tt.seconds # ojo que tienen setters porque son dependientes...
 
         # BUG: ver qué pasa con terminalValue <nextBeat, <>endBeat, <>endValue;
         # se usan en la implementación a bajo nivel de los relojes.
 
         self.func = func
         self.state = self.State.Init
-        if _main.Main.current_TimeThread.clock is None: # BUG: si mainThread siempre devuelve SystemClock y siempre es curThread por defecto, esta comprobación es necesaria?
+        if _libsc3.main.current_tt.clock is None: # BUG: si mainThread siempre devuelve SystemClock y siempre es curThread por defecto, esta comprobación es necesaria?
             self._clock = clk.SystemClock
         else:
-            self._clock = _main.Main.current_TimeThread.clock
+            self._clock = _libsc3.main.current_tt.clock
 
         # NOTA: No guarda la propiedad <parent cuando crea el thread, es
         # &g->thread que la usa para setear beats y seconds pero no la guarda,
@@ -267,8 +269,8 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         # // response to OSC and MIDI messages, the main Thread's logical
         # // time is set to the current physical time (see Process: *elapsedTime).
         # NOTE: En Python es cada vez que se requiere el tiempo de una ruitna.
-        if self is _main.Main.main_TimeThread:
-            _main.Main.update_logical_time()
+        if self is _libsc3.main.main_tt:
+            _libsc3.main.update_logical_time()
         return self._seconds
 
     @seconds.setter
@@ -279,8 +281,8 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
     @property
     def beats(self):
         # NOTE: Ver seconds arriba.
-        if self is _main.Main.main_TimeThread:
-            _main.Main.update_logical_time()
+        if self is _libsc3.main.main_tt:
+            _libsc3.main.update_logical_time()
         return self._beats
 
     @beats.setter
@@ -297,7 +299,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
             return self._thread_player
         else:
             if self.parent is not None\
-            and self.parent is not _main.Main.main_TimeThread:
+            and self.parent is not _libsc3.main.main_tt:
                 return self.parent.thread_player()
             else:
                 return self
@@ -314,7 +316,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         # // SuperCollider uses the taus88 random number generator which has a
         # // period of 2**88, and passes all standard statistical tests.
         # // Normally Threads inherit the randData state vector from the Thread that created it.
-        if _main.Main.current_TimeThread is self:
+        if _libsc3.main.current_tt is self:
             random.seed(seed) # BUG solo hay un generador random por intancia del intérprete, setear la semilla es lo mismo que setear el estado, no?
         else:
             tmp = random.getstate()
@@ -324,7 +326,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
 
     @property
     def rand_state(self):
-        if _main.Main.current_TimeThread is self:
+        if _libsc3.main.current_tt is self:
             return random.getstate()
         else:
             return self._rand_state
@@ -361,7 +363,7 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
         que en la creación o antes de llamar a play no se haya seteado
         un reloj 'custom'. El reloj no se puede cambiar una vez que se llamó
         a run o play.'''
-        clock = clock or _main.Main.current_TimeThread.clock # BUG: perooooooo! esto no es así en sclang! es self.clock que el el reloj de la creación del objeto
+        clock = clock or _libsc3.main.current_tt.clock # BUG: perooooooo! esto no es así en sclang! es self.clock que el el reloj de la creación del objeto
         self.clock = clock
         if isinstance(self.clock, clk.TempoClock):
             self.clock.play(self, quant) # clk.Quant.as_quant(quant)) # NOTE: no se necesita porque lo crea TempoClock.play
@@ -402,9 +404,9 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
         # prRoutineResume
         # TODO: setea nowExecutingPath, creo que no lo voy a hacer.
         self._previous_rand_state = random.getstate() # NOTE: se podría guardar el estado como un descriptor u otro objeto que implemente un protocolo?
-        random.setstate(self._rand_state) # hay que llamarlo ANTES de setear current_TimeThread o usar el atributo privado _rand_state
-        self.parent = _main.Main.current_TimeThread
-        _main.Main.current_TimeThread = self
+        random.setstate(self._rand_state) # hay que llamarlo ANTES de setear current_tt o usar el atributo privado _rand_state
+        self.parent = _libsc3.main.current_tt
+        _libsc3.main.current_tt = self
         # self._clock = self.parent.clock # BUG: No puede heredar el reloj acá, sclang no lo cambia, así sin esto el comportamiento es igual, ver qué me confundió en prRoutineResume.
         self.seconds = self.parent.seconds # NOTE: seconds setea beats también
         self.state = self.State.Running # NOTE: Lo define en switchToThread al final
@@ -475,7 +477,7 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
             # prRoutineYield # BUG: ver qué pasa con las otras excepciones dentro de send, si afectan este comportamiento
             self._rand_state = random.getstate()
             random.setstate(self._previous_rand_state)
-            _main.Main.current_TimeThread = self.parent
+            _libsc3.main.current_tt = self.parent
             self.parent = None
             # Setea nowExecutingPath, creo que no lo voy a hacer: slotCopy(&g->process->nowExecutingPath, &g->thread->oldExecutingPath);
             # switchToThread(g, parent, tSuspended, &numArgsPushed);
@@ -486,7 +488,7 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
         return self._last_value # BUG: ***************** si se retorna None no funciona yield from en State.Done.
 
     def reset(self):
-        if self is _main.Main.current_TimeThread: # Running
+        if self is _libsc3.main.current_tt: # Running
             raise YieldAndReset() # BUG: o tirar otra excpeción? Running es un error en sclang (se llama con yieldAndReset)
         elif self.state == self.State.Init:
             return
@@ -498,7 +500,7 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
     # // but a user should be able to use .stop anywhere
     # stop # prStop ->_RoutineStop con otros detalles
     def stop(self):
-        if self is _main.Main.current_TimeThread: # Running
+        if self is _libsc3.main.current_tt: # Running
             raise AlwaysYield()
         elif self.state == self.State.Done:
             return
@@ -566,7 +568,7 @@ class Condition():
     def wait(self):
         if not self.test:
             self._waiting_threads.append(
-                _main.Main.current_TimeThread.thread_player) # NOTE: problema en realidad, thread_player es callable, si se confunde con un método... no es que me haya pasado.
+                _libsc3.main.current_tt.thread_player) # NOTE: problema en realidad, thread_player es callable, si se confunde con un método... no es que me haya pasado.
             yield 'hang'
             #return 'hang'
         else:
@@ -576,13 +578,13 @@ class Condition():
     def hang(self, value='hang'):
         # // ignore the test, just wait
         self._waiting_threads.append(
-            _main.Main.current_TimeThread.thread_player)
+            _libsc3.main.current_tt.thread_player)
         yield value
         #return 'hang'
 
     def signal(self):
         if self.test:
-            time = _main.Main.current_TimeThread.seconds
+            time = _libsc3.main.current_tt.seconds
             tmp_wtt = self._waiting_threads
             self._waiting_threads = []
             for tt in tmp_wtt:
@@ -590,7 +592,7 @@ class Condition():
 
     def unhang(self):
         # // ignore the test, just resume all waiting threads
-        time = _main.Main.current_TimeThread.seconds
+        time = _libsc3.main.current_tt.seconds
         tmp_wtt = self._waiting_threads
         self._waiting_threads = []
         for tt in tmp_wtt:
@@ -676,7 +678,7 @@ class PauseStream(Stream):
         save_stream = self.stream # NOTE: usa el getter
         self._stop()
         mdl.NotificationCenter.notify(self, 'user_stopped')
-        if save_stream is _main.Main.current_TimeThread:
+        if save_stream is _libsc3.main.current_tt:
             self.always_yield()
 
     def _stop(self):

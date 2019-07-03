@@ -11,7 +11,7 @@ import math as _math
 import types as _types
 
 from . import utils as utl
-from . import main as _main
+from . import main as _libsc3
 from . import builtins as bi
 from . import stream as stm
 from . import systemactions as sac
@@ -36,7 +36,7 @@ class TaskQueue():
         self._counter = _itertools.count()
         self._removed_counter = 0
 
-    def add(self, task, time=0.0):
+    def add(self, time, task):
         'Add a new task or update the time of an existing task.'
         if task in self._entry_finder:
             self.remove(task)
@@ -80,6 +80,7 @@ class TaskQueue():
         'Reset the queue to initial state (remove all tasks).'
         self._init()
 
+    # NOTE: implementar __iter__ y copy()
 
 # // clocks for timing threads.
 
@@ -92,12 +93,12 @@ class Clock(_threading.Thread): # ver std::copy y std::bind
         cls.sched(0, task)
     @classmethod
     def seconds(cls): # seconds es el *tiempo lógico* de cada thread
-        return _main.Main.current_TimeThread.seconds
+        return _libsc3.main.current_tt.seconds
 
     # // tempo clock compatibility
     @classmethod
     def beats(cls):
-        return _main.Main.current_TimeThread.seconds
+        return _libsc3.main.current_tt.seconds
     @classmethod
     def beats2secs(cls, beats):
         return beats
@@ -149,8 +150,8 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         if cls._instance is None:
             obj = super().__new__(cls)
             _threading.Thread.__init__(obj)
-            obj._task_queue = _PriorityQueue() # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al querer comparar tasks, hacer que '<' devuelva el id del objeto
-            obj._sched_cond = _main.Main._main_lock
+            obj._task_queue = TaskQueue()
+            obj._sched_cond = _threading.Condition(_libsc3.main._main_lock)
             obj.daemon = True # TODO: tengo que ver si siendo demonios se pueden terminar
             obj.start()
             obj._sched_init()
@@ -162,7 +163,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         self._host_osc_offset = 0 # int64
 
         self._sync_osc_offset_with_tod()
-        self._host_start_nanos = int(_main.Main._time_of_initialization / 1e9) # time.time_ns() -> int v3.7
+        self._host_start_nanos = int(_libsc3.main._time_of_initialization / 1e9) # time.time_ns() -> int v3.7
         self._elapsed_osc_offset = int(
             self._host_start_nanos * SystemClock._NANOS_TO_OSC) + self._host_osc_offset
 
@@ -236,23 +237,18 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
 
     # NOTE: se llama en las funciones de los servidores a bajo nivel
     def osc_time(self) -> int: # L309, devuleve elapsed_time_to_osc(elapsed_time())
-        return self.elapsed_time_to_osc(_main.Main.elapsed_time()) # BUG: REVER qué elapsedTime llama (self.elapsed_time())
+        return self.elapsed_time_to_osc(_libsc3.main.elapsed_time()) # BUG: REVER qué elapsedTime llama (self.elapsed_time())
 
     def _sched_add(self, secs, task): # L353
-        item = (secs, task)
         if self._task_queue.empty():
             prev_time = -1e10
         else:
-            prev_time = self._task_queue.queue[0][0]
-        # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al querer comparar tasks, hacer que '<' devuelva el id del objeto
-        self._task_queue.put(item) #, block=False) Full exception, put de PriorityQueue es infinita por defecto, pero put(block=False) solo agrega si hay espacio libre inmediatamente o tira Full.
-        self._task_queue.task_done() # se puede llamar concurrentemente o con _sched_cond ya está?
+            prev_time = self._task_queue.peek()[0]
+        self._task_queue.add(secs, task)
         if isinstance(task, stm.TimeThread):
             task.next_beat = secs
-        if self._task_queue.queue[0][0] != prev_time:
-            with self._sched_cond:
-                #print('_sched_add llama a notify_all')
-                self._sched_cond.notify_all() # NOTE: acá es notify_all o no funciona.
+        if self._task_queue.peek()[0] != prev_time:
+            self._sched_cond.notify_all() # NOTE: esta función se llama con el bloqueo adquirido.
 
     # TODO: se llama en PyrLexer shutdownLibrary
     def sched_stop(self):
@@ -261,76 +257,78 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             if self._run_sched:
                 self._run_sched = False
                 self._sched_cond.notify_all()
-        self.join() # VER esto, la función sched_stop se llama desde otro hilo y es sincrónica allí
-        # tal vez debería juntar con _resync_thread
+        self.join() # *** BUG: son todas daemon acá y se liberan solas. VER esto.
+                    # *** BUG: En sc la función sched_stop se llama desde otro hilo y es sincrónica allí
+                    # *** BUG: tal vez debería juntar con _resync_thread.
 
     # TODO: se declara como sclang export en SCBase.h pero no se usa en ninguna parte
     def sched_clear(self): # L387, llama a schedClearUnsafe() con gLangMutex locks, esta función la exporta con SCLANG_DLLEXPORT_C
         with self._sched_cond:
             if self._run_sched:
-                self._task_queue.queue = []
+                self._task_queue.clear()
                 self._sched_cond.notify_all()
 
     # NOTE: def sched_run_func(self): # L422, es la función de este hilo, es una función estática, es run acá (salvo que no subclasee)
     def run(self):
         self._run_sched = True
-        now = sched_secs = sched_point = None
-        item = sched_time = task = delta = None
 
-        while True:
-            # // wait until there is something in scheduler
-            while self._task_queue.empty():
-                with self._sched_cond:
+        with self._sched_cond:
+            while True:
+                # // wait until there is something in scheduler
+                while self._task_queue.empty():
                     self._sched_cond.wait()
-                if not self._run_sched: return
+                    if not self._run_sched:
+                        return
 
-            # // wait until an event is ready
-            now = 0
-            while not self._task_queue.empty():
-                now = _time.time()
-                sched_secs = self._task_queue.queue[0][0]
-                sched_point = _main.Main._time_of_initialization + sched_secs # NOTE: sched_secs (el retorno del generador) se tiene que setear desde afuera con + elapsed_time()
-                if now >= sched_point:
-                    break
-                with self._sched_cond:
+                # // wait until an event is ready
+                now = 0
+                while not self._task_queue.empty():
+                    now = _time.time()
+                    sched_secs = self._task_queue.peek()[0]
+                    sched_point = (_libsc3.main._time_of_initialization
+                                   + sched_secs)
+                    if now >= sched_point:
+                        break
                     self._sched_cond.wait(sched_point - now)
-                if not self._run_sched: return
+                    if not self._run_sched:
+                        return
 
-            # // perform all events that are ready
-            while not self._task_queue.empty()\
-            and now >= _main.Main._time_of_initialization + self._task_queue.queue[0][0]:
-                item = self._task_queue.get()
-                sched_time = item[0]
-                task = item[1]
-                if isinstance(task, stm.TimeThread):
-                    task.next_beat = None
-                try:
+                # // perform all events that are ready
+                while not self._task_queue.empty()\
+                and now >= (_libsc3.main._time_of_initialization
+                            + self._task_queue.peek()[0]):
+                    item = self._task_queue.pop()
+                    sched_time = item[0]
+                    task = item[1]
+                    if isinstance(task, stm.TimeThread):
+                        task.next_beat = None
                     try:
-                        # BUG: interesante que se puede SystemClock.sched(0, 0) para clavar sclang
-                        # NOTE: ver qué pasa con la granulariadad de lock.
-                        # NOTE: deshabilitar y rehabilitar gc podría ayudar o la operación es: gc.isenabled() gc.disable() gc.enable().
-
-                        _main.Main.update_logical_time(sched_time) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
-
-                        if isinstance(task, _types.FunctionType):
-                            n = len(_inspect.signature(task).parameters)
-                            if n > 3:
-                                msg = f'SystemClock scheduled function takes between 0 and 3 positional arguments but {n} were given'
-                                raise TypeError(msg)
-                            args = [sched_time, sched_time, self][:n]
-                            delta = task(*args)
-                        elif isinstance(task, (stm.Routine, stm.PauseStream)):
-                            delta = task.awake(sched_time, sched_time, self) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
-                        else:
-                            raise TypeError(f"type '{type(item)}' is not supported by SystemClock scheduler")
-
-                        if isinstance(delta, (int, float)) and not isinstance(delta, bool):
-                            time = sched_time + delta
-                            self._sched_add(time, task)
-                    except stm.StopStream: # NOTE: Routine arroja StopStream en vez de StopIteration
-                        pass
-                except Exception:
-                    _traceback.print_exception(*_sys.exc_info()) # hay que poder recuperar el loop ante cualquier otra excepción
+                        try:
+                            _libsc3.main.update_logical_time(sched_time) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
+                            if isinstance(task, _types.FunctionType):
+                                n = len(_inspect.signature(task).parameters)
+                                if n > 3:
+                                    raise TypeError(
+                                        'clock scheduled function takes '
+                                        'between 0 and 3 positional arguments '
+                                        f'but {n} were given'
+                                    )
+                                args = [sched_time, sched_time, self][:n]
+                                delta = task(*args)
+                            elif isinstance(task, (stm.Routine, stm.PauseStream)):
+                                delta = task.awake(sched_time, sched_time, self) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
+                            else:
+                                raise TypeError(
+                                    f"type '{type(item)}' is not supported "
+                                    "by SystemClock scheduler")
+                            if isinstance(delta, (int, float))\
+                            and not isinstance(delta, bool):
+                                time = sched_time + delta
+                                self._sched_add(time, task)
+                        except stm.StopStream: # NOTE: Routine arroja StopStream en vez de StopIteration
+                            pass
+                    except Exception:
+                        _traceback.print_exception(*_sys.exc_info()) # hay que poder recuperar el loop ante cualquier otra excepción
 
     # sclang methods
 
@@ -341,7 +339,7 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
             # BUG: NO SÉ QUE ESTABA PENSANDO CUANOD HICE ESTE, FALTA:
             # BUG: queue es thisProcess.prSchedulerQueue, VER!
             while not cls._instance._task_queue.empty():
-                item = cls._instance._task_queue.get()[1] # de por sí PriorityQueue es thread safe, la implementación de SuperCollider es distinta
+                item = cls._instance._task_queue.pop()[1]
                 if isinstance(item, (stm.EventStreamPlayer, stm.PauseStream)):
                     item.removed_from_scheduler()
             cls._instance._sched_cond.notify_all()
@@ -349,17 +347,17 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
 
     @classmethod
     def sched(cls, delta, item):
-        seconds = _main.Main.current_TimeThread.seconds
-        seconds += delta
-        if seconds == _math.inf: return # // return nil OK, just don't schedule
         with cls._instance._sched_cond:
+            seconds = _libsc3.main.current_tt.seconds
+            seconds += delta
+            if seconds == _math.inf:
+                return
             cls._instance._sched_add(seconds, item)
 
     @classmethod
     def sched_abs(cls, time, item):
         if time == _math.inf:
-            msg = "sched_abs won't schedule {} to infinity"
-            raise Exception(msg.format(item)) # BUG: para test, sclang no programa el evento y ya
+            return
         with cls._instance._sched_cond:
             cls._instance._sched_add(time, item)
 
@@ -379,17 +377,17 @@ class Scheduler():
         self._drift = drift
         self.recursive = recursive
         # init
-        self._beats = _main.Main.current_TimeThread.beats
+        self._beats = _libsc3.main.current_tt.beats
         self._seconds = 0.0
         # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al querer comparar tasks, hacer que '<' devuelva el id del objeto
-        self.queue = _PriorityQueue()
+        self.queue = TaskQueue()
         self._expired = []
 
     def _wakeup(self, item):
         try:
             try:
                 # NOTE: Parece correcto el comportamiento, se debe actualizar en wakeup o en awake, acá los estoy haciendo antes pero el tiempo lógico es el mismo que se le pasa a awake.
-                _main.Main.update_logical_time(self._seconds) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
+                _libsc3.main.update_logical_time(self._seconds) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
 
                 if isinstance(item, _types.FunctionType):
                     n = len(_inspect.signature(item).parameters)
@@ -416,20 +414,18 @@ class Scheduler():
 
     def sched(self, delta, item): # delta no puede ser None
         if self._drift:
-            from_time = _main.Main.elapsed_time()
+            from_time = _libsc3.main.elapsed_time()
         else:
-            from_time = self.seconds = _main.Main.current_TimeThread.seconds # BUG: SINCORNIZANDO CON CURRENT_THREAD FUNCIONA BIEN (AGREGADO), PERO NO LE VEO SENTIDO.
-        self.queue.put((from_time + delta, item))
-        #self.queue.task_done() # es una anotación por si es útil luego
+            from_time = self.seconds = _libsc3.main.current_tt.seconds # BUG: SINCORNIZANDO CON CURRENT_THREAD FUNCIONA BIEN (AGREGADO), PERO NO LE VEO SENTIDO.
+        self.queue.add(from_time + delta, item)
 
     def sched_abs(self, time, item):
-        self.queue.put((time, item))
-        #self.queue.task_done() # es una anotación por si es útil luego
+        self.queue.add(time, item)
 
     def clear(self):
         item = None
         while not self.queue.empty():
-            item = self.queue.get() # NOTE: vacía la cola sacando las Routine, PauseStream o Function
+            item = self.queue.pop() # NOTE: vacía la cola sacando las Routine, PauseStream o Function
             if isinstance(item, stm.PauseStream): # NOTE: (PauseStream, stm.EventStreamPlayer)): son los único que definen el método siguiente.
                 item.removed_from_scheduler() # NOTE: cambié el orden, en sclang primero se llama a este método y luego se vacía la cola.
 
@@ -449,32 +445,29 @@ class Scheduler():
             self._seconds = value
             self._beats = self._clock.secs2beats(value)
             return
-        self._seconds = self.queue.queue[0][0] # topPriority(), usa los atributos por el cierre de wakeup
+        self._seconds = self.queue.peek()[0] # NOTE: usa los atributos por el cierre de wakeup
         if self.recursive:
             while self._seconds <= value: # seconds no puede ser None, sí la primera iteración es igual valor.
                 self._beats = self._clock.secs2beats(self._seconds)
-                self._wakeup(self.queue.get())
+                self._wakeup(self.queue.pop()[1])
                 if self.queue.empty():
                     break
                 else:
-                    self._seconds = self.queue.queue[0][0]
+                    self._seconds = self.queue.peek()[0]
         else:
             # // First pop all the expired items and only then wake
             # // them up, in order for control to return to the caller
             # // before any tasks scheduled as a result of this call are
             # // awaken.
             while self._seconds <= value:
-                self._expired.append(self.queue.get())
+                self._expired.append(self.queue.pop())
                 if self.queue.empty():
                     break
                 else:
-                    self._seconds = self.queue.queue[0][0]
+                    self._seconds = self.queue.peek()[0]
             for time, item in self._expired:
                 self._seconds = time
                 self._beats = self._clock.secs2beats(time)
-                # import inspect
-                # if isinstance(item, stm.Routine):
-                #     print('******* sched _wakeup item *** ***', inspect.getsource(item.func))
                 self._wakeup(item)
             self._expired.clear()
         self._seconds = value
@@ -493,7 +486,7 @@ class AppClock(Clock): # ?
         if cls._instance is None:
             obj = super().__new__(cls)
             _threading.Thread.__init__(obj)
-            obj._sched_cond = _main.Main._main_lock
+            obj._sched_cond = _threading.Condition(_libsc3.main._main_lock)
             obj._tick_cond = _threading.Condition()
             obj._scheduler = Scheduler(cls, drift=True, recursive=False)
             cls._instance = obj # tiene que estar antes de start porque hace un tick de gracia
@@ -529,10 +522,10 @@ class AppClock(Clock): # ?
 
     @classmethod
     def tick(cls):
-        tmp = _main.Main.current_TimeThread.clock
-        _main.Main.current_TimeThread.clock = cls # BUG: supongo que porque puede que scheduler evalue una Routine con play/run? Debe ser para defer. Igual no me cierra del todo, pero también porque sclang tiene un bug con los relojes heredados.
-        cls._instance._scheduler.seconds = _main.Main.elapsed_time()
-        _main.Main.current_TimeThread.clock = tmp
+        tmp = _libsc3.main.current_tt.clock
+        _libsc3.main.current_tt.clock = cls # BUG: supongo que porque puede que scheduler evalue una Routine con play/run? Debe ser para defer. Igual no me cierra del todo, pero también porque sclang tiene un bug con los relojes heredados.
+        cls._instance._scheduler.seconds = _libsc3.main.elapsed_time()
+        _libsc3.main.current_tt.clock = tmp
         if cls._instance._scheduler.queue.empty():
             return None # BUG: es un valor que se comprueba para saber si client::tick deja de llamarse a sí mismo.
         else:
@@ -574,8 +567,8 @@ class AppClock(Clock): # ?
 
 class ClockScheduler(_threading.Thread):
     def __init__(self):
-        self._sched_cond = _threading.Condition(main._main_lock)
-        self.queue = tkq.TaskQueue()
+        self._sched_cond = _threading.Condition(_libsc3.main._main_lock)
+        self.queue = TaskQueue()
         self.prev_elapsed_time = 0.0 # NOTE: para volver en tiempo atrás en StopStream con el tiempo previo del scheduler (no de la rutina como en rt!), ver abajo.
         _threading.Thread.__init__(self)
         self.daemon = True
@@ -594,7 +587,7 @@ class ClockScheduler(_threading.Thread):
                     if not self.queue.empty():
                         next_time = self.queue.peek()[0]
                     else:
-                        next_time = math.inf
+                        next_time = _math.inf
                     clock_task.run(time, next_time)
                     self._sched_cond.wait()
                     if not self._sched_run:
@@ -602,7 +595,7 @@ class ClockScheduler(_threading.Thread):
 
     def add(self, time, clock_task):
         with self._sched_cond:
-            self.queue.add(clock_task, time) # NOTE: add podría/debería ser al revés.
+            self.queue.add(time, clock_task)
             self._sched_cond.notify()
 
     def stop(self):
@@ -631,7 +624,7 @@ class ClockTask():
     def wakeup(self): # NOTE: se llama desde el loop de clock, con el lock
         try:
             try:
-                main.update_logical_time(self.time)
+                _libsc3.main.update_logical_time(self.time)
                 if isinstance(self.task, _types.FunctionType):
                     n = len(_inspect.signature(self.task).parameters)
                     if n > 3:
@@ -654,7 +647,7 @@ class ClockTask():
                     self.time = self.time + self.clock.beats2secs(delta)
                     self.scheduler.add(self.time, self)
             except stm.StopStream:
-                main.update_logical_time(self.scheduler.prev_elapsed_time) # NOTE: No es el tiempo de la rutina sino del scheduler en este caso, prev_time podía ser el tiempo previo de otra rutina!
+                _libsc3.main.update_logical_time(self.scheduler.prev_elapsed_time) # NOTE: No es el tiempo de la rutina sino del scheduler en este caso, prev_time podía ser el tiempo previo de otra rutina!
         except Exception:
             _traceback.print_exception(*_sys.exc_info())
 
@@ -754,10 +747,11 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         if tempo < 0.0:
             raise ValueError(f'invalid tempo {tempo}')
         beats = beats or 0.0
-        if seconds is None:
-            seconds = _main.Main.current_TimeThread.seconds # *** BUG: revisar, puede estar mal, en los test nrt no funciona.
-
-        # if not main.rt: seconds = 0.0 # *** BUG: NO ENTIENDO SI ESTO ESTÁ MAL ACÁ POR QUÉ FUNCIONA EN RT (SI ES QUE FUNCIONA).
+        if _libsc3.main.mode == _libsc3.main.RT:
+            if seconds is None:
+                seconds = _libsc3.main.current_tt.seconds # *** BUG: revisar, puede estar mal, en los test nrt no funciona.
+        else:
+            seconds = 0.0 # *** BUG: NO ENTIENDO SI ESTO ESTÁ ES ASÍ PARA NRT POR QUÉ FUNCIONA EN RT (SI ES QUE FUNCIONA).
 
         # TempoClock::TempoClock()
         self._tempo = tempo
@@ -774,9 +768,11 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         self.permanent = False
         type(self)._all.append(self)
 
-        self._task_queue = TaskQueue()
-        self._sched_cond = _threading.Condition(_main.Main._main_lock)
-        # if not main.rt: self._clock_task = None # NOTE: Para nrt.
+        if _libsc3.main.mode == _libsc3.main.RT:
+            self._task_queue = TaskQueue()
+        else:
+            self._clock_task = None
+        self._sched_cond = _threading.Condition(_libsc3.main._main_lock)
 
         _threading.Thread.__init__(self)
         self.daemon = True
@@ -784,7 +780,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def run(self):
         with self._sched_cond:
-            if main.rt: # *** BUG: Definir.
+            if _libsc3.main.mode == _libsc3.main.RT:
                 self._rt_run()
             else:
                 self._nrt_run()
@@ -819,7 +815,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 if elapsed_beats >= qpeek[0]:
                     break
                 sched_secs = self.beats2secs(qpeek[0])
-                sched_point = _main.Main._time_of_initialization + sched_secs
+                sched_point = _libsc3.main._time_of_initialization + sched_secs
                 self._sched_cond.wait(sched_point - _time.time())
                 if not self._run_sched:
                     return
@@ -835,7 +831,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                     task.next_beat = None
                 try:
                     try:
-                        _main.Main.update_logical_time(
+                        _libsc3.main.update_logical_time(
                             self.beats2secs(self._beats)) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
 
                         # runAwakeMessage NOTE: que se llama con la preparación previa de la pila del intérprete
@@ -864,7 +860,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                             time = self._beats + delta
                             self._sched_add(time, task)
                     except stm.StopStream:
-                        _main.Main.update_logical_time(
+                        _libsc3.main.update_logical_time(
                             self.beats2secs(prev_beat))
                 except Exception:
                     _traceback.print_exception(*_sys.exc_info())
@@ -881,7 +877,10 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             with clock._sched_cond: # lock_guard
                 clock._run_sched = False # NOTE: son daemon y se liberan solas cuando terminan sin join.
                 type(clock)._all.remove(clock)
-                clock._sched_cond.notify()
+                clock._sched_cond.notify_all() # NOTE: en TempoClock::Stop, es notify_all
+            # *** BUG: No estoy seguro de si en C++ notify_all notifica a todas
+            # *** BUG: las condiciones sobre el mismo lock. En Python no funciona
+            # *** BUG: así y clock._sched_cond trabaja sobre un solo hilo.
 
         # StopReq
         stop_thread = _threading.Thread(
@@ -940,7 +939,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         if not self.is_alive():
             raise RuntimeError(f'{self} is not running')
         # TempoClock::SetTempoAtTime
-        seconds = _main.Main.elapsed_time()
+        seconds = _libsc3.main.elapsed_time()
         self._base_beats = self.secs2beats(seconds)
         self._base_seconds = seconds
         self._tempo = value
@@ -960,7 +959,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # _TempoClock_ElapsedBeats
         if not self.is_alive():
             raise RuntimeError(f'{self} is not running')
-        return self.secs2beats(_main.Main.elapsed_time())
+        return self.secs2beats(_libsc3.main.elapsed_time())
 
     @property
     def beats(self):
@@ -968,10 +967,10 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # // returns the appropriate beats for this clock from any thread
         if not self.is_alive():
             raise RuntimeError(f'{self} is not running')
-        if _main.Main.current_TimeThread.clock is self:
-            return _main.Main.current_TimeThread.beats
+        if _libsc3.main.current_tt.clock is self:
+            return _libsc3.main.current_tt.beats
         else:
-            return self.secs2beats(_main.Main.current_TimeThread.seconds)
+            return self.secs2beats(_libsc3.main.current_tt.seconds)
 
     @beats.setter
     def beats(self, value):
@@ -979,7 +978,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         if not self.is_alive():
             raise RuntimeError(f'{self} is not running')
         with self._sched_cond:
-            seconds = _main.Main.current_TimeThread.seconds # BUG: revisar en C++ las veces que obtiene beats o seconds de &g->thread que es current_TimeThread
+            seconds = _libsc3.main.current_tt.seconds # BUG: revisar en C++ las veces que obtiene beats o seconds de &g->thread que es current_tt
             # TempoClock::SetAll # NOTE: _TempoClock_SetAll no se usa en sclang, creo que no están bien nombrasdos SetAll (para setea beats), SetTempoAtTime (para setea etempo) y SetTempoAtBeat (para setear tempo)
             self._base_seconds = seconds
             self._base_beats = value
@@ -990,36 +989,34 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     @property
     def seconds(self): # NOTE: definido solo como getter es thisThread.seconds, en TimeThread es property, acá también por consistencia?
-        return _main.Main.current_TimeThread.seconds
+        return _libsc3.main.current_tt.seconds
 
     def _sched_add(self, beats, task):
         # TempoClock::Add
-        if main.rt: # *** BUG: Definir.
+        if _libsc3.main.mode == _libsc3.main.RT:
             if self._task_queue.empty():
                 prev_beat = -1e10
             else:
-                qpeek = self._task_queue.peek()
-                prev_beat = qpeek[0]
-            self._task_queue.add(task, beats)
+                prev_beat = self._task_queue.peek()[0]
+            self._task_queue.add(beats, task)
             if isinstance(task, stm.TimeThread):
                 task.next_beat = beats
-            qpeek = self._task_queue.peek()
-            if qpeek[0] != prev_beat:
+            if self._task_queue.peek()[0] != prev_beat:
                 self._sched_cond.notify()
         else:
             if isinstance(task, stm.TimeThread):
                 task.next_beat = beats
-            ClockTask(beats, self, task, main.clock_scheduler)
+            ClockTask(beats, self, task, _libsc3.main._clock_scheduler)
 
     def sched(self, delta, item):
         # _TempoClock_Sched
         if not self.is_alive():
             raise RuntimeError(f'{self} is not running')
         with self._sched_cond:
-            if _main.Main.current_TimeThread.clock is self:
-                beats = _main.Main.current_TimeThread.beats
+            if _libsc3.main.current_tt.clock is self:
+                beats = _libsc3.main.current_tt.beats
             else:
-                seconds = _main.Main.current_TimeThread.seconds
+                seconds = _libsc3.main.current_tt.seconds
                 beats = self.secs2beats(seconds)
             beats += delta
             if beats == _math.inf:
@@ -1054,7 +1051,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     @beats_per_bar.setter
     def beats_per_bar(self, value):
-        if _main.Main.current_TimeThread is not self:
+        if _libsc3.main.current_tt is not self:
             RuntimeError('should only change beats_per_bar'
                          'within the scheduling thread')
         # setMeterAtBeat

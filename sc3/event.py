@@ -12,7 +12,7 @@ from . import builtins as bi
 from . import scale as scl
 from . import synthdef as sdf
 from . import synthdesc as sdc
-from . import main as _main
+from . import main as _libsc3
 from . import utils as utl
 from .graphparam import node_param
 from . import clock as clk
@@ -609,7 +609,7 @@ def _make_parent_events():
         if lag != 0:
             if offset != 0:
                 # // schedule on both clocks
-                _main.Main.current_TimeThread.clock.sched(
+                _libsc3.main.current_tt.clock.sched(
                     offset,
                     lambda: clk.SystemClock.sched(lag, lmbd)
                 )
@@ -619,7 +619,7 @@ def _make_parent_events():
         else:
             if offset != 0:
                 # // only delta specified: schedule only on the clock passed in # NOTE: passed in siempre es thisThread.clock
-                _main.Main.current_TimeThread.clock.sched(offset, lmbd)
+                _libsc3.main.current_tt.clock.sched(offset, lmbd)
             else:
                 # // no delays: send directly
                 lmbd()
@@ -637,7 +637,7 @@ def _make_parent_events():
             for i, delta in enumerate(offset):
                 if delta != 0:
                     # // schedule on both clocks
-                    _main.Main.current_TimeThread.clock.sched(
+                    _libsc3.main.current_tt.clock.sched(
                         delta,
                         ft.partial(lambda i: clk.SystemClock.sched(
                             lag[i % len(lag)],
@@ -654,7 +654,7 @@ def _make_parent_events():
             for i, delta in enumerate(offset):
                 if delta != 0:
                     # // only delta specified: schedule only on the clock passed in # NOTE: passed in siempre es thisThread.clock
-                    _main.Main.current_TimeThread.clock.sched(
+                    _libsc3.main.current_tt.clock.sched(
                         delta,
                         ft.partial(lambda i: lmbd(i), i)
                     )
@@ -728,7 +728,7 @@ def _make_parent_events():
 
         tempo = self.get('tempo')
         if tempo is not None:
-            _main.Main.current_TimeThread.clock.tempo = tempo # BUG: ESTO ES ASÍ PERO NO ME GUSTA NADA¡
+            _libsc3.main.current_tt.clock.tempo = tempo # BUG: ESTO ES ASÍ PERO NO ME GUSTA NADA¡
 
         if not self.is_rest(): # BUG: falta definir is_rest, tengo que ver la implementación a bajo nivel y la clase Rest, no puede ser propiedad, no puede llamarse rest porque confunde con el event_type 'rest'.
             type_func = self.event_types.get(self.type)\

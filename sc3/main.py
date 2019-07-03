@@ -25,40 +25,84 @@ from . import stream as stm
 from . import oscserver as osr
 from . import responsedefs as rdf
 from . import utils as utl
+from . import clock as clk
 
 
 class TimeException(ValueError):
     pass
 
 
-# Kernel.sc
+### Kernel.sc ###
+
+
 class Process(type):
     # classVars, <interpreter, schedulerQueue, <>nowExecutingPath TODO: ver luego si alguna sirve para la interfaz de Python
-    # current_TimeThread = None; main_TimeThread = None
+    # current_tt = None; main_tt = None
+
+    RT = 0
+    NRT = 1
 
     def __init__(cls, name, bases, dict):
-        cls.__init_class__(cls)
+        cls._main_lock = threading.RLock()
+        cls._switch_cond = threading.Condition(cls._main_lock)
+        cls._mode = None
         atexit.register(cls.shutdown)
 
-    # *** BUG: Los métodos definidos en el tipo no pertenecen al diccionario
-    # *** BUG: de la clase, pero se pueden sobreescribir con @classmethod.
-    # *** BUG: Esto no es bueno para los métodos pero permite tener
-    # *** BUG: @property de clase y de instancia con el mismo nombre.
-    # *** BUG: PERO NO SE SI ES CORRECTO, aunque es un método de la superclass
-    # *** BUG: ligado a la clase: <bound method Process.metodo of <class '__main__.RTMain'>>
+    def _init_rt(cls):
+        cls._rt_time_of_initialization = time.time()
+        cls._create_main_thread('rt')
+        cls.osc_server = osr.OSCServer() # BUG: options, y ver si se pueden crear más servidores.
+        cls.osc_server.start()
 
-    def _create_main_thread(cls):
+    def _init_nrt(cls):
+        cls._nrt_time_of_initialization = 0.0
+        cls._create_main_thread('nrt')
+        cls._clock_scheduler = clk.ClockScheduler()
+
+    def _create_main_thread(cls, prefix):
         # init main time thread # NOTE: ver PyrInterpreter3 L157 newPyrProcess y PyrPrimitive initPyrThread
-        cls.main_TimeThread = stm.TimeThread.__new__(stm.TimeThread)
-        cls.main_TimeThread.parent = None
-        cls.main_TimeThread.func = None
-        cls.main_TimeThread.state = stm.TimeThread.State.Init
-        cls.main_TimeThread._thread_player = None
-        cls.main_TimeThread._beats = 0.0 # NOTE: se inicializan en la declaración de la clase en sclang, sirven solo para mainThread las rutinas llama a _InitThread.
-        cls.main_TimeThread._seconds = 0.0
-        cls.main_TimeThread._rand_state = random.getstate() # BUG: ver, inicializa el estado con ./lang/LangPrimSource/PyrUnixPrim.cpp:int32 timeseed() en newPyrProcess
-        # NOTE: cls.main_TimeThread.clock siempre es SystemClock y no se puede setear (no tiene efecto).
-        cls.current_TimeThread = cls.main_TimeThread
+        main_tt = stm.TimeThread.__new__(stm.TimeThread)
+        main_tt.parent = None
+        main_tt.func = None
+        main_tt.state = stm.TimeThread.State.Init
+        main_tt._thread_player = None
+        main_tt._beats = 0.0 # NOTE: se inicializan en la declaración de la clase en sclang, sirven solo para mainThread las rutinas llama a _InitThread.
+        main_tt._seconds = 0.0
+        main_tt._rand_state = random.getstate() # BUG: ver, inicializa el estado con ./lang/LangPrimSource/PyrUnixPrim.cpp:int32 timeseed() en newPyrProcess
+        # *** BUG: cls.main_tt.clock siempre es SystemClock y no se puede setear (no tiene efecto).
+        main_vname = '_' + prefix + '_main_tt'
+        curr_vname = '_' + prefix + '_current_tt'
+        setattr(cls, main_vname, main_tt)
+        setattr(cls, curr_vname, getattr(cls, main_vname)) # NOTE: un solo lock, no pueden existir en paralelo en distintos hilos.
+
+    def rt(cls):
+        '''Sets the library in rt mode.'''
+        if not hasattr(cls, '_rt_time_of_initialization'):
+            cls._init_rt()
+        with cls._switch_cond:
+            cls._time_of_initialization = cls._rt_time_of_initialization
+            cls.main_tt = cls._rt_main_tt
+            cls.current_tt = cls.main_tt
+            setattr(cls, 'elapsed_time', cls._rt_elapsed_time)
+            setattr(cls, 'update_logical_time', cls._rt_update_logical_time)
+            cls._mode = cls.RT
+
+    def nrt(cls):
+        '''Sets the library in nrt mode.'''
+        print('*** bug: nrt no va a funcionar con las clases que llaman a SystemClock directamente, por ejemplo Event.')
+        if not hasattr(cls, '_nrt_time_of_initialization'):
+            cls._init_nrt()
+        with cls._switch_cond:
+            cls._time_of_initialization = cls._nrt_time_of_initialization
+            cls.main_tt = cls._nrt_main_tt
+            cls.current_tt = cls.main_tt # *** BUG: ver qué pasa si no se resetea.
+            setattr(cls, 'elapsed_time', cls._nrt_elapsed_time)
+            setattr(cls, 'update_logical_time', cls._nrt_update_logical_time)
+            cls._mode = cls.NRT
+
+    @property
+    def mode(cls):
+        return cls._mode
 
     # TODO: ver y agregar los comentarios en el código original
     def startup(cls):
@@ -98,15 +142,19 @@ class Process(type):
     #     cls.osc_server.replace_recv_func(func)
 
     # *elapsedTime _ElapsedTime
-    def elapsed_time(cls) -> float: # devuelve el tiempo del reloj de mayor precisión menos _time_of_initialization
+    def _rt_elapsed_time(cls) -> float: # devuelve el tiempo del reloj de mayor precisión menos _time_of_initialization
         '''Physical time since library initialization.'''
         return time.time() - cls._time_of_initialization
+
+    def _nrt_elapsed_time(cls) -> float:
+        '''Physical time is main_Thread.seconds in nrt.'''
+        return float(cls.main_tt.seconds)
 
     # *monotonicClockTime _monotonicClockTime
     def monotonic_clock_time(cls) -> float: # monotonic_clock::now().time_since_epoch(), no sé dónde usa esto
         return time.monotonic() # en linux es hdclock es time.perf_counter(), no se usa la variable que declara
 
-    def update_logical_time(cls, seconds=None):
+    def _rt_update_logical_time(cls, seconds=None):
         # NOTE: En la documentación de Thread dice:
         # // When code is run from the code editor, the command line, or in
         # // response to OSC and MIDI messages, the main Thread's logical
@@ -120,46 +168,28 @@ class Process(type):
         # NOTE: intenta ser general aunque sería menos eficiente para los relojes.
         now = cls.elapsed_time()
         if seconds is None:
-            #if cls.current_TimeThread is cls.main_TimeThread: # NOTE: Dejo el check en Clock. NOTE: Esto actualiza cada vez que SystemClock y AppClock se consultan desde main_TimeThread. (BUG) La misma lógica también cuando se usa también cuando llegan mensajes OSC, MIDI o HID.
-            cls.main_TimeThread.seconds = now # *logical time* is set to *physical time*
+            #if cls.current_tt is cls.main_tt: # NOTE: Dejo el check en Clock. NOTE: Esto actualiza cada vez que SystemClock y AppClock se consultan desde main_tt. (BUG) La misma lógica también cuando se usa también cuando llegan mensajes OSC, MIDI o HID.
+            cls.main_tt.seconds = now # *logical time* is set to *physical time*
         elif seconds > now:
             raise TimeException(
                 "logical time can't be set in the future of physical time")
         else:
             #print('*** seconds, now & diff:', [seconds, now, now - seconds]) # NOTE: otra medida sería cuándo el tiempo de retraso es perceptible en tiempo real...
-            cls.main_TimeThread.seconds = seconds
+            cls.main_tt.seconds = seconds
+
+    def _nrt_update_logical_time(cls, seconds=None):
+        if seconds is None:
+            return
+        else:
+            cls.main_tt.seconds = seconds
 
 
 ### Main.sc ###
 
 
-class RTMain(metaclass=Process):
-    def __init_class__(cls):
-        cls._time_of_initialization = time.time()
-        cls._main_lock = threading.RLock()
-        cls._create_main_thread()
-        cls.osc_server = osr.OSCServer() # BUG: options, y ver si se pueden crear más servidores, ver abajo
-        cls.osc_server.start()
+class main(metaclass=Process):
+    pass
 
 
-class NRTMain(metaclass=Process):
-    def __init_class__(cls):
-        cls._time_of_initialization = 0.0
-        cls._time_of_initialization = time.time()
-        cls._main_lock = threading.RLock()
-        cls._create_main_thread()
-
-    @classmethod
-    def elapsed_time(cls) -> float:
-        '''Physical time is main_Thread.seconds in nrt.'''
-        return float(cls.main_TimeThread.seconds)
-
-    @classmethod
-    def update_logical_time(cls, seconds=None):
-        if seconds is None:
-            return
-        else:
-            cls.main_TimeThread.seconds = seconds
-
-main = RTMain
+main.rt()
 utl.ClassLibrary.init()

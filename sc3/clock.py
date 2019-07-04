@@ -545,31 +545,6 @@ class AppClock(Clock): # ?
     # Acá podría ir todo dentro de sched(), ergo sum chin pum: cls.tick()
 
 
-# NOTE: Nota original en TempoClock.
-# /*
-# You should only change the tempo 'now'. You can't set the tempo at some beat
-# in the future or past, even though you might think so from the methods.
-#
-# There are several ideas of now:
-# 	elapsed time, i.e. "real time"
-# 	logical time in the current time base.
-# 	logical time in another time base.
-#
-# Logical time is time that is incremented by exact amounts from the time you
-# started. It is not affected by the actual time your task gets scheduled, which
-# may shift around somewhat due to system load. By calculating using logical
-# time instead of actual time, your process will not drift out of sync over long
-# periods. Every thread stores a clock and its current logical time in seconds
-# and beats relative to that clock.
-#
-# Elapsed time is whatever the system clock says it is right now. Elapsed time
-# is always advancing. Logical time only advances when your task yields or
-# returns.
-# */
-# NOTE: Elapsed time, tiempo transcurrido, es el tiempo físico, en
-# NOTE: contraposición al tiempo lógico. La base temporal es el tempo.
-
-
 class ClockScheduler(_threading.Thread):
     def __init__(self):
         self._sched_cond = _threading.Condition(_libsc3.main._main_lock)
@@ -712,6 +687,30 @@ class Quant():
 
     # printOn
     # storeArgs
+
+
+# /*
+# You should only change the tempo 'now'. You can't set the tempo at some beat
+# in the future or past, even though you might think so from the methods.
+#
+# There are several ideas of now:
+# 	elapsed time, i.e. "real time"
+# 	logical time in the current time base.
+# 	logical time in another time base.
+#
+# Logical time is time that is incremented by exact amounts from the time you
+# started. It is not affected by the actual time your task gets scheduled, which
+# may shift around somewhat due to system load. By calculating using logical
+# time instead of actual time, your process will not drift out of sync over long
+# periods. Every thread stores a clock and its current logical time in seconds
+# and beats relative to that clock.
+#
+# Elapsed time is whatever the system clock says it is right now. Elapsed time
+# is always advancing. Logical time only advances when your task yields or
+# returns.
+# */
+# NOTE: Elapsed time, tiempo transcurrido, es el tiempo físico, en
+# NOTE: contraposición al tiempo lógico. La base temporal es el tempo.
 
 
 class MetaTempoClock(type):
@@ -1154,19 +1153,6 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     # // these methods allow TempoClock to act as TempoClock.default
     # TODO: VER SI VAN O NO
-
-
-class NRTClock(Clock):
-    # Los patterns temporales tienen que generar una rutina que
-    # corra en el mismo reloj. El probleam es que el tiempo no
-    # avanza si no se llama a yield/wait. El reloj de Jonathan
-    # captura la cola y usa un servidor dummy, pero si el pattern
-    # usa el reloj en 'tiempo real' eso no queda registrado.
-    # Además, en nrt todas las acciones son sincrónicas.
-    # NOTE: Se puede crear un hilo que emule elapsed_time a una
-    # NOTE: determinada frecuencia de muestreo/control.
-    # NOTE: que se puedan segmentar los render y que se pueda usar transport.
-    pass
 
 
 def defer(item, delta=None):

@@ -23,6 +23,7 @@ from . import stream as stm
 from . import node as nod
 from . import bus
 from . import graphparam as gpp
+from . import buffer as bff
 
 
 # BUG: revisar porque hay un patch que cambió esto y otros que cambiaron un par
@@ -765,10 +766,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         ping_func()
 
     def cached_buffers_do(self, func):
-        xxx.Buffer.cached_buffers_do(self, func)
+        bff.Buffer.cached_buffers_do(self, func)
 
     def cached_buffer_at(self, bufnum):
-        return xxx.Buffer.cached_buffer_at(self, bufnum)
+        return bff.Buffer.cached_buffer_at(self, bufnum)
 
     # // keep defaultGroups for all clients on this server:
     def make_default_groups(self):

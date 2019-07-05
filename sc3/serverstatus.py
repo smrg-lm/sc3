@@ -148,7 +148,9 @@ class ServerStatusWatcher():
                     mdl.NotificationCenter.notify(self.server, 'counts')
                 clk.defer(defer_func)
 
-            self._status_watcher = rdf.OSCFunc(osc_func, '/status.reply', self.server.addr)
+            resp = rdf.OSCFunc(osc_func, '/status.reply', self.server.addr)
+            resp.permanent = True
+            self._status_watcher = resp
             self._status_watcher.permanent = True
         else:
             self._status_watcher.enable()

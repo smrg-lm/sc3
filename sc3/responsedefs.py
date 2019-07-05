@@ -66,6 +66,9 @@ class AbstractResponderFunc(ABC):
         else:
             sac.CmdPeriod.add(self)
 
+    # def fix(self): # NOTE: usar oscfunc.permanent = True
+    #     self.permanent = True
+
     def free(self):
         cls = type(self)
         if self in cls._all_func_proxies: # NOTE: check agregado para poder llamar a free repetidamente sin que tire KeyError, la otra es comprobar que el responder exista en _all_func_proxies, no sé cuál sería mejor, esta es consistente con que se puede agregar varias veces el mismo sin duplicar (por set)

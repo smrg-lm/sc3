@@ -2,10 +2,10 @@
 
 import warnings
 
-import sc3.ugens as ug
-import sc3._global as _gl
-import sc3.utils as ut
-from sc3.graphparam import ugen_param
+from . import ugens as ugn
+from . import _global as _gl
+from . import utils as utl
+from . import graphparam as gpp
 
 # Controls
 
@@ -19,7 +19,7 @@ class ControlName():
         self.lag = lag or 0.0
 
     def num_channels(self):
-        return len(ut.as_list(self.default_value))
+        return len(utl.as_list(self.default_value))
 
     #def print_on(self, stream):
     def __str__(self):
@@ -30,7 +30,7 @@ class ControlName():
         return string
 
 
-class Control(ug.MultiOutUGen):
+class Control(ugn.MultiOutUGen):
     def __init__(self):
         super().__init__()
         self.values = []
@@ -39,7 +39,7 @@ class Control(ug.MultiOutUGen):
     def names(cls, names):
         synthdef = _gl.current_synthdef
         index = synthdef.control_index
-        names = ut.as_list(names)
+        names = utl.as_list(names)
         for i, name in enumerate(names):
             synthdef.add_control_name(
                 ControlName(
@@ -50,11 +50,11 @@ class Control(ug.MultiOutUGen):
 
     @classmethod
     def ir(cls, values):
-        return cls.multi_new_list(['scalar'] + ut.as_list(values))
+        return cls.multi_new_list(['scalar'] + utl.as_list(values))
 
     @classmethod
     def kr(cls, values):
-        return cls.multi_new_list(['control'] + ut.as_list(values))
+        return cls.multi_new_list(['control'] + utl.as_list(values))
 
     def init_ugen(self, *values):
         self.values = list(values)
@@ -65,10 +65,10 @@ class Control(ug.MultiOutUGen):
             ctl_names = self.synthdef.control_names
             if len(ctl_names) > 0:
                 # // current control is always the last added, so:
-                last_control = ctl_names[len(ctl_names) - 1] # VER: si no hay un método como last o algo así.
+                last_control = ctl_names[-1]
                 if last_control.default_value is None:
                     # // only write if not there yet:
-                    last_control.default_value = ut.unbubble(self.values)
+                    last_control.default_value = utl.unbubble(self.values)
 
             self.synthdef.control_index += len(self.values)
         return self.init_outputs(len(self.values), self.rate)
@@ -78,7 +78,7 @@ class Control(ug.MultiOutUGen):
         return True
 
 
-class AudioControl(ug.MultiOutUGen):
+class AudioControl(ugn.MultiOutUGen):
     def __init__(self):
         super().__init__()
         self.values = []
@@ -87,7 +87,7 @@ class AudioControl(ug.MultiOutUGen):
     def names(cls, names):
         synthdef = _gl.current_synthdef # VER: lo mimso que arriba, es local, luego init_ugen llama a self.synthdef, supongo que se inicializa en las subclases.
         index = synthdef.control_index
-        names = ut.as_list(names)
+        names = utl.as_list(names)
         for i, name in enumerate(names):
             synthdef.add_control_name(
                 ControlName(
@@ -98,7 +98,7 @@ class AudioControl(ug.MultiOutUGen):
 
     @classmethod
     def ar(cls, values):
-        return cls.multi_new_list(['audio'] + ut.as_list(values))
+        return cls.multi_new_list(['audio'] + utl.as_list(values))
 
     def init_ugen(self, *values):
         self.values = list(values)
@@ -128,11 +128,11 @@ class LagControl(Control):
 
     @classmethod
     def kr(cls, values, lags):
-        values = ut.as_list(values)
+        values = utl.as_list(values)
         if isinstance(lags, (int, float)): # isNumber
             lags = [lags] * len(values)
         else:
-            lags = ut.as_list(lags)
+            lags = utl.as_list(lags)
 
         if len(values) != len(lags):
             msg = '{} len(values) is not len(lags), {}.kr returns None'
@@ -165,7 +165,7 @@ class LagControl(Control):
 
 # Inputs
 
-class AbstractIn(ug.MultiOutUGen):
+class AbstractIn(ugn.MultiOutUGen):
     @classmethod
     def is_input_ugen(self):
         return True
@@ -188,14 +188,14 @@ class In(AbstractIn):
 class LocalIn(AbstractIn):
     @classmethod
     def ar(cls, num_channels=1, default=0.0):
-        return cls.multi_new('audio', num_channels, *ut.as_list(default))
+        return cls.multi_new('audio', num_channels, *utl.as_list(default))
 
     @classmethod
     def kr(cls, num_channels=1, default=0.0):
-        return cls.multi_new('control', num_channels, *ut.as_list(default))
+        return cls.multi_new('control', num_channels, *utl.as_list(default))
 
     def init_ugen(self, num_channels, *default):
-        self.inputs = tuple(ut.wrap_extend(list(default), num_channels)) # TODO: es tupla, en sclang es nil si no hay inputs.
+        self.inputs = tuple(utl.wrap_extend(list(default), num_channels)) # TODO: es tupla, en sclang es nil si no hay inputs.
         return self.init_outputs(num_channels, self.rate)
 
 
@@ -231,7 +231,7 @@ class InTrig(AbstractIn):
 
 # Outputs
 
-class AbstractOut(ug.UGen):
+class AbstractOut(ugn.UGen):
     def num_outputs(self):
         return 0
 
@@ -241,7 +241,7 @@ class AbstractOut(ug.UGen):
     def check_inputs(self):
         if self.rate == 'audio':
             for i in range(type(self).num_fixed_args(), len(self.inputs)): # TODO: es tupla, en sclang es nil si no hay inputs.
-                if ugen_param(self.inputs[i]).as_ugen_rate() != 'audio':
+                if gpp.ugen_param(self.inputs[i]).as_ugen_rate() != 'audio':
                     msg = '{}:'.format(type(self).__name__)
                     msg += ' input at index {} ({}) is not audio rate'
                     return msg.format(i, type(self.inputs[i]).__name__) # TODO: Si es OutputProxy que imprima source_ugen
@@ -267,7 +267,7 @@ class AbstractOut(ug.UGen):
 class Out(AbstractOut):
     @classmethod
     def ar(cls, bus, channels_list):
-        channels_list = ugen_param(ut.as_list(channels_list))
+        channels_list = gpp.ugen_param(utl.as_list(channels_list))
         channels_list = channels_list.as_ugen_input(cls)
         channels_list = cls.replace_zeroes_with_silence(channels_list)
         cls.multi_new_list(['audio', bus] + channels_list)
@@ -275,7 +275,7 @@ class Out(AbstractOut):
 
     @classmethod
     def kr(cls, bus, channels_list):
-        cls.multi_new_list(['control', bus] + ut.as_list(channels_list))
+        cls.multi_new_list(['control', bus] + utl.as_list(channels_list))
         return 0.0
 
     @classmethod
@@ -299,7 +299,7 @@ class OffsetOut(Out):
 class LocalOut(AbstractOut):
     @classmethod
     def ar(cls, channels_list):
-        channels_list = ugen_param(ut.as_list(channels_list))
+        channels_list = gpp.ugen_param(utl.as_list(channels_list))
         channels_list = channels_list.as_ugen_input(cls)
         channels_list = cls.replace_zeroes_with_silence(channels_list)
         cls.multi_new_list(['audio'] + channels_list)
@@ -307,7 +307,7 @@ class LocalOut(AbstractOut):
 
     @classmethod
     def kr(cls, channels_list):
-        channels_list = ut.as_list(channels_list)
+        channels_list = utl.as_list(channels_list)
         cls.multi_new_list(['audio'] + channels_list)
         return 0.0 # OC: LocalOut has no output.
 
@@ -322,7 +322,7 @@ class LocalOut(AbstractOut):
 class XOut(AbstractOut):
     @classmethod
     def ar(cls, bus, xfade, channels_list):
-        channels_list = ugen_param(ut.as_list(channels_list))
+        channels_list = gpp.ugen_param(utl.as_list(channels_list))
         channels_list = channels_list.as_ugen_input(cls)
         channels_list = cls.replace_zeroes_with_silence(channels_list)
         cls.multi_new_list(['audio', bus, xfade] + channels_list)
@@ -330,7 +330,7 @@ class XOut(AbstractOut):
 
     @classmethod
     def kr(cls, bus, xfade, channels_list):
-        channels_list = ut.as_list(channels_list)
+        channels_list = utl.as_list(channels_list)
         cls.multi_new_list(['control', bus, xfade] + channels_list)
         return 0.0 # OC: Out has no output.
 

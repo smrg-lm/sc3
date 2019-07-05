@@ -13,12 +13,11 @@ import struct
 from functools import singledispatch
 import inspect
 
-import sc3.functions as fn
-import sc3._global as _gl
-import sc3.utils as ut
-import sc3._specialindex as si
-from sc3.graphparam import ugen_param
-#from . import node as nod # BUG: ugens no puede importar node, se crean varios niveles de recursión, usando forward declaration
+from . import functions as fn
+from . import _global as _gl
+from . import utils as utl
+from . import _specialindex as _si
+from . import graphparam as gpp
 
 
 class UGen(fn.AbstractFunction):
@@ -71,7 +70,7 @@ class UGen(fn.AbstractFunction):
         '''
         # single channel, one ugen
         lenght = 0
-        args = ugen_param(args).as_ugen_input(cls)
+        args = gpp.ugen_param(args).as_ugen_input(cls)
         for item in args:
             if isinstance(item, list):
                 lenght = max(lenght, len(item))
@@ -154,7 +153,7 @@ class UGen(fn.AbstractFunction):
     def check_valid_inputs(self):  # este método se usa acá y en otras ugens dentro de check_inputs, es interfaz de UGen se usa junto con check_inputs
         '''Returns error msg or None.'''
         for i, input in enumerate(self.inputs): # TODO: es tupla, en sclang es nil si no hay inputs.
-            if not ugen_param(input).is_valid_ugen_input():
+            if not gpp.ugen_param(input).is_valid_ugen_input():
                 arg_name = self.arg_name_for_input_at(i)
                 if arg_name is None: arg_name = i
                 return 'arg: {} has bad input: {}'.format(arg_name, input)
@@ -165,16 +164,16 @@ class UGen(fn.AbstractFunction):
             if n > len(self.inputs): # en sclang no comprueba el rango de inputs porque arr[i] fuera de rango devuelve nil y nil.rate devuelve nil!
                 n = len(self.inputs) # TODO: es tupla, en sclang es nil si no hay inputs.
             for i in range(n):
-                if ugen_param(self.inputs[i]).as_ugen_rate() != 'audio': # BUG: VER VALORES POSIBLES PARA self.inputs[i]
+                if gpp.ugen_param(self.inputs[i]).as_ugen_rate() != 'audio': # BUG: VER VALORES POSIBLES PARA self.inputs[i]
                     msg = 'input {} is not audio rate: {} {}'.format(
                         i, self.inputs[i],
-                        ugen_param(self.inputs[0]).as_ugen_rate()
+                        gpp.ugen_param(self.inputs[0]).as_ugen_rate()
                     )
                     return msg
         return self.check_valid_inputs() # comprueba is_valid_ugen_input no el rate.
 
     def check_sr_as_first_input(self): # checkSameRateAsFirstInput ídem anterior, deben ser interfaz protejida
-        if self.rate != ugen_param(self.inputs[0]).as_ugen_rate():
+        if self.rate != gpp.ugen_param(self.inputs[0]).as_ugen_rate():
             msg = 'first input is not {} rate: {} {}'\
                   .format(self.rate, self.inputs[0], self.inputs[0].rate)
             return msg
@@ -249,13 +248,14 @@ class UGen(fn.AbstractFunction):
 
     @classmethod # VER: la locación de este método, es una utilidad de clase.
     def replace_zeroes_with_silence(cls, lst): # es recursiva y la usan Function-asBuffer, (AtkMatrixMix*ar), GraphBuilder-wrapOut, LocalOut*ar, Out*ar, XOut*ar.
-        # OC: This replaces zeroes with audio rate silence.
-        # Sub collections are deep replaced
-        num_zeroes = lst.count(0.0)
-        if num_zeroes == 0: return lst
+        # // This replaces zeroes with audio rate silence.
+        # // Sub collections are deep replaced.
+        from . import line as lne # BUG: import cíclico fatal por el tipo en la herencia.
 
-        from . import line as ln # BUG: import cíclico fatal solo por Silent
-        silent_channels = ut.as_list(ln.Silent.ar(num_zeroes))
+        num_zeroes = lst.count(0.0)
+        if num_zeroes == 0:
+            return lst
+        silent_channels = utl.as_list(lne.Silent.ar(num_zeroes))
         pos = 0
         for i, item in enumerate(lst):
             if item == 0.0:
@@ -273,7 +273,7 @@ class UGen(fn.AbstractFunction):
     def compose_unop(self, selector): # composeUnaryOp
         return UnaryOpUGen.new(selector, self)
     def compose_binop(self, selector, input): #composeBinaryOp
-        param = ugen_param(input)
+        param = gpp.ugen_param(input)
         if param.is_valid_ugen_input():
             return BinaryOpUGen.new(selector, self, input)
         else:
@@ -305,7 +305,7 @@ class UGen(fn.AbstractFunction):
             file.write(struct.pack('>h', self.special_index)) # putInt16
             # // write wire spec indices.
             for input in self.inputs:
-                ugen_param(input).write_input_spec(file, self.synthdef)
+                gpp.ugen_param(input).write_input_spec(file, self.synthdef)
             self.write_output_specs(file)
         except Exception as e:
             raise Exception('SynthDef: could not write def') from e
@@ -528,7 +528,7 @@ class BasicOpUGen(UGen):
 
     @operator.setter
     def operator(self, value):
-        index, operator = si.sc_spindex_opname(value)
+        index, operator = _si.sc_spindex_opname(value)
         self._operator = operator
         self.special_index = index # TODO: en inout.py hace: self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
         if self.special_index < 0:
@@ -565,8 +565,8 @@ class UnaryOpUGen(BasicOpUGen):
 
     def init_ugen(self, operator, input):
         self.operator = operator
-        self.rate = ugen_param(input).as_ugen_rate()
-        self.inputs = tuple(ut.as_list(input)) # TODO: es tupla, en sclang es nil si no hay inputs.
+        self.rate = gpp.ugen_param(input).as_ugen_rate()
+        self.inputs = tuple(utl.as_list(input)) # TODO: es tupla, en sclang es nil si no hay inputs.
         return self # TIENEN QUE DEVOLVER SELF
 
     def optimize_graph(self):
@@ -606,8 +606,8 @@ class BinaryOpUGen(BasicOpUGen):
         return self # TIENEN QUE DEVOLVER SELF
 
     def determine_rate(self, a, b):
-        a_rate = ugen_param(a).as_ugen_rate()
-        b_rate = ugen_param(b).as_ugen_rate()
+        a_rate = gpp.ugen_param(a).as_ugen_rate()
+        b_rate = gpp.ugen_param(b).as_ugen_rate()
         # El orden es importante.
         if a_rate == 'demand': return 'demand'
         if b_rate == 'demand': return 'demand'
@@ -647,8 +647,8 @@ class BinaryOpUGen(BasicOpUGen):
     # L239
     def optimize_to_sum3(self):
         a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
-        if ugen_param(a).as_ugen_rate() == 'demand'\
-        or ugen_param(b).as_ugen_rate() == 'demand':
+        if gpp.ugen_param(a).as_ugen_rate() == 'demand'\
+        or gpp.ugen_param(b).as_ugen_rate() == 'demand':
             return None
 
         if isinstance(a, BinaryOpUGen) and a.operator == '+'\
@@ -673,8 +673,8 @@ class BinaryOpUGen(BasicOpUGen):
     # L262
     def optimize_to_sum4(self):
         a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
-        if ugen_param(a).as_ugen_rate() == 'demand'\
-        or ugen_param(b).as_ugen_rate() == 'demand':
+        if gpp.ugen_param(a).as_ugen_rate() == 'demand'\
+        or gpp.ugen_param(b).as_ugen_rate() == 'demand':
             return None
 
         if isinstance(a, Sum3) and len(a.descendants) == 1:
@@ -804,7 +804,7 @@ class BinaryOpUGen(BasicOpUGen):
 class MulAdd(UGen):
     @classmethod
     def new(cls, input, mul=1.0, add=0.0):
-        params = ugen_param([input, mul, add])
+        params = gpp.ugen_param([input, mul, add])
         rate = params.as_ugen_rate()
         args = params.as_ugen_input(cls)
         return cls.multi_new_list([rate] + args)
@@ -817,7 +817,7 @@ class MulAdd(UGen):
         nomul = mul == 1.0
         noadd = add == 0.0
         if nomul and noadd: return input
-        if minus and noadd: return input.neg() # BUG: ES POSIBLE QUE PUEDA NO SER UNA UGEN, habríá que agregar el método a ugen_param
+        if minus and noadd: return input.neg() # BUG: ES POSIBLE QUE PUEDA NO SER UNA UGEN, habríá que agregar el método a gpp.ugen_param
         if noadd: return input * mul
         if minus: return add - input
         if nomul: return input + add
@@ -830,17 +830,17 @@ class MulAdd(UGen):
 
     def init_ugen(self, input, mul, add):
         self.inputs = (input, mul, add) # TODO: es tupla, en sclang es nil si no hay inputs.
-        self.rate = ugen_param(self.inputs).as_ugen_rate()
+        self.rate = gpp.ugen_param(self.inputs).as_ugen_rate()
         return self
 
     @classmethod
     def can_be_muladd(cls, input, mul, add):
         # // see if these inputs satisfy the constraints of a MulAdd ugen.
-        in_rate = ugen_param(input).as_ugen_rate()
+        in_rate = gpp.ugen_param(input).as_ugen_rate()
         if in_rate == 'audio':
             return True
-        mul_rate = ugen_param(mul).as_ugen_rate()
-        add_rate = ugen_param(add).as_ugen_rate()
+        mul_rate = gpp.ugen_param(mul).as_ugen_rate()
+        add_rate = gpp.ugen_param(add).as_ugen_rate()
         if in_rate == 'control'\
         and (mul_rate == 'control' or mul_rate == 'scalar')\
         and (add_rate == 'control' or add_rate == 'scalar'):
@@ -860,8 +860,8 @@ class Sum3(UGen):
         if in0 == 0.0: return in1 + in2
 
         arg_list = [in0, in1, in2]
-        rate = ugen_param(arg_list).as_ugen_rate()
-        arg_list.sort(key=lambda x: ugen_param(x).as_ugen_rate()) # NOTE: no sé para qué ordena.
+        rate = gpp.ugen_param(arg_list).as_ugen_rate()
+        arg_list.sort(key=lambda x: gpp.ugen_param(x).as_ugen_rate()) # NOTE: no sé para qué ordena.
 
         return super().new1(rate, *arg_list)
 
@@ -879,7 +879,7 @@ class Sum4(UGen):
         if in3 == 0.0: return Sum3.new1(None, in0, in1, in2)
 
         arg_list = [in0, in1, in2, in3]
-        rate = ugen_param(arg_list).as_ugen_rate()
-        arg_list.sort(key=lambda x: ugen_param(x).as_ugen_rate()) # NOTE: no sé para qué ordena.
+        rate = gpp.ugen_param(arg_list).as_ugen_rate()
+        arg_list.sort(key=lambda x: gpp.ugen_param(x).as_ugen_rate()) # NOTE: no sé para qué ordena.
 
         return super().new1(rate, *arg_list)

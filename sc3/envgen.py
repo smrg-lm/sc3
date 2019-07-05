@@ -1,10 +1,10 @@
 # EnvGen.sc
 
-import sc3.ugens as ug
+from . import ugens as ugn
 
 # TODO: todo...
 
-class Linen(ug.UGen):
+class Linen(ugn.UGen):
     @classmethod
     def kr(cls, gate=1.0, attack_time=0.01, sus_level=1.0,
            release_time=1.0, done_action=0):

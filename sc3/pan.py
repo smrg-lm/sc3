@@ -1,6 +1,6 @@
 """Pan.sc"""
 
-import sc3.ugens as ugn
+from . import ugens as ugn
 
 
 class Pan2(ugn.MultiOutUGen):

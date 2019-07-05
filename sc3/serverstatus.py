@@ -2,7 +2,7 @@
 
 import warnings
 
-from . import clock as clk # es recursivo a través de main y server
+from . import clock as clk
 from . import model as mdl
 from . import stream as stm
 from . import systemactions as sac

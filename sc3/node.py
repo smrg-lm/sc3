@@ -4,11 +4,11 @@ import threading as _threading
 import warnings as _warnings
 from functools import singledispatch
 
-import sc3.utils as utl
+from . import utils as utl
 from . import ugens as ugn
-from . import server as srv # es cíclico con sí mismo a través de node
-import sc3.synthdesc as dsc
-from sc3.graphparam import ugen_param, node_param
+from . import server as srv
+from . import synthdesc as sdc
+from . import graphparam as gpp
 
 
 # Node:asTarget se implementa para Integer, Nil, y Server
@@ -77,13 +77,13 @@ class Node():
             bus = xxx.as_bus(bus) # BUG usa asBus que se implementa en Bus, Integer, Nil y Server.
             if bus.rate == 'control':
                 kr_values.extend([
-                    ugen_param(control).as_control_input(),
+                    gpp.ugen_param(control).as_control_input(),
                     bus.index,
                     bus.num_channels
                 ])
             elif bus.rate == 'audio':
                 ar_values.extend([
-                    ugen_param(control).as_control_input(), # BUG: no entiendo porque tiene que ser un símbolo, de los contrario el mensaje no sería válido si un bus devuelve un entero por ejemplo?
+                    gpp.ugen_param(control).as_control_input(), # BUG: no entiendo porque tiene que ser un símbolo, de los contrario el mensaje no sería válido si un bus devuelve un entero por ejemplo?
                     bus.index,
                     bus.num_channels
                 ])
@@ -100,23 +100,23 @@ class Node():
         self.server.send_msg(
             '/n_mapn', # 48
             self.node_id,
-            *ugen_param(args).as_control_input()
+            *gpp.ugen_param(args).as_control_input()
         )
 
     def mapn_msg(self, *args):
         return ['/n_mapn', self.node_id]\
-            + ugen_param(args).as_control_input() # 48
+            + gpp.ugen_param(args).as_control_input() # 48
 
     def set(self, *args):
         self.server.send_msg(
             '/n_set', # 15
             self.node_id,
-            *node_param(args).as_osc_arg_list()
+            *gpp.node_param(args).as_osc_arg_list()
         )
 
     def set_msg(self, *args):
         return ['/n_set', self.node_id]\
-            + node_param(args).as_osc_arg_list() # 15
+            + gpp.node_param(args).as_osc_arg_list() # 15
 
     def setn(self, *args):
         self.server.send_msg(*self.setn_msg(*args))
@@ -124,7 +124,7 @@ class Node():
     @classmethod
     def setn_msg_args(cls, *args):
         nargs = []
-        args = ugen_param(args).as_control_input()
+        args = gpp.ugen_param(args).as_control_input()
         for control, more_vals in utl.gen_cclumps(args, 2):
             if isinstance(more_vals, list): # BUG: ídem acá arriba, more_vals TIENE QUE SER LISTA
                 nargs.extend([control, len(more_vals)] + more_vals)
@@ -139,12 +139,12 @@ class Node():
         self.server.send_msg(
             '/n_fill', self.node_id, # 17
             cname, num_controls, value,
-            *ugen_param(args).as_control_input()
+            *gpp.ugen_param(args).as_control_input()
         )
 
     def fill_msg(self, cname, num_controls, value, *args):
         return ['n_fill', self.node_id, cname, num_controls, value]\
-            + ugen_param(args).as_control_input() # 17
+            + gpp.ugen_param(args).as_control_input() # 17
 
     def release(self, release_time=None):
         self.server.send_msg(*self.release_msg(release_time))
@@ -234,7 +234,7 @@ class Node():
         raise NotImplementedError('should not use a Node inside a SynthDef') # NOTE: dice esto pero implmente as_control_input, por qué?
 
     def as_control_input(self):
-        return ugen_param(self.node_id).as_control_input()
+        return gpp.ugen_param(self.node_id).as_control_input()
 
     ### Node parameter interface ###
 
@@ -246,7 +246,7 @@ class Node():
 class AbstractGroup(Node):
     # /** immediately sends **/
     def __init__(self, target=None, add_action='addToHead'):
-        target = node_param(target).as_target()
+        target = gpp.node_param(target).as_target()
         # BUG: revisar, estoy reemplazando la llamada a basic_new, que estaba mal...
         # BUG: basic_new lo único que hace se setear self -> server, node_id, group is_playing e is_running
         #server = target.server
@@ -267,7 +267,7 @@ class AbstractGroup(Node):
 
     def new_msg(self, target=None, add_action='addToHead'):
         # // if target is nil set to default group of server specified when basicNew was called
-        target = node_param(target).as_target()
+        target = gpp.node_param(target).as_target()
         add_action_id = type(self).add_actions[add_action]
         if add_action_id < 2:
             self.group = target
@@ -419,7 +419,7 @@ class RootNode(Group):
 class Synth(Node):
     # /** immediately sends **/
     def __init__(self, def_name, args=None, target=None, add_action='addToHead'):
-        target = node_param(target).as_target()
+        target = gpp.node_param(target).as_target()
         # BUG: revisar, estoy reemplazando la llamada a basic_new (que acá reimplementa además)
         # server = target.server
         # synth = cls.basic_new(def_name, server) # synth es self
@@ -437,7 +437,7 @@ class Synth(Node):
             '/s_new', # 9
             self.def_name, self.node_id,
             add_action_id, target.node_id,
-            *node_param(args or []).as_osc_arg_list()
+            *gpp.node_param(args or []).as_osc_arg_list()
         )
 
     # // does not send (used for bundling)
@@ -449,7 +449,7 @@ class Synth(Node):
 
     @classmethod
     def new_paused(cls, def_name, args=None, target=None, add_action='addToHead'):
-        target = node_param(target).as_target()
+        target = gpp.node_param(target).as_target()
         server = target.server
         add_action_id = cls.add_actions[add_action]
         synth = cls.basic_new(def_name, server)
@@ -463,7 +463,7 @@ class Synth(Node):
                 '/s_new', # 9
                 synth.def_name, synth.node_id,
                 add_action_id, target.node_id,
-                *node_param(args or []).as_osc_arg_list()
+                *gpp.node_param(args or []).as_osc_arg_list()
             ],
             [
                 '/n_run', # 12
@@ -484,31 +484,31 @@ class Synth(Node):
             '/s_new', # 9
             synth.def_name, synth.node_id,
             4, node_to_replace.node_id, # 4 -> 'addReplace'
-            *node_param(args or []).as_osc_arg_list()
+            *gpp.node_param(args or []).as_osc_arg_list()
         )
         return synth
 
     # node_id -1
     @classmethod # TODO: este tal vez debería ir arriba
     def grain(cls, def_name, args=None, target=None, add_action='addToHead'):
-        target = node_param(target).as_target()
+        target = gpp.node_param(target).as_target()
         server = target.server
         server.send_msg(
             '/s_new', # 9
             def_name.as_def_name(), -1, # BUG: as_def_name no está implementado puede ser método de Object
             cls.add_actions[add_action], target.node_id,
-            *node_param(args or []).as_osc_arg_list()
+            *gpp.node_param(args or []).as_osc_arg_list()
         )
 
     def new_msg(self, target=None, args=None, add_action='addToHead'):
         add_action_id = self.add_actions[add_action]
-        target = node_param(target).as_target()
+        target = gpp.node_param(target).as_target()
         if add_action_id < 2:
             self.group = target
         else:
             self.group = target.group
         return ['/s_new', self.def_name, self.node_id, add_action_id,
-                target.node_id, *node_param(args or []).as_osc_arg_list()] # 9
+                target.node_id, *gpp.node_param(args or []).as_osc_arg_list()] # 9
 
     @classmethod
     def after(cls, node, def_name, args=None):
@@ -537,7 +537,7 @@ class Synth(Node):
         else:
             self.group = self.server.default_group
         return ['/s_new', self.def_name, self.node_id, 0,
-                self.group.node_id, *node_param(args).as_osc_arg_list()] # 9
+                self.group.node_id, *gpp.node_param(args).as_osc_arg_list()] # 9
 
     def add_to_tail_msg(self, group, args):
         # // if aGroup is nil set to default group of server specified when basicNew was called
@@ -546,22 +546,22 @@ class Synth(Node):
         else:
             self.group = self.server.default_group
         return ['/s_new', self.def_name, self.node_id, 1,
-                self.group.node_id, *node_param(args).as_osc_arg_list()] # 9
+                self.group.node_id, *gpp.node_param(args).as_osc_arg_list()] # 9
 
     def add_after_msg(self, node, args=None):
         self.group = node.group
         return ['/s_new', self.def_name, self.node_id, 3,
-                node.node_id, *node_param(args or []).as_osc_arg_list()] # 9
+                node.node_id, *gpp.node_param(args or []).as_osc_arg_list()] # 9
 
     def add_before_msg(self, node, args=None):
         self.group = node.group
         return ['/s_new', self.def_name, self.node_id, 2,
-                node.node_id, *node_param(args or []).as_osc_arg_list()] # 9
+                node.node_id, *gpp.node_param(args or []).as_osc_arg_list()] # 9
 
     def add_replace_msg(self, node_to_replace, args):
         self.group = node_to_replace.group
         return ['/s_new', self.def_name, self.node_id, 4,
-                node_to_replace.node_id, *node_param(args).as_osc_arg_list()] # 9
+                node_to_replace.node_id, *gpp.node_param(args).as_osc_arg_list()] # 9
 
     def get(self, index, action):
         raise Exception('implementar Synth:get con OSCFunc') # BUG
@@ -577,7 +577,7 @@ class Synth(Node):
 
     def seti(self, *args): # // args are [key, index, value, key, index, value ...]
         osc_msg = []
-        synth_desc = dsc.SynthDescLib.at(self.def_name)
+        synth_desc = sdc.SynthDescLib.at(self.def_name)
         if synth_desc is None:
             msg = 'message seti failed, because SynthDef {} was not added'
             _warnings.warn(msg.format(self.def_name))
@@ -593,7 +593,7 @@ class Synth(Node):
                         osc_msg.append(value)
         self.server.send_msg(
             '/n_set', self.node_id,
-            *node_param(osc_msg).as_osc_arg_list()
+            *gpp.node_param(osc_msg).as_osc_arg_list()
         )
 
     # TODO, VER
@@ -617,7 +617,7 @@ class Synth(Node):
 
 # @singledispatch
 # def as_osc_arg_list(obj): # NOTE: incluye Env, ver @as_control_input.register(Env), tengo que ver la clase Ref que es una AbstractFunction
-#     return ugen_param(obj).as_control_input()
+#     return gpp.ugen_param(obj).as_control_input()
 
 
 # @as_osc_arg_list.register(str)
@@ -640,7 +640,7 @@ class Synth(Node):
 
 # @singledispatch
 # def as_osc_arg_embedded_list(obj, lst): # NOTE: incluye None, tengo que ver la clase Ref que es una AbstractFunction
-#     lst.append(ugen_param(obj).as_control_input())
+#     lst.append(gpp.ugen_param(obj).as_control_input())
 #     return lst
 
 
@@ -650,7 +650,7 @@ class Synth(Node):
 
 # @as_osc_arg_embedded_list.register(Env)
 # def _(obj, lst):
-#     env_lst = ugen_param(obj).as_control_input()
+#     env_lst = gpp.ugen_param(obj).as_control_input()
 #     return as_osc_arg_embedded_list(env_lst, lst)
 
 
@@ -675,7 +675,7 @@ class Synth(Node):
 
 # @singledispatch
 # def as_osc_arg_bundle(obj): # NOTE: incluye None y Env, tengo que ver la clase Ref que es una AbstractFunction
-#     return ugen_param(obj).as_control_input()
+#     return gpp.ugen_param(obj).as_control_input()
 #
 #
 # @as_osc_arg_bundle.register(str)

@@ -2,8 +2,8 @@
 
 import collections
 
-import sc3.stream as stm
-import sc3.patterns as ptt
+from . import stream as stm
+from . import patterns as ptt
 
 
 # class Pindex(ptt.Pattern):

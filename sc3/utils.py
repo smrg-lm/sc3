@@ -192,9 +192,9 @@ def flop(lst):
     if n == 0:
         return [[]] # NOTE: es una columna vacía, así es en sclang.
     lenght = max(len(l) for l in lst)
-    ret = [[None for _ in range(0, n)] for _ in range(0, lenght)]
-    for i in range(0, lenght):
-        for j in range(0, n):
+    ret = [[None for _ in range(n)] for _ in range(lenght)]
+    for i in range(lenght):
+        for j in range(n):
             try:
                 ret[i][j] = lst[j][i % len(lst[j])] # NOTE: *** en sclang i % 0 es cero *** es el caso de listas vacías acá.
             except ZeroDivisionError:
@@ -209,14 +209,14 @@ def flop(lst):
 #     lenght = max(len(l) for l in lst)
 #     aux = []
 #     ret = []
-#     for i in range(0, lenght):
-#         for j in range(0, n):
+#     for i in range(lenght):
+#         for j in range(n):
 #             aux.append(lst[j][i % len(lst[j])])
 #         ret.append(aux)
 #         aux = []
 #     return ret
 # # lst = [[1, 2], [10, 20, 30], [100, 200, 300, 400]]
-# # [[lst[j][i % len(lst[j])] for j in range(0, len(lst))] for i in range(max(len(l) for l in lst))]
+# # [[lst[j][i % len(lst[j])] for j in range(len(lst))] for i in range(max(len(l) for l in lst))]
 
 def flop_together(*lsts):
     max_size = 0

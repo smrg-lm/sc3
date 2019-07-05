@@ -1,6 +1,6 @@
 """Operand.sc"""
 
-import sc3.functions as fn
+from . import functions as fn
 
 
 class Operand(fn.AbstractFunction):

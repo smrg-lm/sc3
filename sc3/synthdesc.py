@@ -10,12 +10,12 @@ from . import _hackprovisorio_borrar as _hkpb
 
 from . import _global as _gl
 from . import inout as scio
-from . import utils as ut
-from . import ugens as ug
-from . import server as sv # cíclico con server a través de synthdef
-from . import systemactions as sa
+from . import utils as utl
+from . import ugens as ugn
+from . import server as srv
+from . import systemactions as sac
 from . import model as mdl
-from . import synthdef as sd # cíclico
+from . import synthdef as sdf
 
 
 class IODesc():
@@ -151,7 +151,7 @@ class SynthDesc():
                 aux_string = stream.read(aux_str_len) # getPascalString 02
                 self.name = str(aux_string, 'ascii') # getPascalString 03
 
-                self.sdef = sd.SynthDef.dummy(self.name) # BUG: Object:prNew es objeto vacío, dummy, y se va llenando acá pero no se puede llamar a __init__ porque este llama a _build
+                self.sdef = sdf.SynthDef.dummy(self.name) # BUG: Object:prNew es objeto vacío, dummy, y se va llenando acá pero no se puede llamar a __init__ porque este llama a _build
                 _gl.current_synthdef = self.sdef
 
                 num_constants = struct.unpack('>i', stream.read(4))[0] # getInt32
@@ -185,7 +185,7 @@ class SynthDesc():
                 aux_ctrl = None
                 for ctrl in self.controls:
                     if ctrl.name == '?':
-                        default_value = ut.as_list(aux_ctrl.default_value)
+                        default_value = utl.as_list(aux_ctrl.default_value)
                         default_value.append(ctrl.default_value)
                         aux_ctrl.default_value = default_value
                     else:
@@ -248,7 +248,7 @@ class SynthDesc():
                 input = self.constants[output_index]
             else:
                 ugen = self.sdef.children[ugen_index]
-                if isinstance(ugen, ug.MultiOutUGen):
+                if isinstance(ugen, ugn.MultiOutUGen):
                     input = ugen.channels[output_index]
                 else:
                     input = ugen
@@ -256,13 +256,13 @@ class SynthDesc():
 
         rate = ['scalar', 'control', 'audio'][rate_index]
         ugen = ugen_class.new_from_desc(rate, num_outputs, ugen_inputs, special_index)
-        if isinstance(ugen, ug.OutputProxy):
+        if isinstance(ugen, ugn.OutputProxy):
             ugen = ugen.source_ugen # BUG: esta propiedad se llama source en sclang y la implementan todas las clases pero solo se usa para OutputProxy. Comentarios en UGen.init_topo_sort
         ugen.add_to_synth() # BUG: vaya a saber uno por qué en el código original se pasa a si mismo como parámetro si addToSynth no recibe en ninguna implementación, esto es porque sclang ignora los argumentos demás.
 
         def add_io(lst, nchan): # lambda
             b = ugen.inputs[0]
-            if b.__class__ is ug.OutputProxy and isinstance(b.source_ugen, scio.Control):
+            if b.__class__ is ugn.OutputProxy and isinstance(b.source_ugen, scio.Control):
                 control = None
                 for item in self.controls: # detect
                     if item.index == (b.output_index + b.source_ugen.special_index):
@@ -414,7 +414,7 @@ class SynthDesc():
         return [{'rate': x.rate, 'num_channels': x.num_audio_channels()} for x in outs]
 
 
-@ut.initclass
+@utl.initclass
 class SynthDescLib():
     @classmethod
     def __init_class__(cls): # TODO: es para no poner código fuera de la definición, es equivalente a scalng
@@ -428,13 +428,13 @@ class SynthDescLib():
         def action(server):
             if server.has_booted:
                 cls.default.send(server, False)
-        sa.ServerBoot.add(action) # NOTE: *send llama a global.send if server has booted, ver abajo
+        sac.ServerBoot.add(action) # NOTE: *send llama a global.send if server has booted, ver abajo
 
     def __init__(self, name, servers=None):
         self.name = name
         self.all[name] = self
         self.synth_descs = dict()
-        self.servers = set(servers or [sv.Server.default]) # BUG: para esto hay que asegurarse que Server se inicialice antes, tal vez con un import en __init_class__
+        self.servers = set(servers or [srv.Server.default]) # BUG: para esto hay que asegurarse que Server se inicialice antes, tal vez con un import en __init_class__
 
     @classmethod
     def get_lib(cls, libname):
@@ -485,7 +485,7 @@ class SynthDescLib():
     # def send(cls, server=None, try_reconstructed=True): # BUG: este método se usa en la inicialización de esta clase con ServerBoot.add, la variante de instancia no comprueba si el servidor está corriendo.
     #     if server.has_booted(): cls.default.send(server, try_reconstructed)
     def send(self, server=None, try_reconstructed=True):
-        server_list = ut.as_list(server) or self.servers
+        server_list = utl.as_list(server) or self.servers
         for s in server_list:
             # BUG: aún no entiendo por qué hace server = server.value, usa el método de Object que retorna this.
             for desc in self.synth_descs:
@@ -496,7 +496,7 @@ class SynthDescLib():
 
     def read(self, path=None, keep_defs=True):
         if path is None:
-            path = sd.SynthDef.synthdef_dir / '*.scsyndef'
+            path = sdf.SynthDef.synthdef_dir / '*.scsyndef'
             # BUG: typo: sclang declara result y no la usa
         for filename in glob.glob(str(path)):
             with open(filename, 'rb') as file:

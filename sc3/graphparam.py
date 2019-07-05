@@ -3,6 +3,14 @@
 from math import isnan
 import struct
 
+from . import server as srv
+
+# BUG: están dentro de las funciones, no se pueden importar
+# BUG: por los símbolos de herencia en relación a UGen.
+# from . import ugens as ugn
+# from . import node as nod
+# from . import node as nod
+
 
 def graph_param(obj, param_cls):
     if isinstance(obj, GraphParameter):
@@ -238,7 +246,6 @@ class NodeNone(NodeParameter):
         return (type(None),)
 
     def as_target(self):
-        import sc3.server as srv
         return srv.Server.default.default_group
 
     def as_osc_arg_list(self):

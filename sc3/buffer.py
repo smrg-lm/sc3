@@ -1,9 +1,9 @@
 """Buffer.sc"""
 
-from sc3.graphparam import UGenParameter
+from . import graphparam as gpp
 
 
-class Buffer(UGenParameter):
+class Buffer(gpp.UGenParameter):
     # TODO: todo.
 
     # UGen graph parameter interface #

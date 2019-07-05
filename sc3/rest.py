@@ -1,7 +1,7 @@
 """Rest.sc"""
 
-import sc3.operand as opd
-from sc3.graphparam import ugen_param
+from . import operand as opd
+from . import graphparam as gpp
 
 
 class Rest(opd.Operand):

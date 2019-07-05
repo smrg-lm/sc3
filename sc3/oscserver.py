@@ -7,7 +7,7 @@ import liblo as _lo
 
 from . import utils as utl
 from . import netaddr as nad
-from . import clock as clk # es cíclico a través de main
+from . import clock as clk
 from . import stream as stm
 from . import responsedefs as rdf
 

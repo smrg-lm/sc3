@@ -15,14 +15,14 @@ from . import netaddr as nad
 from . import model as mdl
 from . import engine as eng
 from . import synthdef as sdf
-from . import clock as clk # es cíclico a través de main
+from . import clock as clk
 from . import systemactions as sac
 from . import serverstatus as sst
 from . import responsedefs as rdf
 from . import stream as stm
 from . import node as nod
 from . import bus
-from .graphparam import NodeParameter, node_param
+from . import graphparam as gpp
 
 
 # BUG: revisar porque hay un patch que cambió esto y otros que cambiaron un par
@@ -52,7 +52,7 @@ _VERBOSITY = 0
 _MAX_LOGINS = 64
 
 
-class ServerOptions(object):
+class ServerOptions():
     def __init__(self):
         self.num_control_bus_channels = _NUM_CONTROL_BUS_CHANNELS # getter/setter
         self._num_audio_bus_channels = _NUM_AUDIO_BUS_CHANNELS # @property
@@ -323,7 +323,7 @@ class MetaServer(type):
 
 
 @utl.initclass # BUG: esto es un problema por lo cíclico, initclass o lo tengo que sacar o hacer que sea consistente con los imports, tal vez que initclass acumule los métodos y llame luego de que todo fue importado
-class Server(NodeParameter, metaclass=MetaServer):
+class Server(gpp.NodeParameter, metaclass=MetaServer):
     @classmethod
     def __init_class__(cls): # BUG: ver: __new__ es un método estático tratado de manera especial por el intérprete, tal vez este se podría definir como tal, los métodos estáticos no están ligados ni a la clase ni a la instancia.
                              # BUG: PERO __init_subclass___: "If defined as a normal instance method, this method is implicitly converted to a class method."
@@ -653,7 +653,7 @@ class Server(NodeParameter, metaclass=MetaServer):
     #     pass
 
     def reorder(self, node_list, target, add_action='addToHead'): # BUG: ver los comandos en notación camello, creo que el servidor los usa así, no se puede cambiar.
-        target = node_param(target).as_target()
+        target = gpp.node_param(target).as_target()
         node_list = [x.node_id for x in node_list]
         self.send(
             '/n_order', nod.Node.action_number_for(add_action), # 62
@@ -1205,11 +1205,12 @@ class Server(NodeParameter, metaclass=MetaServer):
                 if not done:
                     resp.free()
                     _warnings.warn(
-                        'remote server failed to respond to query_all_nodes!')
+                        f"remote server '{self.name}' failed to respond "
+                        f"to '/g_queryTree' after {timeout} seconds"
+                    )
 
             self.send_msg('/g_queryTree', 0, int(query_controls))
             clk.SystemClock.sched(timeout, timeout_func)
-
 
     # L1315
     # funciones set/getControlBug*
@@ -1232,7 +1233,7 @@ class Server(NodeParameter, metaclass=MetaServer):
         return self.default_group
 
 
-class _ServerProcess(object):
+class _ServerProcess():
     def __init__(self, options):
         self.options = options
         self.proc = None

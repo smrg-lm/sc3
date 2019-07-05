@@ -18,11 +18,11 @@ from abc import ABC, abstractmethod
 import inspect
 
 from . import builtins as bi # TODO: TEST, ver abajo.
-from sc3.graphparam import UGenParameter, ugen_param
+from . import graphparam as gpp
 
 
 # ver abstract base clases in python
-class AbstractFunction(ABC, UGenParameter):
+class AbstractFunction(ABC, gpp.UGenParameter):
     @abstractmethod # BUG: esto lo tengo que extender a todos los métodos de interfaz obligatoria, pero por ahora es más fácil sin implementar todo
     def __call__(self, *args):
         pass
@@ -247,7 +247,7 @@ class AbstractFunction(ABC, UGenParameter):
 
 
     # UGen graph parameter interface #
-    # TODO: ver el resto en UGenParameter
+    # TODO: ver el resto en gpp.UGenParameter
     # BUG: ver si value no intefiere
 
     def is_valid_ugen_input(self):
@@ -261,7 +261,7 @@ class AbstractFunction(ABC, UGenParameter):
 
     def as_audio_rate_input(self, *args):
         res = self(*args)
-        if ugen_param(res).as_ugen_rate() != 'audio':
+        if gpp.ugen_param(res).as_ugen_rate() != 'audio':
             return xxx.K2A.ar(res)
         return res
 

@@ -1,12 +1,12 @@
 """Bus.sc"""
 
-from sc3.graphparam import UGenParameter, NodeParameter
+from . import graphparam as gpp
 from . import server as srv
-import sc3.utils as utl
-import sc3.responsedefs as rdf
+from . import utils as utl
+from . import responsedefs as rdf
 
 
-class Bus(UGenParameter, NodeParameter):
+class Bus(gpp.UGenParameter, gpp.NodeParameter):
     def __init__(self, rate='audio', index=0, num_channels=2, server=None): # NOTE: es *new
         self.rate = rate # todos tienen solo getter salvo _map_symbol que es privado.
         self.index = index

@@ -14,7 +14,7 @@ from . import synthdef as sdf
 from . import synthdesc as sdc
 from . import main as _libsc3
 from . import utils as utl
-from .graphparam import node_param
+from . import graphparam as gpp
 from . import clock as clk
 from . import server as srv
 from . import node as nod
@@ -788,7 +788,7 @@ def _make_parent_events():
         add_action = nod.Node.action_number_for(event.add_action)
         # // compute the control values and generate OSC commands
         ids = None # BUG: debería posponer su declaración al momento en que se usa abajo y acá usar None como literal. NOTE: Es None por defecto y modifica el mensaje después generando ids.
-        group = node_param(event.value('group')).as_control_input() # BUG: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido? VER PERORATA ABAJO EN GRAIN
+        group = gpp.node_param(event.value('group')).as_control_input() # BUG: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido? VER PERORATA ABAJO EN GRAIN
         bndl = ['/s_new', instrument_name, ids, add_action, group] # event.value('group')] # NOTE: ~group en realidad deja una función acá, no el valor de retorno, parece que se evalúa en _NetAddr_SendBundle.
         bndl.extend(msg_func()) # NOTE: si se obtiene como atributo es un bound method de self (msg_func necesita el evento argumento para comprobar las llaves).
 
@@ -815,7 +815,7 @@ def _make_parent_events():
         event.id = ids = [server.next_node_id() for _ in bndl]
         for i, b in enumerate(bndl):
             b[2] = ids[i]
-            bndl[i] = node_param(b).as_osc_arg_list() # NOTE: modifico el item de la lista sobre el cuál itero al final del ciclo, pero no la lista en sí.
+            bndl[i] = gpp.node_param(b).as_osc_arg_list() # NOTE: modifico el item de la lista sobre el cuál itero al final del ciclo, pero no la lista en sí.
         # // schedule when the bundles are sent
         if strum == 0:
             event.sched_bundle(lag, offset, server, bndl, event.latency) # NOTE: puede ser cualquier cantidad de mensajes/notas, esto es algo que no está claro en la implementación de sclang, aquí offset es escalar, en strummed es una lista.
@@ -832,8 +832,8 @@ def _make_parent_events():
                 bndl.reverse()
                 ids.reverse() # NOTE: faltaba, eran un bug en sclang.
             strum = abs(strum) # NOTE: reuso la variable, no se necista más el valor anterior.
-            #strum_offset = offset + [x * strum for x in range(0, len(bndl))] # BUG: offset puede ser un array y/o debe sumarse punto a punto.
-            strum_offset = [offset + x * strum for x in range(0, len(bndl))] # BUG: el if anterior considera que offset puede ser una lista pero offset sale de timmming_offset que es un parámetro de server_event (ver nota arriba), tampoco vi dónde se explica ni por qué está, la latencia del servidor es latency. en sched_bundle(_list), implementado como schedBundleArrayOnClock dice: // "offset" is the delta time for the clock (usually in beats)
+            #strum_offset = offset + [x * strum for x in range(len(bndl))] # BUG: offset puede ser un array y/o debe sumarse punto a punto.
+            strum_offset = [offset + x * strum for x in range(len(bndl))] # BUG: el if anterior considera que offset puede ser una lista pero offset sale de timmming_offset que es un parámetro de server_event (ver nota arriba), tampoco vi dónde se explica ni por qué está, la latencia del servidor es latency. en sched_bundle(_list), implementado como schedBundleArrayOnClock dice: // "offset" is the delta time for the clock (usually in beats)
             event.sched_bundle_list(lag, strum_offset, server, bndl, event.latency)
             if send_gate:
                 if event.strum_ends_together:
@@ -907,7 +907,7 @@ def _make_parent_events():
         # BUG IMPORTANTE: El problema son los datos de entrada válidos y el abuso de polimofismo en sclang, flata organizar y especificar como puse acá arriba.
         # BUG IMPORTANTE: VER Pattern Guide 08: Event Types and Parameters.
         # // compute the control values and generate OSC commands
-        group = node_param(event.value('group')).as_control_input() # BUG: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido?
+        group = gpp.node_param(event.value('group')).as_control_input() # BUG: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido?
         bndl = ['/s_new', instrument_name, -1, add_action, group] # NOTE: ~group en realidad deja una función acá, no el valor de retorno, parece que se evalúa en _NetAddr_SendBundle.
         bndl.extend(msg_func(event)) # NOTE: como no se obtuvo como atributo de Event no es un bound method de self y hay que pasar event.
         event.sched_bundle( # NOTE: puede ser cualquier cantidad de mensajes/notas, esto es algo que no está claro en la implementación de sclang

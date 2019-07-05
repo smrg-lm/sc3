@@ -22,16 +22,16 @@ import pathlib
 
 from . import _global as _gl
 from . import inout as scio
-from . import utils as ut
-from . import ugens as ug
-from . import server as sv
-from . import platform as pt
-from . import systemactions as sa
-from . import synthdesc as ds # cíclico
+from . import utils as utl
+from . import ugens as ugn
+from . import server as srv
+from . import platform as plf
+from . import systemactions as sac
+from . import synthdesc as sdc
 
 
 class SynthDef():
-    synthdef_dir = pt.Platform.user_app_support_dir() / 'synthdefs'
+    synthdef_dir = plf.Platform.user_app_support_dir() / 'synthdefs'
     synthdef_dir.mkdir(exist_ok=True) # // Ensure exists
 
     @classmethod
@@ -275,12 +275,12 @@ class SynthDef():
                 for cn in ita_cns:
                     values.append(cn.default_value)
                 index = self.control_index
-                ctrl_ugens = getattr(ctrl_class, method)(ut.flat(values)) # XControl.xr(values.flat)
-                ctrl_ugens = ut.as_list(ctrl_ugens) # .asArray
-                ctrl_ugens = ut.reshape_like(ctrl_ugens, values) # .reshapeLike(values);
+                ctrl_ugens = getattr(ctrl_class, method)(utl.flat(values)) # XControl.xr(values.flat)
+                ctrl_ugens = utl.as_list(ctrl_ugens) # .asArray
+                ctrl_ugens = utl.reshape_like(ctrl_ugens, values) # .reshapeLike(values);
                 for i, cn in enumerate(ita_cns):
                     cn.index = index
-                    index += len(ut.as_list(cn.default_value))
+                    index += len(utl.as_list(cn.default_value))
                     arguments[cn.arg_num] = ctrl_ugens[i]
                     self._set_control_names(ctrl_ugens[i], cn)
         build_ita_controls(ir_cns, scio.Control, 'ir')
@@ -292,23 +292,23 @@ class SynthDef():
             lags = []
             for cn in kr_cns:
                 values.append(cn.default_value)
-                valsize = len(ut.as_list(cn.default_value))
+                valsize = len(utl.as_list(cn.default_value))
                 if valsize > 1:
-                    lags.append(ut.wrap_extend(ut.as_list(cn.lag), valsize))
+                    lags.append(utl.wrap_extend(utl.as_list(cn.lag), valsize))
                 else:
                     lags.append(cn.lag)
             index = self.control_index # TODO: esto puede ir abajo si los kr no cambian el índice.
 
             if any(x != 0 for x in lags):
-                ctrl_ugens = scio.LagControl.kr(ut.flat(values), lags) # LagControl.kr(values.flat, lags) //.asArray.reshapeLike(values);
+                ctrl_ugens = scio.LagControl.kr(utl.flat(values), lags) # LagControl.kr(values.flat, lags) //.asArray.reshapeLike(values);
             else:
-                ctrl_ugens = scio.Control.kr(ut.flat(values)) # Control.kr(values.flat)
-            ctrl_ugens = ut.as_list(ctrl_ugens) # .asArray
-            ctrl_ugens = ut.reshape_like(ctrl_ugens, values) # .reshapeLike(values);
+                ctrl_ugens = scio.Control.kr(utl.flat(values)) # Control.kr(values.flat)
+            ctrl_ugens = utl.as_list(ctrl_ugens) # .asArray
+            ctrl_ugens = utl.reshape_like(ctrl_ugens, values) # .reshapeLike(values);
 
             for i, cn in enumerate(kr_cns):
                 cn.index = index
-                index += len(ut.as_list(cn.default_value))
+                index += len(utl.as_list(cn.default_value))
                 arguments[cn.arg_num] = ctrl_ugens[i]
                 self._set_control_names(ctrl_ugens[i], cn)
 
@@ -432,7 +432,7 @@ class SynthDef():
         self.children[ugen.synth_index] = None
 
     def replace_ugen(self, a, b): # lo usa BinaryOpUGen para optimizaciones
-        if not isinstance(b, ug.UGen):
+        if not isinstance(b, ugn.UGen):
             raise Exception('replace_ugen assumes a UGen')
 
         b.width_first_antecedents = a.width_first_antecedents
@@ -464,7 +464,7 @@ class SynthDef():
         for ugen in self.children: # tampoco terminó usando el índice
             inputs = None
             if ugen.inputs is not None:
-                inputs = [x.dump_name() if isinstance(x, ug.UGen)
+                inputs = [x.dump_name() if isinstance(x, ugn.UGen)
                           else x for x in ugen.inputs] # ugen.inputs.collect {|in| if (in.respondsTo(\dumpName)) { in.dumpName }{ in }; }; # Las únicas clases que implementan dumpName son UGen, BasicOpUGen y OutputProxy, sería interfaz de UGen, sería if is UGen
             print([ugen.dump_name(), ugen.rate, inputs])
 
@@ -473,9 +473,9 @@ class SynthDef():
     def add(self, libname=None, completion_msg=None, keep_def=True):
         self.as_synthdesc(libname or 'global', keep_def) # BUG: puede que sea self.desc que parece que no se usa? en sclang declara y no usa la variable local desc. La cuestión es que este método hay que llamarlo para agregar la desc a la librería. Otra cosa confusa.
         if libname is None:
-            servers = sv.Server.all_booted_servers() # BUG: no está probado o implementado
+            servers = srv.Server.all_booted_servers() # BUG: no está probado o implementado
         else:
-            servers = ds.SynthDescLib.get_lib(libname).servers
+            servers = sdc.SynthDescLib.get_lib(libname).servers
         for server in servers:
             self.do_send(server) # , completion_msg(server)) # BUG: completion_msg no se usa/recibe en do_send # BUG: no sé por qué usa server.value() en sclang
 
@@ -483,7 +483,7 @@ class SynthDef():
     def as_synthdesc(self, libname='global', keep_def=True): # Subido, estaba abajo, lo usa add.
         stream = io.BytesIO(self.as_bytes()) # TODO: El problema es que esto depende de server.send_msg (interfaz osc)
         libname = libname or 'global'
-        lib = ds.SynthDescLib.get_lib(libname) # BUG: no está probado
+        lib = sdc.SynthDescLib.get_lib(libname) # BUG: no está probado
         desc = lib.read_desc_from_def(stream, keep_def, self, self.metadata) # BUG: no está probado
         return desc
 
@@ -523,7 +523,7 @@ class SynthDef():
             if overwrite or not file_existed_before:
                 desc = self.as_synthdesc()
                 desc.metadata = self.metadata
-                ds.SynthDesc.populate_metadata_func(desc) # BUG: (populate_metadata_func) aún no sé quién asigna la función a esta propiedad
+                sdc.SynthDesc.populate_metadata_func(desc) # BUG: (populate_metadata_func) aún no sé quién asigna la función a esta propiedad
                 desc.write_metadata(dir / self.name, md_plugin) # BUG: No está implementada del todo, faltan dependencias.
 
     def write_def_after_startup(self, name, dir, overwrite=True): # TODO/BUG/WHATDA, este método es sclang Object:writeDefFile
@@ -535,10 +535,10 @@ class SynthDef():
                 name = pathlib.Path(dir / (name + '.scsyndef'))
                 if overwrite or not name.exists():
                     with open(name, 'wb') as file:
-                        ds.AbstractMDPlugin.clear_metadata(name) # BUG: No está implementado
+                        sdc.AbstractMDPlugin.clear_metadata(name) # BUG: No está implementado
                         write_def([self], file)
         # // make sure the synth defs are written to the right path
-        sa.StartUp.defer(defer_func) # BUG: No está implementada
+        sac.StartUp.defer(defer_func) # BUG: No está implementada
 
     def write_def(self, file):
         try:
@@ -591,8 +591,8 @@ class SynthDef():
                             return False
 
                         cn = allcns_map[cname]
-                        values = ut.as_list(values)
-                        if len(values) > len(ut.as_list(cn.default_value)):
+                        values = utl.as_list(values)
+                        if len(values) > len(utl.as_list(cn.default_value)):
                             msg = "control: '{}' of variant: '{}' size mismatch, not writing more variants"
                             warnings.warn(msg.format(cname, varname))
                             return False
@@ -625,7 +625,7 @@ class SynthDef():
     # L561
     @classmethod
     def remove_at(cls, name, libname='global'): # TODO: Este método lo debe usar en SynthDesc.sc. Ojo que hay mil métodos removeAt.
-        lib = ds.SynthDescLib.get_lib(libname)
+        lib = sdc.SynthDescLib.get_lib(libname)
         lib.remove_at(name)
         for server in lib.servers:
             server.send_msg('/d_free', name) # BUG: no entiendo por qué usa server.value (que retorna el objeto server). Además, send_msg también es método de String en sclang lo que resulta confuso.
@@ -635,7 +635,7 @@ class SynthDef():
 
     # // Only send to servers.
     def send(self, server=None): # BUG: completion_msg) ninunga función send especifica ni documenta parece tener un completionMsg, tampoco tiene efecto o sentido en las pruebas que hice
-        servers = ut.as_list(server or sv.Server.all_booted_servers()) # BUG: no está probado o implementado
+        servers = utl.as_list(server or srv.Server.all_booted_servers()) # BUG: no está probado o implementado
         for each in servers:
             if not each.has_booted(): # BUG: no está implementada, creo.
                 msg = "Server '{}' not running, could not send SynthDef"
@@ -664,7 +664,7 @@ class SynthDef():
 
     # // Send to server and write file.
     def load(self, server, completion_msg, dir=None): # *** BUG: completion_msg, parámetro intermedio
-        server = server or sv.Server.default
+        server = server or srv.Server.default
         if 'shouldNotSend' in self.metadata and self.metadata['shouldNotSend']:
             self._load_reconstructed(server) # BUG: completion_msg)
         else:
@@ -677,7 +677,7 @@ class SynthDef():
     # L615
     # // Write to file and make synth description.
     def store(self, libname='global', dir=None, completion_msg=None, md_plugin=None): # *** BUG: completion_msg, parámetro intermedio
-        lib = ds.SynthDescLib.get_lib(libname)
+        lib = sdc.SynthDescLib.get_lib(libname)
         dir = dir or SynthDef.synthdef_dir
         dir = pathlib.Path(dir)
         path = dir / (self.name + '.scsyndef')
@@ -690,7 +690,7 @@ class SynthDef():
                 self.do_send(server) # BUG: server.value y completion_msg
             desc = lib.at(self.name)
             desc.metadata = self.metadata
-            ds.SynthDesc.populate_metadata_func(desc) # BUG: (populate_metadata_func) aún no sé quién asigna la función a esta propiedad
+            sdc.SynthDesc.populate_metadata_func(desc) # BUG: (populate_metadata_func) aún no sé quién asigna la función a esta propiedad
             desc.write_metadata(path, md_plugin)
         else:
             lib.read(path)
@@ -708,7 +708,7 @@ class SynthDef():
         else:
             # // load synthdesc from disk
             # // because SynthDescLib still needs to have the info
-            lib = ds.SynthDescLib.get_lib(libname)
+            lib = sdc.SynthDescLib.get_lib(libname)
             lib.read(path)
 
     # L683

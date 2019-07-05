@@ -1,10 +1,9 @@
 """Env.sc"""
 
-from sc3.graphparam import UGenParameter, ugen_param,
-                                   NodeParameter, node_param
+from . import graphparam as gpp
 
 
-class Env(UGenParameter, NodeParameter):
+class Env(gpp.UGenParameter, gpp.NodeParameter):
     # TODO: todo.
 
     ### UGen graph parameter interface ###
@@ -16,5 +15,5 @@ class Env(UGenParameter, NodeParameter):
     ### Node parameter interface ###
 
     def as_osc_arg_embedded_list(self, lst):
-        env_lst = ugen_param(self).as_control_input()
-        return node_para(env_lst).as_osc_arg_embedded_list(lst)
+        env_lst = gpp.ugen_param(self).as_control_input()
+        return gpp.node_param(env_lst).as_osc_arg_embedded_list(lst)

@@ -74,7 +74,7 @@ class SynthDesc():
 
         self.constants = None
         self.sdef = None
-        self.msg_func = lambda: None
+        self.msg_func = lambda event: [] # NOTE: Se llama si la SynthDef no define argumentos. Necesita definir el argumento porque siempre se pasa Event para obtener las llaves, y tiene que devolver una lista.
         self.has_gate = False
         self.has_array_args = None
         self.has_variants = False

@@ -733,7 +733,8 @@ class PauseStream(Stream):
             raise StopStream('stream finished') from e # BUG: tal vez deba descartar e? (no hacer raise from o poner raise fuera de try/except)
 
     def awake(self, beats, seconds, clock): # *** NOTE: llama Scheduler wakeup, único caso acá, existe para esto y también se llama desde la implementación en C/C++.
-        self._stream.beats = beats
+        if self._stream: # NOTE: nil.beats = beats -> nil en sclang, stop() setea stream a nil. StopStream DEBE ser llamado desde next por consistencia lógica aunque en este caso es redundante.
+            self._stream.beats = beats
         return self.next(beats)
 
     @property
@@ -930,10 +931,6 @@ class EventStreamPlayer(PauseStream):
 def stream(obj):
     if hasattr(obj, '__stream__'):
         return obj.__stream__()
-    if hasattr(obj, '__iter__'):
-        def _(inval=None):
-            yield from obj
-        return Routine(_)
 
     def _(inval=None):
         while True: # BUG: los Object son streams infinitos el problema es que no se comportan lo mismo con embedInStream, ahí son finitos, valores únicos.

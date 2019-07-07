@@ -9,17 +9,16 @@ from . import model as mdl
 class Buffer(gpp.UGenParameter):
     _server_caches = dict()
 
-    # NOTE: new se usa para creación sin alocación de memoria.
     def __init__(self, server=None, num_frames=None,
                  num_channels=None, bufnum=None):
-        # NOTE: ver la inicialización repetida, tiene muchos constructores, ver cuales difieren.
+        # // Doesn't send.
         self._server = server or srv.Server.default
         self._bufnum = bufnum or self._server.next_buffer_number(1)
         self._num_frames = num_frames
         self._num_channels = num_channels
         self._sample_rate = self._server.sample_rate
         self._path = None
-        self._start_frame = None # BUG: ver por qué usa el setter explícitamente, puede que estas variables se asignene a bajo nivel, tienen nota.
+        self._start_frame = None
         self._do_on_info = lambda buf: None
         self._cache()
 
@@ -56,6 +55,93 @@ class Buffer(gpp.UGenParameter):
         if self._num_frames is None or self._sample_rate is None:
             raise ValueError('duration parameters (frames/sr) not initialized')
         return self._num_frames / self._sample_rate
+
+    @classmethod
+    def alloc(cls, server=None, num_frames=None, num_channels=1,
+              completion_msg=None, bufnum=None):
+        obj = cls(server, num_frames, num_channels, bufnum)
+        obj.alloc_buffer(completion_msg)
+        # obj._cache() # BUG: sclang dos veces porque alloc_msg llama this.cache. Además, cache() solo registra el servidor en el diccionario y el responder para '/b_info' que no se usa en los constructores. Acá se llama solamente en __init__.
+        return obj
+
+    @classmethod
+    def alloc_consecutive(cls, num_bufs=1, server=None, num_frames=None,
+                              num_channels=1, completion_msg=None, bufnum=None):
+        buf_base = bufnum or server.next_buffer_number(num_bufs)
+        buf_list = []
+        for i in range(num_bufs):
+            new_buf = cls(server, num_frames, num_channels, buf_base + i)
+            if completion_msg:
+                completion_msg = completion_msg(new_buf, i)
+            server.send_msg('/b_alloc', buf_base + i, num_frames,
+                            num_channels, completion_msg)
+            # new_buf._cache() # NOTE: __init__ llama a _cache
+            buf_list.append(new_buf)
+        return buf_list
+
+    def alloc_buffer(self, completion_msg=None): # NOTE: es alloc de instancia
+        self._server.send_msg(*self.alloc_msg(completion_msg))
+
+    def alloc_read(self, path, start_frame=0, num_frames=-1,
+                   completion_msg=None):
+        self._path = path
+        self._start_frame = start_frame
+        self._server.send_msg(*self.alloc_read_msg(
+            path, start_frame, num_frames, completion_msg)) # NOTE: no veo por qué solo startFrame.asInteger en sclang.
+
+    def alloc_read_channel(self, path, start_frame=0, num_frames=-1,
+                           channels=None, completion_msg=None):
+        self._path = path
+        self._start_frame = start_frame
+        self._server.send_msg(*self.alloc_read_channel_msg(
+            path, start_frame, num_frames, channels, completion_msg)) # NOTE: no veo por qué solo startFrame.asInteger en sclang.
+
+    def alloc_msg(self, completion_msg=None):
+        # self._cache() # NOTE: __init__ llama a _cache
+        if completion_msg:
+            completion_msg = completion_msg(self)
+        return ['/b_alloc', self._bufnum, self._num_frames,
+                self._num_channels, completion_msg] # NOTE: no veo por qué solo startFrame.asInteger en sclang.
+
+    def alloc_read_msg(self, path, start_frame=0, num_frames=-1,
+                       completion_msg=None):
+        # self._cache() # NOTE: __init__ llama a _cache
+        self._path = path
+        self._start_frame = start_frame
+        if completion_msg:
+            completion_msg = completion_msg(self)
+        return ['/b_allocRead', self._bufnum, path,
+                start_frame, num_frames, completion_msg] # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
+
+    def alloc_read_channel_msg(self, path, start_frame=0, num_frames=-1,
+                               channels=None, completion_msg=None):
+        # self._cache() # NOTE: __init__ llama a _cache
+        self._path = path
+        self._start_frame = start_frame
+        if completion_msg:
+            completion_msg = completion_msg(self)
+        return ['/b_allocReadChannel', self._bufnum, path, start_frame,
+                num_frames, *channels, completion_msg] # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
+
+    @classmethod
+    def read(cls, server, path, start_frame=0, num_frames=-1,
+             action=None, bufnum=None):
+        # // read whole file into memory for PlayBuf etc.
+        # // Adds a query as a completion message.
+        obj = cls(server, None, None, bufnum)
+        obj._do_on_info = action
+        # obj._cache() # NOTE: __init__ llama a _cache
+        obj.alloc_read(path, start_frame, num_frames,
+                       lambda buf: ['/b_query', buf.bufnum])
+        return obj
+
+    def read_buffer(self, path, file_start_frame=0, num_frames=-1,
+                    buf_start_frame=0, leave_open=False, action=None):
+        # self._cache() # NOTE: __init__ llama a _cache
+        self._do_on_info = action
+        self._server.send_msg(*self.read_msg(
+            path, file_start_frame, num_frames, buf_start_frame,
+            leave_open, lambda buf: ['/b_query', buf.bufnum]))
 
     # TODO: sigue
 

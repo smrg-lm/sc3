@@ -143,6 +143,84 @@ class Buffer(gpp.UGenParameter):
             path, file_start_frame, num_frames, buf_start_frame,
             leave_open, lambda buf: ['/b_query', buf.bufnum]))
 
+    @classmethod
+    def read_channel(cls, server, path, start_frame=0, num_frames=-1,
+                     channels=None, action=None, bufnum=None):
+        obj = cls(server, None, None, bufnum)
+        obj._do_on_info = action
+        # obj._cache() # NOTE: __init__ llama a _cache
+        obj.alloc_read_channel(path, start_frame, num_frames, channels,
+                               lambda buf: ['/b_query', buf.bufnum])
+        return obj
+
+    def read_buffer_channel(self, path, file_start_frame=0, num_frames=-1,
+                            buf_start_frame=0, leave_open=False,
+                            channels=None, action=None):
+        # self._cache() # NOTE: __init__ llama a _cache
+        self._do_on_info = action
+        self._server.send_msg(*self.read_channel_msg(
+            path, file_start_frame, num_frames, buf_start_frame,
+            leave_open, channels, lambda buf: ['/b_query', buf.bufnum]))
+
+    @classmethod
+    def read_no_update(cls, server, path, start_frame=0, num_frames=-1,
+                       bufnum=None, completion_msg=None):
+        obj = cls(server, None, None, bufnum)
+        # BUG: este constructor no llama a cache() en sclang, será el no update
+        # BUG: REVISAR DE NUEVO QUÉ ACTUALIZA CACHE, NO VEO LA DIFERENCIA,
+        # BUG: SIEMPRE SE LLAMA SALVO ACÁ Y SE LLAMABA DOS VECES. AGREGAR FLAG A __init__.
+        obj.alloc_read(path, start_frame, num_frames, completion_msg)
+        return obj
+
+    def read_buffer_no_update(self, path, file_start_frame=0, num_frames=-1,
+                              buf_start_frame=0, leave_open=False,
+                              completion_msg=None):
+        self._server.send_msg(*self.read_msg(
+            path, file_start_frame, num_frames, buf_start_frame,
+            leave_open, completion_msg))
+
+    def read_msg(self, path, file_start_frame=0, num_frames=-1,
+                 buf_start_frame=0, leave_open=False, completion_msg=None):
+        self._path = path
+        if completion_msg:
+            completion_msg = completion_msg(self)
+        return ['/b_read', self._bufnum, path, file_start_frame, num_frames,
+                buf_start_frame, leave_open, completion_msg] # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
+
+    def read_channel_msg(self, path, file_start_frame=0, num_frames=-1,
+                         buf_start_frame=0, leave_open=False, channels=None,
+                         completion_msg=None):
+        # // doesn't set my numChannels etc.
+        self._path = path
+        if completion_msg:
+            completion_msg = completion_msg(self)
+        return ['/b_readChannel', self._bufnum, path, file_start_frame,
+                num_frames, buf_start_frame, leave_open, *channels,
+                completion_msg] # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
+
+    # // preload a buffer for use with DiskIn
+    @classmethod
+    def cue_sound_file(cls, server, path, start_frame=0, num_channels=2,
+                       buffer_size=32768, completion_msg=None):
+        obj = cls.alloc(server, buffer_size, num_channels,
+                        lambda buf: buf.read_msg(path, start_frame,
+                                                 buffer_size, 0, True,
+                                                 completion_msg))
+        # self._cache() # NOTE: __init__ llama a _cache a través de alloc.
+        return obj
+
+    def cue_sound_file_buffer(self, path, start_frame=0, completion_msg=None):
+        self._path = path
+        self._server.send_msg(*self.cue_sound_file_msg(
+            path, start_frame, completion_msg))
+        # NOTE: no llama a cache()
+
+    def cue_sound_file_msg(self, path, start_frame=0, completion_msg=None):
+        if completion_msg:
+            completion_msg = completion_msg(self)
+        return ['/b_read', self._bufnum, path, start_frame, # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
+                0, 1, self._num_frames, completion_msg] # *** BUG: pone 1 en vez de True, porque es el mensaje, corregir los métodos anteriores con int(booleanvar).
+
     # TODO: sigue
 
     def _cache(self):

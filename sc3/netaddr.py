@@ -188,9 +188,7 @@ class NetAddr():
         return self
 
     def __repr__(self):
-        string = type(self).__name__
-        string += '({}, {})'.format(self.hostname, self.port)
-        return string
+        return f'{type(self).__name__}({self.hostname}, {self.port})'
 
 
 # BUG: hay que implementar para server

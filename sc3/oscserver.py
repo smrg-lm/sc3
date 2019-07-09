@@ -133,9 +133,6 @@ class OSCServer():
         bundle = _lo.Bundle(_lo.time() + float(time), *messages) # BUG: estoy usando el tiempo de liblo en vez del de SystemClock, que está mal y tengo que revisar, pero luego ver qué tanta diferencia puede haber entre la implementaciones.
         self._osc_server_thread.send(target, bundle)
 
-    def send_status_msg(self):
-        self.send_msg('/status')
-
     def sync(self, target, condition=None, bundle=None, latency=0): # BUG: dice array of bundles, los métodos bundle_size y send_bundle solo pueden enviar uno. No me cierra/me confunde en sclang porque usa send bundle agregándole latencia.
         condition = condition or stm.Condition()
         if bundle is None:

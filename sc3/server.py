@@ -7,8 +7,6 @@ import warnings as _warnings
 import os as _os
 import pathlib as _pathlib
 
-import liblo as _lo
-
 from . import main as _libsc3
 from . import utils as utl
 from . import netaddr as nad
@@ -935,7 +933,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.connect_shared_memory() # BUG: no está implementado
 
     def _ping_app(self, func, on_failure=None, timeout=3): # subida de 'internal server commands'
-        id = func.__hash__()
+        id = func.__hash__() # *** BUG: el número excede el tipo int de OSC.
 
         def resp_func(msg, *args):
             if msg[1] == id:

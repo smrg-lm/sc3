@@ -46,6 +46,7 @@ class Process(type):
         cls._main_lock = threading.RLock()
         cls._switch_cond = threading.Condition(cls._main_lock)
         cls._mode = None
+        cls._rgen = random.Random()
         atexit.register(cls.shutdown)
 
     def _init_rt(cls):
@@ -68,8 +69,8 @@ class Process(type):
         main_tt._thread_player = None
         main_tt._beats = 0.0 # NOTE: se inicializan en la declaración de la clase en sclang, sirven solo para mainThread las rutinas llama a _InitThread.
         main_tt._seconds = 0.0
-        main_tt._rand_state = random.getstate() # BUG: ver, inicializa el estado con ./lang/LangPrimSource/PyrUnixPrim.cpp:int32 timeseed() en newPyrProcess
-        # *** BUG: cls.main_tt.clock siempre es SystemClock y no se puede setear (no tiene efecto).
+        main_tt._rgen = cls._rgen
+
         main_vname = '_' + prefix + '_main_tt'
         curr_vname = '_' + prefix + '_current_tt'
         setattr(cls, main_vname, main_tt)
@@ -103,6 +104,10 @@ class Process(type):
     @property
     def mode(cls):
         return cls._mode
+
+    @property
+    def rgen(cls):
+        return cls.current_tt.rgen
 
     # TODO: ver y agregar los comentarios en el código original
     def startup(cls):

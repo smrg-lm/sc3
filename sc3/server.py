@@ -950,8 +950,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             def task():
                 pass # no hace nada
 
-        resp = rdf.OSCFunc(resp_func, '/synced', self.addr) # TODO: agregar decorador
-        stm.Routine.run(task, clk.AppClock) # TODO: agregar decorador
+        resp = rdf.OSCFunc(resp_func, '/synced', self.addr)
+        stm.Routine.run(task, clk.AppClock)
         self.addr.send_msg('/sync', id)
 
     def _wait_for_pid_release(self, on_complete, on_failure=None, timeout=1):

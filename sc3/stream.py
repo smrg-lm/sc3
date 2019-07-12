@@ -1,6 +1,5 @@
 """Stream.sc"""
 
-import sys
 import inspect
 import enum
 import random
@@ -17,14 +16,12 @@ class StopStream(StopIteration):
     pass
 
 
-# NOTE: para _RoutineYieldAndReset, ver método de Routine
 class YieldAndReset(Exception):
     def __init__(self, value=None):
         super().__init__()
         self.value = value
 
 
-# NOTE: para _RoutineAlwaysYield, ver método de Routine
 class AlwaysYield(Exception):
     def __init__(self, terminal_value=None):
         super().__init__()
@@ -45,24 +42,10 @@ class Stream(fn.AbstractFunction): #, ABC):
             yield self.next(inval)
 
     def __next__(self):
-        return self.next() # TODO: en Python no son infinitos por defecto
+        return self.next()
 
     def __call__(self, inval=None):
         return self.next(inval)
-
-    def yield_and_reset(self, value=None):
-        if self is _libsc3.main.current_tt:
-            raise YieldAndReset(value)
-        else:
-            raise Exception(
-                'yield_and_reset only works if self is main.current_tt')
-
-    def always_yield(self, value=None):
-        if self is _libsc3.main.current_tt:
-            raise AlwaysYield(value)
-        else:
-            raise Exception(
-                'always_yield only works if self is main.current_tt')
 
     #@abstractmethod # NOTE: la clase que se usa como Stream por defecto es Routine (hay otras)
     def next(self, inval=None): # se define en Object y se sobreescribe con subclassResponsibility en Stream
@@ -237,7 +220,8 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         # para Routine
         self._iterator = None # se inicializa luego de la excepción
         self._last_value = None
-        self._terminal_value = None
+        self._sentinel = object()
+        self._terminal_value = self._sentinel
 
         # NOTE: No se usan entornos como en sclang, a lo sumo se podrían pasar diccionarios.
         # self.environment = current_Environment # acá llama al slot currentEnvironment de Object y lo setea al del hilo
@@ -340,7 +324,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
     # checkCanArchive { "cannot archive Threads".warn }
 
 
-class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeThread y mro. Creo que el úlitmo que se agrega sobreescribe y en sclang thread es subclase de stream, pero Python llama a __init__ del primero en la lista.
+class Routine(TimeThread, Stream):
     @classmethod
     def run(cls, func, clock=None, quant=None):
         obj = cls(func)
@@ -372,91 +356,73 @@ class Routine(TimeThread, Stream): # BUG: ver qué se pisa entre Stream y TimeTh
     @clock.setter
     def clock(self, clock):
         self._clock = clock
-        self._beats = clock.secs2beats(self.seconds) # no llama al setter de beats, convierte los valores en sesgundos de este thread según el nuevo clock
+        self._beats = clock.secs2beats(self.seconds)
 
     def next(self, inval=None):
         # _RoutineAlwaysYield (y Done)
         if self.state == self.State.Done:
-            #print('*** StopStream from State.Done')
-            raise StopStream('Routine stopped')
+            if self._terminal_value is self._sentinel:
+                raise StopStream('Routine stopped')
+            else:
+                return self._terminal_value
 
         # prRoutineResume
-        # TODO: setea nowExecutingPath, creo que no lo voy a hacer.
         self.parent = _libsc3.main.current_tt
         _libsc3.main.current_tt = self
-        self.seconds = self.parent.seconds # NOTE: seconds setea beats también
-        self.state = self.State.Running # NOTE: Lo define en switchToThread al final
+        self.seconds = self.parent.seconds
+        self.state = self.State.Running
 
         try:
             # TODO: Reproducir test_concurrente.scd cuando implemente TempoClock.
-            if self._iterator is None: # NOTE: esto lo paso acá porque next puede tirar yield exceptions
-                if len(inspect.signature(self.func).parameters) == 0: # esto funciona porque es solo para la primera llamada, cuando tampoco existe _iterator, luego no importa si la función tenía argumentos.
+            if self._iterator is None:
+                if len(inspect.signature(self.func).parameters) == 0:
                     self._iterator = self.func()
                 else:
                     self._iterator = self.func(inval)
                 if inspect.isgenerator(self._iterator):
-                    self._last_value = next(self._iterator) # NOTE: Igual no anda si este next puede tirar YieldException, por eso quité reset=false, después de tirar esa excepción volvía con StopIteration.
+                    self._last_value = next(self._iterator)
                 else:
-                    raise StopStream('function return, return value discarded')
+                    raise AlwaysYield()
             else:
-                self._last_value = self._iterator.send(inval) # NOTE: _iterator.send es solo para iteradores generadores, pero en clock está puesto para que evalúe como función lo que no tenga el método next()
+                self._last_value = self._iterator.send(inval)
             self.state = self.State.Suspended
-        except StopIteration as e: # NOTE: Las Routine envuelven generadores para evaluarlas con relojes, se puede usar cualquier generador/iterador en el try por eso hay que filtrar esta excepción.
-            #print('*** StopIteration')
-            # NOTE: La excepción de los generadores siempre es del frame actual
-            # (solo un frame en traceback) aunque hayan yield y yield from anidados.
-            # Si no es su propia excepción la tiene que pasar para arriba, puede
-            # ser el caso de llamadas a funciones anidadas como error de usuario.
-            # Si se produce dentro de un generador tira un deprecation warning,
-            # lo cuál sería confuso, tal vez por eso en versiones más recientes
-            # de python tira error de systema (creo) lo cuál me ahorraría este
-            # if y la excepción StopStream. TODO: *** PROBAR FUNCIONES ***
-            if sys.exc_info()[2].tb_next is not None:
-                raise e
+        except StopStream as e:
             self._iterator = None
-            self._terminal_value = None
-            self.state = self.State.Done # BUG: esto no sería necesario con StopIteration?
-            self._last_value = self._terminal_value
-            #print('*** StopStream from except StopIteration')
-            raise StopStream('Routine generator exhausted') from e # NOTE: *** PARA YIELD FROM
+            self._last_value = None
+            self.state = self.State.Done
+            return self._last_value
+        except StopIteration as e:
+            self._iterator = None
+            self._last_value = None
+            self.state = self.State.Done
+            raise StopStream from e
         except YieldAndReset as e:
-            #print('*** YieldAndReset')
             self._iterator = None
             self.state = self.State.Init
             self._last_value = e.value
         except AlwaysYield as e:
-            #print('*** AlwaysYield')
             self._iterator = None
             self._terminal_value = e.terminal_value
             self.state = self.State.Done
             self._last_value = self._terminal_value
         finally:
-            # prRoutineYield # BUG: ver qué pasa con las otras excepciones dentro de send, si afectan este comportamiento
             _libsc3.main.current_tt = self.parent
             self.parent = None
 
-        #print('return _last_value', self._last_value)
-        return self._last_value # BUG: ***************** si se retorna None no funciona yield from en State.Done.
+        return self._last_value
 
     def reset(self):
         if self is _libsc3.main.current_tt: # Running
-            raise YieldAndReset() # BUG: o tirar otra excpeción? Running es un error en sclang (se llama con yieldAndReset)
-        elif self.state == self.State.Init:
-            return
-        else: #if self.state == self.State.Suspended or self.state == self.State.Done:
-            self._iterator = None # BUG: es el único caso que manejo fuera de las excepciones, es el que mejor anda...
+            raise YieldAndReset()
+        else:
+            self._iterator = None
             self.state = self.State.Init
 
-    # // the _RoutineStop primitive can't stop the currently running Routine
-    # // but a user should be able to use .stop anywhere
-    # stop # prStop ->_RoutineStop con otros detalles
+    # stop -> prStop -> _RoutineStop
     def stop(self):
         if self is _libsc3.main.current_tt: # Running
-            raise AlwaysYield()
-        elif self.state == self.State.Done:
-            return
+            raise StopStream()
         else:
-            self._terminal_value = None
             self.state = self.State.Done
 
     # // resume, next, value, run are synonyms

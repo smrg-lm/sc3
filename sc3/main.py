@@ -22,7 +22,7 @@ import random
 
 from . import server as srv
 from . import stream as stm
-from . import oscserver as osr
+from . import oscinterface as osc
 from . import responsedefs as rdf
 from . import utils as utl
 from . import clock as clk
@@ -52,7 +52,7 @@ class Process(type):
     def _init_rt(cls):
         cls._rt_time_of_initialization = time.time()
         cls._create_main_thread('rt')
-        cls.osc_server = osr.OSCServer() # BUG: options, y ver si se pueden crear más servidores.
+        cls.osc_server = osc.LOInterface()
         cls.osc_server.start()
 
     def _init_nrt(cls):

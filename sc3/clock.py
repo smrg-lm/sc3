@@ -159,16 +159,12 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         return cls
 
     def _sched_init(self): # L253 inicia los atributos e.g. _time_of_initialization
-        #time.gmtime(0).tm_year # must be unix time
         self._host_osc_offset = 0 # int64
-
         self._sync_osc_offset_with_tod()
-        self._host_start_nanos = int(_libsc3.main._time_of_initialization / 1e9) # time.time_ns() -> int v3.7
+        self._host_start_nanos = int(_libsc3.main._time_of_initialization / 1e-9) # to nanos
         self._elapsed_osc_offset = int(
             self._host_start_nanos * SystemClock._NANOS_TO_OSC
         ) + self._host_osc_offset
-
-        #print('SystemClock _sched_init fork thread')
 
         # same every 20 secs
         self._resync_cond = _threading.Condition() # VER, aunque el uso es muy simple (gResyncThreadSemaphore)
@@ -183,18 +179,18 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
         # // is equal to gettimeofday time in OSCunits.
         # // Then if this machine is synced via NTP, we are synced with the world.
         # // more accurate way to do this??
-        number_of_tries = 1
+        number_of_tries = 8
         diff = 0 # int64
-        min_diff = 0x7fffFFFFffffFFFF # int64, a big number to miss
+        min_diff = 0x7fffFFFFffffFFFF # int64
         new_offset = self._host_osc_offset
 
         for i in range(0, number_of_tries):
-            system_time_before = _time.perf_counter()
-            time_of_day = _time.time()
-            system_time_after = _time.perf_counter()
+            system_time_before = _time.time()  # must be the same epoch
+            time_of_day = _time.time()  # must be gmt time
+            system_time_after = _time.time()
 
-            system_time_before = int(system_time_before / 1e6) # to usecs
-            system_time_after = int(system_time_after / 1e6)
+            system_time_before = int(system_time_before / 1e-9)
+            system_time_after = int(system_time_after / 1e-9)
             diff = system_time_after - system_time_before
 
             if diff < min_diff:
@@ -203,23 +199,27 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                 system_time_between = system_time_before + diff // 2
                 system_time_in_osc_units = int(
                     system_time_between * SystemClock._NANOS_TO_OSC)
+
+                # mimics
+                tv_sec = int(time_of_day)
+                tv_usec = int((time_of_day % 1) / 1e-6)
                 time_of_day_in_osc_units = (
-                    (int(time_of_day + SystemClock._SECONDS_FROM_1900_TO_1970)
-                    << 32) + int(time_of_day / 1e6 * SystemClock._MICROS_TO_OSC)
-                )
+                    (int(tv_sec + SystemClock._SECONDS_FROM_1900_TO_1970) << 32)
+                    + int(tv_usec * SystemClock._MICROS_TO_OSC))
 
                 new_offset = time_of_day_in_osc_units - system_time_in_osc_units
-        # end for
+
         self._host_osc_offset = new_offset
-        #print('new offset:', self._host_osc_offset)
 
     def _resync_thread_func(self): # L408, es la función de _rsync_thread
         self._run_resync = True
+
         with self._resync_cond:
             while self._run_resync:
                 self._resync_cond.wait(20)
                 if not self._run_resync:
                     return
+
                 self._sync_osc_offset_with_tod()
                 self._elapsed_osc_offset = int(
                     self._host_start_nanos * SystemClock._NANOS_TO_OSC
@@ -310,22 +310,23 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
                     try:
                         try:
                             _libsc3.main.update_logical_time(sched_time) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
+
                             if isinstance(task, _types.FunctionType):
                                 n = len(_inspect.signature(task).parameters)
                                 if n > 3:
                                     raise TypeError(
                                         'clock scheduled function takes '
                                         'between 0 and 3 positional arguments '
-                                        f'but {n} were given'
-                                    )
+                                        f'but {n} were given')
                                 args = [sched_time, sched_time, self][:n]
                                 delta = task(*args)
                             elif isinstance(task, (stm.Routine, stm.PauseStream)):
                                 delta = task.awake(sched_time, sched_time, self) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
                             else:
                                 raise TypeError(
-                                    f"type '{type(item)}' is not supported "
-                                    "by SystemClock scheduler")
+                                    f"type '{type(item).__name__}' is not "
+                                    "supported by SystemClock scheduler")
+
                             if isinstance(delta, (int, float))\
                             and not isinstance(delta, bool):
                                 time = sched_time + delta
@@ -397,14 +398,17 @@ class Scheduler():
                 if isinstance(item, _types.FunctionType):
                     n = len(_inspect.signature(item).parameters)
                     if n > 3:
-                        msg = f'Scheduler wakeup function takes between 0 and 3 positional arguments but {n} were given'
-                        raise TypeError(msg)
+                        raise TypeError(
+                            'Scheduler wakeup function takes between 0 and 3 '
+                            f' positional arguments but {n} were given')
                     args = [self._beats, self._seconds, self._clock][:n]
                     delta = item(*args)
                 elif isinstance(item, (stm.Routine, stm.PauseStream)):
                     delta = item.awake(self._beats, self._seconds, self._clock) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
                 else:
-                    raise TypeError(f"type '{type(item)}' is not supported by Scheduler")
+                    raise TypeError(
+                        f"type '{type(item).__name__}' is not "
+                        "supported by Scheduler")
 
                 if isinstance(delta, (int, float))\
                 and not isinstance(delta, bool):
@@ -605,6 +609,7 @@ class ClockTask():
         try:
             try:
                 _libsc3.main.update_logical_time(self.time)
+
                 if isinstance(self.task, _types.FunctionType):
                     n = len(_inspect.signature(self.task).parameters)
                     if n > 3:
@@ -619,8 +624,9 @@ class ClockTask():
                         self.clock.secs2beats(self.time),
                         self.time, self.clock)
                 else:
-                    raise TypeError(f"type '{type(item)}' is not "
+                    raise TypeError(f"type '{type(item).__name__}' is not "
                                     "supported by clock scheduler")
+
                 if isinstance(delta, (int, float))\
                 and not isinstance(delta, bool):
                     self.scheduler.prev_elapsed_time = self.time # NOTE: tiene que ir acá, si la rutina devuelve una valor que no hace avanzar el tiempo (p.e. 'hang') no cambia el tiempo previo.
@@ -858,8 +864,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                                                self)
                         else:
                             raise TypeError(
-                                f"type '{type(item)}' is not supported "
-                                "by clock scheduler")
+                                f"type '{type(item).__name__}' is not "
+                                "supported by clock scheduler")
 
                         if isinstance(delta, (int, float))\
                         and not isinstance(delta, bool):

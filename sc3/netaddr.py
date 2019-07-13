@@ -14,41 +14,11 @@ LIBLO: tiene las clases:
 * ServerError (excepción)
 * AddressError (excepción)
 
-En sclang NetAddr actúa como un poco de todo, dirección, tipo de mensaje,
-servidor, etc. Hay:
+En sclang NetAddr es la dirección sobre la cual se efectúan accions. Ver qué
+pasa con TCP según la librería OSC.
 
 * NetAddr
 * BundleNetAddr
-
-Y métodos esparcidos por la librería de clases que llaman a estas clases.
-Además, el cliente es todo el lenguaje y no una librería. Client pordía ser
-un wrapper de SreverThread, y NetAddr de Address. Luego los tipos de mensajes
-se determinan creando Message o Bundle en Client. Si se quiere establecer
-una conexión TCP se podría crear otro cliente, pero no se si sería conveniente
-que actúe al mismo nivel de abstracción que Client. Porque es posible que
-cliente se componga de otras clases que también manejen los aspectos de
-configuración del cliente que en sclang están dispersos en varias clases.
-
-NetAddr podría tener los métodos send pero llamar a los métodos de Client
-en vez de implementar otro servidor. También hay que ver cómo interactuan los
-métodos send la clase Server (scsynth/supernova) que usan addr.
-
-Tal vez:
-Client
-    ClientServer (nombre contradictorio, para osc) o ClientThread, ClientOSC, o UDPClient y TCPClient o UDPConnection, etc.
-    ClientConfig o ClientOptions
-    Platform
-    MIDIClient?
-
-VER DOCUMENTACIÓN: 'OSC COMMUNICATION'
-
-ESTA CLASE PROBABLEMENTE QUEDE COMO WRAPPER DE LIBLO SEND CON ADDRESS,
-PERO TAL VEZ SEA MEJOR USAR LA INSTANCIA GLOBAL DEL CLIENTE PARA QUE LOS
-MENSAJES SALGAN DEL MISMO PUERTO.
-
-IDEA: DESCARTAR EL MANEJO DE PROTOCOLO TCP, QUE NetAddr SEA SIMPLEMENTE
-UNA INTERFAZ DE CLIENT PARA USAR CON LA FUNCIONALIDAD INTEGRADA. PARA OTROS
-USOS SE PUEDE USAR liblo QUE ES DEPENDENCIA.
 """
 
 import ipaddress as _ipaddress
@@ -77,6 +47,7 @@ class NetAddr():
     @property
     def hostname(self):
         return self._hostname
+
     @hostname.setter
     def hostname(self, value):
         self._addr = int(_ipaddress.IPv4Address(value))
@@ -90,6 +61,7 @@ class NetAddr():
     @property
     def port(self):
         return self._port
+
     @port.setter
     def port(self, value):
         self._port = value
@@ -97,10 +69,10 @@ class NetAddr():
 
     @classmethod
     def local_addr(cls): # TODO: este método también es próximo a inútil
-        return cls('127.0.0.1', cls.client_port())
+        return cls('127.0.0.1', cls.lang_port())
 
     @classmethod
-    def client_port(cls):
+    def lang_port(cls):
         return _libsc3.main.osc_server.port
 
     @staticmethod
@@ -132,7 +104,7 @@ class NetAddr():
 
     # @classmethod
     # def local_end_point(cls):
-    #     return cls(cls.client_ip(), cls.client_port()) # depende de client_ip
+    #     return cls(cls.client_ip(), cls.lang_port()) # depende de client_ip
 
     # @classmethod
     # def disconnect_all(cls):

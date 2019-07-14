@@ -1,18 +1,4 @@
-"""
-SynthDef...
-
-Ver qué métdos se llaman desde las UGens y cómo se relacionan.
-Buscar la manera de ir probando los resultados parciales y comprobando
-junto con sclang. Prestar atención a los métodos que son de ancestros
-y que actúan como protocolo incorporado en la librería de sclang incluso
-desde Object.
-
-Luego poner synthdef, ugen, binopugen y todas las ugens que actúan como
-tipos básicos en un subpaquete que se llame synthgraph. Las ugens concretas
-irían a parte en otro paquete llamado ugens... Pero después ver cómo se
-pueden importar las cosas como conjuntos de paquetes tal vez compuestos
-de subconjuntos de los elemnentos de los paquetes... suena complicado.
-"""
+"""SynthDef.sc"""
 
 import inspect
 import warnings

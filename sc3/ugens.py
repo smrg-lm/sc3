@@ -1,13 +1,4 @@
-"""
-UGens, acá se complica.
-
-Ver la documentación de la clase UGen y otras relacionadas.
-La expansión multicanal en parte está implementada en Array.
-El método de instancia asUGenInput también lo implementan nodos
-buses y buffers para ser pasados directamente a las ugens y
-synth como ugens args. Estos métodos, tal vez, deberían estar
-en otra clase que actúe como protocolo.
-"""
+"""UGens.sc"""
 
 import struct
 from functools import singledispatch

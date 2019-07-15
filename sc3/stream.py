@@ -44,8 +44,6 @@ class Stream(fn.AbstractFunction): #, ABC):
     def __next__(self):
         return self.next()
 
-    def __call__(self, inval=None):
-        return self.next(inval)
 
     #@abstractmethod # NOTE: la clase que se usa como Stream por defecto es Routine (hay otras)
     def next(self, inval=None): # se define en Object y se sobreescribe con subclassResponsibility en Stream

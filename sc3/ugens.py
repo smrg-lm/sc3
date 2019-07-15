@@ -12,11 +12,6 @@ from . import graphparam as gpp
 
 
 class UGen(fn.AbstractFunction):
-    # classvar <>buildSynthDef; // the synth currently under construction,  PASADA A _gl.current_synthdef y tiene un Lock
-
-    def __call__(self, *args):
-        return self
-
     @classmethod
     def new1(cls, rate, *args): # la verdad que see podría llamar single_new.
         '''OD: This method returns a single instance of the UGen,
@@ -257,23 +252,23 @@ class UGen(fn.AbstractFunction):
                 lst[i] = res
         return lst
 
-    # L407
-    # OC: PRIVATE
-    # OC: function composition
-    # Son la interfaz de AbstractFunction
-    def compose_unop(self, selector): # composeUnaryOp
+
+    ### AbstractFunction interface ###
+
+    def compose_unop(self, selector):
         return UnaryOpUGen.new(selector, self)
-    def compose_binop(self, selector, input): #composeBinaryOp
+
+    def compose_binop(self, selector, input):
         param = gpp.ugen_param(input)
         if param.is_valid_ugen_input():
             return BinaryOpUGen.new(selector, self, input)
         else:
             param.perform_binary_op_on_ugen(selector, self) # BUG: No entiendo por qué no retorna en sclang, si va por else siempre devuelve self.
         return self
-    # def compose_rbinop(self, selector, ugen): # puede que no sea necesario, salvo otras operaciones de sclang, pero BinaryOpFunction usa rmethod y habría que cambiarlo también
-    #     return BinaryOpUGen(selector, ugen, self)
-    def compose_narop(self, selector, *args): #composeNAryOp
-        raise NotImplementedError('UGen compose_narop is not implemented.') # y probablemente nunca se haga?
+
+    def compose_narop(self, selector, *args):
+        raise NotImplementedError('UGen compose_narop is not supported')
+
 
     # L426
     # OC: Complex support

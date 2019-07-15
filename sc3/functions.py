@@ -1,43 +1,30 @@
-"""
-functions tal vez sería un sub paquete
+"""AbstractFunction.sc"""
 
-AbstractFunction es el corazón de todos
-los comportamientos de las UGens. Así está
-integrado en sclang y es lo que posibilita
-lazyeval/proxy como si fuera un parser de las
-definiciones. Los patterns, las rutinas, las
-funciones también son AbstractFunctions. Las
-rutinas además son streams.
-
-Las indicación para emular tipos numéricos están
-en https://docs.python.org/3/reference/datamodel.html
-por ejemplo (#object.__rmul__)
-"""
-
-from abc import ABC, abstractmethod
 import inspect
 
 from . import builtins as bi # TODO: TEST, ver abajo.
 from . import graphparam as gpp
 
 
-# ver abstract base clases in python
-class AbstractFunction(ABC, gpp.UGenParameter):
-    @abstractmethod # BUG: esto lo tengo que extender a todos los métodos de interfaz obligatoria, pero por ahora es más fácil sin implementar todo
+class AbstractFunction(gpp.UGenParameter):
     def __call__(self, *args):
-        pass
+        raise NotImplementedError(
+            f'callable interface has no use for {type(self).__name__}')
 
-    # OC: function compositions
-    # override these in subclasses to perform
-    # different kinds of function compositions
+
+    ### AbstractFunction interface ###
+    # // override these in subclasses to perform
+    # // different kinds of function compositions
+
     def compose_unop(self, selector):
         return UnaryOpFunction(selector, self)
+
     def compose_binop(self, selector, other):
         return BinaryOpFunction(selector, self, other)
-    # def compose_rbinop(self, selector, other): # puede que no sea necesario, salvo otras operaciones de sclang, pero BinaryOpFunction usa rmethod y habría que cambiarlo también
-    #     return BinaryOpFunction(selector, other, self)
-    def compose_narop(self, selector, *args): # , **kwargs): # si? no? no, si? si, no, no, si, si?
-        return NAryOpFunction(selector, self, *args) #, **kwargs)
+
+    def compose_narop(self, selector, *args):
+        return NAryOpFunction(selector, self, *args)
+
 
     # TODO: ver módulo operator: https://docs.python.org/3/library/operator.html
     # No estoy implementando los métodos inplace (e.g. a += b), por defecto
@@ -246,7 +233,7 @@ class AbstractFunction(ABC, gpp.UGenParameter):
     # ...
 
 
-    # UGen graph parameter interface #
+    ### UGen graph parameter interface ###
     # TODO: ver el resto en gpp.UGenParameter
     # BUG: ver si value no intefiere
 

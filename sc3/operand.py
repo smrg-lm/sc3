@@ -4,11 +4,8 @@ from . import functions as fn
 
 
 class Operand(fn.AbstractFunction):
-    def __call__(self, *args):
-        return self.value
-
     def __init__(self, value=None):
-        if isinstance(value, type(Operand)): # NOTE: es dereferenceOperand que solo se usa para este caso, igual me falta ver el uso global de esta clase y Rest.
+        if isinstance(value, Operand):
             self.value = value.value
         else:
             self.value = value
@@ -21,4 +18,33 @@ class Operand(fn.AbstractFunction):
     def value(self, value):
         self.__value = value
 
-    # TODO: sigue ... Rest hereda de esta clase
+
+    ### AbstractFunction interface ###
+
+    def compose_unop(self, selector):
+        return type(self)(getattr(self.value, selector)())
+
+    def compose_binop(self, selector, value):
+        if isinstance(value, Operand):
+            return type(self)(getattr(self.value, selector)(value.value))
+        else:
+            return type(self)(getattr(self.value, selector)(value))
+
+    def compose_narop(self, selector, *args):
+        return type(self)(getattr(self.value, selector)(*args))
+
+
+    def __hash__(self):
+        return self.value.__hash__()
+
+    def __eq__(self, value):
+        if isinstance(value, Operand):
+            return self.value.__eq__(value.value)
+        else:
+            return self.value.__eq__(value)
+
+    def __repr__(self):
+        return f'{type(self).__name__}({self.value})'
+
+    # printOn
+    # storeOn

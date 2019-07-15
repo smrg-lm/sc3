@@ -4,12 +4,7 @@ from . import functions as fn
 from . import stream as stm
 
 
-# NOTE: No define ningún método como responsabilidad de subclase,
-# por eso es que Pattern no es una ABC.
 class Pattern(fn.AbstractFunction):
-    def __call__(self): # BUG: pattern también no es estrictamente una función, se podría declarar AbstractObject o SCObject
-        return self # NOTE: RECORDAR, que lo más lógico es retornar self object() is object.
-
     # // concatenate Patterns
     # ++
     # // compose Patterns

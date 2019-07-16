@@ -44,7 +44,6 @@ def node_param(obj):
 
 ### Graphs Parameter Base Class ###
 
-
 class GraphParameter():
     def __init__(self, value):
         self.__value = value
@@ -61,18 +60,12 @@ class GraphParameter():
         return (cls,)
 
 
-### UGen Graph Parameters ###
+### UGen graph parameter interface ###
 
 # BUG: todos las UGen heredan o reimplementan esta interfaz, sin tener
 # UGenParameter de parent.
 
 class UGenParameter(GraphParameter):
-    ### UGen interface ###
-
-    def madd(self, mul=1.0, add=0.0):
-        msg = "madd can't be applied to '{}'"
-        raise TypeError(msg.format(type(self.value).__name__))
-
     def is_valid_ugen_input(self):
         return False
 
@@ -131,12 +124,6 @@ class UGenScalar(UGenParameter):
     def param_type(cls):
         return (int, float, bool)
 
-    def madd(self, mul=1.0, add=0.0):
-        res = (self.value * mul) + add
-        if isinstance(res, UGen):
-            return res
-        return self.value
-
     def is_valid_ugen_input(self):
         return not isnan(self.value)
 
@@ -166,9 +153,6 @@ class UGenList(UGenParameter):
 
     # BUG: array implementa num_channels?
 
-    def madd(obj, mul=1.0, add=0.0):
-        return MulAdd.new(obj, mul, add) # TODO: Tiene que hacer expansión multicanal, es igual a UGen. VER: qué pasa con MulAdd args = as_ugen_input([input, mul, add], cls)
-
     def is_valid_ugen_input(self):
         return True
 
@@ -196,13 +180,14 @@ class UGenList(UGenParameter):
             ugen_param(item).write_input_spec(file, synthdef)
 
 
+### asTarget.sc interface ###
 ### Node Graph Parameters ###
 
 # BUG: todos los Node heredan o reimplementan esta interfaz, sin tener
 # NodeParameter de parent.
 
 class NodeParameter(GraphParameter):
-    ### asTarget.sc interface ###
+    ### Node parameter interface ###
 
     def as_target(self):
         msg = "invalid value for Node target: '{}'"

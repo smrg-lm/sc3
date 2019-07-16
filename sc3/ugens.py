@@ -71,7 +71,7 @@ class UGen(fn.AbstractFunction):
                               if isinstance(item, list)\
                               else item # hace la expansión multicanal
             results[i] = cls.multi_new(*new_args)
-        return results
+        return ChannelList(results)
 
     # Python __init__ no es sclang SynthDef init
     # acá solo puse los valores de instancia por defecto de la clase original.
@@ -413,6 +413,109 @@ class UGen(fn.AbstractFunction):
     def write_input_spec(self, file, synthdef):
         file.write(struct.pack('>i', self.synth_index)) # putInt32
         file.write(struct.pack('>i', self.output_index)) # putInt32
+
+
+class ChannelList(list):
+    '''List wrapper for multichannel expansion graph operations.'''
+
+    def __new__(cls, iterable=None):
+        if isinstance(iterable, UGen):
+            return [iterable] # *** BUG: así funciona como as_list de UGen y no de otros tipos. as_list se usa mucho en las ugens y se pasa incluso como parmámetro a multi_new_list, pero no siempre es una lista de canales.
+        else:
+            return super().__new__(cls, iterable)
+
+
+    ### UGen interface ###
+
+    def madd(self, mul=1.0, add=0.0):
+        return type(self)(MulAdd.new(i, mul, add) for i in self)
+
+    # TODO: ver el resto, qué falta que implementa array y se usa en el grafo.
+
+
+    ### Mathematical operations ###
+
+    def __add__(self, other):  # +
+        return utl.listop('__add__', self, other, type(self))
+
+    def __radd__(self, other):
+        return utl.listop('__radd__', self, other, type(self))
+
+    def __sub__(self, other):  # -
+        return utl.listop('__sub__', self, other, type(self))
+
+    def __rsub__(self, other):
+        return utl.listop('__rsub__', self, other, type(self))
+
+    def __mul__(self, other):  # *
+        return utl.listop('__mul__', self, other, type(self))
+
+    def __rmul__(self, other):
+        return utl.listop('__rmul__', self, other, type(self))
+
+    # # def __matmul__(self, other):  # @
+    # # def __rmatmul__(self, other):
+
+    def __truediv__(self, other):  # /
+        return utl.listop('__truediv__', self, other, type(self))
+
+    def __rtruediv__(self, other):
+        return utl.listop('__rtruediv__', self, other, type(self))
+
+    def __floordiv__(self, other):  # //
+        return utl.listop('__floordiv__', self, other, type(self))
+
+    def __rfloordiv__(self, other):
+        return utl.listop('__rfloordiv__', self, other, type(self))
+
+    def __mod__(self, other):  # %
+        return utl.listop('__mod__', self, other, type(self))
+
+    def __rmod__(self, other):
+        return utl.listop('__rmod__', self, other, type(self))
+
+    # # def __divmod__(self, other): # divmod(), método integrado
+    # # def __rdivmod__(self, other):
+
+    def __pow__(self, other):  # pow(), **, object.__pow__(self, other[, modulo])
+        return utl.listop('__pow__', self, other, type(self))
+
+    def __rpow__(self, other):
+        return utl.listop('__rpow__', self, other, type(self))
+
+    def __lshift__(self, other):  # <<
+        return utl.listop('__lshift__', self, other, type(self))
+
+    def __rlshift__(self, other):
+        return utl.listop('__rlshift__', self, other, type(self))
+
+    def __rshift__(self, other):  # >>
+        return utl.listop('__rshift__', self, other, type(self))
+
+    def __rrshift__(self, other):
+        return utl.listop('__rrshift__', self, other, type(self))
+
+    def __and__(self, other):  # &
+        return utl.listop('__and__', self, other, type(self))
+
+    def __rand__(self, other):
+        return utl.listop('__rand__', self, other, type(self))
+
+    def __xor__(self, other):  # ^
+        return utl.listop('__xor__', self, other, type(self))
+
+    def __rxor__(self, other):
+        return utl.listop('__rxor__', self, other, type(self))
+
+    def __or__(self, other):  # |
+        return utl.listop('__or__', self, other, type(self))
+
+    def __ror__(self, other):
+        return utl.listop('__ror__', self, other, type(self))
+
+
+    def __repr__(self):
+        return f'ChannelList({super().__repr__()})'
 
 
 # OC: ugen which has no side effect and can therefore be considered for a dead code elimination
@@ -803,7 +906,7 @@ class MulAdd(UGen):
         nomul = mul == 1.0
         noadd = add == 0.0
         if nomul and noadd: return input
-        if minus and noadd: return input.neg() # BUG: ES POSIBLE QUE PUEDA NO SER UNA UGEN, habríá que agregar el método a gpp.ugen_param
+        if minus and noadd: return input.neg() # *** BUG: ES POSIBLE QUE PUEDA NO SER UNA UGEN, habría que agregar el método a gpp.ugen_param.
         if noadd: return input * mul
         if minus: return add - input
         if nomul: return input + add

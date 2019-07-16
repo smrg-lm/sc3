@@ -127,9 +127,26 @@ def deep_collect(inlist, depth, func, index=0, rank=0):
 
 
 def wrap_extend(inlist, n):
-    '''Create a new list by extending inlist with its
-    own elements cyclically.'''
-    return [inlist[i % len(inlist)] for i in range(n)]
+    '''Create a new list by extending inlist with its own elements cyclically.
+    n >= 0.'''
+    l = len(inlist)
+    if l == 0: return inlist[:]
+    return inlist * (n // l) + inlist[:n % l]
+
+
+def listop(op, a, b, t=None):
+    '''Operate on sequences element by element and return a list of type t
+    (default to list). Argument a must be a list or subclass, b may be a list
+    or a type compatible with operator op.'''
+    t = t or list
+    if isinstance(b, list):
+        if len(a) >= len(b):
+            b = wrap_extend(list(b), len(a))
+        else:
+            a = wrap_extend(list(a), len(b))
+        return t(getattr(i[0], op)(i[1]) for i in zip(a, b))
+    else:
+        return t(getattr(i, op)(b) for i in a)
 
 
 #def reshape_like(this, that); # or that this like sclang?

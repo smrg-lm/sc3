@@ -17,8 +17,6 @@ from . import ugens as ugn
 class Osc(ugn.PureUGen):
     @classmethod
     def ar(cls, bufnum, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        '''Nota: Hay que usar la función ugn.madd porque multi_new puede
-        devolver un número, una lista (expansión multicanal) o una ugen.'''
         return cls.multi_new('audio', bufnum, freq, phase).madd(mul, add)
 
     @classmethod

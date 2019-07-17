@@ -271,12 +271,12 @@ class Out(AbstractOut):
         channels_list = channels_list.as_ugen_input(cls)
         channels_list = cls.replace_zeroes_with_silence(channels_list)
         cls.multi_new_list(['audio', bus] + channels_list)
-        return 0.0
+        # return 0.0  # // Out has no output.
 
     @classmethod
     def kr(cls, bus, channels_list):
         cls.multi_new_list(['control', bus] + utl.as_list(channels_list))
-        return 0.0
+        # return 0.0  # // Out has no output.
 
     @classmethod
     def num_fixed_args(cls):
@@ -303,13 +303,13 @@ class LocalOut(AbstractOut):
         channels_list = channels_list.as_ugen_input(cls)
         channels_list = cls.replace_zeroes_with_silence(channels_list)
         cls.multi_new_list(['audio'] + channels_list)
-        return 0.0 # OC: LocalOut has no output.
+        # return 0.0  # // LocalOut has no output.
 
     @classmethod
     def kr(cls, channels_list):
         channels_list = utl.as_list(channels_list)
         cls.multi_new_list(['audio'] + channels_list)
-        return 0.0 # OC: LocalOut has no output.
+        # return 0.0  # // LocalOut has no output.
 
     @classmethod
     def num_fixed_args(cls):
@@ -326,13 +326,13 @@ class XOut(AbstractOut):
         channels_list = channels_list.as_ugen_input(cls)
         channels_list = cls.replace_zeroes_with_silence(channels_list)
         cls.multi_new_list(['audio', bus, xfade] + channels_list)
-        # return 0.0 # OC: Out has no output. # NOTE: acá retorna None, the Python way
+        # return 0.0  # // XOut has no output.
 
     @classmethod
     def kr(cls, bus, xfade, channels_list):
         channels_list = utl.as_list(channels_list)
         cls.multi_new_list(['control', bus, xfade] + channels_list)
-        return 0.0 # OC: Out has no output.
+        # return 0.0  # // XOut has no output.
 
     @classmethod
     def num_fixed_args(cls):

@@ -151,7 +151,7 @@ class UGenScalar(UGenParameter):
 class UGenList(UGenParameter):
     @classmethod
     def param_type(cls):
-        return (list, tuple)
+        return (list, tuple)  # *** BUG: tuple evita la expansión multicanal, eso lo define el constructor de ChannelList. Acá es correcto porque estas clases se usan temporalmente para acceder al polimofismo.
 
     # BUG: array implementa num_channels?
 

@@ -55,17 +55,17 @@ class UGen(fn.AbstractFunction):
         in UGen.new1(rate, *args).
         '''
         # single channel, one ugen
-        lenght = 0
+        length = 0
         args = gpp.ugen_param(args).as_ugen_input(cls)
         for item in args:
             if isinstance(item, list):
-                lenght = max(lenght, len(item))
-        if lenght == 0:
+                length = max(length, len(item))
+        if length == 0:
             return cls.new1(*args)
         # multichannel expansion
         new_args = [None] * len(args)
-        results = [None] * lenght
-        for i in range(lenght): # tener en cuenta sclang #[] y `()
+        results = [None] * length
+        for i in range(length): # tener en cuenta sclang #[] y `()
             for j, item in enumerate(args):
                 new_args[j] = item[i % len(item)]\
                               if isinstance(item, list)\

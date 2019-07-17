@@ -48,12 +48,16 @@ class UniqueID(): # TODO: en sclang está en Common/Collections/ObjectTable.sc
 # específica y dispersa en la librería de clases sino pasarlas a las
 # funciones que lo requieran para la construcción de synthdefs u omitirlas.
 def as_list(obj):
-    '''Bubble the object in a list unless it is a list.
-    If obj is None returns an empty list.'''
+    '''Bubble the object in a list unless it is a list, dict, range, or
+    enumerate. If obj is None returns an empty list.'''
     if obj is None:
         return []
+    elif isinstance(obj, (str, tuple)):
+        return list([obj])
+    elif hasattr(obj, '__iter__'):
+        return list(obj)
     else:
-        return obj if isinstance(obj, list) else [obj]
+        return list([obj])
 
 
 def unbubble(obj): # only one level

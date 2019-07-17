@@ -241,7 +241,7 @@ class UGen(fn.AbstractFunction):
         num_zeroes = lst.count(0.0)
         if num_zeroes == 0:
             return lst
-        silent_channels = utl.as_list(lne.Silent.ar(num_zeroes))
+        silent_channels = ChannelList(lne.Silent.ar(num_zeroes))
         pos = 0
         for i, item in enumerate(lst):
             if item == 0.0:
@@ -263,7 +263,7 @@ class UGen(fn.AbstractFunction):
         if param.is_valid_ugen_input():
             return BinaryOpUGen.new(selector, self, input)
         else:
-            param.perform_binary_op_on_ugen(selector, self) # BUG: No entiendo por qué no retorna en sclang, si va por else siempre devuelve self.
+            param.perform_binary_op_on_ugen(selector, self) # *** BUG: No entiendo por qué no retorna en sclang, si va por else siempre devuelve self.
         return self
 
     def compose_narop(self, selector, *args):
@@ -415,14 +415,20 @@ class UGen(fn.AbstractFunction):
         file.write(struct.pack('>i', self.output_index)) # putInt32
 
 
+# *** BUG: '*' no va a funcionar como dup.
+# *** BUG: si *args no va a funcionar como list(args)
 class ChannelList(list):
     '''List wrapper for multichannel expansion graph operations.'''
 
-    def __new__(cls, iterable=None):
-        if isinstance(iterable, UGen):
-            return [iterable] # *** BUG: así funciona como as_list de UGen y no de otros tipos. as_list se usa mucho en las ugens y se pasa incluso como parmámetro a multi_new_list, pero no siempre es una lista de canales.
+    def __init__(self, obj=None):
+        if obj is None:
+            super().__init__()
+        elif isinstance(obj, (str, tuple)):
+            super().__init__([obj])
+        elif hasattr(obj, '__iter__'):
+            super().__init__(obj)
         else:
-            return super().__new__(cls, iterable)
+            super().__init__([obj])
 
 
     ### UGen interface ###
@@ -518,11 +524,11 @@ class ChannelList(list):
         return f'ChannelList({super().__repr__()})'
 
 
-# OC: ugen which has no side effect and can therefore be considered for a dead code elimination
-# read access to buffers/busses are allowed
+# // UGen which has no side effect and can therefore be considered for
+# // a dead code elimination. Read access to buffers/busses are allowed.
 class PureUGen(UGen):
     def optimize_graph(self):
-        self.perform_dead_code_elimination() # VER: creo que no es necesario llamar a super
+        self.perform_dead_code_elimination()
 
 
 class MultiOutUGen(UGen):
@@ -574,7 +580,7 @@ class MultiOutUGen(UGen):
 
 class PureMultiOutUGen(MultiOutUGen):
     def optimize_graph(self):
-        self.perform_dead_code_elimination() # VER: creo que no es necesario llamar a super
+        self.perform_dead_code_elimination()
 
 
 class OutputProxy(UGen):
@@ -655,11 +661,11 @@ class UnaryOpUGen(BasicOpUGen):
     def init_ugen(self, operator, input):
         self.operator = operator
         self.rate = gpp.ugen_param(input).as_ugen_rate()
-        self.inputs = tuple(utl.as_list(input)) # TODO: es tupla, en sclang es nil si no hay inputs.
-        return self # TIENEN QUE DEVOLVER SELF
+        self.inputs = ChannelList(input)
+        return self  # Must return self.
 
     def optimize_graph(self):
-        self.perform_dead_code_elimination() # VER: creo que no es necesario llamar a super, lo mismo que en ugens.PureUGen.
+        self.perform_dead_code_elimination()
 
 
 class BinaryOpUGen(BasicOpUGen):
@@ -708,7 +714,7 @@ class BinaryOpUGen(BasicOpUGen):
 
     def optimize_graph(self):
         # OC: this.constantFolding;
-        if self.perform_dead_code_elimination(): # llama a super, pero no sobreescribe, y en Python no es necesario tampoco práctico.
+        if self.perform_dead_code_elimination():
             return self
         if self.operator == '+':
             self.optimize_add()

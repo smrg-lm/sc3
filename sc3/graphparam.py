@@ -21,8 +21,8 @@ def graph_param(obj, param_cls):
             new_cls = sub_class
             break
     if new_cls is None:
-        msg = "{}: type '{}' not supported"
-        raise TypeError(msg.format(param_cls.__name__, type(obj).__name__))
+        raise TypeError(
+            f"{param_cls.__name__}: type '{type(obj).__name__}' not supported")
     return new_cls(obj)
 
 
@@ -85,20 +85,21 @@ class UGenParameter(GraphParameter):
         try:
             return self.rate
         except AttributeError as e:
-            msg = "'{}' must implement rate attribute or as_ugen_rate method"
-            raise AttributeError(msg.format(type(self).__name__)) from e
+            raise AttributeError(
+                f"'{type(self).__name__}' must implement "
+                "rate attribute or as_ugen_rate method") from e
 
     def perform_binary_op_on_ugen(self, selector, thing):
         if selector == '==':
             return False
         if selector == '!=':
             return True
-        msg = "operations between ugens and '{}' ('{}') are not implemented"
-        raise NotImplementedError(msg.format(type(input).__name__, input))
+        raise ValueError(
+            f"operations between ugens and '{self.value}' are not supported")
 
     def write_input_spec(self, file, synthdef):
-        msg = "'{}' does not implement write_input_spec"
-        raise NotImplementedError(msg.format(type(self).__name__))
+        raise NotImplementedError(
+            f"'{type(self).__name__}' does not implement write_input_spec")
 
 
 class UGenNone(UGenParameter):
@@ -142,8 +143,9 @@ class UGenScalar(UGenParameter):
             file.write(struct.pack('>i', -1)) # putInt32
             file.write(struct.pack('>i', const_index)) # putInt32
         except KeyError as e:
-            msg = 'write_input_spec constant not found: {}'
-            raise Exception(msg.format(float(self.value))) from e
+            raise Exception(
+                'write_input_spec constant not found: '
+                f'{float(self.value)}') from e
 
 
 class UGenList(UGenParameter):
@@ -154,7 +156,7 @@ class UGenList(UGenParameter):
     # BUG: array implementa num_channels?
 
     def is_valid_ugen_input(self):
-        return True
+        return True if self.value else False  # *** BUG: en sclang, debería comprobar isEmpty porque tira error en SynthDesc (SinOsc.ar() * []). O tal vez cuando construye BinaryOpUGen? Ver el grafo generado, tal vez deba ser None.
 
     def as_ugen_input(self, *ugen_cls):
         lst = list(map(lambda x: ugen_param(x).as_ugen_input(*ugen_cls), self.value))
@@ -171,7 +173,7 @@ class UGenList(UGenParameter):
         if len(self.value) == 1:
             return ugen_param(self.value[0]).as_ugen_rate() # NOTE: en SequenceableCollection si this.size es 1 devuelve this.first.rate
         lst = [ugen_param(x).as_ugen_rate() for x in self.value]
-        if any(x is None for x in lst): # TODO: reduce con Collection minItem, los símbolos por orden lexicográfico, si algún elemento es nil devuelve nil !!!
+        if not lst or any(x is None for x in lst): # TODO: reduce con Collection minItem, los símbolos por orden lexicográfico, si algún elemento es nil devuelve nil !!!
             return None
         return min(lst)
 
@@ -190,8 +192,8 @@ class NodeParameter(GraphParameter):
     ### Node parameter interface ###
 
     def as_target(self):
-        msg = "invalid value for Node target: '{}'"
-        raise TypeError(msg.format(type(self.value).__name__))
+        raise TypeError(
+            f"invalid value for Node target: '{type(self.value).__name__}'")
 
     # BUG IMPORTANTE: VER EL VERDADERO SIGNIFICADO DE LA VIDA DE AS_CONTROL_INPUT.
     # BUG IMPORTANTE: VER LAS NOTAS EN EL TIPO DE EVENTO GRAIN EN event.py.
@@ -265,7 +267,7 @@ class NodeString(NodeParameter):
     # String sobreescribe de manera distinta por lo que supongo que nunca
     # usa este método (además de que no parece consistente).
     def as_osc_arg_bundle(self):
-        raise Exeption('BUG: NodeString as_osc_arg_bundle') # BUG: TEST
+        raise Exeption('BUG: NodeString as_osc_arg_bundle') # *** BUG: TEST
         lst = []
         for e in self.value:
             lst.append(node_param(e).as_osc_arg_list())

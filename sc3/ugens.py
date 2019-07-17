@@ -417,6 +417,7 @@ class UGen(fn.AbstractFunction):
 
 # *** BUG: '*' no va a funcionar como dup.
 # *** BUG: si *args no va a funcionar como list(args)
+# *** BUG: '+' no concatena para los usos de as_list, as_list reconverite ChannelList a list.
 class ChannelList(list):
     '''List wrapper for multichannel expansion graph operations.'''
 

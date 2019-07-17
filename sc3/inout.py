@@ -266,16 +266,16 @@ class AbstractOut(ugn.UGen):
 
 class Out(AbstractOut):
     @classmethod
-    def ar(cls, bus, channels_list):
-        channels_list = gpp.ugen_param(utl.as_list(channels_list))
-        channels_list = channels_list.as_ugen_input(cls)
-        channels_list = cls.replace_zeroes_with_silence(channels_list)
-        cls.multi_new_list(['audio', bus] + channels_list)
+    def ar(cls, bus, output):
+        output = gpp.ugen_param(utl.as_list(output))
+        output = output.as_ugen_input(cls)
+        output = cls.replace_zeroes_with_silence(output)
+        cls.multi_new_list(['audio', bus] + output)
         # return 0.0  # // Out has no output.
 
     @classmethod
-    def kr(cls, bus, channels_list):
-        cls.multi_new_list(['control', bus] + utl.as_list(channels_list))
+    def kr(cls, bus, output):
+        cls.multi_new_list(['control', bus] + utl.as_list(output))
         # return 0.0  # // Out has no output.
 
     @classmethod
@@ -291,24 +291,24 @@ class ReplaceOut(Out): pass # No hace nada espcial.
 
 class OffsetOut(Out):
     @classmethod
-    def kr(cls, bus, channels_list):
+    def kr(cls, bus, output):
         msg = '{} should not implemet kr constructor' # TODO: ver en qué casos se puede llamar, porque acá le agregué los argumentos si no tira error.
         raise NotImplementedError(msg.format(cls.__name__))
 
 
 class LocalOut(AbstractOut):
     @classmethod
-    def ar(cls, channels_list):
-        channels_list = gpp.ugen_param(utl.as_list(channels_list))
-        channels_list = channels_list.as_ugen_input(cls)
-        channels_list = cls.replace_zeroes_with_silence(channels_list)
-        cls.multi_new_list(['audio'] + channels_list)
+    def ar(cls, output):
+        output = gpp.ugen_param(utl.as_list(output))
+        output = output.as_ugen_input(cls)
+        output = cls.replace_zeroes_with_silence(output)
+        cls.multi_new_list(['audio'] + output)
         # return 0.0  # // LocalOut has no output.
 
     @classmethod
-    def kr(cls, channels_list):
-        channels_list = utl.as_list(channels_list)
-        cls.multi_new_list(['audio'] + channels_list)
+    def kr(cls, output):
+        output = utl.as_list(output)
+        cls.multi_new_list(['audio'] + output)
         # return 0.0  # // LocalOut has no output.
 
     @classmethod
@@ -321,17 +321,17 @@ class LocalOut(AbstractOut):
 
 class XOut(AbstractOut):
     @classmethod
-    def ar(cls, bus, xfade, channels_list):
-        channels_list = gpp.ugen_param(utl.as_list(channels_list))
-        channels_list = channels_list.as_ugen_input(cls)
-        channels_list = cls.replace_zeroes_with_silence(channels_list)
-        cls.multi_new_list(['audio', bus, xfade] + channels_list)
+    def ar(cls, bus, xfade, output):
+        output = gpp.ugen_param(utl.as_list(output))
+        output = output.as_ugen_input(cls)
+        output = cls.replace_zeroes_with_silence(output)
+        cls.multi_new_list(['audio', bus, xfade] + output)
         # return 0.0  # // XOut has no output.
 
     @classmethod
-    def kr(cls, bus, xfade, channels_list):
-        channels_list = utl.as_list(channels_list)
-        cls.multi_new_list(['control', bus, xfade] + channels_list)
+    def kr(cls, bus, xfade, output):
+        output = utl.as_list(output)
+        cls.multi_new_list(['control', bus, xfade] + output)
         # return 0.0  # // XOut has no output.
 
     @classmethod

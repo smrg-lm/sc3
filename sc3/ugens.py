@@ -1,7 +1,6 @@
 """UGens.sc"""
 
 import struct
-from functools import singledispatch
 import inspect
 
 from . import functions as fn

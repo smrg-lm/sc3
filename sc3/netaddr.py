@@ -1,25 +1,4 @@
-"""
-NetAddr.sc
-
-LIBLO: tiene las clases:
-
-* Server
-* ServerThread
-* make_method (que es un decorador para registrar funciones)
-
-* Address
-* Message
-* Bundle
-
-* ServerError (excepción)
-* AddressError (excepción)
-
-En sclang NetAddr es la dirección sobre la cual se efectúan accions. Ver qué
-pasa con TCP según la librería OSC.
-
-* NetAddr
-* BundleNetAddr
-"""
+"""NetAddr.sc"""
 
 import ipaddress as _ipaddress
 import socket as _socket

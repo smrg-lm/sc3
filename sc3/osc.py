@@ -1,15 +1,4 @@
-"""
-Osc.sc
-
-Oiginal Comment:
-    Osc - oscillator
-    arguments :
-        bufnum - an index to a buffer
-        freq - frequency in cycles per second
-        pm - phase modulation
-        mul - multiply by signal or scalar
-        add - add to signal or scalar
-"""
+"""Osc.sc"""
 
 from . import ugens as ugn
 

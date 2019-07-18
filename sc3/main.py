@@ -1,19 +1,4 @@
-"""Kernel.sc y Main.sc
-
-En sclang existen LanguageConfig, w/r archivos yaml. Las opciones sclang -h.
-Sclang Startup File. La clase Main que hereda de Process. Las clases que
-heredan de AbstractSystemAction: StartUp, ShutDown, ServerBoot, ServerTree,
-CmdPeriod y seguramente otras más.
-
-Y MAIN, CLIENT PODDRÍA SER UN MIEMBRO DE MAIN QUE ADEMÁS TIENE PLATFORM!
-
-VER DOCUMENTACIÓN: 'OSC COMMUNICATION'
-
-pickle PUEDE SER ÚTIL para guardar la instancia de client y que se
-puedan ejecutar distintas instancias de python con el mismo cliente
-sin tener que tener las sesiones andando en paralelo, e.g. para ejecutar
-scripst por separado desde la terminal.
-"""
+"""Kernel.sc & Main.sc"""
 
 import threading
 import atexit

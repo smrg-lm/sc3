@@ -1,14 +1,4 @@
-"""
-Platform.sc
-
-VER: lang/LangPrimSource/PyrPlatformPrim.cpp, common/SC_Filesystem.hpp,
-SC_Filesystem_unix.cpp, SC_Filesystem_iphone.cpp, SC_Filesystem_macos.cpp y
-SC_Filesystem_win.cpp.
-
-Los path por defecto se definen en tiempo de compilación con cmake, por
-ejemplo: ./CMakeLists.txt: add_definitions(-DSC_DATA_DIR="${CMAKE_INSTALL_PREFIX}/share/SuperCollider")
-para defaultSystemAppSupportDirectory().
-"""
+"""Platform.sc"""
 
 from pathlib import Path # es el equivalente a sclang PathName
 

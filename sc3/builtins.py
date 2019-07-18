@@ -1,23 +1,4 @@
-"""
-builtins.py
-
-Builtin functions from ugens/sclang.
-
-Son los operadores unarios/binarios/enarios de las
-AbstractFunction y las UGen que también se aplican a otros
-tipos de datos básico dentro de la librería de clases.
-
-De no tener equivalentes estas funciones deberían implementarse
-en CPython?
-
-Ver:
-/include/plugin_interface/SC_InlineUnaryOp.h
-/include/plugin_interface/SC_InlineBinaryOp.h
-
-Son, en gran parte, las funciones de _specialindex.py. Agregué
-las que no están implementadas como interfaz para las ugens
-pero sí están en sclang.
-"""
+"""SC_InlineUnaryOp.h, SC_InlineBinaryOp.h"""
 
 import math
 

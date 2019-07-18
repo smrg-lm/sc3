@@ -304,22 +304,14 @@ class NAryOpFunction(AbstractFunction):
 #     pass
 
 
-# sería un docorador, tal vez es lo mejor, lo mismo con
-# routine y task, y tal vez patterns y, por qué no, ugens
-# si logro idear el modelo de más alto nivel.
-# esto tal vez va en otro archivo, y ver eso de FunctionList,
-# por qué está en el mismo archivo sc que AbstractFunction.
-# Y ver qué otros recursos de la programación funcional
-# podrían ser aplicables, por ejemplo de functools.
+# decorator syntax
 class function(AbstractFunction):
-    # VER: https://docs.python.org/3/library/inspect.html#inspect.Signature
     def __init__(self, func):
         if inspect.isfunction(func):
             self._nargs = len(inspect.signature(func).parameters)
             self.func = func
         else:
-            msg = '@function decorator can not be applied to classes'
-            raise TypeError(msg)
+            raise TypeError('@function decorator can not be applied to classes')
 
     def __call__(self, *args): # no kwargs
         '''Parameters can only be positional (no keywords), remnant

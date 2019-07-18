@@ -12,26 +12,21 @@ from . import graphparam as gpp
 
 
 class UGen(fn.AbstractFunction):
-    @classmethod
-    def new1(cls, rate, *args): # la verdad que see podría llamar single_new.
-        '''OD: This method returns a single instance of the UGen,
-        not multichannel expanded. It is called inside multi_new_list,
-        whenever a new single instance is needed.
+    _valid_rates = {'audio', 'control', 'demand', 'scalar'}
 
-        Creo que esto era así, checkear y escribir bien:
-        This method is the real 'instances' creator (aka constructor), however
-        is not meant to be used but throught multi_new for the next reasons.
-        In most cases it returns an ugen but may return a number instead for
-        some special ugens (like controls or outpus) for different reasons.
-        UGens add themselves to the SynthDef graph under constsruction later
-        by calling addToSynth/SynthDef:addUgen (aka ping pong design).
+    @classmethod
+    def new1(cls, rate, *args):
         '''
-        #if rate is not valid rate: # HACER LAS CONSTANTES
-        #    raise TypeError('rate {} is invalid')
+        This method returns a single instance of the UGen, not multichannel
+        expanded. It is called inside multi_new_list, whenever a new single
+        instance is needed.
+        '''
+        if rate not in cls._valid_rates:
+            raise ValueError(f"UGen rate '{rate}' is invalid")
         obj = cls()
         obj.rate = rate
         obj.add_to_synth()
-        return obj.init_ugen(*args) # OJO: en sclang es init, init_ugen es mejor acá porque tiene que retornar el valor adecuado, siempre.
+        return obj.init_ugen(*args)
 
     @classmethod
     def new_from_desc(cls, rate, num_outputs, inputs, special_index):
@@ -47,12 +42,11 @@ class UGen(fn.AbstractFunction):
 
     @classmethod
     def multi_new_list(cls, args):
-        '''OD: These methods are responsible for multichannel expansion.
-        They call UGen.new1(rate, *args) for each parallel combination.
-        Most UGen.ar/kr methods delegate to UGen.multiNewList.
-
-        The first argument is rate, then the rest of the arguments as
-        in UGen.new1(rate, *args).
+        '''
+        These methods are responsible for multichannel expansion. They call
+        UGen.new1(rate, *args) for each parallel combination. Most UGen.ar/kr
+        methods delegate to UGen.multiNewList. The first argument is rate, then
+        the rest of the arguments as in UGen.new1(rate, *args).
         '''
         # single channel, one ugen
         length = 0
@@ -142,7 +136,7 @@ class UGen(fn.AbstractFunction):
             if not gpp.ugen_param(input).is_valid_ugen_input():
                 arg_name = self.arg_name_for_input_at(i)
                 if arg_name is None: arg_name = i
-                return 'arg: {} has bad input: {}'.format(arg_name, input)
+                return f'arg: {arg_name} has bad input: {input}'
         return None
 
     def check_n_inputs(self, n): # ídem anterior, deben ser interfaz protejida. Este no sé si pueda ser check_inputs sobrecargado o con parámetro opcional, tal vez si...
@@ -151,18 +145,14 @@ class UGen(fn.AbstractFunction):
                 n = len(self.inputs) # TODO: es tupla, en sclang es nil si no hay inputs.
             for i in range(n):
                 if gpp.ugen_param(self.inputs[i]).as_ugen_rate() != 'audio': # BUG: VER VALORES POSIBLES PARA self.inputs[i]
-                    msg = 'input {} is not audio rate: {} {}'.format(
-                        i, self.inputs[i],
-                        gpp.ugen_param(self.inputs[0]).as_ugen_rate()
-                    )
-                    return msg
+                    return (f'input {i} is not audio rate: {self.inputs[i]} '
+                            f'{gpp.ugen_param(self.inputs[0]).as_ugen_rate()}')
         return self.check_valid_inputs() # comprueba is_valid_ugen_input no el rate.
 
     def check_sr_as_first_input(self): # checkSameRateAsFirstInput ídem anterior, deben ser interfaz protejida
         if self.rate != gpp.ugen_param(self.inputs[0]).as_ugen_rate():
-            msg = 'first input is not {} rate: {} {}'\
-                  .format(self.rate, self.inputs[0], self.inputs[0].rate)
-            return msg
+            return (f'first input is not {self.rate} rate: '
+                    f'{self.inputs[0]} {self.inputs[0].rate}')
         return self.check_valid_inputs()
 
     def arg_name_for_input_at(self, i): # se usa acá y en basicopugen dentro de checkValidInputs, ambas clases lo implementan.
@@ -319,7 +309,7 @@ class UGen(fn.AbstractFunction):
     def write_output_specs(self, file): # TODO: variación con 's' que llama a la sin 's', este método sería para las ugens con salidas múltiples, el nombre del método debería ser más descriptivo porque es fácil de confundir, además. # lo implementan AbstractOut, MultiOutUGen, SendPeakRMS, SendTrig y UGen.
         self.write_output_spec(file)
 
-    # Topo sort methods
+    ### Topo sort methods ###
 
     # L488
     def init_topo_sort(self):
@@ -349,7 +339,7 @@ class UGen(fn.AbstractFunction):
         out_stack.append(self)
 
     def optimize_graph(self):
-        pass # pass? se usa para esto o es confuso?
+        pass  # Empty.
 
     def perform_dead_code_elimination(self): # Se usa en optimize_graph de BinaryOpUGen, PureMultiOutUGen, PureUGen y UnaryOpUGen.
         # TODO: Cuando quedan las synthdef solo con controles que no van a ninguna parte también se podrían optimizar?
@@ -369,23 +359,30 @@ class UGen(fn.AbstractFunction):
     @classmethod
     def is_control_ugen(cls): # AudioControl y Control implementan y devuelve True, Object devuelve False, además en Object es método de instancia y no de clase como en las otras dos.
         return False
+
     @classmethod
     def is_input_ugen(cls): # implementan AbstractIn (true) y Object (false) ídem is_control_ugen()
         return False
+
     @classmethod
     def is_output_ugen(cls): # implementan AbstractOut (true) y Object (false) ídem is_control_ugen()
         return False
+
     # def is_ugen(self): # Object devuelve false, UGen, true. No se usa en ninguna parte, y no tiene sentido (se hace isinstance(esto, UGen))
     #     return True
+
     # def output_index(self): # es una propiedad de OutputProxy, es método constante acá. No tiene otra implementación en la librería estandar. Se usa solo UGen.writeInputSpec y SynthDesc.readUGenSpec se obtiene de las inputs.
     #     return 0
+
     def writes_to_bus(self): # la implementan algunas out ugens, se usa en SynthDesc.outputData
         return False
+
     def can_free_synth(self): # BUG: tiene ext canFreeSynth.sc y es método de instancia (BUG: lo usa EnvGen!). También es una función implementadas por muchas ugens (true), SequenceableCollection (revisa any), SynthDef (childre.canFreeSynth (seq col)) y Object (false). Es una propiedad solo en esta clase.
         return False
     # BUG: puede faltar algún otro que se use en otro lado.
 
-    ### métodos que actúan como interfaz para tipos de datos básicos ###
+
+    ### UGen graph parameter interface ###
 
     def madd(self, mul=1.0, add=0.0):
         return MulAdd.new(self, mul, add)
@@ -562,9 +559,8 @@ class MultiOutUGen(UGen):
 
     def init_outputs(self, num_channels, rate):
         if num_channels is None or num_channels < 1:
-            msg = '{}: wrong number of channels ({})'\
-                  .format(self.name(), num_channels)
-            raise Exception(msg)
+            raise Exception(
+                f'{self.name()}: wrong number of channels ({num_channels})')
         self.channels = [OutputProxy.new(rate, self, i)
                          for i in range(num_channels)]
         if num_channels == 1:
@@ -628,8 +624,9 @@ class BasicOpUGen(UGen):
         self._operator = operator
         self.special_index = index # TODO: en inout.py hace: self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
         if self.special_index < 0:
-            msg = "Operator '{}' applied to a UGen is not supported by the server" # TODO: ver cuáles son los soportados por el servidor porque Symbol responde a muchos más. # Cambié scsynth por server
-            raise Exception(msg.format(value))
+            # TODO: ver cuáles son los soportados por el servidor porque Symbol responde a muchos más.
+            raise Exception(f"operator '{value}' applied to a UGen "
+                            "is not supported by the server")
 
     @operator.deleter
     def operator(self):
@@ -643,7 +640,7 @@ class BasicOpUGen(UGen):
         tab = ' ' * 4
         msg += tab + 'operator: ' + self.operator + '\n'
         arg_name = None
-        for i, input in enumerate(self.inputs): # TODO: es tupla, en sclang es nil si no hay inputs.
+        for i, input in enumerate(self.inputs):
             arg_name = self.arg_name_for_input_at(i)
             if not arg_name: arg_name = str(i)
             msg += tab + arg_name + ' ' + str(input)
@@ -698,13 +695,13 @@ class BinaryOpUGen(BasicOpUGen):
     def init_ugen(self, operator, a, b):
         self.operator = operator
         self.rate = self.determine_rate(a, b)
-        self.inputs = (a, b) # TODO: es tupla, en sclang es nil si no hay inputs.
-        return self # TIENEN QUE DEVOLVER SELF
+        self.inputs = [a, b]
+        return self  # Must return self.
 
     def determine_rate(self, a, b):
         a_rate = gpp.ugen_param(a).as_ugen_rate()
         b_rate = gpp.ugen_param(b).as_ugen_rate()
-        # El orden es importante.
+        # Order matters.
         if a_rate == 'demand': return 'demand'
         if b_rate == 'demand': return 'demand'
         if a_rate == 'audio': return 'audio'
@@ -714,7 +711,7 @@ class BinaryOpUGen(BasicOpUGen):
         return 'scalar'
 
     def optimize_graph(self):
-        # OC: this.constantFolding;
+        # // this.constantFolding;
         if self.perform_dead_code_elimination():
             return self
         if self.operator == '+':
@@ -725,15 +722,15 @@ class BinaryOpUGen(BasicOpUGen):
             return self
 
     def optimize_add(self):
-        # OC: create a Sum3 if possible
+        # // create a Sum3 if possible
         optimized_ugen = self.optimize_to_sum3()
-        # OC: create a Sum4 if possible
+        # // create a Sum4 if possible
         if not optimized_ugen:
             optimized_ugen = self.optimize_to_sum4()
-        # OC: create a MulAdd if possible.
+        # // create a MulAdd if possible.
         if not optimized_ugen:
             optimized_ugen = self.optimize_to_muladd()
-        # OC: optimize negative additions
+        # // optimize negative additions
         if not optimized_ugen:
             optimized_ugen = self.optimize_addneg()
 

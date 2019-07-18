@@ -1,13 +1,17 @@
 """InOut.sc"""
 
-import warnings
+import logging
 
 from . import ugens as ugn
 from . import _global as _gl
 from . import utils as utl
 from . import graphparam as gpp
 
-# Controls
+
+_logger = logging.getLogger(__name__)
+
+
+### Controls ###
 
 class ControlName():
     def __init__(self, name, index, rate, default_value, arg_num, lag=None):
@@ -117,14 +121,15 @@ class AudioControl(ugn.MultiOutUGen):
         return True
 
 
-class TrigControl(Control): pass # No hace nada especial.
+class TrigControl(Control):
+    pass  # Empty.
 
 
 class LagControl(Control):
     @classmethod
     def ir(cls, values):
-        msg = '{} should not implemet ir constructor' # TODO: ver en qué casos se puede llamar, porque acá le agregué los argumentos si no tira error.
-        raise NotImplementedError(msg.format(cls.__name__))
+        raise NotImplementedError(
+            f'{cls.__name__} should not implemet ir constructor')
 
     @classmethod
     def kr(cls, values, lags):
@@ -135,13 +140,13 @@ class LagControl(Control):
             lags = utl.as_list(lags)
 
         if len(values) != len(lags):
-            msg = '{} len(values) is not len(lags), {}.kr returns None'
-            warnings.warn(msg.format(cls.__name__, cls.__name__))
+            _logger.warning(f'{cls.__name__} len(values) is not len(lags), '
+                            f'{cls.__name__}.kr returns None')
             return None
 
         n = 16
-        values = [values[i:i + n] for i in range(0, len(values), n)] # values.clump(16)
-        lags = [lags[i:i + n] for i in range(0, len(lags), n)] # lags.clump(16)
+        values = [values[i:i + n] for i in range(0, len(values), n)]  # values.clump(16)
+        lags = [lags[i:i + n] for i in range(0, len(lags), n)]  # lags.clump(16)
         outputs = []
         for i in range(len(values)):
             outputs.extend(cls.multi_new_list(['control'] + values[i] + lags[i]))
@@ -149,13 +154,13 @@ class LagControl(Control):
 
     @classmethod
     def ar(cls, values, lags):
-        return AudioControl.ar(values).lag(lags) # TODO: lag es un operador definido en UGen.
+        return AudioControl.ar(values).lag(lags)
 
     def init_ugen(self, *stuff):
-        # declara la variable lags y no la usa.
+        # *** BUG: in sclang, lags variable not used.
         size = len(stuff)
-        size2 = size >> 1 # size // 2
-        self.values = list(stuff)[size2:size] # en Python es la cantidad de elementos desde, no el índice.
+        size2 = size >> 1  # size // 2
+        self.values = list(stuff)[size2:size]
         if self.synthdef is not None:
             self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
             self.synthdef.controls.extend(self.values)
@@ -163,7 +168,7 @@ class LagControl(Control):
         return self.init_outputs(len(self.values), self.rate)
 
 
-# Inputs
+### Inputs ###
 
 class AbstractIn(ugn.MultiOutUGen):
     @classmethod
@@ -181,7 +186,7 @@ class In(AbstractIn):
         return cls.multi_new('control', num_channels, bus)
 
     def init_ugen(self, num_channels, *arg_bus):
-        self.inputs = arg_bus # TODO: es tupla, en sclang es nil si no hay inputs.
+        self.inputs = list(arg_bus)
         return self.init_outputs(num_channels, self.rate)
 
 
@@ -195,7 +200,7 @@ class LocalIn(AbstractIn):
         return cls.multi_new('control', num_channels, *utl.as_list(default))
 
     def init_ugen(self, num_channels, *default):
-        self.inputs = tuple(utl.wrap_extend(list(default), num_channels)) # TODO: es tupla, en sclang es nil si no hay inputs.
+        self.inputs = list(utl.wrap_extend(list(default), num_channels))
         return self.init_outputs(num_channels, self.rate)
 
 
@@ -205,7 +210,7 @@ class LagIn(AbstractIn):
         return cls.multi_new('control', num_channels, bus, lag)
 
     def init_ugen(self, num_channels, *inputs):
-        self.inputs = inputs # TODO: es tupla, en sclang es nil si no hay inputs. Quité as list
+        self.inputs = list(inputs)
         return self.init_outputs(num_channels, self.rate)
 
 
@@ -215,7 +220,7 @@ class InFeedback(AbstractIn):
         return cls.multi_new('audio', num_channels, bus)
 
     def init_ugen(self, num_channels, *arg_bus):
-        self.inputs = arg_bus # TODO: es tupla, en sclang es nil si no hay inputs.
+        self.inputs = list(arg_bus)
         return self.init_outputs(num_channels, self.rate)
 
 
@@ -225,11 +230,11 @@ class InTrig(AbstractIn):
         return cls.multi_new('control', num_channels, bus)
 
     def init_ugen(self, num_channels, *arg_bus):
-        self.inputs = arg_bus # TODO: es tupla, en sclang es nil si no hay inputs.
+        self.inputs = list(arg_bus)
         return self.init_outputs(num_channels, self.rate)
 
 
-# Outputs
+### Outputs ###
 
 class AbstractOut(ugn.UGen):
     def num_outputs(self):
@@ -240,12 +245,12 @@ class AbstractOut(ugn.UGen):
 
     def check_inputs(self):
         if self.rate == 'audio':
-            for i in range(type(self).num_fixed_args(), len(self.inputs)): # TODO: es tupla, en sclang es nil si no hay inputs.
+            for i in range(type(self).num_fixed_args(), len(self.inputs)):
                 if gpp.ugen_param(self.inputs[i]).as_ugen_rate() != 'audio':
-                    msg = '{}:'.format(type(self).__name__)
-                    msg += ' input at index {} ({}) is not audio rate'
-                    return msg.format(i, type(self.inputs[i]).__name__) # TODO: Si es OutputProxy que imprima source_ugen
-        elif len(self.inputs) <= type(self).num_fixed_args(): # TODO: es tupla, en sclang es nil si no hay inputs.
+                    return (f'{type(self).__name__}: input at index '
+                            f'{i} ({type(self.inputs[i]).__name__}) '
+                            'is not audio rate')
+        elif len(self.inputs) <= type(self).num_fixed_args():
             return 'missing input at index 1'
         return self.check_valid_inputs()
 
@@ -255,13 +260,13 @@ class AbstractOut(ugn.UGen):
 
     @classmethod
     def num_fixed_args(cls):
-        pass # TODO: VER: ^this.subclassResponsibility(thisMethod)
+        raise NotImplementedError('subclass responsibility')
 
     def num_audio_channels(self):
-        return len(self.inputs) - type(self).num_fixed_args() # TODO: es tupla, en sclang es nil si no hay inputs.
+        return len(self.inputs) - type(self).num_fixed_args()
 
     def writes_to_bus(self):
-        pass # BUG: VER: ^this.subclassResponsibility(thisMethod) se usa en SynthDesc:outputData se implementa en varias out ugens. Es método de interfaz/protocolo de UGen, creo.
+        raise NotImplementedError('subclass responsibility')
 
 
 class Out(AbstractOut):
@@ -286,14 +291,15 @@ class Out(AbstractOut):
         return True
 
 
-class ReplaceOut(Out): pass # No hace nada espcial.
+class ReplaceOut(Out):
+    pass  # Empty.
 
 
 class OffsetOut(Out):
     @classmethod
     def kr(cls, bus, output):
-        msg = '{} should not implemet kr constructor' # TODO: ver en qué casos se puede llamar, porque acá le agregué los argumentos si no tira error.
-        raise NotImplementedError(msg.format(cls.__name__))
+        raise NotImplementedError(
+            f'{cls.__name__} should not implement kr constructor')
 
 
 class LocalOut(AbstractOut):

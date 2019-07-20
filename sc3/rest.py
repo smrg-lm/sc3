@@ -16,7 +16,15 @@ class Rest(opd.Operand):
     def dur(self, value):
         self.value = value
 
+    def __bool__(self):
+        # unwrapBoolean
+        return self.value
+
     # BUG: Aún no vi cómo se usa Rest en Pbind, EventStreamPlayer o similares.
-    # BUG: el método unwrapBoolean es un bug, la clase devuelve objeto de sí misma, no se usa, ver problemas, anuncia que "comparisons just works" si devuelve Boolean.
+    # Rest puede ser el valor de una llave en Pbind o similares, por eso actúa
+    # como Stream. Rest debe poder ser el valor de retorno de un event pattter
+    # en vez de un Evento, por eso actúá como tal (__embed__, __stream__). Rest
+    # debe poder ser un parámetro de nodo en alguna parte, por eso
+    # as_control_input, pero pone el método junto a playAndDelta e isRest.
 
     # TODO... hereda la capacidad de ops de Operand, luego tiene "event support" con asControlInput, playAndDelta e isRest

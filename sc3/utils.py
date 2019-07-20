@@ -2,33 +2,33 @@
 Utility classes and functions from sclang style.
 """
 
-# VER Itertools Recipes
-# ver https://docs.python.org/3/library/itertools.html#itertools-recipes
 import itertools as _itertools
 
 
-# BUG: imita pero no hace lo mismo, initClass inicializa el árbol de clases
-# luego de que toda fueron compiladas primero en profundidad transversal.
-# Como está puede fallar si main.py no importa todas las clases que tienen initclass.
 class ClassLibrary():
-    classes = []
+    '''
+    This class is a hack to avoid class attribute initialization problems caused
+    by very nasty nested cyclic imports. init() is called at the end of main.
+    '''
+
+    _init_list = []
+    _initialized = False
 
     @classmethod
-    def add(cls, item):
-        cls.classes.append(item)
+    def add(cls, item, func):
+        if cls._initialized:
+            func(item)
+        else:
+            entry = {'cls': item, 'func': func}
+            cls._init_list.append(entry)
 
     @classmethod
     def init(cls):
-        while len(cls.classes) > 0:
-            item = cls.classes.pop()
-            print(f'+ initclass for {item.__name__} in {item.__module__}')
-            item.__init_class__()
-
-
-# decorador
-def initclass(cls):
-    ClassLibrary.add(cls)
-    return cls
+        while len(cls._init_list) > 0:
+            entry = cls._init_list.pop()
+            entry['func'](entry['cls'])
+            print('+ init:', entry['cls'].__name__)
+        cls._initialized = True
 
 
 class UniqueID(): # TODO: en sclang está en Common/Collections/ObjectTable.sc

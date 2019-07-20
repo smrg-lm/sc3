@@ -123,8 +123,16 @@ class Clock(_threading.Thread): # ver std::copy y std::bind
         return bi.roundup(cls.beats() - bi.mod(phase, quant), quant) + phase
 
 
-@utl.initclass
-class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singletona
+class MetaSystemClock(type):
+    def __init__(cls, *_):
+
+        def init_func(cls):
+            cls()
+
+        utl.ClassLibrary.add(cls, init_func)
+
+
+class SystemClock(Clock, metaclass=MetaSystemClock):
     _SECONDS_FROM_1900_TO_1970 = 2208988800 # (int32)UL # 17 leap years
     _NANOS_TO_OSC = 4.294967296 # PyrSched.h: const double kNanosToOSC  = 4.294967296; // pow(2,32)/1e9
     _MICROS_TO_OSC = 4294.967296 # PyrSched.h: const double kMicrosToOSC = 4294.967296; // pow(2,32)/1e6
@@ -133,10 +141,6 @@ class SystemClock(Clock): # TODO: creo que esta sí podría ser una ABC singleto
     _OSC_TO_SECONDS = 2.328306436538696e-10 # PyrSched.h: const double kOSCtoSecs = 2.328306436538696e-10;  // 1/pow(2,32)
 
     _instance = None # singleton instance of Thread
-
-    @classmethod
-    def __init_class__(cls):
-        cls()
 
     def __new__(cls):
         #_host_osc_offset = 0 # int64
@@ -483,13 +487,17 @@ class Scheduler():
         self._beats = self._clock.secs2beats(value)
 
 
-@utl.initclass
-class AppClock(Clock): # ?
-    _instance = None # singleton instance of Thread
+class MetaAppClock(type):
+    def __init__(cls, *_):
 
-    @classmethod
-    def __init_class__(cls):
-        cls()
+        def init_func(cls):
+            cls()
+
+        utl.ClassLibrary.add(cls, init_func)
+
+
+class AppClock(Clock, metaclass=MetaAppClock):
+    _instance = None # singleton instance of Thread
 
     def __new__(cls):
         if cls._instance is None:
@@ -720,22 +728,22 @@ class Quant():
 
 
 class MetaTempoClock(type):
-    _all = []
-    default = None # NOTE: si se define acá no pertenece al diccionario de TempoClock, así está en Server aunque como @property
+    def __init__(cls, *_):
+        cls._all = []
+
+        def init_func(cls):
+            cls.default = cls()
+            cls.default.permanent = True
+            sac.CmdPeriod.add(cls)
+
+        utl.ClassLibrary.add(cls, init_func)
 
     @property
     def all(cls):
         return cls._all
 
 
-@utl.initclass
 class TempoClock(Clock, metaclass=MetaTempoClock):
-    @classmethod
-    def __init_class__(cls):
-        cls.default = cls()
-        cls.default.permanent = True
-        sac.CmdPeriod.add(cls)
-
     @classmethod
     def cmd_period(cls):
         for item in cls.all:

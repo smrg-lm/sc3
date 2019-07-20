@@ -281,30 +281,22 @@ class ServerShmInterface():
     def set_control_bus_values(self, *values): pass # primitiva # BUG: desconozco los parámetros.
 
 
-# TODO: TEST, acá uso una metaclase para definir propiedades de la
-# (sub)clase. revisar la construcción de UGen y otras, aunque creo
-# que no era necesario emplear este tipo de mencanismos. Me falta ver
-# bien cómo es que funcionan las metaclases y cuál es us uso habitual.
-# Las propiedades de metaclass son propiedades de clase en la clase
-# derivada, ojo, no hay relación instancia/clase como en los
-# métodos comunes, en la metaclass todo es selfy, así funciona.
-# TODO: El único problema es que no aparecen en dir(Server)
-# TODO: Veo que se usa también type(self) para acceder a la clase en vez
-# de self.__class__, ver cuál es la diferencia.
 class MetaServer(type):
-    local = None
-    internal = None
-    _default = None
+    def __init__(cls, *_):
+        cls.named = dict()
+        cls.all = set()
+        cls.program = 'scsynth' # *** BUG: setea en Platform OSX/Linux startup
+        cls.sync_s = True
 
-    named = dict()
-    all = set()
-    program = 'scsynth' # BUG: setea en Platform OSX/Linux startup
-    sync_s = True
+        cls.node_alloc_class = eng.NodeIDAllocator
+        # // cls.node_alloc_class = ReadableNodeIDAllocator;
+        cls.buffer_alloc_class = eng.ContiguousBlockAllocator
+        cls.bus_alloc_class = eng.ContiguousBlockAllocator
 
-    node_alloc_class = eng.NodeIDAllocator
-    # // node_alloc_class = ReadableNodeIDAllocator;
-    buffer_alloc_class = eng.ContiguousBlockAllocator
-    bus_alloc_class = eng.ContiguousBlockAllocator
+        cls._default = cls.local = cls('localhost',
+                                       nad.NetAddr('127.0.0.1', 57110))
+        # cls.internal = cls('internal',
+        #                    nad.NetAddr(None, None))  # No internal by now.
 
     @property
     def default(cls):
@@ -321,14 +313,7 @@ class MetaServer(type):
             mdl.NotificationCenter.notify(server, 'default', value)
 
 
-@utl.initclass # BUG: esto es un problema por lo cíclico, initclass o lo tengo que sacar o hacer que sea consistente con los imports, tal vez que initclass acumule los métodos y llame luego de que todo fue importado
 class Server(gpp.NodeParameter, metaclass=MetaServer):
-    @classmethod
-    def __init_class__(cls): # BUG: ver: __new__ es un método estático tratado de manera especial por el intérprete, tal vez este se podría definir como tal, los métodos estáticos no están ligados ni a la clase ni a la instancia.
-                             # BUG: PERO __init_subclass___: "If defined as a normal instance method, this method is implicitly converted to a class method."
-        cls._default = cls.local = cls('localhost', nad.NetAddr('127.0.0.1', 57110))
-        #cls.internal = cls('internal', nad.NetAddr(None, None)) # BUG: no hay internal, al menos por un tiempo
-
     @classmethod
     def from_name(cls, name):
         return cls.named[name] or cls(name, nad.NetAddr("127.0.0.1", 57110)) # BUG: en sclang, no tiene sentido llamar a ServerOptions.new, init provee una instancia por defecto

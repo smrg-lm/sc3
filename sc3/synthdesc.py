@@ -414,27 +414,32 @@ class SynthDesc():
         return [{'rate': x.rate, 'num_channels': x.num_audio_channels()} for x in outs]
 
 
-@utl.initclass
-class SynthDescLib():
-    @classmethod
-    def __init_class__(cls): # TODO: es para no poner código fuera de la definición, es equivalente a scalng
+class MetaSynthDescLib(type):
+    def __init__(cls, *_):
         cls.all = dict()
-        cls.default = cls('global') # BUG era global en vez de default, pero el método default retornaba global. Es default, no global, el mismo patrón que server y client.
 
-        # // tryToLoadReconstructedDefs = false:
-        # // since this is done automatically, w/o user action,
-        # // it should not try to do things that will cause warnings
-        # // (or errors, if one of the servers is not local)
-        def action(server):
-            if server.has_booted:
-                cls.default.send(server, False)
-        sac.ServerBoot.add(action) # NOTE: *send llama a global.send if server has booted, ver abajo
+        def init_func(cls):
+            cls.default = cls('default')  # Was global in sclang.
 
+            # // tryToLoadReconstructedDefs = false:
+            # // since this is done automatically, w/o user action,
+            # // it should not try to do things that will cause warnings
+            # // (or errors, if one of the servers is not local)
+            def action(server):
+                if server.has_booted:
+                    cls.default.send(server, False)
+
+            sac.ServerBoot.add(action)  # *** NOTE: *send llama a global.send if server has booted, ver abajo.
+
+        utl.ClassLibrary.add(cls, init_func)
+
+
+class SynthDescLib(metaclass=MetaSynthDescLib):
     def __init__(self, name, servers=None):
         self.name = name
         self.all[name] = self
         self.synth_descs = dict()
-        self.servers = set(servers or [srv.Server.default]) # BUG: para esto hay que asegurarse que Server se inicialice antes, tal vez con un import en __init_class__
+        self.servers = set(servers or [srv.Server.default])
 
     @classmethod
     def get_lib(cls, libname):

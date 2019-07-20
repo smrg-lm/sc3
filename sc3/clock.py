@@ -18,6 +18,8 @@ from . import systemactions as sac
 from . import model as mdl
 
 
+# // Clocks for timing threads.
+
 class TaskQueue():
     """
     This class is an encapsulation of the algorithm found in heapq
@@ -82,15 +84,12 @@ class TaskQueue():
 
     # NOTE: implementar __iter__ y copy()
 
-# // clocks for timing threads.
 
-class Clock(_threading.Thread): # ver std::copy y std::bind
-    # def __new__(cls): # BUG: necesito hacer super().__new__(cls) para SystemClock... ver cómo es esto en Python.
-    #     raise NotImplementedError('Clock is an abstract class')
-
+class Clock():
     @classmethod
     def play(cls, task):
         cls.sched(0, task)
+
     @classmethod
     def seconds(cls): # seconds es el *tiempo lógico* de cada thread
         return _libsc3.main.current_tt.seconds
@@ -99,21 +98,27 @@ class Clock(_threading.Thread): # ver std::copy y std::bind
     @classmethod
     def beats(cls):
         return _libsc3.main.current_tt.seconds
+
     @classmethod
     def beats2secs(cls, beats):
         return beats
+
     @classmethod
     def secs2beats(cls, secs):
         return secs
+
     @classmethod
     def beats2bars(cls):
         return 0
+
     @classmethod
     def bars2beats(cls):
         return 0
+
     @classmethod
     def time_to_next_beat(cls):
         return 0
+
     @classmethod
     def next_time_on_grid(cls, quant=1, phase=0):
         if quant == 0:
@@ -127,7 +132,11 @@ class MetaSystemClock(type):
     def __init__(cls, *_):
 
         def init_func(cls):
-            cls()
+            cls._task_queue = TaskQueue()
+            cls._sched_cond = _threading.Condition(_libsc3.main._main_lock)
+            cls._thread = _threading.Thread(target=cls._run, daemon=True)
+            cls._thread.start()
+            cls._sched_init()
 
         utl.ClassLibrary.add(cls, init_func)
 
@@ -140,44 +149,26 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
     _OSC_TO_NANOS = 0.2328306436538696# PyrSched.h: const double kOSCtoNanos  = 0.2328306436538696; // 1e9/pow(2,32)
     _OSC_TO_SECONDS = 2.328306436538696e-10 # PyrSched.h: const double kOSCtoSecs = 2.328306436538696e-10;  // 1/pow(2,32)
 
-    _instance = None # singleton instance of Thread
-
     def __new__(cls):
-        #_host_osc_offset = 0 # int64
-        #_host_start_nanos = 0 # int64
-        #_elapsed_osc_offset = 0 # int64
-        #_rsync_thread # syncOSCOffsetWithTimeOfDay resyncThread
-        #_time_of_initialization # original es std::chrono::high_resolution_clock::time_point
-        #monotonic_clock es _time.monotonic()? usa el de mayor resolución
-        #def dur_to_float, ver
-        #_run_sched # gRunSched es condición para el loop de run
-        if cls._instance is None:
-            obj = super().__new__(cls)
-            _threading.Thread.__init__(obj)
-            obj._task_queue = TaskQueue()
-            obj._sched_cond = _threading.Condition(_libsc3.main._main_lock)
-            obj.daemon = True # TODO: tengo que ver si siendo demonios se pueden terminar
-            obj.start()
-            obj._sched_init()
-            cls._instance = obj
         return cls
 
-    def _sched_init(self): # L253 inicia los atributos e.g. _time_of_initialization
-        self._host_osc_offset = 0 # int64
-        self._sync_osc_offset_with_tod()
-        self._host_start_nanos = int(_libsc3.main._time_of_initialization / 1e-9) # to nanos
-        self._elapsed_osc_offset = int(
-            self._host_start_nanos * SystemClock._NANOS_TO_OSC
-        ) + self._host_osc_offset
+    @classmethod
+    def _sched_init(cls):
+        cls._host_osc_offset = 0 # int64
+        cls._sync_osc_offset_with_tod()
+        cls._host_start_nanos = int(_libsc3.main._time_of_initialization / 1e-9) # to nanos
+        cls._elapsed_osc_offset = int(
+            cls._host_start_nanos * cls._NANOS_TO_OSC
+        ) + cls._host_osc_offset
 
         # same every 20 secs
-        self._resync_cond = _threading.Condition() # VER, aunque el uso es muy simple (gResyncThreadSemaphore)
-        self._run_resync = False # test es true en el loop igual que la otra
-        self._resync_thread = _threading.Thread( # AUNQUE NO INICIA EL THREAD EN ESTA FUNCIÓN
-            target=self._resync_thread_func, daemon=True)
-        self._resync_thread.start()
+        cls._resync_cond = _threading.Condition()
+        cls._resync_thread = _threading.Thread(target=cls._resync_thread_func)
+        cls._resync_thread.daemon = True
+        cls._resync_thread.start()
 
-    def _sync_osc_offset_with_tod(self): # L314, esto se hace en _rsync_thread
+    @classmethod
+    def _sync_osc_offset_with_tod(cls): # L314, esto se hace en _rsync_thread
         # // generate a value gHostOSCoffset such that
         # // (gHostOSCoffset + systemTimeInOSCunits)
         # // is equal to gettimeofday time in OSCunits.
@@ -186,7 +177,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         number_of_tries = 8
         diff = 0 # int64
         min_diff = 0x7fffFFFFffffFFFF # int64
-        new_offset = self._host_osc_offset
+        new_offset = cls._host_osc_offset
 
         for i in range(0, number_of_tries):
             system_time_before = _time.time()  # must be the same epoch
@@ -202,111 +193,113 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
                 system_time_between = system_time_before + diff // 2
                 system_time_in_osc_units = int(
-                    system_time_between * SystemClock._NANOS_TO_OSC)
+                    system_time_between * cls._NANOS_TO_OSC)
 
                 # mimics
                 tv_sec = int(time_of_day)
                 tv_usec = int((time_of_day % 1) / 1e-6)
                 time_of_day_in_osc_units = (
-                    (int(tv_sec + SystemClock._SECONDS_FROM_1900_TO_1970) << 32)
-                    + int(tv_usec * SystemClock._MICROS_TO_OSC))
+                    (int(tv_sec + cls._SECONDS_FROM_1900_TO_1970) << 32)
+                    + int(tv_usec * cls._MICROS_TO_OSC))
 
                 new_offset = time_of_day_in_osc_units - system_time_in_osc_units
 
-        self._host_osc_offset = new_offset
+        cls._host_osc_offset = new_offset
 
-    def _resync_thread_func(self): # L408, es la función de _rsync_thread
-        self._run_resync = True
+    @classmethod
+    def _resync_thread_func(cls):  # L408
+        cls._run_resync = True
 
-        with self._resync_cond:
-            while self._run_resync:
-                self._resync_cond.wait(20)
-                if not self._run_resync:
+        with cls._resync_cond:
+            while cls._run_resync:
+                cls._resync_cond.wait(20)
+                if not cls._run_resync:
                     return
 
-                self._sync_osc_offset_with_tod()
-                self._elapsed_osc_offset = int(
-                    self._host_start_nanos * SystemClock._NANOS_TO_OSC
-                ) + self._host_osc_offset
+                cls._sync_osc_offset_with_tod()
+                cls._elapsed_osc_offset = int(
+                    cls._host_start_nanos * cls._NANOS_TO_OSC
+                ) + cls._host_osc_offset
 
-    def _sched_cleanup(self): # L265 es para rsync_thread join, la exporta como interfaz, pero no sé si no está mal llamada 'sched'
-        with self._resync_cond:
-            self._run_resync = False
-            self._resync_cond.notify()
+    @classmethod
+    def _sched_cleanup(cls): # L265
+        with cls._resync_cond:
+            cls._run_resync = False
+            cls._resync_cond.notify()
 
-    # NOTE: se llama en OSCData.cpp makeSynthBundle y otras funciones de PyrSched.cpp
-    def elapsed_time_to_osc(self, elapsed: float) -> int: # retorna int64
+    @classmethod
+    def elapsed_time_to_osc(cls, elapsed: float) -> int:  # int64
         return int(
-            elapsed * SystemClock._SECONDS_TO_OSC
-        ) + self._elapsed_osc_offset
+            elapsed * cls._SECONDS_TO_OSC
+        ) + cls._elapsed_osc_offset
 
-    # NOTE: se llama en OSCData.cpp también en funciones relacionadas a bundles/osc
-    def osc_to_elapsed_time(self, osctime: int) -> float: # L286
+    @classmethod
+    def osc_to_elapsed_time(cls, osctime: int) -> float:  # L286
         return float(
-            osctime - self._elapsed_osc_offset
-        ) * SystemClock._OSC_TO_SECONDS
+            osctime - cls._elapsed_osc_offset
+        ) * cls._OSC_TO_SECONDS
 
-    # NOTE: se llama en las funciones de los servidores a bajo nivel
-    def osc_time(self) -> int: # L309, devuleve elapsed_time_to_osc(elapsed_time())
-        return self.elapsed_time_to_osc(_libsc3.main.elapsed_time()) # BUG: REVER qué elapsedTime llama (self.elapsed_time())
+    @classmethod
+    def osc_time(cls) -> int:  # L309
+        return cls.elapsed_time_to_osc(_libsc3.main.elapsed_time())
 
-    def _sched_add(self, secs, task): # L353
-        if self._task_queue.empty():
+    @classmethod
+    def _sched_add(cls, secs, task):  # L353
+        if cls._task_queue.empty():
             prev_time = -1e10
         else:
-            prev_time = self._task_queue.peek()[0]
-        self._task_queue.add(secs, task)
+            prev_time = cls._task_queue.peek()[0]
+        cls._task_queue.add(secs, task)
         if isinstance(task, stm.TimeThread):
             task.next_beat = secs
-        if self._task_queue.peek()[0] != prev_time:
-            self._sched_cond.notify_all() # NOTE: esta función se llama con el bloqueo adquirido.
+        if cls._task_queue.peek()[0] != prev_time:
+            cls._sched_cond.notify_all()  # Call with acquired lock.
 
-    # TODO: se llama en PyrLexer shutdownLibrary
-    def sched_stop(self):
-        # usa gLangMutex locks
-        with self._sched_cond:
-            self._sched_cleanup() # NOTE: anida otra condición pero creo que no es problema.
-            if self._run_sched:
-                self._run_sched = False
-                self._sched_cond.notify_all()
+    @classmethod
+    def _sched_stop(cls):  # Shouldn't be stopped.
+        with cls._sched_cond:
+            cls._sched_cleanup()
+            if cls._run_sched:
+                cls._run_sched = False
+                cls._sched_cond.notify_all()
 
-    # TODO: se declara como sclang export en SCBase.h pero no se usa en ninguna parte
-    def sched_clear(self): # L387, llama a schedClearUnsafe() con gLangMutex locks, esta función la exporta con SCLANG_DLLEXPORT_C
-        with self._sched_cond:
-            if self._run_sched:
-                self._task_queue.clear()
-                self._sched_cond.notify_all()
+    @classmethod
+    def sched_clear(cls):  # L387, called by schedClearUnsafe() with gLangMutex
+        with cls._sched_cond:
+            if cls._run_sched:
+                cls._task_queue.clear()
+                cls._sched_cond.notify_all()
 
-    # NOTE: def sched_run_func(self): # L422, es la función de este hilo, es una función estática, es run acá (salvo que no subclasee)
-    def run(self):
-        self._run_sched = True
+    @classmethod
+    def _run(cls):
+        cls._run_sched = True
 
-        with self._sched_cond:
+        with cls._sched_cond:
             while True:
                 # // wait until there is something in scheduler
-                while self._task_queue.empty():
-                    self._sched_cond.wait()
-                    if not self._run_sched:
+                while cls._task_queue.empty():
+                    cls._sched_cond.wait()
+                    if not cls._run_sched:
                         return
 
                 # // wait until an event is ready
                 now = 0
-                while not self._task_queue.empty():
+                while not cls._task_queue.empty():
                     now = _time.time()
-                    sched_secs = self._task_queue.peek()[0]
+                    sched_secs = cls._task_queue.peek()[0]
                     sched_point = (_libsc3.main._time_of_initialization
                                    + sched_secs)
                     if now >= sched_point:
                         break
-                    self._sched_cond.wait(sched_point - now)
-                    if not self._run_sched:
+                    cls._sched_cond.wait(sched_point - now)
+                    if not cls._run_sched:
                         return
 
                 # // perform all events that are ready
-                while not self._task_queue.empty()\
+                while not cls._task_queue.empty()\
                 and now >= (_libsc3.main._time_of_initialization
-                            + self._task_queue.peek()[0]):
-                    item = self._task_queue.pop()
+                            + cls._task_queue.peek()[0]):
+                    item = cls._task_queue.pop()
                     sched_time = item[0]
                     task = item[1]
                     if isinstance(task, stm.TimeThread):
@@ -322,10 +315,10 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                                         'clock scheduled function takes '
                                         'between 0 and 3 positional arguments '
                                         f'but {n} were given')
-                                args = [sched_time, sched_time, self][:n]
+                                args = [sched_time, sched_time, cls][:n]
                                 delta = task(*args)
                             elif isinstance(task, (stm.Routine, stm.PauseStream)):
-                                delta = task.awake(sched_time, sched_time, self) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
+                                delta = task.awake(sched_time, sched_time, cls) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
                             else:
                                 raise TypeError(
                                     f"type '{type(item).__name__}' is not "
@@ -334,46 +327,46 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                             if isinstance(delta, (int, float))\
                             and not isinstance(delta, bool):
                                 time = sched_time + delta
-                                self._sched_add(time, task)
-                        except stm.StopStream: # NOTE: Routine arroja StopStream en vez de StopIteration
+                                cls._sched_add(time, task)
+                        except stm.StopStream:
                             pass
                     except Exception:
-                        _traceback.print_exception(*_sys.exc_info()) # hay que poder recuperar el loop ante cualquier otra excepción
+                        _traceback.print_exception(*_sys.exc_info())  # Always recover.
 
     # sclang methods
 
     @classmethod
     def clear(cls):
-        with cls._instance._sched_cond: # BUG: VER SI USA COND!
+        with cls._sched_cond: # BUG: VER SI USA COND!
             item = None
             # BUG: NO SÉ QUE ESTABA PENSANDO CUANOD HICE ESTE, FALTA:
             # BUG: queue es thisProcess.prSchedulerQueue, VER!
-            while not cls._instance._task_queue.empty():
-                item = cls._instance._task_queue.pop()[1]
+            while not cls._task_queue.empty():
+                item = cls._task_queue.pop()[1]
                 if isinstance(item, (stm.EventStreamPlayer, stm.PauseStream)):
                     item.removed_from_scheduler()
-            cls._instance._sched_cond.notify_all()
+            cls._sched_cond.notify_all()
             # BUG: llama a prClear, VER!
 
     @classmethod
     def sched(cls, delta, item):
-        with cls._instance._sched_cond:
+        with cls._sched_cond:
             seconds = _libsc3.main.current_tt.seconds
             seconds += delta
             if seconds == _math.inf:
                 return
-            cls._instance._sched_add(seconds, item)
+            cls._sched_add(seconds, item)
 
     @classmethod
     def sched_abs(cls, time, item):
         if time == _math.inf:
             return
-        with cls._instance._sched_cond:
-            cls._instance._sched_add(time, item)
+        with cls._sched_cond:
+            cls._sched_add(time, item)
 
     # L542 y L588 setea las prioridades 'rt' para mac o linux, es un parámetro de los objetos Thread
     # ver qué hace std::move(thread)
-    # def sched_run(self): # L609, crea el thread de SystemClock
+    # def sched_run(cls): # L609, crea el thread de SystemClock
     #     # esto es simplemente start (sched_run_func es run) con prioridad rt
     #     # iría en el constructor/inicializador
     #     pass
@@ -491,62 +484,62 @@ class MetaAppClock(type):
     def __init__(cls, *_):
 
         def init_func(cls):
-            cls()
+            cls._sched_cond = _threading.Condition(_libsc3.main._main_lock)
+            cls._tick_cond = _threading.Condition()
+            cls._scheduler = Scheduler(cls, drift=True, recursive=False)
+            cls._thread = _threading.Thread(target=cls._run, daemon=True)
+            cls._thread.start()
 
         utl.ClassLibrary.add(cls, init_func)
 
 
 class AppClock(Clock, metaclass=MetaAppClock):
-    _instance = None # singleton instance of Thread
-
     def __new__(cls):
-        if cls._instance is None:
-            obj = super().__new__(cls)
-            _threading.Thread.__init__(obj)
-            obj._sched_cond = _threading.Condition(_libsc3.main._main_lock)
-            obj._tick_cond = _threading.Condition()
-            obj._scheduler = Scheduler(cls, drift=True, recursive=False)
-            cls._instance = obj # tiene que estar antes de start porque hace un tick de gracia
-            obj.daemon = True # TODO: tengo que ver si siendo demonios se pueden terminar, no recuerdo.
-            obj.start()
-        return cls # no llama a __init__
+        return cls
 
-    def run(self): # TODO: queda un poco desprolijo el método de instancia en la clase teniendo en cuenta que se puede evitar pero si no se hereda de threading.Thread
-        self._run_sched = True
+    @classmethod
+    def _run(cls):
+        cls._run_sched = True
         seconds = None
         while True:
-            with self._sched_cond: # es Main._main_lock
-                seconds = type(self).tick() # el primer tick es gratis y retorna None
+            with cls._sched_cond:
+                seconds = cls.tick()  # First tick for free, returns None
                 if isinstance(seconds, (int, float))\
                 and not isinstance(seconds, bool):
-                    seconds = seconds - self._scheduler.seconds # tick retorna abstime (elapsed)
+                    seconds = seconds - cls._scheduler.seconds  # tick returns abstime (elapsed)
                 else:
                     seconds = None
-            with self._tick_cond: # la relación es muchas notifican una espera, tal vez no sea Condition el objeto adecuado, VER threading
-                self._tick_cond.wait(seconds) # si seconds es None espera indefinidamente a notify
-            if not self._run_sched: return
+            with cls._tick_cond:  # many notify one wait
+                cls._tick_cond.wait(seconds)  # if seconds is None waits for notify
+            if not cls._run_sched: return
 
     @classmethod
     def clear(cls):
-        cls._instance._scheduler.clear()
+        cls._scheduler.clear()
 
     @classmethod
     def sched(cls, delta, item):
-        with cls._instance._sched_cond:
-            cls._instance._scheduler.sched(delta, item)
-        with cls._instance._tick_cond:
-            cls._instance._tick_cond.notify() # cls.tick() pasada a run
+        with cls._sched_cond:
+            cls._scheduler.sched(delta, item)
+        with cls._tick_cond:
+            cls._tick_cond.notify() # cls.tick() pasada a run
 
     @classmethod
     def tick(cls):
         tmp = _libsc3.main.current_tt.clock
         _libsc3.main.current_tt.clock = cls # BUG: supongo que porque puede que scheduler evalue una Routine con play/run? Debe ser para defer. Igual no me cierra del todo, pero también porque sclang tiene un bug con los relojes heredados.
-        cls._instance._scheduler.seconds = _libsc3.main.elapsed_time()
+        cls._scheduler.seconds = _libsc3.main.elapsed_time()
         _libsc3.main.current_tt.clock = tmp
-        if cls._instance._scheduler.queue.empty():
+        if cls._scheduler.queue.empty():
             return None # BUG: es un valor que se comprueba para saber si client::tick deja de llamarse a sí mismo.
         else:
-            return cls._instance._scheduler.queue.peek()[0]
+            return cls._scheduler.queue.peek()[0]
+
+    @classmethod
+    def _stop(cls):  # Shouldn't be stopped.
+        with cls._tick_cond:
+            cls._run_sched = False
+            cls._tick_cond.notify()
 
     # NOTE: Este comentario es un recordatorio.
     # def _sched_notify(cls):
@@ -792,11 +785,10 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             self._clock_task = None
         self._sched_cond = _threading.Condition(_libsc3.main._main_lock)
 
-        _threading.Thread.__init__(self)
-        self.daemon = True
-        self.start()
+        self._thread = _threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
 
-    def run(self):
+    def _run(self):
         with self._sched_cond:
             if _libsc3.main.mode == _libsc3.main.RT:
                 self._rt_run()
@@ -888,7 +880,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     def stop(self):
         # prStop -> prTempoClock_Free -> StopReq -> StopAndDelete -> Stop
         # prTempoClock_Free
-        if not self.is_alive():
+        if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
 
         # StopAndDelete
@@ -924,7 +916,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     @property
     def tempo(self):
         # _TempoClock_Tempo
-        if not self.is_alive():
+        if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
         return self._tempo
 
@@ -938,7 +930,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # NOTE: dependacy o porque difiere la lógica del objeto en C++.
         # NOTE: Paso la lógica de setTempoAtBeat y TempoClock::SetTempoAtBeat a este setter.
         # setTempoAtBeat(newTempo, this.beats) -> prTempoClock_SetTempoAtBeat
-        if not self.is_alive():
+        if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
         if self._tempo < 0.0: # BUG: NO ES CLARO: usa _tempo (mTempo), que puede ser negativo mediante etempo y en ese caso no deja setear acá, ES RARO.
             raise ValueError(
@@ -963,7 +955,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     def etempo(self, value):
         # TODO: this.setTempoAtSec(newTempo, Main.elapsedTime);
         # _TempoClock_SetTempoAtTime
-        if not self.is_alive():
+        if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
         # TempoClock::SetTempoAtTime
         seconds = _libsc3.main.elapsed_time()
@@ -978,13 +970,13 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def beat_dur(self):
         # _TempoClock_BeatDur
-        if not self.is_alive():
+        if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
         return self._beat_dur
 
     def elapsed_beats(self):
         # _TempoClock_ElapsedBeats
-        if not self.is_alive():
+        if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
         return self.secs2beats(_libsc3.main.elapsed_time())
 
@@ -992,7 +984,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     def beats(self):
         # _TempoClock_Beats
         # // returns the appropriate beats for this clock from any thread
-        if not self.is_alive():
+        if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
         if _libsc3.main.current_tt.clock is self:
             return _libsc3.main.current_tt.beats
@@ -1002,7 +994,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     @beats.setter
     def beats(self, value):
         # _TempoClock_SetBeats
-        if not self.is_alive():
+        if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
         with self._sched_cond:
             seconds = _libsc3.main.current_tt.seconds # BUG: revisar en C++ las veces que obtiene beats o seconds de &g->thread que es current_tt
@@ -1037,7 +1029,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def sched(self, delta, item):
         # _TempoClock_Sched
-        if not self.is_alive():
+        if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
         with self._sched_cond:
             if _libsc3.main.current_tt.clock is self:
@@ -1052,7 +1044,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def sched_abs(self, beat, item):
         # _TempoClock_SchedAbs
-        if not self.is_alive():
+        if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
         if beat == _math.inf:
             return
@@ -1063,7 +1055,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # // flag tells EventStreamPlayers that CmdPeriod
         # // is removing them, so nodes are already freed
         # clear -> prClear -> _TempoClock_Clear -> TempoClock::Clear
-        if self.is_alive() and self._run_sched:
+        if self._thread.is_alive() and self._run_sched:
             item = None
             with self._sched_cond:
                 while not self._task_queue.empty():
@@ -1101,20 +1093,20 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def beats2secs(self, beats):
         # _TempoClock_BeatsToSecs
-        if not self.is_alive():
+        if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
         return (beats - self._base_beats) * self._beat_dur + self._base_seconds
 
     def secs2beats(self, seconds):
         # _TempoClock_SecsToBeats
-        if not self.is_alive():
+        if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
         return (seconds - self._base_seconds) * self._tempo + self._base_beats
 
     def dump(self):
         # _(pr)TempoClock_Dump -> TepmoClock::Dump
         # BUG: Pero no usa este método sclang, usa dump de Object (_ObjectDump)
-        if self.is_alive():
+        if self._thread.is_alive():
             msg = self.__repr__()
             msg += (f'\n    tempo: {self.tempo}'
                     f'\n    beats: {self.beats}'
@@ -1163,19 +1155,14 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     def beat_in_bar(self):
         return self.beats - self.bars2beats(self.bar())
 
-    # isRunning { ^ptr.notNil } # NOTE: es is_alive() de Thread acá.
-
-    # // these methods allow TempoClock to act as TempoClock.default
-    # TODO: VER SI VAN O NO
+    def running(self):
+        return self._thread.is_alive()
 
 
 def defer(item, delta=None):
-    # BUG: creo que canCallOS no va a ser necesario en Python, pero tengo que ver
-    # BUG: esta función tal vez haya que implementarla en AbstractFunction por completitud, pero tengo que ver.
     if callable(item):
         def df():
-            item()
-            # NOTE: se envuelve porque lambda retorna el valor de la sentencia que contiene
+            item()  # Wrapped because lambda always return its expression value.
     else:
         raise TypeError('item is not callable')
     AppClock.sched(delta or 0, df)

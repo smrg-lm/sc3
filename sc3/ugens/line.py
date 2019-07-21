@@ -1,6 +1,6 @@
 """Line.sc"""
 
-from . import ugens as ugn
+from .. import ugen as ugn
 
 
 class Line(ugn.UGen):

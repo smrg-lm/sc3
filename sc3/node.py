@@ -5,7 +5,7 @@ import warnings as _warnings
 from functools import singledispatch
 
 from . import utils as utl
-from . import ugens as ugn
+from . import ugen as ugn
 from . import server as srv
 from . import synthdesc as sdc
 from . import graphparam as gpp

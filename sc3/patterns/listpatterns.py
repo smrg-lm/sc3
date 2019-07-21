@@ -2,8 +2,8 @@
 
 import collections
 
-from . import stream as stm
-from . import patterns as ptt
+from .. import stream as stm
+from .. import pattern as ptt
 
 
 # class Pindex(ptt.Pattern):

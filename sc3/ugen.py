@@ -225,7 +225,7 @@ class UGen(fn.AbstractFunction):
     def replace_zeroes_with_silence(cls, lst): # es recursiva y la usan Function-asBuffer, (AtkMatrixMix*ar), GraphBuilder-wrapOut, LocalOut*ar, Out*ar, XOut*ar.
         # // This replaces zeroes with audio rate silence.
         # // Sub collections are deep replaced.
-        from . import line as lne # BUG: import cíclico fatal por el tipo en la herencia.
+        from .ugens import line as lne # BUG: import cíclico fatal por el tipo en la herencia.
 
         num_zeroes = lst.count(0.0)
         if num_zeroes == 0:

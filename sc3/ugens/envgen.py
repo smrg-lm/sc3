@@ -1,6 +1,6 @@
 # EnvGen.sc
 
-from . import ugens as ugn
+from .. import ugen as ugn
 
 # TODO: todo...
 

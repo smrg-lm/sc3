@@ -2,10 +2,10 @@
 
 import logging
 
-from . import ugens as ugn
-from . import _global as _gl
-from . import utils as utl
-from . import graphparam as gpp
+from .. import ugen as ugn
+from .. import _global as _gl
+from .. import utils as utl
+from .. import graphparam as gpp
 
 
 _logger = logging.getLogger(__name__)

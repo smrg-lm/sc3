@@ -7,9 +7,9 @@ import struct
 import pathlib
 
 from . import _global as _gl
-from . import inout as scio
+from .ugens import inout as scio  # *** BUG: si hago que ugens importe todos los nombres tengo que descartar estos sub-module imports
 from . import utils as utl
-from . import ugens as ugn
+from . import ugen as ugn
 from . import server as srv
 from . import platform as plf
 from . import systemactions as sac
@@ -457,7 +457,7 @@ class SynthDef():
     # L549
     # OC: make SynthDef available to all servers
     def add(self, libname=None, completion_msg=None, keep_def=True):
-        self.as_synthdesc(libname or 'global', keep_def) # BUG: puede que sea self.desc que parece que no se usa? en sclang declara y no usa la variable local desc. La cuestión es que este método hay que llamarlo para agregar la desc a la librería. Otra cosa confusa.
+        self.as_synthdesc(libname or 'default', keep_def) # BUG: puede que sea self.desc que parece que no se usa? en sclang declara y no usa la variable local desc. La cuestión es que este método hay que llamarlo para agregar la desc a la librería. Otra cosa confusa.
         if libname is None:
             servers = srv.Server.all_booted_servers() # BUG: no está probado o implementado
         else:
@@ -466,9 +466,9 @@ class SynthDef():
             self.do_send(server) # , completion_msg(server)) # BUG: completion_msg no se usa/recibe en do_send # BUG: no sé por qué usa server.value() en sclang
 
     # L645
-    def as_synthdesc(self, libname='global', keep_def=True): # Subido, estaba abajo, lo usa add.
+    def as_synthdesc(self, libname='default', keep_def=True): # Subido, estaba abajo, lo usa add.
         stream = io.BytesIO(self.as_bytes()) # TODO: El problema es que esto depende de server.send_msg (interfaz osc)
-        libname = libname or 'global'
+        libname = libname or 'default'
         lib = sdc.SynthDescLib.get_lib(libname) # BUG: no está probado
         desc = lib.read_desc_from_def(stream, keep_def, self, self.metadata) # BUG: no está probado
         return desc
@@ -610,7 +610,7 @@ class SynthDef():
 
     # L561
     @classmethod
-    def remove_at(cls, name, libname='global'): # TODO: Este método lo debe usar en SynthDesc.sc. Ojo que hay mil métodos removeAt.
+    def remove_at(cls, name, libname='default'): # TODO: Este método lo debe usar en SynthDesc.sc. Ojo que hay mil métodos removeAt.
         lib = sdc.SynthDescLib.get_lib(libname)
         lib.remove_at(name)
         for server in lib.servers:
@@ -662,7 +662,7 @@ class SynthDef():
 
     # L615
     # // Write to file and make synth description.
-    def store(self, libname='global', dir=None, completion_msg=None, md_plugin=None): # *** BUG: completion_msg, parámetro intermedio
+    def store(self, libname='default', dir=None, completion_msg=None, md_plugin=None): # *** BUG: completion_msg, parámetro intermedio
         lib = sdc.SynthDescLib.get_lib(libname)
         dir = dir or SynthDef.synthdef_dir
         dir = pathlib.Path(dir)
@@ -685,7 +685,7 @@ class SynthDef():
 
     # L670
     # // This method needs a reconsideration
-    def store_once(self, libname='global', dir=None, completion_msg=None, md_plugin=None): # *** BUG: completion_msg, parámetro intermedio
+    def store_once(self, libname='default', dir=None, completion_msg=None, md_plugin=None): # *** BUG: completion_msg, parámetro intermedio
         dir = dir or SynthDef.synthdef_dir
         dir = pathlib.Path(dir)
         path = dir / (self.name + '.scsyndef')

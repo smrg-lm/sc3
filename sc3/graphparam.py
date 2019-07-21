@@ -7,8 +7,7 @@ from . import server as srv
 
 # BUG: están dentro de las funciones, no se pueden importar
 # BUG: por los símbolos de herencia en relación a UGen.
-# from . import ugens as ugn
-# from . import node as nod
+# from . import ugen as ugn
 # from . import node as nod
 
 
@@ -27,7 +26,7 @@ def graph_param(obj, param_cls):
 
 
 def ugen_param(obj):
-    import sc3.ugens as ugn
+    from . import ugen as ugn
 
     if isinstance(obj, (UGenParameter, ugn.UGen)):
         return obj
@@ -35,7 +34,7 @@ def ugen_param(obj):
 
 
 def node_param(obj):
-    import sc3.node as nod
+    from . import node as nod
 
     if isinstance(obj, (NodeParameter, nod.Node)):
         return obj
@@ -245,7 +244,7 @@ class NodeScalar(NodeParameter):
         return (int, float)
 
     def as_target(self):
-        import sc3.node as nod
+        from . import node as nod
         return nod.Group.basic_new(srv.Server.default, obj)
 
 

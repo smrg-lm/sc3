@@ -1,6 +1,6 @@
 """Osc.sc"""
 
-from . import ugens as ugn
+from .. import ugen as ugn
 
 
 class Osc(ugn.PureUGen):

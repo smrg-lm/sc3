@@ -1,6 +1,6 @@
 """InfoUGens.sc"""
 
-from . import ugens as ugn
+from .. import ugen as ugn
 
 
 class InfoUGenBase(ugn.UGen):

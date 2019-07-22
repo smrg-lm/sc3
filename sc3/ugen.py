@@ -11,67 +11,17 @@ from . import graphparam as gpp
 
 
 class UGen(fn.AbstractFunction):
+    '''
+    Subclasses should not use __init__ to implement graph logic, interface
+    methods are _new1, _multi_new, _multi_new_list, _init_ugen, _init_outputs
+    (from MultiOutUGen).
+    '''
+
     _valid_rates = {'audio', 'control', 'demand', 'scalar'}
 
-    @classmethod
-    def new1(cls, rate, *args):
-        '''
-        This method returns a single instance of the UGen, not multichannel
-        expanded. It is called inside multi_new_list, whenever a new single
-        instance is needed.
-        '''
-        if rate not in cls._valid_rates:
-            raise ValueError(f"UGen rate '{rate}' is invalid")
-        obj = cls()
-        obj.rate = rate
-        obj.add_to_synth()
-        return obj.init_ugen(*args)
-
-    @classmethod
-    def new_from_desc(cls, rate, num_outputs, inputs, special_index):
-        obj = cls()
-        obj.rate = rate
-        obj.inputs = tuple(inputs)
-        obj.special_index = special_index
-        return obj
-
-    @classmethod
-    def multi_new(cls, *args): # VER: No entiendo para qué sirve este método que solo envuelve a multi_new_list. multi_new_list es 'como de' más bajo nivel, o es una implementación o tiene que ver con cómo se pueden pasar los argumentos, o no lo sé.
-        return cls.multi_new_list(list(args))
-
-    @classmethod
-    def multi_new_list(cls, args):
-        '''
-        These methods are responsible for multichannel expansion. They call
-        UGen.new1(rate, *args) for each parallel combination. Most UGen.ar/kr
-        methods delegate to UGen.multiNewList. The first argument is rate, then
-        the rest of the arguments as in UGen.new1(rate, *args).
-        '''
-        # single channel, one ugen
-        length = 0
-        args = gpp.ugen_param(args).as_ugen_input(cls)
-        for item in args:
-            if isinstance(item, list):
-                length = max(length, len(item))
-        if length == 0:
-            return cls.new1(*args)
-        # multichannel expansion
-        new_args = [None] * len(args)
-        results = [None] * length
-        for i in range(length): # tener en cuenta sclang #[] y `()
-            for j, item in enumerate(args):
-                new_args[j] = item[i % len(item)]\
-                              if isinstance(item, list)\
-                              else item # hace la expansión multicanal
-            results[i] = cls.multi_new(*new_args)
-        return ChannelList(results)
-
-    # Python __init__ no es sclang SynthDef init
-    # acá solo puse los valores de instancia por defecto de la clase original.
     def __init__(self): # OJO: Las subclases de UGen no pueden implementar __init___ !!!
-        # atributos de instancia públicos?
-        self.inputs = () # None # TODO: Puede generar BUG luego, en sc es un array o nil si no se le pasan inputs, es una tupla acá, se inicializa en UGen.init
-        self.rate = 'audio' # TODO: VER: No se puede pasar opcionalmente a new1  *** !!! hacer un enum de algún tipo !!!
+        self.inputs = ()  # Always tuple.
+        self.rate = 'audio'
         # atributos de instancia privados
         self.synthdef = None # es _gl.current_synthdef luego de add_to_synth
         self.synth_index = -1
@@ -84,12 +34,71 @@ class UGen(fn.AbstractFunction):
         # TODO: (sigue) tal vez convenga crea propiedades pero para esta clase sería mucho código.
         self.output_index = 0 # TODO: en UGen es un método, pero lo pasé a propiedad porque es una propiedad en OutputPorxy (!)
 
-    # VER: mutabilidad. *** Este método lo sobreescriben las subclases y se llama en new1 que se llama desde multiNewList ***
+    @classmethod
+    def _new1(cls, rate, *args):
+        '''
+        This method returns a single instance of the UGen, not multichannel
+        expanded. It is called inside _multi_new_list, whenever a new single
+        instance is needed.
+        '''
+        if rate not in cls._valid_rates:
+            raise ValueError(f"UGen rate '{rate}' is invalid")
+        obj = cls()
+        obj.rate = rate
+        obj.add_to_synth()
+        return obj._init_ugen(*args)
+
+    @classmethod
+    def _multi_new(cls, *args):
+        return cls._multi_new_list(list(args))
+
+    @classmethod
+    def _multi_new_list(cls, args):
+        '''
+        These methods are responsible for multichannel expansion. They call
+        UGen._new1(rate, *args) for each parallel combination. Most UGen.ar/kr
+        methods delegate to UGen.multiNewList. The first argument is rate, then
+        the rest of the arguments as in UGen._new1(rate, *args).
+        '''
+        # single channel, one ugen
+        length = 0
+        args = gpp.ugen_param(args).as_ugen_input(cls)
+        for item in args:
+            if isinstance(item, list):
+                length = max(length, len(item))
+        if length == 0:
+            return cls._new1(*args)
+        # multichannel expansion
+        new_args = [None] * len(args)
+        results = [None] * length
+        for i in range(length): # tener en cuenta sclang #[] y `()
+            for j, item in enumerate(args):
+                new_args[j] = item[i % len(item)]\
+                              if isinstance(item, list)\
+                              else item # hace la expansión multicanal
+            results[i] = cls._multi_new(*new_args)
+        return ChannelList(results)
+
+    # VER: mutabilidad. *** Este método lo sobreescriben las subclases y se llama en _new1 que se llama desde multiNewList ***
     # simplemente hace lo que se ve, guarda las entradas como un Array. Se llama después de setear rate y synthDef (a través de addToSynth)
     # Pero en control names guarda otra cosa... creo que las salidas, o los índices de los controles, no sé.
-    def init_ugen(self, *inputs):
-        self.inputs = inputs # TODO: es tupla, en sclang es nil si no hay inputs.
-        return self # OJO: Tiene que retornarse sí o sí porque es el valor de retorno de new1
+    def _init_ugen(self, *inputs):
+        '''
+        This method is called by _new1 that uses its return value. It must
+        return self or ChannelList (cases of MultiOutUGen). Optimizations
+        returning scalars or None (for no output) are usually returned by
+        public UGen constructors (ar, kr, dr, ir or new).
+        '''
+        self.inputs = inputs
+        return self
+
+    @classmethod
+    def new_from_desc(cls, rate, num_outputs, inputs, special_index):
+        obj = cls()
+        obj.rate = rate
+        obj.inputs = tuple(inputs)
+        obj.special_index = special_index
+        return obj
 
     # // You can't really copy a UGen without disturbing the Synth.
     # // Usually you want the same object. This makes .dup work.
@@ -119,7 +128,7 @@ class UGen(fn.AbstractFunction):
 
     # L292
     def _collect_constants(self): # pong
-        for input in self.inputs: # TODO: es tupla, en sclang es nil si no hay inputs.
+        for input in self.inputs:
             if isinstance(input, (int, float)):
                 self.synthdef.add_constant(float(input))
 
@@ -131,27 +140,27 @@ class UGen(fn.AbstractFunction):
 
     def check_valid_inputs(self):  # este método se usa acá y en otras ugens dentro de check_inputs, es interfaz de UGen se usa junto con check_inputs
         '''Returns error msg or None.'''
-        for i, input in enumerate(self.inputs): # TODO: es tupla, en sclang es nil si no hay inputs.
+        for i, input in enumerate(self.inputs):
             if not gpp.ugen_param(input).is_valid_ugen_input():
                 arg_name = self.arg_name_for_input_at(i)
                 if arg_name is None: arg_name = i
                 return f'arg: {arg_name} has bad input: {input}'
         return None
 
-    def check_n_inputs(self, n): # ídem anterior, deben ser interfaz protejida. Este no sé si pueda ser check_inputs sobrecargado o con parámetro opcional, tal vez si...
-        if self.rate == 'audio': # *** convertir audio en constante de enum
-            if n > len(self.inputs): # en sclang no comprueba el rango de inputs porque arr[i] fuera de rango devuelve nil y nil.rate devuelve nil!
-                n = len(self.inputs) # TODO: es tupla, en sclang es nil si no hay inputs.
+    def check_n_inputs(self, n): # ídem anterior, deben ser interfaz protejida.
+        if self.rate == 'audio':
+            if n > len(self.inputs):
+                n = len(self.inputs)
             for i in range(n):
-                if gpp.ugen_param(self.inputs[i]).as_ugen_rate() != 'audio': # BUG: VER VALORES POSIBLES PARA self.inputs[i]
+                if gpp.ugen_param(self.inputs[i]).as_ugen_rate() != 'audio':
                     return (f'input {i} is not audio rate: {self.inputs[i]} '
-                            f'{gpp.ugen_param(self.inputs[0]).as_ugen_rate()}')
+                            f'{gpp.ugen_param(self.inputs[i]).as_ugen_rate()}')
         return self.check_valid_inputs() # comprueba is_valid_ugen_input no el rate.
 
     def check_sr_as_first_input(self): # checkSameRateAsFirstInput ídem anterior, deben ser interfaz protejida
         if self.rate != gpp.ugen_param(self.inputs[0]).as_ugen_rate():
-            return (f'first input is not {self.rate} rate: '
-                    f'{self.inputs[0]} {self.inputs[0].rate}')
+            return (f'first input is not {self.rate} rate: {self.inputs[0]} '
+                    f'{gpp.ugen_param(self.inputs[0]).as_ugen_rate()}')
         return self.check_valid_inputs()
 
     def arg_name_for_input_at(self, i): # se usa acá y en basicopugen dentro de checkValidInputs, ambas clases lo implementan.
@@ -163,7 +172,7 @@ class UGen(fn.AbstractFunction):
             arg_names = [x.name for x in params]
             if not arg_names: return None
             if i < len(arg_names):
-                # if selector is '__init__': # TODO: *** __init__ SOLO PUEDE RETORNAR NONE Y NEW1 RETORNA DISTINTAS COSAS. super().__init__() inicializa las propiedades desde new1 *** No se puede usar __init__ (super(UGen, self).__init__() no me funciona) hay que usar new o dr para demand rate!!!!!
+                # if selector is '__init__': # TODO: *** __init__ SOLO PUEDE RETORNAR NONE Y _new1 RETORNA DISTINTAS COSAS. super().__init__() inicializa las propiedades desde _new1 *** No se puede usar __init__ (super(UGen, self).__init__() no me funciona) hay que usar new o dr para demand rate!!!!!
                 #     return arg_names[i + 1] # TODO: VER ABAJO: 1 es arg_names_inputs_offset
                 # else:
                 #     return arg_names[i]
@@ -182,26 +191,23 @@ class UGen(fn.AbstractFunction):
     # def arg_names_inputs_offset(self): # lo implementan varias clases como intefaz, se usa solo acá y basicopugen en argNameForInputAt
     #     return 1
 
-    # def method_selector_for_rate(self): # BUG: **** TODO *** NO PUEDEN HABER MÉTODOS DE CLASE E INSTANCIA CON EL MISMO NOMBRE # SUBIDA de la sección write
-    #     return self.__class__.method_selector_for_rate(self.rate) # VER: este no tendría try/except en getattr? VER: repite el código porque comprueba con self.rate que cambia si se inicializa con ar/kr/ir, pero no es lo mismo así?? No lo implementa ninguna sub-clase.
-
     @classmethod
     def method_selector_for_rate(cls, rate): # TODO VER: este no tendría try/except en getattr? VER: repite el código porque comprueba con self.rate que cambia si se inicializa con ar/kr/ir, pero no es lo mismo así?? No lo implementa ninguna sub-clase. En sclang tiene una variante de instancia que acá no puede existir.
         if rate == 'audio': return 'ar'
         if rate == 'control': return 'kr'
         if rate == 'scalar':
-            if 'ir' in dir(cls): # TODO: VER arriba: es try: getattr(cls, self.method_selector_for_rate()) except AttributeError: lala.
+            if 'ir' in dir(cls):
                 return 'ir'
             else:
-                return 'new' # TODO, *** __init__ SOLO PUEDE RETORNAR NONE Y NEW1 RETORNA DISTINTAS COSAS. super().__init__() inicializa las propiedades desde new1 *** OJO, VER, LAS SUBCLASES NO PUEDEN IMPLEMENTAR __init__ !!! super(UGen, self).__init__() no me funciona con new1
-        if rate == 'demand': return 'dr' # TODO: dr? *** super().__init__() inicializa las propiedades desde new1 *** DR SE USA PORQUE LAS SUBCLASES DE UGEN NO PUEDEN IMPLEMENTAR __init__, DE PASO QUEDA MÁS CONSISTENTE...
+                return 'new'
+        if rate == 'demand': return 'dr'
         return None
 
     def dump_args(self): # implementa acá y en basicopugen se usa en SynthDef checkInputs y en Mix*kr
         msg = 'ARGS:\n'
         tab = ' ' * 4
         arg_name = None
-        for i, input in enumerate(self.inputs): # TODO: es tupla, en sclang es nil si no hay inputs.
+        for i, input in enumerate(self.inputs):
             arg_name = self.arg_name_for_input_at(i)
             if arg_name is None: arg_name = str(i)
             msg += tab + arg_name + ' ' + str(input)
@@ -296,8 +302,8 @@ class UGen(fn.AbstractFunction):
         if self.rate == 'demand': return 3
         return 0 # 'scalar'
 
-    def num_inputs(self): #numInputs
-        return len(self.inputs) # TODO: es tupla, en sclang es nil si no hay inputs.
+    def num_inputs(self):
+        return len(self.inputs)
 
     def num_outputs(self):
         return 1
@@ -312,7 +318,7 @@ class UGen(fn.AbstractFunction):
 
     # L488
     def init_topo_sort(self):
-        for input in self.inputs: # TODO: es tupla, en sclang es nil si no hay inputs.
+        for input in self.inputs:
             if isinstance(input, UGen):
                 if isinstance(input, OutputProxy): # Omite los OutputProxy in pone las fuentes en antecedents, ver BUG? abajo.
                     ugen = input.source_ugen # VER: source acá es solo propiedad de OutputProxy(es), no se implementa en otras clases.
@@ -343,8 +349,8 @@ class UGen(fn.AbstractFunction):
     def perform_dead_code_elimination(self): # Se usa en optimize_graph de BinaryOpUGen, PureMultiOutUGen, PureUGen y UnaryOpUGen.
         # TODO: Cuando quedan las synthdef solo con controles que no van a ninguna parte también se podrían optimizar?
         if len(self.descendants) == 0:
-            #for input in self.inputs: # BUG EN SCLANG? NO ES ANTECEDENTS DONDE NO ESTÁN LOS OUTPUTPROXY? en sclang funciona por nil responde a casi todo devolviendo nil.
-            for input in self.antecedents: # TODO: PREGUNTAR, ASÍ PARECE FUNCIONAR CORRECTAMENTE.
+            #for input in self.inputs: # *** BUG EN SCLANG? NO ES ANTECEDENTS DONDE NO ESTÁN LOS OUTPUTPROXY? en sclang funciona por nil responde a casi todo devolviendo nil.
+            for input in self.antecedents:
                 if isinstance(input, UGen):
                     input.descendants.remove(self)
                     input.optimize_graph()
@@ -531,7 +537,7 @@ class PureUGen(UGen):
 class MultiOutUGen(UGen):
     def __init__(self):
         self.channels = [] # Nueva propiedad # VER: se necesita antes de llamar a super().__init__() porque en UGen inicializa self.synth_index y llama al setter de esta sub-clase.
-        super().__init__() # TODO: *** super().__init__() inicializa las propiedades correctamente desde new1 *** VER métodos de UGen
+        super().__init__() # TODO: *** super().__init__() inicializa las propiedades correctamente desde _new1 *** VER métodos de UGen
         #self._synth_index = -1 # BUG: VER: en UGen synth_index es una propiedad sin setter/getter/deleter, Pero llama al setter solo si se llama desde subclase.
 
     @property
@@ -552,16 +558,20 @@ class MultiOutUGen(UGen):
     def new_from_desc(cls, rate, num_outputs, inputs, special_index=None):
         obj = cls()
         obj.rate = rate
-        obj.inputs = inputs
-        obj.init_outputs(num_outputs, rate)
+        obj.inputs = tuple(inputs)
+        obj._init_outputs(num_outputs, rate)
         return obj
 
-    def init_outputs(self, num_channels, rate):
+    def _init_outputs(self, num_channels, rate):
+        '''
+        Return value of this method is used as return value of _init_ugen
+        in subclasses.
+        '''
         if num_channels is None or num_channels < 1:
             raise Exception(
                 f'{self.name()}: wrong number of channels ({num_channels})')
-        self.channels = [OutputProxy.new(rate, self, i)
-                         for i in range(num_channels)]
+        self.channels = ChannelList(
+            [OutputProxy.new(rate, self, i) for i in range(num_channels)])
         if num_channels == 1:
             return self.channels[0]
         return self.channels
@@ -580,20 +590,16 @@ class PureMultiOutUGen(MultiOutUGen):
 
 
 class OutputProxy(UGen):
-    # VER: en el original declara <>name, pero no veo que se use acá, y no tiene subclases, tal vez sobreescribe UGen-name()?
+    # *** BUG: en el original declara <>name, pero no veo que se use acá, y no tiene subclases, tal vez sobreescribe UGen-name()?
     @classmethod
     def new(cls, rate, source_ugen, index):
-        return cls.new1(rate, source_ugen, index) # OJO: tiene que retornoarseeee lo mismo que init_ugen!
+        return cls._new1(rate, source_ugen, index)
 
-    # def __init__(self, rate, source_ugen, index):
-    #     super().__init__()
-    #     # TODO: para usar __init__() new1 debería ser __init__ PERO __init__ tiene que retornar None, NO PUEDE RETORNAR DISTINTAS COSAS.
-
-    def init_ugen(self, source_ugen, index): # init_ugen tiene que retornar self! en Python retorna None por defecto.
-        self.source_ugen = source_ugen # OJO: source cambia a source_ugen, y puede no ser necesario inicializarla en init
+    def _init_ugen(self, source_ugen, index):
+        self.source_ugen = source_ugen  # *** NOTE: OJO: source cambia a source_ugen, y puede no ser necesario inicializarla en init
         self.output_index = index
         self.synth_index = source_ugen.synth_index
-        return self
+        return self  # Must return self.
 
     def add_to_synth(self): # OutputProxy no se agrega a sí con add_ugen, por lo tanto no se puebla con init_topo_sort y no se guarda en antecedents. init_topo_sort comprueba if isinstance(input, OutputProxy): y agrega source_ugen
         self.synthdef = _gl.current_synthdef
@@ -653,12 +659,12 @@ class BasicOpUGen(UGen):
 class UnaryOpUGen(BasicOpUGen):
     @classmethod
     def new(cls, selector, a):
-        return cls.multi_new('audio', selector, a)
+        return cls._multi_new('audio', selector, a)
 
-    def init_ugen(self, operator, input):
+    def _init_ugen(self, operator, input):
         self.operator = operator
         self.rate = gpp.ugen_param(input).as_ugen_rate()
-        self.inputs = ChannelList(input)
+        self.inputs = (input,)
         return self  # Must return self.
 
     def optimize_graph(self):
@@ -667,7 +673,7 @@ class UnaryOpUGen(BasicOpUGen):
 
 class BinaryOpUGen(BasicOpUGen):
     @classmethod
-    def new1(cls, rate, selector, a, b):
+    def _new1(cls, rate, selector, a, b):
         # OC: eliminate degenerate cases
         if selector == '*':
             if a == 0.0: return 0.0
@@ -685,16 +691,16 @@ class BinaryOpUGen(BasicOpUGen):
         if selector == '/':
             if b == 1.0: return a
             if b == -1.0: return a.neg()
-        return super().new1(rate, selector, a, b)
+        return super()._new1(rate, selector, a, b)
 
     @classmethod
     def new(cls, selector, a, b):
-        return cls.multi_new('audio', selector, a, b)
+        return cls._multi_new('audio', selector, a, b)
 
-    def init_ugen(self, operator, a, b):
+    def _init_ugen(self, operator, a, b):
         self.operator = operator
         self.rate = self.determine_rate(a, b)
-        self.inputs = [a, b]
+        self.inputs = (a, b)
         return self  # Must return self.
 
     def determine_rate(self, a, b):
@@ -738,7 +744,7 @@ class BinaryOpUGen(BasicOpUGen):
 
     # L239
     def optimize_to_sum3(self):
-        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
+        a, b = self.inputs
         if gpp.ugen_param(a).as_ugen_rate() == 'demand'\
         or gpp.ugen_param(b).as_ugen_rate() == 'demand':
             return None
@@ -764,7 +770,7 @@ class BinaryOpUGen(BasicOpUGen):
 
     # L262
     def optimize_to_sum4(self):
-        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
+        a, b = self.inputs
         if gpp.ugen_param(a).as_ugen_rate() == 'demand'\
         or gpp.ugen_param(b).as_ugen_rate() == 'demand':
             return None
@@ -787,7 +793,7 @@ class BinaryOpUGen(BasicOpUGen):
 
     # L197
     def optimize_to_muladd(self):
-        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
+        a, b = self.inputs
 
         if isinstance(a, BinaryOpUGen) and a.operator == '*'\
         and len(a.descendants) == 1:
@@ -828,7 +834,7 @@ class BinaryOpUGen(BasicOpUGen):
 
     # L168
     def optimize_addneg(self):
-        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
+        a, b = self.inputs
 
         if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
         and len(b.descendants) == 1:
@@ -857,7 +863,7 @@ class BinaryOpUGen(BasicOpUGen):
 
     # L283
     def optimize_sub(self):
-        a, b = self.inputs # TODO: es tupla, en sclang es nil si no hay inputs.
+        a, b = self.inputs
 
         if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
         and len(b.descendants) == 1:
@@ -899,10 +905,10 @@ class MulAdd(UGen):
         params = gpp.ugen_param([input, mul, add])
         rate = params.as_ugen_rate()
         args = params.as_ugen_input(cls)
-        return cls.multi_new_list([rate] + args)
+        return cls._multi_new_list([rate] + args)
 
     @classmethod
-    def new1(cls, rate, input, mul, add):
+    def _new1(cls, rate, input, mul, add):
         # OC: eliminate degenerate cases
         if mul == 0.0: return add
         minus = mul == -1.0
@@ -915,15 +921,15 @@ class MulAdd(UGen):
         if nomul: return input + add
 
         if cls.can_be_muladd(input, mul, add):
-            return super().new1(rate, input, mul, add)
+            return super()._new1(rate, input, mul, add)
         if cls.can_be_muladd(mul, input, add):
-            return super().new1(rate, mul, input, add)
+            return super()._new1(rate, mul, input, add)
         return (input * mul) + add
 
-    def init_ugen(self, input, mul, add):
-        self.inputs = (input, mul, add) # TODO: es tupla, en sclang es nil si no hay inputs.
+    def _init_ugen(self, input, mul, add):
+        self.inputs = (input, mul, add)
         self.rate = gpp.ugen_param(self.inputs).as_ugen_rate()
-        return self
+        return self  # Must return self.
 
     @classmethod
     def can_be_muladd(cls, input, mul, add):
@@ -943,10 +949,10 @@ class MulAdd(UGen):
 class Sum3(UGen):
     @classmethod
     def new(cls, in0, in1, in2):
-        return cls.multi_new(None, in0, in1, in2)
+        return cls._multi_new(None, in0, in1, in2)
 
     @classmethod
-    def new1(cls, dummy_rate, in0, in1, in2):
+    def _new1(cls, dummy_rate, in0, in1, in2):
         if in2 == 0.0: return in0 + in1
         if in1 == 0.0: return in0 + in2
         if in0 == 0.0: return in1 + in2
@@ -955,23 +961,23 @@ class Sum3(UGen):
         rate = gpp.ugen_param(arg_list).as_ugen_rate()
         arg_list.sort(key=lambda x: gpp.ugen_param(x).as_ugen_rate()) # NOTE: no sé para qué ordena.
 
-        return super().new1(rate, *arg_list)
+        return super()._new1(rate, *arg_list)
 
 
 class Sum4(UGen):
     @classmethod
     def new(cls, in0, in1, in2, in3):
-        return cls.multi_new(None, in0, in1, in2, in3)
+        return cls._multi_new(None, in0, in1, in2, in3)
 
     @classmethod
-    def new1(cls, in0, in1, in2, in3):
-        if in0 == 0.0: return Sum3.new1(None, in1, in2, in3)
-        if in1 == 0.0: return Sum3.new1(None, in0, in2, in3)
-        if in2 == 0.0: return Sum3.new1(None, in0, in1, in3)
-        if in3 == 0.0: return Sum3.new1(None, in0, in1, in2)
+    def _new1(cls, in0, in1, in2, in3):
+        if in0 == 0.0: return Sum3._new1(None, in1, in2, in3)
+        if in1 == 0.0: return Sum3._new1(None, in0, in2, in3)
+        if in2 == 0.0: return Sum3._new1(None, in0, in1, in3)
+        if in3 == 0.0: return Sum3._new1(None, in0, in1, in2)
 
         arg_list = [in0, in1, in2, in3]
         rate = gpp.ugen_param(arg_list).as_ugen_rate()
         arg_list.sort(key=lambda x: gpp.ugen_param(x).as_ugen_rate()) # NOTE: no sé para qué ordena.
 
-        return super().new1(rate, *arg_list)
+        return super()._new1(rate, *arg_list)

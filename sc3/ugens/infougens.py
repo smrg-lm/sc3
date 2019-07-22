@@ -6,7 +6,7 @@ from .. import ugen as ugn
 class InfoUGenBase(ugn.UGen):
     @classmethod
     def ir(cls):
-        return cls.multi_new('scalar')
+        return cls._multi_new('scalar')
 
 
 class SampleRate(InfoUGenBase): pass
@@ -29,19 +29,19 @@ class NodeID(InfoUGenBase): pass
 class NumRunningSynths(InfoUGenBase):
     @classmethod
     def kr(cls):
-        return cls.multi_new('control')
+        return cls._multi_new('control')
 
 
 class BufInfoUGenBase(ugn.UGen):
     @classmethod
     def kr(cls, bufnum):
-        return cls.multi_new('control', bufnum)
+        return cls._multi_new('control', bufnum)
 
     @classmethod
     def ir(cls, bufnum):
         # // The .ir method is not the safest choice, since a buffer can be
         # // reallocated at any time, using .ir will not track the changes.
-        return cls.multi_new('scalar', bufnum)
+        return cls._multi_new('scalar', bufnum)
 
 
 class BufSampleRate(BufInfoUGenBase): pass

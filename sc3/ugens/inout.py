@@ -54,13 +54,13 @@ class Control(ugn.MultiOutUGen):
 
     @classmethod
     def ir(cls, values):
-        return cls.multi_new_list(['scalar'] + utl.as_list(values))
+        return cls._multi_new_list(['scalar'] + utl.as_list(values))
 
     @classmethod
     def kr(cls, values):
-        return cls.multi_new_list(['control'] + utl.as_list(values))
+        return cls._multi_new_list(['control'] + utl.as_list(values))
 
-    def init_ugen(self, *values):
+    def _init_ugen(self, *values):
         self.values = list(values)
         if self.synthdef is not None:
             self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
@@ -75,7 +75,7 @@ class Control(ugn.MultiOutUGen):
                     last_control.default_value = utl.unbubble(self.values)
 
             self.synthdef.control_index += len(self.values)
-        return self.init_outputs(len(self.values), self.rate)
+        return self._init_outputs(len(self.values), self.rate)
 
     @classmethod
     def is_control_ugen(cls):
@@ -89,7 +89,7 @@ class AudioControl(ugn.MultiOutUGen):
 
     @classmethod
     def names(cls, names):
-        synthdef = _gl.current_synthdef # VER: lo mimso que arriba, es local, luego init_ugen llama a self.synthdef, supongo que se inicializa en las subclases.
+        synthdef = _gl.current_synthdef # VER: lo mimso que arriba, es local, luego _init_ugen llama a self.synthdef, supongo que se inicializa en las subclases.
         index = synthdef.control_index
         names = utl.as_list(names)
         for i, name in enumerate(names):
@@ -102,15 +102,15 @@ class AudioControl(ugn.MultiOutUGen):
 
     @classmethod
     def ar(cls, values):
-        return cls.multi_new_list(['audio'] + utl.as_list(values))
+        return cls._multi_new_list(['audio'] + utl.as_list(values))
 
-    def init_ugen(self, *values):
+    def _init_ugen(self, *values):
         self.values = list(values)
         if self.synthdef is not None:
             self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
             self.synthdef.controls.extend(self.values)
             self.synthdef.control_index += len(self.values)
-        return self.init_outputs(len(self.values), self.rate)
+        return self._init_outputs(len(self.values), self.rate)
 
     @classmethod
     def is_audio_control_ugen(cls):
@@ -149,14 +149,14 @@ class LagControl(Control):
         lags = [lags[i:i + n] for i in range(0, len(lags), n)]  # lags.clump(16)
         outputs = []
         for i in range(len(values)):
-            outputs.extend(cls.multi_new_list(['control'] + values[i] + lags[i]))
+            outputs.extend(cls._multi_new_list(['control'] + values[i] + lags[i]))
         return outputs
 
     @classmethod
     def ar(cls, values, lags):
         return AudioControl.ar(values).lag(lags)
 
-    def init_ugen(self, *stuff):
+    def _init_ugen(self, *stuff):
         # *** BUG: in sclang, lags variable not used.
         size = len(stuff)
         size2 = size >> 1  # size // 2
@@ -165,7 +165,7 @@ class LagControl(Control):
             self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
             self.synthdef.controls.extend(self.values)
             self.synthdef.control_index += len(self.values)
-        return self.init_outputs(len(self.values), self.rate)
+        return self._init_outputs(len(self.values), self.rate)
 
 
 ### Inputs ###
@@ -179,59 +179,59 @@ class AbstractIn(ugn.MultiOutUGen):
 class In(AbstractIn):
     @classmethod
     def ar(cls, bus=0, num_channels=1):
-        return cls.multi_new('audio', num_channels, bus)
+        return cls._multi_new('audio', num_channels, bus)
 
     @classmethod
     def kr(cls, bus=0, num_channels=1):
-        return cls.multi_new('control', num_channels, bus)
+        return cls._multi_new('control', num_channels, bus)
 
-    def init_ugen(self, num_channels, *arg_bus):
+    def _init_ugen(self, num_channels, *arg_bus):
         self.inputs = list(arg_bus)
-        return self.init_outputs(num_channels, self.rate)
+        return self._init_outputs(num_channels, self.rate)
 
 
 class LocalIn(AbstractIn):
     @classmethod
     def ar(cls, num_channels=1, default=0.0):
-        return cls.multi_new('audio', num_channels, *utl.as_list(default))
+        return cls._multi_new('audio', num_channels, *utl.as_list(default))
 
     @classmethod
     def kr(cls, num_channels=1, default=0.0):
-        return cls.multi_new('control', num_channels, *utl.as_list(default))
+        return cls._multi_new('control', num_channels, *utl.as_list(default))
 
-    def init_ugen(self, num_channels, *default):
+    def _init_ugen(self, num_channels, *default):
         self.inputs = list(utl.wrap_extend(list(default), num_channels))
-        return self.init_outputs(num_channels, self.rate)
+        return self._init_outputs(num_channels, self.rate)
 
 
 class LagIn(AbstractIn):
     @classmethod
     def kr(cls, bus=0, num_channels=1, lag=0.1):
-        return cls.multi_new('control', num_channels, bus, lag)
+        return cls._multi_new('control', num_channels, bus, lag)
 
-    def init_ugen(self, num_channels, *inputs):
+    def _init_ugen(self, num_channels, *inputs):
         self.inputs = list(inputs)
-        return self.init_outputs(num_channels, self.rate)
+        return self._init_outputs(num_channels, self.rate)
 
 
 class InFeedback(AbstractIn):
     @classmethod
     def ar(cls, bus=0, num_channels=1):
-        return cls.multi_new('audio', num_channels, bus)
+        return cls._multi_new('audio', num_channels, bus)
 
-    def init_ugen(self, num_channels, *arg_bus):
+    def _init_ugen(self, num_channels, *arg_bus):
         self.inputs = list(arg_bus)
-        return self.init_outputs(num_channels, self.rate)
+        return self._init_outputs(num_channels, self.rate)
 
 
 class InTrig(AbstractIn):
     @classmethod
     def kr(cls, bus=0, num_channels=1):
-        return cls.multi_new('control', num_channels, bus)
+        return cls._multi_new('control', num_channels, bus)
 
-    def init_ugen(self, num_channels, *arg_bus):
+    def _init_ugen(self, num_channels, *arg_bus):
         self.inputs = list(arg_bus)
-        return self.init_outputs(num_channels, self.rate)
+        return self._init_outputs(num_channels, self.rate)
 
 
 ### Outputs ###
@@ -275,12 +275,12 @@ class Out(AbstractOut):
         output = gpp.ugen_param(utl.as_list(output))
         output = output.as_ugen_input(cls)
         output = cls.replace_zeroes_with_silence(output)
-        cls.multi_new_list(['audio', bus] + output)
+        cls._multi_new_list(['audio', bus] + output)
         # return 0.0  # // Out has no output.
 
     @classmethod
     def kr(cls, bus, output):
-        cls.multi_new_list(['control', bus] + utl.as_list(output))
+        cls._multi_new_list(['control', bus] + utl.as_list(output))
         # return 0.0  # // Out has no output.
 
     @classmethod
@@ -308,13 +308,13 @@ class LocalOut(AbstractOut):
         output = gpp.ugen_param(utl.as_list(output))
         output = output.as_ugen_input(cls)
         output = cls.replace_zeroes_with_silence(output)
-        cls.multi_new_list(['audio'] + output)
+        cls._multi_new_list(['audio'] + output)
         # return 0.0  # // LocalOut has no output.
 
     @classmethod
     def kr(cls, output):
         output = utl.as_list(output)
-        cls.multi_new_list(['audio'] + output)
+        cls._multi_new_list(['audio'] + output)
         # return 0.0  # // LocalOut has no output.
 
     @classmethod
@@ -331,13 +331,13 @@ class XOut(AbstractOut):
         output = gpp.ugen_param(utl.as_list(output))
         output = output.as_ugen_input(cls)
         output = cls.replace_zeroes_with_silence(output)
-        cls.multi_new_list(['audio', bus, xfade] + output)
+        cls._multi_new_list(['audio', bus, xfade] + output)
         # return 0.0  # // XOut has no output.
 
     @classmethod
     def kr(cls, bus, xfade, output):
         output = utl.as_list(output)
-        cls.multi_new_list(['control', bus, xfade] + output)
+        cls._multi_new_list(['control', bus, xfade] + output)
         # return 0.0  # // XOut has no output.
 
     @classmethod

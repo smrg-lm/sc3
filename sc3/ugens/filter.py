@@ -14,11 +14,11 @@ class Filter(ugn.PureUGen):
 class LPF(Filter):
     @classmethod
     def ar(cls, input=0.0, freq=440.0, mul=1.0, add=0.0):
-        return cls.multi_new('audio', input, freq).madd(mul, add)
+        return cls._multi_new('audio', input, freq).madd(mul, add)
 
     @classmethod
     def kr(cls, input=0.0, freq=440.0, mul=1.0, add=0.0):
-        return cls.multi_new('control', input, freq).madd(mul, add)
+        return cls._multi_new('control', input, freq).madd(mul, add)
 
 
 # TODO: otras tantas...

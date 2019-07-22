@@ -41,8 +41,6 @@ class UGen(fn.AbstractFunction):
         expanded. It is called inside _multi_new_list, whenever a new single
         instance is needed.
         '''
-        if rate not in cls._valid_rates:
-            raise ValueError(f"UGen rate '{rate}' is invalid")
         obj = cls()
         obj.rate = rate
         obj.add_to_synth()
@@ -67,6 +65,7 @@ class UGen(fn.AbstractFunction):
             if isinstance(item, list):
                 length = max(length, len(item))
         if length == 0:
+            cls._check_valid_rate_name(args[0])
             return cls._new1(*args)
         # multichannel expansion
         new_args = [None] * len(args)
@@ -76,8 +75,15 @@ class UGen(fn.AbstractFunction):
                 new_args[j] = item[i % len(item)]\
                               if isinstance(item, list)\
                               else item # hace la expansión multicanal
+            cls._check_valid_rate_name(new_args[0])
             results[i] = cls._multi_new(*new_args)
         return ChannelList(results)
+
+    @classmethod
+    def _check_valid_rate_name(cls, string):
+        # NOTE, VER: Agregada por mi en multi_new_list. Aunque el original comprueba si rate es simbol en new1. Pero las ugens que sobreescribne new1 sin llamar a super no hacen esa comprobación.
+        if string not in cls._valid_rates:
+            raise ValueError(f"{cls.__name__} invalid rate: '{string}'")
 
     # VER: mutabilidad. *** Este método lo sobreescriben las subclases y se llama en _new1 que se llama desde multiNewList ***
     # simplemente hace lo que se ve, guarda las entradas como un Array. Se llama después de setear rate y synthDef (a través de addToSynth)

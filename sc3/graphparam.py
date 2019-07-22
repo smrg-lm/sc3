@@ -147,10 +147,10 @@ class UGenScalar(UGenParameter):
                 f'{float(self.value)}') from e
 
 
-class UGenList(UGenParameter):
+class UGenSequence(UGenParameter):
     @classmethod
     def param_type(cls):
-        return (list, tuple)  # *** BUG: tuple evita la expansión multicanal, eso lo define el constructor de ChannelList. Acá es correcto porque estas clases se usan temporalmente para acceder al polimofismo.
+        return (list, tuple)  # tuple prevents multichannel expansion, type must be kept for UGen inputs.
 
     # BUG: array implementa num_channels?
 
@@ -158,15 +158,16 @@ class UGenList(UGenParameter):
         return True if self.value else False  # *** BUG: en sclang, debería comprobar isEmpty porque tira error en SynthDesc (SinOsc.ar() * []). O tal vez cuando construye BinaryOpUGen? Ver el grafo generado, tal vez deba ser None.
 
     def as_ugen_input(self, *ugen_cls):
-        lst = list(map(lambda x: ugen_param(x).as_ugen_input(*ugen_cls), self.value))
-        return lst
+        m = map(lambda x: ugen_param(x).as_ugen_input(*ugen_cls), self.value)
+        return type(self.value)(m)
 
     def as_control_input(self):
-        return [ugen_param(x).as_control_input() for x in self.value]
+        return type(self.value)(
+            ugen_param(x).as_control_input() for x in self.value)
 
     def as_audio_rate_input(self, *ugen_cls):
-        lst = list(map(lambda x: ugen_param(x).as_audio_rate_input(*ugen_cls), self.value)) # NOTE: de Array: ^this.collect(_.asAudioRateInput(for))
-        return lst
+        m = map(lambda x: ugen_param(x).as_audio_rate_input(*ugen_cls), self.value) # NOTE: de Array: ^this.collect(_.asAudioRateInput(for))
+        return type(self.value)(m)
 
     def as_ugen_rate(self):
         if len(self.value) == 1:
@@ -261,7 +262,7 @@ class NodeString(NodeParameter):
         return lst
 
     # NOTE: porque hereda de RawArray que hereda de SequenceableCollection
-    # le correspondería la misma implementación de NodeList, pero creo que
+    # le correspondería la misma implementación de NodeSequence, pero creo que
     # el único método que llama a este es as_osc_arg_embedded_list que
     # String sobreescribe de manera distinta por lo que supongo que nunca
     # usa este método (además de que no parece consistente).
@@ -273,7 +274,7 @@ class NodeString(NodeParameter):
         return lst
 
 
-class NodeList(NodeParameter):
+class NodeSequence(NodeParameter):
     @classmethod
     def param_type(cls):
         return (list, tuple)

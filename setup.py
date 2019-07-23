@@ -2,10 +2,6 @@
 import setuptools
 
 
-# NOTE: https://packaging.python.org/tutorials/packaging-projects/ NO ES ÚTIL
-# NOTE: https://setuptools.readthedocs.io/en/latest/setuptools.html
-# NOTE: https://github.com/pypa/sampleproject/blob/master/setup.py
-
 with open('README.md', 'r') as f:
     long_description = f.read()
 
@@ -17,7 +13,7 @@ setuptools.setup(
     description='SuperCollider 3 class library Python 3 port',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url="https://github.com/smrg-lm/libsc",
+    url="https://github.com/smrg-lm/sc3",
     #packages=setuptools.find_packages(exclude=['devtools', 'docs', 'looseparts', 'tests']), # NOTE: o poner ['sc3'], pero no se si luego voy a hacer subpaquetes. No es recomendable hacer subpaquetes por el anidamiento según dice el estilo.
     packages=['sc3'],
     python_requires='>=3.6',

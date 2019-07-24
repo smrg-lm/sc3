@@ -451,82 +451,82 @@ class ChannelList(list):
     ### Mathematical operations ###
 
     def __add__(self, other):  # +
-        return utl.listop('__add__', self, other, type(self))
+        return utl.list_binop('__add__', self, other, type(self))
 
     def __radd__(self, other):
-        return utl.listop('__radd__', self, other, type(self))
+        return utl.list_binop('__radd__', self, other, type(self))
 
     def __sub__(self, other):  # -
-        return utl.listop('__sub__', self, other, type(self))
+        return utl.list_binop('__sub__', self, other, type(self))
 
     def __rsub__(self, other):
-        return utl.listop('__rsub__', self, other, type(self))
+        return utl.list_binop('__rsub__', self, other, type(self))
 
     def __mul__(self, other):  # *
-        return utl.listop('__mul__', self, other, type(self))
+        return utl.list_binop('__mul__', self, other, type(self))
 
     def __rmul__(self, other):
-        return utl.listop('__rmul__', self, other, type(self))
+        return utl.list_binop('__rmul__', self, other, type(self))
 
     # # def __matmul__(self, other):  # @
     # # def __rmatmul__(self, other):
 
     def __truediv__(self, other):  # /
-        return utl.listop('__truediv__', self, other, type(self))
+        return utl.list_binop('__truediv__', self, other, type(self))
 
     def __rtruediv__(self, other):
-        return utl.listop('__rtruediv__', self, other, type(self))
+        return utl.list_binop('__rtruediv__', self, other, type(self))
 
     def __floordiv__(self, other):  # //
-        return utl.listop('__floordiv__', self, other, type(self))
+        return utl.list_binop('__floordiv__', self, other, type(self))
 
     def __rfloordiv__(self, other):
-        return utl.listop('__rfloordiv__', self, other, type(self))
+        return utl.list_binop('__rfloordiv__', self, other, type(self))
 
     def __mod__(self, other):  # %
-        return utl.listop('__mod__', self, other, type(self))
+        return utl.list_binop('__mod__', self, other, type(self))
 
     def __rmod__(self, other):
-        return utl.listop('__rmod__', self, other, type(self))
+        return utl.list_binop('__rmod__', self, other, type(self))
 
     # # def __divmod__(self, other): # divmod(), método integrado
     # # def __rdivmod__(self, other):
 
     def __pow__(self, other):  # pow(), **, object.__pow__(self, other[, modulo])
-        return utl.listop('__pow__', self, other, type(self))
+        return utl.list_binop('__pow__', self, other, type(self))
 
     def __rpow__(self, other):
-        return utl.listop('__rpow__', self, other, type(self))
+        return utl.list_binop('__rpow__', self, other, type(self))
 
     def __lshift__(self, other):  # <<
-        return utl.listop('__lshift__', self, other, type(self))
+        return utl.list_binop('__lshift__', self, other, type(self))
 
     def __rlshift__(self, other):
-        return utl.listop('__rlshift__', self, other, type(self))
+        return utl.list_binop('__rlshift__', self, other, type(self))
 
     def __rshift__(self, other):  # >>
-        return utl.listop('__rshift__', self, other, type(self))
+        return utl.list_binop('__rshift__', self, other, type(self))
 
     def __rrshift__(self, other):
-        return utl.listop('__rrshift__', self, other, type(self))
+        return utl.list_binop('__rrshift__', self, other, type(self))
 
     def __and__(self, other):  # &
-        return utl.listop('__and__', self, other, type(self))
+        return utl.list_binop('__and__', self, other, type(self))
 
     def __rand__(self, other):
-        return utl.listop('__rand__', self, other, type(self))
+        return utl.list_binop('__rand__', self, other, type(self))
 
     def __xor__(self, other):  # ^
-        return utl.listop('__xor__', self, other, type(self))
+        return utl.list_binop('__xor__', self, other, type(self))
 
     def __rxor__(self, other):
-        return utl.listop('__rxor__', self, other, type(self))
+        return utl.list_binop('__rxor__', self, other, type(self))
 
     def __or__(self, other):  # |
-        return utl.listop('__or__', self, other, type(self))
+        return utl.list_binop('__or__', self, other, type(self))
 
     def __ror__(self, other):
-        return utl.listop('__ror__', self, other, type(self))
+        return utl.list_binop('__ror__', self, other, type(self))
 
 
     def __repr__(self):

@@ -48,16 +48,16 @@ class UniqueID(): # TODO: en sclang está en Common/Collections/ObjectTable.sc
 # específica y dispersa en la librería de clases sino pasarlas a las
 # funciones que lo requieran para la construcción de synthdefs u omitirlas.
 def as_list(obj):
-    '''Bubble the object in a list unless it is a list, dict, range, or
-    enumerate. If obj is None returns an empty list.'''
-    if obj is None:
-        return []
-    elif isinstance(obj, (str, tuple)):
-        return list([obj])
+    '''
+    Bubble non iterable objects, tuples and strings in a list. If obj is None
+    returns an empty list. For the rest of iterators is the same as list(obj).
+    '''
+    if isinstance(obj, (tuple, str)):
+        return [obj]
     elif hasattr(obj, '__iter__'):
         return list(obj)
     else:
-        return list([obj])
+        return [obj]
 
 
 def unbubble(obj): # only one level
@@ -138,19 +138,79 @@ def wrap_extend(inlist, n):
     return inlist * (n // l) + inlist[:n % l]
 
 
-def listop(op, a, b, t=None):
-    '''Operate on sequences element by element and return a list of type t
-    (default to list). Argument a must be a list or subclass, b may be a list
-    or a type compatible with operator op.'''
+def list_unop(op, a, t=None):
     t = t or list
-    if isinstance(b, list):
+    t_seq = (list, tuple)  # *** BUG: comprobar
+    if isinstance(a, t_seq):
+        if any(isinstance(i, t_seq) for i in a):
+            return t(list_unop(op, i, type(i)) for i in a)
+        elif hasattr(op, '__scbuiltin__'):
+            return t(op(i) for i in a)
+        else:
+            return t(getattr(i, op) for i in a)
+    else:
+        if hasattr(op, '__scbuiltin__'):  # just try no decorator?
+            return op(a)
+        else:
+            return getattr(a, op)
+
+
+def list_binop(op, a, b, t=None):
+    '''
+    Operate on sequences element by element and return a sequence of type t
+    (default to list) if any argument a or b is sequence. Arguments a and b may
+    be types or a sequence of types compatible with operator op. Nested
+    sequences are processed recursively. Recursion uses tuple type cast if any
+    is tuple or type(a) if is a is sequence else type(b) if b is sequence.
+    Tuples are termporary converted to lists to process. All this is needed
+    because multichannel expansion behaviour (e.g. in Env).
+    '''
+    t = t or list
+    t_seq = (list, tuple)  # *** BUG: comprobar
+    if isinstance(a, t_seq) and isinstance(b, t_seq):
         if len(a) >= len(b):
             b = wrap_extend(list(b), len(a))
         else:
             a = wrap_extend(list(a), len(b))
-        return t(getattr(i[0], op)(i[1]) for i in zip(a, b))
+        if any(isinstance(i, t_seq) for i in a)\
+        or any(isinstance(i, t_seq) for i in b):
+            ret = []
+            for i, _ in enumerate(a):
+                t2 = type(a[i]) if isinstance(a[i], t_seq) else type(b[i])  # if booth are non t_seq type don't matters.
+                if isinstance(b[i], tuple): t2 = type(b[i])
+                ret.append(list_binop(op, as_list(a)[i], as_list(b)[i], t2))
+            return t(ret)
+        else:
+            if hasattr(op, '__scbuiltin__'):
+                return t(op(i[0], i[1]) for i in zip(a, b))
+            else:
+                return t(getattr(i[0], op)(i[1]) for i in zip(a, b))
+    elif isinstance(a, t_seq):
+        return t(list_binop(op, item_a, b, t) for item_a in a)
+    elif isinstance(b, t_seq):
+        return t(list_binop(op, a, item_b, t) for item_b in b)
     else:
-        return t(getattr(i, op)(b) for i in a)
+        if hasattr(op, '__scbuiltin__'):
+            return op(a, b)
+        else:
+            return getattr(a, op)(b)
+
+
+def list_narop(op, a, *args, t=None):  # t is keyword only.
+    t = t or list
+    t_seq = (list, tuple)  # *** BUG: comprobar
+    if isinstance(a, t_seq):
+        if any(isinstance(i, t_seq) for i in a):
+            return t(list_narop(op, i, *args, t=type(i)) for i in a)
+        elif hasattr(op, '__scbuiltin__'):
+            return t(op(i, *args) for i in a)
+        else:
+            return t(getattr(i, op)(*args) for i in a)
+    else:
+        if hasattr(op, '__scbuiltin__'):
+            return op(a, *args)
+        else:
+            return getattr(a, op)(*args)
 
 
 #def reshape_like(this, that); # or that this like sclang?

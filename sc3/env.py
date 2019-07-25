@@ -26,7 +26,7 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
                  release_node=None, loop_node=None, offset=0):
         self.levels = levels or [0, 1, 0]
         self.times = utl.wrap_extend(utl.as_list(times or [1, 1]),
-                                     len(self.levels) - 1) # *** BUG: esto funciona si es multicanal?
+                                     len(self.levels) - 1)
         self.curves = curves
         self.release_node = release_node
         self.loop_node = loop_node
@@ -66,18 +66,60 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
 
     @classmethod
     def _shape_number(cls, name):
-        pass # TODO
+        name = utl.as_list(name)
+        print('name', name)
+        ret = []
+        for item in name:
+            if gpp.ugen_param(item).is_valid_ugen_input():
+                ret.append(5)  # 'curvature value', items is not NaN SimpleNumber.
+            else:
+                shape = cls._SHAPE_NAMES[item]  # KeyError, 'invalid Env shape'
+                # if shape is None:
+                #     raise ValueError('invalid Env shape')
+                ret.append(shape)
+        return utl.unbubble(ret)
 
-    # BUG: si se necesita que sea general para otras clases hacer también __iter__?
-    # BUG: y que EnvGen siempre reciba un array de tuplas en envelope
-    # BUG: (como está hecho en sclang), pero no le veo sentido a simple vista.
+    @classmethod
+    def _curve_value(cls, curve):
+        if isinstance(curve, list):
+            ret = []
+            for item in curve:
+                if gpp.ugen_param(item).is_valid_ugen_input():
+                    ret.append(item)
+                else:
+                    ret.append(0)
+            return ret
+        else:
+            if gpp.ugen_param(curve).is_valid_ugen_input():
+                return curve
+            else:
+                return 0
+
     def envgen_format(self):  # asMultichannelArray, se usa solo en Env y EnvGen.
-        if self._envgen_format is None:  # this.array
-            self._envgen_format = self._as_array()  # prAsArray
+        if self._envgen_format:  # this.array
+            return self._envgen_format
+
+        # prAsArray
+        levels = gpp.ugen_param(self.levels).as_ugen_input()
+        times = gpp.ugen_param(self.times).as_ugen_input()
+        curves = gpp.ugen_param(utl.as_list(self.curves)).as_ugen_input()
+        size = len(self.times)
+        contents = []
+
+        contents.append(levels[0])
+        contents.append(size)
+        contents.append(gpp.ugen_param(self.release_node).as_ugen_input() or -99)
+        contents.append(gpp.ugen_param(self.loop_node).as_ugen_input() or -99)
+
+        for i in range(size):
+            contents.append(levels[i + 1])
+            contents.append(times[i])
+            contents.append(type(self)._shape_number(curves[i % len(curves)]))
+            contents.append(type(self)._curve_value(curves[i % len(curves)]))
+
+        self._envgen_format = utl.flop(contents)
         return self._envgen_format
 
-    def _as_array(self):
-        pass  # TODO: prAsArray, si hay variantes hacer dentro de envgen_format.
 
     ### UGen graph parameter interface ###
     # TODO: ver el resto en UGenParameter

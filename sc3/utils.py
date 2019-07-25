@@ -165,6 +165,8 @@ def list_binop(op, a, b, t=None):
     Tuples are termporary converted to lists to process. All this is needed
     because multichannel expansion behaviour (e.g. in Env).
     '''
+    # NOTE: The other option is to leave tuples as tuples, could be better, the
+    # problem is outside UGen operations as in Env.
     t = t or list
     t_seq = (list, tuple)  # *** BUG: comprobar
     if isinstance(a, t_seq) and isinstance(b, t_seq):
@@ -175,10 +177,24 @@ def list_binop(op, a, b, t=None):
         if any(isinstance(i, t_seq) for i in a)\
         or any(isinstance(i, t_seq) for i in b):
             ret = []
-            for i, _ in enumerate(a):
-                t2 = type(a[i]) if isinstance(a[i], t_seq) else type(b[i])  # if booth are non t_seq type don't matters.
-                if isinstance(b[i], tuple): t2 = type(b[i])
-                ret.append(list_binop(op, as_list(a)[i], as_list(b)[i], t2))
+            a2 = b2 = t2 = None
+            for i in range(len(a)):
+                if isinstance(a[i], tuple):
+                    t2 = tuple
+                    a2 = list(a[i])
+                if isinstance(b[i], tuple):
+                    t2 = tuple
+                    b2 = list(b[i])
+                if t2 is None:
+                    if isinstance(a[i], t_seq):
+                        t2 = list
+                    elif isinstance(b[i], t_seq):
+                        t2 = list
+                a2 = a2 or a[i]
+                b2 = b2 or b[i]
+                t2 = t2 or type  # if neither is t_seq type don't matters bu can't be None.
+                ret.append(list_binop(op, a2, b2, t2))
+                a2 = b2 = t2 = None
             return t(ret)
         else:
             if hasattr(op, '__scbuiltin__'):

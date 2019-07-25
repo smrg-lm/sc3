@@ -3,6 +3,7 @@ Utility classes and functions from sclang style.
 """
 
 import itertools as _itertools
+import operator as _operator
 
 
 class ClassLibrary():
@@ -147,12 +148,12 @@ def list_unop(op, a, t=None):
         elif hasattr(op, '__scbuiltin__'):
             return t(op(i) for i in a)
         else:
-            return t(getattr(i, op) for i in a)
+            return t(getattr(_operator, op)(i) for i in a)
     else:
         if hasattr(op, '__scbuiltin__'):  # just try no decorator?
             return op(a)
         else:
-            return getattr(a, op)
+            return getattr(_operator, op)(a)
 
 
 def list_binop(op, a, b, t=None):
@@ -192,7 +193,7 @@ def list_binop(op, a, b, t=None):
                         t2 = list
                 a2 = a2 or a[i]
                 b2 = b2 or b[i]
-                t2 = t2 or type  # if neither is t_seq type don't matters bu can't be None.
+                t2 = t2 or ...  # if neither is t_seq type don't matters bu can't be None.
                 ret.append(list_binop(op, a2, b2, t2))
                 a2 = b2 = t2 = None
             return t(ret)
@@ -200,7 +201,7 @@ def list_binop(op, a, b, t=None):
             if hasattr(op, '__scbuiltin__'):
                 return t(op(i[0], i[1]) for i in zip(a, b))
             else:
-                return t(getattr(i[0], op)(i[1]) for i in zip(a, b))
+                return t(getattr(_operator, op)(i[0], i[1]) for i in zip(a, b))
     elif isinstance(a, t_seq):
         return t(list_binop(op, item_a, b, t) for item_a in a)
     elif isinstance(b, t_seq):
@@ -209,7 +210,7 @@ def list_binop(op, a, b, t=None):
         if hasattr(op, '__scbuiltin__'):
             return op(a, b)
         else:
-            return getattr(a, op)(b)
+            return getattr(_operator, op)(a, b)
 
 
 def list_narop(op, a, *args, t=None):  # t is keyword only.
@@ -221,12 +222,40 @@ def list_narop(op, a, *args, t=None):  # t is keyword only.
         elif hasattr(op, '__scbuiltin__'):
             return t(op(i, *args) for i in a)
         else:
-            return t(getattr(i, op)(*args) for i in a)
+            return t(getattr(i, op)(*args) for i in a)  # narop would be just Python methods.
     else:
         if hasattr(op, '__scbuiltin__'):
             return op(a, *args)
         else:
-            return getattr(a, op)(*args)
+            return getattr(a, op)(*args)  # narop would be just Python methods.
+
+
+def list_sum(lst):
+    res = 0
+    for item in lst:
+        res = list_binop('add', res, item)
+    return res
+
+# NOTE: maxItem used in Env.duration gives the clue that only one level of
+# nesting is supported by multichannels graphs. Same happens when building
+# controls in SynthDef.
+# [1, 2, 3, 4].maxItem // ok
+# 3 > [3, 4] // ok
+# [3, 4] > 3 // ok
+# [1, 2, [3, 4]].maxItem // not ok
+# [[1, 2], [3, 4]].maxItem // not ok
+
+def list_max(lst):
+    t_seq = (list, tuple)
+    max_item = lst[0]
+    if isinstance(max_item, t_seq):
+        max_item = list_max(max_item)
+    for item in lst[1:]:
+        if isinstance(item, t_seq):
+            item = list_max(item)
+        if list_binop('gt', item, max_item):
+            max_item = item
+    return max_item
 
 
 #def reshape_like(this, that); # or that this like sclang?

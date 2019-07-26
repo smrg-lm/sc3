@@ -193,7 +193,7 @@ def list_binop(op, a, b, t=None):
                         t2 = list
                 a2 = a2 or a[i]
                 b2 = b2 or b[i]
-                t2 = t2 or ...  # if neither is t_seq type don't matters bu can't be None.
+                t2 = t2 or type(...)  # if neither is t_seq type don't matters but can't be None.
                 ret.append(list_binop(op, a2, b2, t2))
                 a2 = b2 = t2 = None
             return t(ret)
@@ -203,9 +203,9 @@ def list_binop(op, a, b, t=None):
             else:
                 return t(getattr(_operator, op)(i[0], i[1]) for i in zip(a, b))
     elif isinstance(a, t_seq):
-        return t(list_binop(op, item_a, b, t) for item_a in a)
+        return t(list_binop(op, item_a, b, type(item_a)) for item_a in a)
     elif isinstance(b, t_seq):
-        return t(list_binop(op, a, item_b, t) for item_b in b)
+        return t(list_binop(op, a, item_b, type(item_b)) for item_b in b)
     else:
         if hasattr(op, '__scbuiltin__'):
             return op(a, b)

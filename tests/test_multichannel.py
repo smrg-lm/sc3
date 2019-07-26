@@ -100,6 +100,7 @@ class SeqOpTestCase(unittest.TestCase):
         self.assertEqual(
             case, [(-10, -20, [-30, -40]), -50, [-60, [[-70], (-80,)], -90]])
 
+        # cases seq op seq
         # case builtins
 
     def test_narop(self):

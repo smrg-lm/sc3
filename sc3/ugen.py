@@ -423,9 +423,6 @@ class UGen(fn.AbstractFunction):
         file.write(struct.pack('>i', self.output_index)) # putInt32
 
 
-# *** BUG: '*' no va a funcionar como dup.
-# *** BUG: si *args no va a funcionar como list(args)
-# *** BUG: '+' no concatena para los usos de as_list, as_list reconverite ChannelList a list.
 class ChannelList(list):
     '''List wrapper for multichannel expansion graph operations.'''
 
@@ -449,6 +446,24 @@ class ChannelList(list):
 
 
     ### Mathematical operations ###
+
+    # unary operators
+
+    def __neg__(self):
+        return utl.list_unop('neg', self, type(self)) # -
+
+    def __pos__(self):
+        return utl.list_unop('pos', self, type(self)) # +
+
+    def __abs__(self):
+        return utl.list_unop('abs', self, type(self)) # abs()
+
+    def __invert__(self):
+        return utl.list_unop('invert', self, type(self)) # ~ bitwise inverse, depende de la representación
+
+    # TODO: as AbstractFunction or def __getattr__(self, name):
+
+    # binary operators
 
     def __add__(self, other):  # +
         return utl.list_binop('add', self, other, type(self))
@@ -527,6 +542,19 @@ class ChannelList(list):
 
     def __ror__(self, other):
         return utl.list_binop('or', self, other, type(self))
+
+    # nary operators
+
+    # *** HACK: a bit too much overload, also works for unops, doesn't appear in object __dict__ although they could be created with the object
+    def __getattr__(self, name):
+        print('@@@ HACK: ChannelList.__getattr__')
+        import sc3.builtins as bi
+        from types import MethodType
+        func = lambda self, *args: utl.list_narop(getattr(bi, name), self,
+                                                  *args, t=type(self))
+        func.__name__ = getattr(bi, name).__name__
+        func.__qualname__ = f'{type(self).__name__}.{func.__name__}'
+        return MethodType(func, self)
 
 
     def __repr__(self):

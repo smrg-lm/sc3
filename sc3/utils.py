@@ -317,9 +317,9 @@ def flop(lst):
     n = len(lst)
     if n == 0:
         return [[]] # NOTE: es una columna vacía, así es en sclang.
-    lenght = max(len(l) for l in lst)
-    ret = [[None for _ in range(n)] for _ in range(lenght)]
-    for i in range(lenght):
+    length = max(len(l) for l in lst)
+    ret = [[None for _ in range(n)] for _ in range(length)]
+    for i in range(length):
         for j in range(n):
             try:
                 ret[i][j] = lst[j][i % len(lst[j])] # NOTE: *** en sclang i % 0 es cero *** es el caso de listas vacías acá.
@@ -328,14 +328,14 @@ def flop(lst):
     return ret
 
 # # otras implementaciones de flop, comparar
-# #[[None] * lenght] * n # al multiplicar copia la misma lista n veces
+# #[[None] * length] * n # al multiplicar copia la misma lista n veces
 # def flop(lst):
 #     # agregar lst = [as_list(x) for x in lst]
 #     n = len(lst)
-#     lenght = max(len(l) for l in lst)
+#     length = max(len(l) for l in lst)
 #     aux = []
 #     ret = []
-#     for i in range(lenght):
+#     for i in range(length):
 #         for j in range(n):
 #             aux.append(lst[j][i % len(lst[j])])
 #         ret.append(aux)

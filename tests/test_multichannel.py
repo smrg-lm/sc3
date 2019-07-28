@@ -124,7 +124,7 @@ class SeqOpTestCase(unittest.TestCase):
         self.assertIs(type(case[2]), list)
         self.assertEqual(case, [([11], (11,)), (22, (22,)), [33, [33]]])
 
-        # cases seq op seq type conversion and three levels
+        # cases seq op seq type conversion in three levels
         case = list_binop(
             'sub', [([(1,)], ([1],)), [([2],), [(2,)]]], [[1], (2,)])
         self.assertIs(type(case), list)  # default type

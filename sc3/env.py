@@ -1,7 +1,12 @@
 """Env.sc"""
 
+import math
+import copy
+
 from . import graphparam as gpp
 from . import utils as utl
+from . import _global as _gl
+from . import builtins as bi
 
 
 class Env(gpp.UGenParameter, gpp.NodeParameter):
@@ -73,20 +78,24 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
 
     @classmethod
     def triangle(cls, dur=1.0, level=1.0):
-        pass # TODO
+        dur *= 0.5
+        return cls([0, level, 0], [dur, dur])
 
     @classmethod
     def sine(cls, dur=1.0, level=1.0):
-        pass # TODO
+        dur *= 0.5
+        return cls([0, level, 0], [dur, dur], 'sine')
 
     @classmethod
     def perc(cls, attack_time=0.01, release_time=1.0, level=1.0, curve=-4.0):
-        pass # TODO
+        return cls([0, level, 0], [attack_time, release_time], curve)
 
     @classmethod
     def linen(cls, attack_time=0.01, sustain_time=1.0, release_time=1.0,
               level=1.0, curve='lin'):
-        pass # TODO
+        return cls([0, level, level, 0],
+                   [attack_time, sustain_time, release_time],
+                   curve)
 
     @classmethod
     def step(cls, levels=None, times=None, release_node=None,
@@ -103,28 +112,63 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
 
     @classmethod
     def cutoff(cls, release_time=0.1, level=1.0, curve='lin'):
-        pass # TODO
+        curve_no = cls._shape_number(curve)
+        release_level = bi.dbamp(-100) if curve_no == 2 else 0
+        return cls([level, release_level], [release_time], curve, 0)
 
     @classmethod
     def dadsr(cls, delay_time=0.1, attack_time=0.01, decay_time=0.3,
               sustain_level=0.5, release_time=1.0, peak_level=1.0,
               curve=-4.0, bias=0.0):
-        pass # TODO
+        return cls(
+            utl.list_binop(
+                'add', [0, 0, peak_level, peak_level * sustain_level, 0], bias),
+            [delay_time, attack_time, decay_time, release_time],
+            curve, 3)
 
     @classmethod
     def adsr(cls, attack_time=0.01, decay_time=0.3, sustain_level=0.5,
              release_time=1.0, peak_level=1.0, curve=-4.0, bias=0.0):
-        pass # TODO
+        return cls(
+            utl.list_binop(
+                'add', [0, peak_level, peak_level * sustain_level, 0], bias),
+            [attack_time, decay_time, release_time],
+            curve, 2)
 
     @classmethod
     def asr(cls, attack_time=0.01, sustain_level=1.0,
             release_time=1.0, curve=-4.0):
-        pass # TODO
+        return cls([0, sustain_level, 0], [attack_time, release_time], curve, 1)
 
     @classmethod
-    def circle(cls, levels, times, curve='lin'):
-        pass # TODO
+    def cyclic(cls, levels, times, curves='lin'):  # was *circle
+        times = utl.wrap_extend(utl.as_list(times), len(levels))
+        last_time = times.pop()
+        curves = utl.wrap_extend(utl.as_list(curves), len(levels))
+        last_curve = curves.pop()
+        return cls(levels, times, curves).circle(last_time, last_curve)
 
+    def circle(self, last_time=0.0, last_curve='lin'):
+        # // Connect releaseNode (or end) to first node of envelope.
+        if _gl.current_synthdef is None:
+            raise Exception('circle can only be used within graph functions')
+        first_0_then_1 = xxx.Latch.kr(1.0, xxx.Impulse.kr(0.0))  # BUG: not defined
+        if self.release_node is None:
+            self.levels = [0.0] + self.levels + [0.0]
+            self.curves = ult.wrap_extend(utl.as_list(self.curves),
+                                          len(self.times))
+            self.curves = [last_curve] + self.curves + ['lin']
+            self.times = [first_0_then_1 * last_time] + self.times + [math.inf]
+            self.release_node = len(self.levels) - 2
+        else:
+            self.levels = [0.0] + self.levels
+            self.curves = ult.wrap_extend(utl.as_list(self.curves),
+                                          len(self.times))
+            self.curves = [last_curve] + self.curves
+            self.times = [first_0_then_1 * last_time] + self.times
+            self.release_node += 1
+        self.loop_node = 0
+        return self
 
     @property
     def duration(self):
@@ -140,13 +184,26 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
         return utl.list_max(utl.as_list(duration))
 
     def range(self, lo=0.0, hi=1.0):
-        pass # TODO
+        obj = copy.copy(self)
+        min = utl.list_min(obj.levels)  # BUG: not defined
+        max = utl.list_max(obj.levels)
+        obj.levels = utl.list_narop(bi.linlin, obj.levels, min, max, lo, hi)  # BUG: not defined
+        return obj
 
     def exprange(self, lo=0.01, hi=1.0):
-        pass # TODO
+        obj = copy.copy(self)
+        min = utl.list_min(obj.levels)  # BUG: not defined
+        max = utl.list_max(obj.levels)
+        obj.levels = utl.list_narop(bi.linexp, obj.levels, min, max, lo, hi)  # BUG: not defined
+        return obj
 
     def curverange(self, lo=0.0, hi=1.0, curve=-4):
-        pass # TODO
+        obj = copy.copy(self)
+        min = utl.list_min(obj.levels)  # BUG: not defined
+        max = utl.list_max(obj.levels)
+        obj.levels = utl.list_narop(bi.lincurve, obj.levels,  # BUG: not defined
+                                    min, max, lo, hi, curve)
+        return obj
 
     def release_time(self):
         if self.release_node is None:
@@ -170,7 +227,7 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
     # asPseg
     # blend
     # delay
-    # circle (instancia)
+    # circle (moved up)
     # test
 
     @classmethod

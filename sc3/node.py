@@ -11,15 +11,7 @@ from . import synthdesc as sdc
 from . import graphparam as gpp
 
 
-# Node:asTarget se implementa para Integer, Nil, y Server
-# como extensión en el archivo Common/Control/asTarget.sc
-# junto con nodeID. Como no lo implementa Object puede question
-# no sea necesario implementarlo como multiple dispatch.
-# se usa en Server:reorder, Synth, Function:(plot/asBuffer/play)
-# y AbstractGroup. Tengo que revisar la librería y buscar y organizar.
-
-
-class Node():
+class Node(gpp.NodeParameter, gpp.UGenParameter):
     add_actions = {
         'addToHead': 0,
         'addToTail': 1,
@@ -31,6 +23,9 @@ class Node():
         # // valid action numbers should stay the same
         0: 0, 1: 1, 2: 2, 3: 3, 4: 4
     }
+
+    def __init__(self):
+        pass  # Don't call GraphParameter.__init__
 
     @classmethod
     def basic_new(cls, server=None, node_id=None):

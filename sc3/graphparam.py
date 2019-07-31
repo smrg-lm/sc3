@@ -61,9 +61,6 @@ class GraphParameter():
 
 ### UGen graph parameter interface ###
 
-# BUG: todos las UGen heredan o reimplementan esta interfaz, sin tener
-# UGenParameter de parent.
-
 class UGenParameter(GraphParameter):
     def is_valid_ugen_input(self):
         return False
@@ -184,9 +181,6 @@ class UGenSequence(UGenParameter):
 
 ### asTarget.sc interface ###
 ### Node Graph Parameters ###
-
-# BUG: todos los Node heredan o reimplementan esta interfaz, sin tener
-# NodeParameter de parent.
 
 class NodeParameter(GraphParameter):
     ### Node parameter interface ###

@@ -13,6 +13,7 @@ import types as _types
 from . import utils as utl
 from . import main as _libsc3
 from . import builtins as bi
+from . import functions as fn
 from . import stream as stm
 from . import systemactions as sac
 from . import model as mdl
@@ -305,31 +306,14 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                     if isinstance(task, stm.TimeThread):
                         task.next_beat = None
                     try:
-                        try:
-                            _libsc3.main.update_logical_time(sched_time) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
-
-                            if isinstance(task, _types.FunctionType):
-                                n = len(_inspect.signature(task).parameters)
-                                if n > 3:
-                                    raise TypeError(
-                                        'clock scheduled function takes '
-                                        'between 0 and 3 positional arguments '
-                                        f'but {n} were given')
-                                args = [sched_time, sched_time, cls][:n]
-                                delta = task(*args)
-                            elif isinstance(task, (stm.Routine, stm.PauseStream)):
-                                delta = task.awake(sched_time, sched_time, cls) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
-                            else:
-                                raise TypeError(
-                                    f"type '{type(item).__name__}' is not "
-                                    "supported by SystemClock scheduler")
-
-                            if isinstance(delta, (int, float))\
-                            and not isinstance(delta, bool):
-                                time = sched_time + delta
-                                cls._sched_add(time, task)
-                        except stm.StopStream:
-                            pass
+                        _libsc3.main.update_logical_time(sched_time) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
+                        delta = task.__awake__(sched_time, sched_time, cls)
+                        if isinstance(delta, (int, float))\
+                        and not isinstance(delta, bool):
+                            time = sched_time + delta
+                            cls._sched_add(time, task)
+                    except stm.StopStream:
+                        pass
                     except Exception:
                         _traceback.print_exception(*_sys.exc_info())  # Always recover.
 
@@ -350,6 +334,8 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
     @classmethod
     def sched(cls, delta, item):
+        if not hasattr(item, '__awake__'):
+            item = fn.Function(item)
         with cls._sched_cond:
             seconds = _libsc3.main.current_tt.seconds
             seconds += delta
@@ -359,6 +345,8 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
     @classmethod
     def sched_abs(cls, time, item):
+        if not hasattr(item, '__awake__'):
+            item = fn.Function(item)
         if time == _math.inf:
             return
         with cls._sched_cond:
@@ -388,42 +376,30 @@ class Scheduler():
 
     def _wakeup(self, item):
         try:
-            try:
-                # NOTE: Parece correcto el comportamiento, se debe actualizar en wakeup o en awake, acá los estoy haciendo antes pero el tiempo lógico es el mismo que se le pasa a awake.
-                _libsc3.main.update_logical_time(self._seconds) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
-
-                if isinstance(item, _types.FunctionType):
-                    n = len(_inspect.signature(item).parameters)
-                    if n > 3:
-                        raise TypeError(
-                            'Scheduler wakeup function takes between 0 and 3 '
-                            f' positional arguments but {n} were given')
-                    args = [self._beats, self._seconds, self._clock][:n]
-                    delta = item(*args)
-                elif isinstance(item, (stm.Routine, stm.PauseStream)):
-                    delta = item.awake(self._beats, self._seconds, self._clock) # NOTE: la implementan solo Routine y PauseStream, pero VER: # NOTE: awake la implementan Function, Nil, Object, PauseStream y Routine, y se llama desde C/C++ también, tal vez por eso wakeup está implementada como una función en vez de un método (pasar a método).
-                else:
-                    raise TypeError(
-                        f"type '{type(item).__name__}' is not "
-                        "supported by Scheduler")
-
-                if isinstance(delta, (int, float))\
-                and not isinstance(delta, bool):
-                    self.sched(delta, item)
-            except stm.StopStream:
-                pass
+            # NOTE: Parece correcto el comportamiento, se debe actualizar en wakeup o en awake, acá los estoy haciendo antes pero el tiempo lógico es el mismo que se le pasa a awake.
+            _libsc3.main.update_logical_time(self._seconds) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
+            delta = item.__awake__(self._beats, self._seconds, self._clock)
+            if isinstance(delta, (int, float)) and not isinstance(delta, bool):
+                self._sched_add(delta, item)
+        except stm.StopStream:
+            pass
         except Exception:
             _traceback.print_exception(*_sys.exc_info())
 
     def play(self, task):
         self.sched(0, task)
 
-    def sched(self, delta, item): # delta no puede ser None
+    def _sched_add(self, delta, item): # delta no puede ser None
         if self._drift:
             from_time = _libsc3.main.elapsed_time()
         else:
             from_time = self.seconds = _libsc3.main.current_tt.seconds # BUG: SINCORNIZANDO CON CURRENT_THREAD FUNCIONA BIEN (AGREGADO), PERO NO LE VEO SENTIDO.
         self.queue.add(from_time + delta, item)
+
+    def sched(self, delta, item):
+        if not hasattr(item, '__awake__'):
+            item = fn.Function(item)
+        self._sched_add(delta, item)
 
     def sched_abs(self, time, item):
         self.queue.add(time, item)
@@ -608,33 +584,15 @@ class ClockTask():
 
     def wakeup(self): # NOTE: se llama desde el loop de clock, con el lock
         try:
-            try:
-                _libsc3.main.update_logical_time(self.time)
-
-                if isinstance(self.task, _types.FunctionType):
-                    n = len(_inspect.signature(self.task).parameters)
-                    if n > 3:
-                        raise TypeError(
-                            'clock scheduled function takes between 0 and 3 '
-                            f'positional arguments but {n} were given')
-                    args = [self.clock.secs2beats(self.time),
-                           self.time, self.clock][:n]
-                    delta = self.task(*args)
-                elif isinstance(self.task, (stm.Routine, stm.PauseStream)):
-                    delta = self.task.awake(
-                        self.clock.secs2beats(self.time),
-                        self.time, self.clock)
-                else:
-                    raise TypeError(f"type '{type(item).__name__}' is not "
-                                    "supported by clock scheduler")
-
-                if isinstance(delta, (int, float))\
-                and not isinstance(delta, bool):
-                    self.scheduler.prev_elapsed_time = self.time # NOTE: tiene que ir acá, si la rutina devuelve una valor que no hace avanzar el tiempo (p.e. 'hang') no cambia el tiempo previo.
-                    self.time = self.time + self.clock.beats2secs(delta)
-                    self.scheduler.add(self.time, self)
-            except stm.StopStream:
-                _libsc3.main.update_logical_time(self.scheduler.prev_elapsed_time) # NOTE: No es el tiempo de la rutina sino del scheduler en este caso, prev_time podía ser el tiempo previo de otra rutina!
+            _libsc3.main.update_logical_time(self.time)
+            delta = self.task.__awake__(self.clock.secs2beats(self.time),
+                                        self.time, self.clock)
+            if isinstance(delta, (int, float)) and not isinstance(delta, bool):
+                self.scheduler.prev_elapsed_time = self.time # NOTE: tiene que ir acá, si la rutina devuelve una valor que no hace avanzar el tiempo (p.e. 'hang') no cambia el tiempo previo.
+                self.time = self.time + self.clock.beats2secs(delta)
+                self.scheduler.add(self.time, self)
+        except stm.StopStream:
+            _libsc3.main.update_logical_time(self.scheduler.prev_elapsed_time) # NOTE: No es el tiempo de la rutina sino del scheduler en este caso, prev_time podía ser el tiempo previo de otra rutina!
         except Exception:
             _traceback.print_exception(*_sys.exc_info())
 
@@ -842,38 +800,19 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 if isinstance(task, stm.TimeThread):
                     task.next_beat = None
                 try:
-                    try:
-                        _libsc3.main.update_logical_time(
-                            self.beats2secs(self._beats)) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
-
-                        # runAwakeMessage NOTE: que se llama con la preparación previa de la pila del intérprete
-                        if isinstance(task, _types.FunctionType):
-                            n = len(_inspect.signature(task).parameters)
-                            if n > 3:
-                                raise TypeError(
-                                    'clock scheduled functions takes '
-                                    'between 0 and 3 positional arguments '
-                                    f'but {n} were given')
-                            args = [self._beats,
-                                    self.beats2secs(self._beats),
-                                    self][:n]
-                            delta = task(*args)
-                        elif isinstance(task, (stm.Routine, stm.PauseStream)):
-                            delta = task.awake(self._beats,
-                                               self.beats2secs(self._beats),
-                                               self)
-                        else:
-                            raise TypeError(
-                                f"type '{type(item).__name__}' is not "
-                                "supported by clock scheduler")
-
-                        if isinstance(delta, (int, float))\
-                        and not isinstance(delta, bool):
-                            time = self._beats + delta
-                            self._sched_add(time, task)
-                    except stm.StopStream:
-                        _libsc3.main.update_logical_time(
-                            self.beats2secs(prev_beat))
+                    _libsc3.main.update_logical_time(
+                        self.beats2secs(self._beats)) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
+                    # runAwakeMessage NOTE: que se llama con la preparación previa de la pila del intérprete
+                    delta = task.__awake__(self._beats,
+                                           self.beats2secs(self._beats),
+                                           self)
+                    if isinstance(delta, (int, float))\
+                    and not isinstance(delta, bool):
+                        time = self._beats + delta
+                        self._sched_add(time, task)
+                except stm.StopStream:
+                    _libsc3.main.update_logical_time(
+                        self.beats2secs(prev_beat))
                 except Exception:
                     _traceback.print_exception(*_sys.exc_info())
 
@@ -1031,6 +970,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # _TempoClock_Sched
         if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
+        if not hasattr(item, '__awake__'):
+            item = fn.Function(item)
         with self._sched_cond:
             if _libsc3.main.current_tt.clock is self:
                 beats = _libsc3.main.current_tt.beats
@@ -1046,6 +987,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # _TempoClock_SchedAbs
         if not self._thread.is_alive():
             raise RuntimeError(f'{self} is not running')
+        if not hasattr(item, '__awake__'):
+            item = fn.Function(item)
         if beat == _math.inf:
             return
         with self._sched_cond:

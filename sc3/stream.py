@@ -437,7 +437,7 @@ class Routine(TimeThread, Stream):
 
     # // PRIVATE
 
-    def awake(self, beats, seconds, clock): # NOTE: esta función se llama desde C/C++ y tiene la nota "prevent optimization" en cada clase: Function, Nil, Object y Routine pero no en PauseStream que usa beats.
+    def __awake__(self, beats, seconds, clock):
         return self.next(beats)
 
     # prStart
@@ -641,7 +641,7 @@ class PauseStream(Stream):
             self.removed_from_scheduler()
             raise StopStream('stream finished') from e # BUG: tal vez deba descartar e? (no hacer raise from o poner raise fuera de try/except)
 
-    def awake(self, beats, seconds, clock): # *** NOTE: llama Scheduler wakeup, único caso acá, existe para esto y también se llama desde la implementación en C/C++.
+    def __awake__(self, beats, seconds, clock):
         if self._stream: # NOTE: nil.beats = beats -> nil en sclang, stop() setea stream a nil. StopStream DEBE ser llamado desde next por consistencia lógica aunque en este caso es redundante.
             self._stream.beats = beats
         return self.next(beats)

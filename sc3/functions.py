@@ -7,6 +7,9 @@ from . import graphparam as gpp
 
 
 class AbstractFunction(gpp.UGenParameter):
+    def __init__(self):
+        pass  # Don't call GraphParameter.__init__
+
     def __call__(self, *args):
         raise NotImplementedError(
             f'callable interface has no use for {type(self).__name__}')
@@ -234,8 +237,6 @@ class AbstractFunction(gpp.UGenParameter):
 
 
     ### UGen graph parameter interface ###
-    # TODO: ver el resto en gpp.UGenParameter
-    # BUG: ver si value no intefiere
 
     def is_valid_ugen_input(self):
         return True
@@ -304,50 +305,30 @@ class NAryOpFunction(AbstractFunction):
 #     pass
 
 
-# decorator syntax
-class function(AbstractFunction):
+### Function.sc ###
+
+class Function(AbstractFunction):
     def __init__(self, func):
         if inspect.isfunction(func):
             self._nargs = len(inspect.signature(func).parameters)
             self.func = func
         else:
-            raise TypeError('@function decorator can not be applied to classes')
+            raise TypeError(
+                'Function wrapper only apply to user-defined functions')
 
     def __call__(self, *args): # no kwargs
-        '''Parameters can only be positional (no keywords), remnant
-        is discarded, more or less like sclang valueArray.'''
+        '''Parameters can only be positional (no keywords), remnant is
+        discarded.'''
         return self.func(*args[:self._nargs])
 
+    def __awake__(self, beats, seconds, clock):  # Function, Routine, PauseStream, (Nil, Object).
+        return self(beats, seconds, clock)
 
-# Caso:
-# @function
-# def f1():
-#      return 100
-#
-# @function
-# def f2():
-#     return "oa"
-#
-# g = f1 + f2
-# g -> <sc3.functions.BinaryOpFunction at 0x...>
-# g() -> NotImplemented
-#
-# No queda claro quién no implementa qué. Y los errores
-# de xopfunctions anidados van a return getattr(self.a(), self.selector)()
-# y similares sin mayor explicación. Hay que implementar un mecanismo
-# de excepciones.
 
-# Visto: qué pasa cuando las funciones tiene argumentos
-# sin parámetros por defecto en sclang. Respuesta:
-# se los pasa posicionalmente a todas las funciones
-# por igual. Acá si no coincide la cantidad de argumentos
-# tira takes n error. Pero, se podría agregar en __call__
-# de cada XOpFunciton checkeando? O, solo por kwords?
-# ejemplo:
-# h = f + g
-# h(100)
-# como está, sin *args ni **kwargs evita que se le pasen
-# argumentos porque solo 1 (self) es esperado en XOpFunction.__call__
-# Creo que por eso sclang usa valueArray, pero no le veo
-# un sentido muy concreto si hay cadena/anidameiento
-# de varios XOpFunction.
+# decorator syntax
+def function(func):
+    return Function(func)
+
+
+# Thunk
+# UGenThunk

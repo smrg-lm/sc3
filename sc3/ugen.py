@@ -537,8 +537,8 @@ class UGen(fn.AbstractFunction):
     def madd(self, mul=1.0, add=0.0):
         return MulAdd.new(self, mul, add)
 
-    def is_valid_ugen_input(self):
-        return True
+    # def is_valid_ugen_input(self):  # BUG: sclang, is True already from AbstractFunction
+    #     return True
 
     def as_ugen_input(self, *ugen_cls):
         return self

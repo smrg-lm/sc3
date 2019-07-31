@@ -8,6 +8,7 @@ from . import _global as _gl
 from . import utils as utl
 from . import _specialindex as _si
 from . import graphparam as gpp
+from . import builtins as bi
 
 
 class UGen(fn.AbstractFunction):
@@ -499,10 +500,10 @@ class ChannelList(list):
         return utl.list_binop('floordiv', self, other, type(self))
 
     def __mod__(self, other):  # %
-        return utl.list_binop('mod', self, other, type(self))
+        return utl.list_binop(bi.mod, self, other, type(self))
 
     def __rmod__(self, other):
-        return utl.list_binop('mod', self, other, type(self))
+        return utl.list_binop(bi.mod, self, other, type(self))
 
     # # def __divmod__(self, other): # divmod(), método integrado
     # # def __rdivmod__(self, other):

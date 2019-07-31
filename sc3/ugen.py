@@ -11,6 +11,144 @@ from . import graphparam as gpp
 from . import builtins as bi
 
 
+class ChannelList(list):
+    '''List wrapper for multichannel expansion graph operations.'''
+
+    def __init__(self, obj=None):
+        if obj is None:
+            super().__init__()
+        elif isinstance(obj, (str, tuple)):
+            super().__init__([obj])
+        elif hasattr(obj, '__iter__'):
+            super().__init__(obj)
+        else:
+            super().__init__([obj])
+
+
+    ### UGen interface ###
+
+    def madd(self, mul=1.0, add=0.0):
+        return type(self)(MulAdd.new(i, mul, add) for i in self)
+
+    # TODO: ver el resto, qué falta que implementa array y se usa en el grafo.
+
+
+    ### Mathematical operations ###
+
+    # unary operators
+
+    def __neg__(self):
+        return utl.list_unop('neg', self, type(self)) # -
+
+    def __pos__(self):
+        return utl.list_unop('pos', self, type(self)) # +
+
+    def __abs__(self):
+        return utl.list_unop('abs', self, type(self)) # abs()
+
+    def __invert__(self):
+        return utl.list_unop('invert', self, type(self)) # ~ bitwise inverse, depende de la representación
+
+    # TODO: as AbstractFunction or def __getattr__(self, name):
+
+    # binary operators
+
+    def __add__(self, other):  # +
+        return utl.list_binop('add', self, other, type(self))
+
+    def __radd__(self, other):
+        return utl.list_binop('add', self, other, type(self))
+
+    def __sub__(self, other):  # -
+        return utl.list_binop('sub', self, other, type(self))
+
+    def __rsub__(self, other):
+        return utl.list_binop('sub', self, other, type(self))
+
+    def __mul__(self, other):  # *
+        return utl.list_binop('mul', self, other, type(self))
+
+    def __rmul__(self, other):
+        return utl.list_binop('mul', self, other, type(self))
+
+    # # def __matmul__(self, other):  # @
+    # # def __rmatmul__(self, other):
+
+    def __truediv__(self, other):  # /
+        return utl.list_binop('truediv', self, other, type(self))
+
+    def __rtruediv__(self, other):
+        return utl.list_binop('truediv', self, other, type(self))
+
+    def __floordiv__(self, other):  # //
+        return utl.list_binop('floordiv', self, other, type(self))
+
+    def __rfloordiv__(self, other):
+        return utl.list_binop('floordiv', self, other, type(self))
+
+    def __mod__(self, other):  # %
+        return utl.list_binop(bi.mod, self, other, type(self))
+
+    def __rmod__(self, other):
+        return utl.list_binop(bi.mod, self, other, type(self))
+
+    # # def __divmod__(self, other): # divmod(), método integrado
+    # # def __rdivmod__(self, other):
+
+    def __pow__(self, other):  # pow(), **, object.__pow__(self, other[, modulo])
+        return utl.list_binop('pow', self, other, type(self))
+
+    def __rpow__(self, other):
+        return utl.list_binop('pow', self, other, type(self))
+
+    def __lshift__(self, other):  # <<
+        return utl.list_binop('lshift', self, other, type(self))
+
+    def __rlshift__(self, other):
+        return utl.list_binop('lshift', self, other, type(self))
+
+    def __rshift__(self, other):  # >>
+        return utl.list_binop('rshift', self, other, type(self))
+
+    def __rrshift__(self, other):
+        return utl.list_binop('rshift', self, other, type(self))
+
+    def __and__(self, other):  # &
+        return utl.list_binop('and', self, other, type(self))
+
+    def __rand__(self, other):
+        return utl.list_binop('and', self, other, type(self))
+
+    def __xor__(self, other):  # ^
+        return utl.list_binop('xor', self, other, type(self))
+
+    def __rxor__(self, other):
+        return utl.list_binop('xor', self, other, type(self))
+
+    def __or__(self, other):  # |
+        return utl.list_binop('or', self, other, type(self))
+
+    def __ror__(self, other):
+        return utl.list_binop('or', self, other, type(self))
+
+    # nary operators
+
+    # *** HACK: a bit too much overload, also works for unops, doesn't appear in object __dict__ although they could be created with the object
+    def __getattr__(self, name):
+        print('@@@ HACK: ChannelList.__getattr__')
+        import sc3.builtins as bi
+        from types import MethodType
+        func = lambda self, *args: utl.list_narop(getattr(bi, name), self,
+                                                  *args, t=type(self))
+        func.__name__ = getattr(bi, name).__name__
+        func.__qualname__ = f'{type(self).__name__}.{func.__name__}'
+        return MethodType(func, self)
+
+
+    def __repr__(self):
+        return f'ChannelList({super().__repr__()})'
+
+
 class UGen(fn.AbstractFunction):
     '''
     Subclasses should not use __init__ to implement graph logic, interface
@@ -422,144 +560,6 @@ class UGen(fn.AbstractFunction):
     def write_input_spec(self, file, synthdef):
         file.write(struct.pack('>i', self.synth_index)) # putInt32
         file.write(struct.pack('>i', self.output_index)) # putInt32
-
-
-class ChannelList(list):
-    '''List wrapper for multichannel expansion graph operations.'''
-
-    def __init__(self, obj=None):
-        if obj is None:
-            super().__init__()
-        elif isinstance(obj, (str, tuple)):
-            super().__init__([obj])
-        elif hasattr(obj, '__iter__'):
-            super().__init__(obj)
-        else:
-            super().__init__([obj])
-
-
-    ### UGen interface ###
-
-    def madd(self, mul=1.0, add=0.0):
-        return type(self)(MulAdd.new(i, mul, add) for i in self)
-
-    # TODO: ver el resto, qué falta que implementa array y se usa en el grafo.
-
-
-    ### Mathematical operations ###
-
-    # unary operators
-
-    def __neg__(self):
-        return utl.list_unop('neg', self, type(self)) # -
-
-    def __pos__(self):
-        return utl.list_unop('pos', self, type(self)) # +
-
-    def __abs__(self):
-        return utl.list_unop('abs', self, type(self)) # abs()
-
-    def __invert__(self):
-        return utl.list_unop('invert', self, type(self)) # ~ bitwise inverse, depende de la representación
-
-    # TODO: as AbstractFunction or def __getattr__(self, name):
-
-    # binary operators
-
-    def __add__(self, other):  # +
-        return utl.list_binop('add', self, other, type(self))
-
-    def __radd__(self, other):
-        return utl.list_binop('add', self, other, type(self))
-
-    def __sub__(self, other):  # -
-        return utl.list_binop('sub', self, other, type(self))
-
-    def __rsub__(self, other):
-        return utl.list_binop('sub', self, other, type(self))
-
-    def __mul__(self, other):  # *
-        return utl.list_binop('mul', self, other, type(self))
-
-    def __rmul__(self, other):
-        return utl.list_binop('mul', self, other, type(self))
-
-    # # def __matmul__(self, other):  # @
-    # # def __rmatmul__(self, other):
-
-    def __truediv__(self, other):  # /
-        return utl.list_binop('truediv', self, other, type(self))
-
-    def __rtruediv__(self, other):
-        return utl.list_binop('truediv', self, other, type(self))
-
-    def __floordiv__(self, other):  # //
-        return utl.list_binop('floordiv', self, other, type(self))
-
-    def __rfloordiv__(self, other):
-        return utl.list_binop('floordiv', self, other, type(self))
-
-    def __mod__(self, other):  # %
-        return utl.list_binop(bi.mod, self, other, type(self))
-
-    def __rmod__(self, other):
-        return utl.list_binop(bi.mod, self, other, type(self))
-
-    # # def __divmod__(self, other): # divmod(), método integrado
-    # # def __rdivmod__(self, other):
-
-    def __pow__(self, other):  # pow(), **, object.__pow__(self, other[, modulo])
-        return utl.list_binop('pow', self, other, type(self))
-
-    def __rpow__(self, other):
-        return utl.list_binop('pow', self, other, type(self))
-
-    def __lshift__(self, other):  # <<
-        return utl.list_binop('lshift', self, other, type(self))
-
-    def __rlshift__(self, other):
-        return utl.list_binop('lshift', self, other, type(self))
-
-    def __rshift__(self, other):  # >>
-        return utl.list_binop('rshift', self, other, type(self))
-
-    def __rrshift__(self, other):
-        return utl.list_binop('rshift', self, other, type(self))
-
-    def __and__(self, other):  # &
-        return utl.list_binop('and', self, other, type(self))
-
-    def __rand__(self, other):
-        return utl.list_binop('and', self, other, type(self))
-
-    def __xor__(self, other):  # ^
-        return utl.list_binop('xor', self, other, type(self))
-
-    def __rxor__(self, other):
-        return utl.list_binop('xor', self, other, type(self))
-
-    def __or__(self, other):  # |
-        return utl.list_binop('or', self, other, type(self))
-
-    def __ror__(self, other):
-        return utl.list_binop('or', self, other, type(self))
-
-    # nary operators
-
-    # *** HACK: a bit too much overload, also works for unops, doesn't appear in object __dict__ although they could be created with the object
-    def __getattr__(self, name):
-        print('@@@ HACK: ChannelList.__getattr__')
-        import sc3.builtins as bi
-        from types import MethodType
-        func = lambda self, *args: utl.list_narop(getattr(bi, name), self,
-                                                  *args, t=type(self))
-        func.__name__ = getattr(bi, name).__name__
-        func.__qualname__ = f'{type(self).__name__}.{func.__name__}'
-        return MethodType(func, self)
-
-
-    def __repr__(self):
-        return f'ChannelList({super().__repr__()})'
 
 
 # // UGen which has no side effect and can therefore be considered for

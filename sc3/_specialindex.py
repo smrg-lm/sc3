@@ -1,37 +1,35 @@
 """
 Special Index and Symbols
 
-El índice sale de las enum en Opcodes.h y se mapean a símbolos en
-PyrParseNode.cpp initSpecialSelectors().
-
-Acá los nombres de los índices opcodes (en Opcodes.h) son los
-nombres de los selectores (en PyrParseNode).
-
-Used by BasicOpUGens to get an ID number for the operator.
+Indexes from enum in Opcodes.h, maps to Symbol in PyrParseNode.cpp
+initSpecialSelectors(). Names  of index opcodes (Opcodes.h) are selectors names
+(PyrParseNode). Used by BasicOpUGens to get an ID number for the operator.
 """
 
 # TODO: special_index se usa en BasicOpUGen pero, además, creo, el atributo
 # operator tiene que ser uno de estos símbolos (porque un y bin comparten
 # números). Estos atributos special_index y name se usan en write_def de UGen.
 
+# TODO: Verify precise behavior and synonyms
+
 # unary opcodes list
 _unops_list = [
-    ('neg', '__neg__'), # '-' unario # TODO: FALTAN COMLPETAR SINÓNIMOS Y COMPROBAR EL MISMO COMPORTAMIENTO.
-    ('not',), # es not buleano en sclang
-    ('isNil',), # nil/obj en sclang
-    ('notNil',), # nil/obj en sclang
-    ('bitNot', '__invert__'), # ~
-    ('abs', '__abs__'), # abs()
+    ('neg', '__neg__'),  # '-' unary
+    ('not',),  # boolean not buleano in sclang
+    ('isNil',),  # nil/obj in sclang
+    ('notNil',),  # nil/obj in sclang
+    ('bitNot', '__invert__', 'invert'),  # ~
+    ('abs', '__abs__'),  # abs()
     ('asFloat',),
     ('asInt',),
-    ('ceil', '__ceil__'),
-    ('floor', '__floor__'),
-    ('frac',), # es math.modf(x)[0], no se comporta igual, devuelve una tupla
+    ('ceil', '__ceil__'),  # underscores?
+    ('floor', '__floor__'),  # underscores?
+    ('frac',),  # is math.modf(x)[0], not same behavior, returns tuple
     ('sign',),
     ('squared',),
     ('cubed',),
-    ('sqrt',), # math.sqrt(x), raíz e
-    ('exp',), # e to the power of the receiver. math.exp(x)
+    ('sqrt',),  # math.sqrt(x), radix e
+    ('exp',),  # e to the power of the receiver, math.exp(x)
     ('reciprocal',),
     ('midicps',),
     ('cpsmidi',),
@@ -41,11 +39,11 @@ _unops_list = [
     ('ampdb',),
     ('octcps',),
     ('cpsoct',),
-    ('log',), # math.log
+    ('log',),  # math.log
     ('log2',),
     ('log10',),
-    ('sin',), # math
-    ('cos',), # etc...
+    ('sin',),  # math.sin
+    ('cos',),  # etc...
     ('tan',),
     ('asin',),
     ('acos',),
@@ -80,25 +78,25 @@ _unops_list = [
 
 # binary opcodes list
 _binops_list = [
-    ('+', '__add__', '__radd__'),
-    ('-', '__sub__', '__rsub__'),
-    ('*', '__mul__', '__rmul__'),
-    ('div', '__floordiv__', '__floordiv__'), # Python '//'
-    ('/', '__truediv__', '__rtruediv__'),
+    ('+', '__add__', '__radd__', 'add'),
+    ('-', '__sub__', '__rsub__', 'sub'),
+    ('*', '__mul__', '__rmul__', 'mul'),
+    ('div', '__floordiv__', '__floordiv__', 'floordiv'),  # Python's '//'
+    ('/', '__truediv__', '__rtruediv__', 'truediv'),
     ('mod', '__mod__', '__rmod__'),
-    ('==', '__eq__'),
-    ('!=', '__ne__'),
-    ('<', '__lt__'),
-    ('>', '__gt__'),
-    ('<=', '__le__'),
-    ('>=', '__ge__'),
+    ('==', '__eq__', 'eq'),
+    ('!=', '__ne__', 'ne'),
+    ('<', '__lt__', 'lt'),
+    ('>', '__gt__', 'gt'),
+    ('<=', '__le__', 'le'),
+    ('>=', '__ge__', 'ge'),
     #'===', # Python is
     #'!==', # Python is not
     ('min',),
     ('max',),
-    ('bitAnd', '__and__', '__rand__'),
-    ('bitOr', '__or__', '__ror__'),
-    ('bitXor', '__xor__', '__rxor__'),
+    ('bitAnd', '__and__', '__rand__', 'and'),
+    ('bitOr', '__or__', '__ror__', 'or'),
+    ('bitXor', '__xor__', '__rxor__', 'xor'),
     ('lcm',),
     ('gcd',),
     ('round',), # Es trunc(x, quant) En Python __round__ es Unario con argumento
@@ -108,8 +106,8 @@ _binops_list = [
     ('hypot',),
     ('hypotApx',), # BUG: está en AbstractFunction, no encontré una implementación con el mismo nombre.
     ('pow', '__pow__', '__rpow__'),
-    ('leftShift', '__lshift__', '__rlshift__'),
-    ('rightShift', '__rshift__', '__rrshift__'),
+    ('leftShift', '__lshift__', '__rlshift__', 'lshift'),
+    ('rightShift', '__rshift__', '__rrshift__', 'rshift'),
     ('unsignedRightShift',),
     ('fill',),
     ('ring1',), # a * (b + 1) == a * b + a

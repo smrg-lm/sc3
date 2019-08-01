@@ -39,23 +39,20 @@ class AbstractFunction(gpp.UGenParameter):
     # https://docs.python.org/3/library/operator.html
     # Categories: object comparison, logical operations, mathematical operations and sequence operations
 
-    # Leyendo: https://docs.python.org/3/reference/datamodel.html#objects veo que no debería usar is
-    # para la comparación de leng() con int o entre strings. "after a = 1; b = 1, a and b may or may not refer to the same object with the value one"
-    # semánticamente == e is son diferentes, aunque x is y implies x == y viceversa no es verdad.
-
-    # Basic custimization:
-    # https://docs.python.org/3/reference/datamodel.html#customization
 
     # unary operators
 
     def __neg__(self):
-        return self.compose_unop('__neg__') # -
+        return self.compose_unop('neg') # -
+
     def __pos__(self):
-        return self.compose_unop('__pos__') # + # BUG: no está en _specialindex
+        return self.compose_unop('pos') # + # BUG: no está en _specialindex
+
     def __abs__(self):
-        return self.compose_unop('__abs__') # abs()
+        return self.compose_unop('abs') # abs()
+
     def __invert__(self):
-        return self.compose_unop('__invert__') # ~ bitwise inverse, depende de la representación
+        return self.compose_unop('invert') # ~ bitwise inverse, depende de la representación
 
     # conversion
     # def __complex__(self): # builtin complex() # TODO: acá las builtins llamam directamente al método mágico, pero estas funciones tienen que retornar un objeto del tipo, no pueden retornar una función abstracta, y deberían evaluar la función perdiendo su lazzyness
@@ -77,60 +74,85 @@ class AbstractFunction(gpp.UGenParameter):
 
     def log(self): # BUG [,base] ES BINARIO, LO MISMO QUE PASA CON POW
         return self.compose_unop(bi.log)
+
     def log2(self):
         return self.compose_unop(bi.log2)
+
     def log10(self):
         return self.compose_unop(bi.log10)
+
     # def log1p(self):
     #     return self.compose_unop(bi.log1p)
+
     def exp(self):
         return self.compose_unop(bi.exp)
+
     def sin(self):
         return self.compose_unop(bi.sin)
+
     def cos(self):
         return self.compose_unop(bi.cos)
+
     def tan(self):
         return self.compose_unop(bi.tan)
+
     def asin(self):
         return self.compose_unop(bi.asin)
+
     def acos(self):
         return self.compose_unop(bi.acos)
+
     def atan(self):
         return self.compose_unop(bi.atan)
+
     def sinh(self):
         return self.compose_unop(bi.sinh)
+
     def cosh(self):
         return self.compose_unop(bi.cosh)
+
     def tanh(self):
         return self.compose_unop(bi.tanh)
+
     # def asinh(x):
     #     return self.compose_unop(bi.asinh)
+
     # def acosh(x):
     #     return self.compose_unop(bi.acosh)
+
     # def atanh(x):
     #     return self.compose_unop(bi.atanh)
 
     def midicps(self):
         return self.compose_unop(bi.midicps)
+
     def cpsmidi(self):
         return self.compose_unop(bi.cpsmidi)
+
     def midiratio(self):
         return self.compose_unop(bi.midiratio)
+
     def ratiomidi(self):
         return self.compose_unop(bi.ratiomidi)
+
     def octcps(self):
         return self.compose_unop(bi.octcps)
+
     def cpsoct(self):
         return self.compose_unop(bi.cpsoct)
+
     def ampdb(self):
         return self.compose_unop(bi.ampdb)
+
     def dbamp(self):
         return self.compose_unop(bi.dbamp)
 
     def squared(self):
         return self.compose_unop(bi.squared)
+
     def cubed(self):
         return self.compose_unop(bi.cubed)
+
     def sqrt(self):
         return self.compose_unop(bi.sqrt)
 
@@ -144,61 +166,88 @@ class AbstractFunction(gpp.UGenParameter):
     # https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations
     # https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
     def __add__(self, other): # +
-        return self.compose_binop('__add__', other)
+        return self.compose_binop('add', other)
+
     def __radd__(self, other):
-        return self.compose_binop('__radd__', other)
+        return self.compose_binop('add', other)
+
     def __sub__(self, other): # -
-        return self.compose_binop('__sub__', other)
+        return self.compose_binop('sub', other)
+
     def __rsub__(self, other):
-        return self.compose_binop('__rsub__', other)
+        return self.compose_binop('sub', other)
+
     def __mul__(self, other): # *
-        return self.compose_binop('__mul__', other)
+        return self.compose_binop('mul', other)
+
     def __rmul__(self, other):
-        return self.compose_binop('__rmul__', other)
+        return self.compose_binop('mul', other)
+
     # def __matmul__(self, other): # @
     #     return self.compose_binop('__matmul__', other)
+
     # def __rmatmul__(self, other):
     #     return self.compose_binop('__rmatmul__', other)
+
     def __truediv__(self, other): # /
-        return self.compose_binop('__truediv__', other)
+        return self.compose_binop('truediv', other)
+
     def __rtruediv__(self, other):
-        return self.compose_binop('__rtruediv__', other)
+        return self.compose_binop('truediv', other)
+
     def __floordiv__(self, other): # //
-        return self.compose_binop('__floordiv__', other)
+        return self.compose_binop('floordiv', other)
+
     def __rfloordiv__(self, other):
-        return self.compose_binop('__rfloordiv__', other)
+        return self.compose_binop('floordiv', other)
+
     def __mod__(self, other): # %
-        return self.compose_binop('__mod__', other)
+        return self.compose_binop(bi.mod, other)
+
     def __rmod__(self, other):
-        return self.compose_binop('__rmod__', other)
+        return self.compose_binop(bi.mod, other)
+
     # def __divmod__(self, other): # divmod(), método integrado
     #     return self.compose_binop('__divmod__', other)
+
     # def __rdivmod__(self, other):
     #     return self.compose_binop('__rdivmod__', other)
+
     def __pow__(self, other): # pow(), **, object.__pow__(self, other[, modulo])
-        return self.compose_binop('__pow__', other)
+        return self.compose_binop('pow', other)
+
     def __rpow__(self, other):
-        return self.compose_binop('__rpow__', other)
+        return self.compose_binop('pow', other)
+
     def __lshift__(self, other): # <<
-        return self.compose_binop('__lshift__', other)
+        return self.compose_binop('lshift', other)
+
     def __rlshift__(self, other):
-        return self.compose_binop('__rlshift__', other)
+        return self.compose_binop('lshift', other)
+
     def __rshift__(self, other): # >>
-        return self.compose_binop('__rshift__', other)
+        return self.compose_binop('rshift', other)
+
     def __rrshift__(self, other):
-        return self.compose_binop('__rrshift__', other)
+        return self.compose_binop('rshift', other)
+
     def __and__(self, other): # &
-        return self.compose_binop('__and__', other)
+        return self.compose_binop('and', other)
+
     def __rand__(self, other):
-        return self.compose_binop('__rand__', other)
+        return self.compose_binop('and', other)
+
     def __xor__(self, other): # ^
-        return self.compose_binop('__xor__', other)
+        return self.compose_binop('xor', other)
+
     def __rxor__(self, other):
-        return self.compose_binop('__rxor__', other)
+        return self.compose_binop('xor', other)
+
     def __or__(self, other): # |
-        return self.compose_binop('__or__', other)
+        return self.compose_binop('or', other)
+
     def __ror__(self, other):
-        return self.compose_binop('__ror__', other)
+        return self.compose_binop('or', other)
 
     # Values comparison:
     # https://docs.python.org/3/reference/expressions.html#comparisons
@@ -207,16 +256,22 @@ class AbstractFunction(gpp.UGenParameter):
     # hashable
     # https://docs.python.org/3/glossary.html#term-hashable
     # "Hashable objects which compare equal must have the same hash value." (__hash__ y __eq__)
+
     def __lt__(self, other): # <
         return self.compose_binop('__lt__', other)
+
     def __le__(self, other): # <=
         return self.compose_binop('__le__', other)
+
     # def __eq__(self, other): # == # ESTE MÉTODO NO SE IMPLEMENTA NI EN AbstractFunction NI EN UGen. Aunque está en la tabla de ops.
     #     return self.compose_binop('__eq__', other)
+
     # def __ne__(self, other): # != # ESTE MÉTODO NO SE IMPLEMENTA NI EN AbstractFunction NI EN UGen. Aunque está en la tabla de ops.
     #     return self.compose_binop('__ne__', other)
+
     def __gt__(self, other): # >
         return self.compose_binop('__gt__', other)
+
     def __ge__(self, other): # >=
         return self.compose_binop('__ge__', other)
 
@@ -228,13 +283,17 @@ class AbstractFunction(gpp.UGenParameter):
 
     # TODO: los operadores enarios deberían ser implementados por duplicado
     # como las funciones incluidas para los tipos numéricos. VER MIDICPS Y MOD ARRIBA.
+
     def clip(self, lo, hi):
         return self.compose_narop(bi.clip, lo, hi)
+
     def wrap(self, lo, hi):
         return self.compose_narop(bi.wrap, lo, hi)
+
     def fold(self, lo, hi):
         return self.compose_narop(bi.fold, lo, hi)
-    # ...
+
+    # TODO...
 
 
     ### UGen graph parameter interface ###

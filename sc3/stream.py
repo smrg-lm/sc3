@@ -93,6 +93,9 @@ class Stream(fn.AbstractFunction): #, ABC):
     def compose_binop(self, selector, other):
         return BinaryOpStream(selector, self, stream(other)) # BUG: BUG: en sclang usa el adverbio y si es nil la operación binaria retorna nil, tal vez porque sin él no hace la operación elemento a elemento de los streams.
 
+    def rcompose_binop(self, selector, other):
+        return BinaryOpStream(selector, stream(other), self)
+
     def compose_narop(self, selector, *args):
         args = [stream(x) for x in args]
         return NAryOpStream(selector, self, *args)

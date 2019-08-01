@@ -26,6 +26,9 @@ class AbstractFunction(gpp.UGenParameter):
     def compose_binop(self, selector, other):
         return BinaryOpFunction(selector, self, other)
 
+    def rcompose_binop(self, selector, other):
+        return BinaryOpFunction(selector, other, self)
+
     def compose_narop(self, selector, *args):
         return NAryOpFunction(selector, self, *args)
 
@@ -169,85 +172,85 @@ class AbstractFunction(gpp.UGenParameter):
         return self.compose_binop('add', other)
 
     def __radd__(self, other):
-        return self.compose_binop('add', other)
+        return self.rcompose_binop('add', other)
 
     def __sub__(self, other): # -
         return self.compose_binop('sub', other)
 
     def __rsub__(self, other):
-        return self.compose_binop('sub', other)
+        return self.rcompose_binop('sub', other)
 
     def __mul__(self, other): # *
         return self.compose_binop('mul', other)
 
     def __rmul__(self, other):
-        return self.compose_binop('mul', other)
+        return self.rcompose_binop('mul', other)
 
     # def __matmul__(self, other): # @
-    #     return self.compose_binop('__matmul__', other)
+    #     return self.compose_binop('matmul', other)
 
     # def __rmatmul__(self, other):
-    #     return self.compose_binop('__rmatmul__', other)
+    #     return self.rcompose_binop('matmul', other)
 
     def __truediv__(self, other): # /
         return self.compose_binop('truediv', other)
 
     def __rtruediv__(self, other):
-        return self.compose_binop('truediv', other)
+        return self.rcompose_binop('truediv', other)
 
     def __floordiv__(self, other): # //
         return self.compose_binop('floordiv', other)
 
     def __rfloordiv__(self, other):
-        return self.compose_binop('floordiv', other)
+        return self.rcompose_binop('floordiv', other)
 
     def __mod__(self, other): # %
         return self.compose_binop(bi.mod, other)
 
     def __rmod__(self, other):
-        return self.compose_binop(bi.mod, other)
+        return self.rcompose_binop(bi.mod, other)
 
     # def __divmod__(self, other): # divmod(), método integrado
-    #     return self.compose_binop('__divmod__', other)
+    #     return self.compose_binop('divmod', other)
 
     # def __rdivmod__(self, other):
-    #     return self.compose_binop('__rdivmod__', other)
+    #     return self.rcompose_binop('divmod', other)
 
     def __pow__(self, other): # pow(), **, object.__pow__(self, other[, modulo])
         return self.compose_binop('pow', other)
 
     def __rpow__(self, other):
-        return self.compose_binop('pow', other)
+        return self.rcompose_binop('pow', other)
 
     def __lshift__(self, other): # <<
         return self.compose_binop('lshift', other)
 
     def __rlshift__(self, other):
-        return self.compose_binop('lshift', other)
+        return self.rcompose_binop('lshift', other)
 
     def __rshift__(self, other): # >>
         return self.compose_binop('rshift', other)
 
     def __rrshift__(self, other):
-        return self.compose_binop('rshift', other)
+        return self.rcompose_binop('rshift', other)
 
     def __and__(self, other): # &
         return self.compose_binop('and', other)
 
     def __rand__(self, other):
-        return self.compose_binop('and', other)
+        return self.rcompose_binop('and', other)
 
     def __xor__(self, other): # ^
         return self.compose_binop('xor', other)
 
     def __rxor__(self, other):
-        return self.compose_binop('xor', other)
+        return self.rcompose_binop('xor', other)
 
     def __or__(self, other): # |
         return self.compose_binop('or', other)
 
     def __ror__(self, other):
-        return self.compose_binop('or', other)
+        return self.rcompose_binop('or', other)
 
     # Values comparison:
     # https://docs.python.org/3/reference/expressions.html#comparisons
@@ -275,9 +278,6 @@ class AbstractFunction(gpp.UGenParameter):
     def __ge__(self, other): # >=
         return self.compose_binop('__ge__', other)
 
-
-    def mod(self, other):
-        return self.compose_binop(bi.mod, other)
 
     # nary operators
 
@@ -333,13 +333,10 @@ class BinaryOpFunction(AbstractFunction):
         self.b = b
 
     def __call__(self, *args, **kwargs):
-        a_value = self.a(*args, **kwargs)
-        if callable(self.b):
-            b_value = self.b(*args, **kwargs)
-        else:
-            b_value = self.b
+        a_value = self.a(*args, **kwargs) if callable(self.a) else self.a
+        b_value = self.b(*args, **kwargs) if callable(self.b) else self.b
         if hasattr(self.selector, '__scbuiltin__'):
-            return self.selector(a_value, b_value) # los scbuiltins se encargan de los tipos.
+            return self.selector(a_value, b_value) # los scbuiltins se encargan de los tipos, incluso AbstractFunction (problema para posible cythonización)
         else:
             return getattr(operator, self.selector)(a_value, b_value)
 
@@ -356,12 +353,16 @@ class NAryOpFunction(AbstractFunction):
         if hasattr(self.selector, '__scbuiltin__'):
             return self.selector(self.a(*args, **kwargs), *evaluated_args)
         else:
-            return getattr(
-                self.a(*args, **kwargs), self.selector)(*evaluated_args)  # narop would be just Python methods.
+            raise Exception(f'*** BUG: nary op {self.selector} is not in builtins')
+            # return getattr(self.a(*args, **kwargs), self.selector)(*evaluated_args)  # *** BUG: narop would be just Python methods.
 
 
 # class FunctionList(AbstractFunction):
 #     pass
+
+
+# *** TODO: completar las operaciones que faltan e ir haciendo los test con
+# *** TODO: Function teniendo en cuenta la próxima cythonización.
 
 
 ### Function.sc ###

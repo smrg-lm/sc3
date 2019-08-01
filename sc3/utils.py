@@ -222,12 +222,14 @@ def list_narop(op, a, *args, t=None):  # t is keyword only.
         elif hasattr(op, '__scbuiltin__'):
             return t(op(i, *args) for i in a)
         else:
-            return t(getattr(i, op)(*args) for i in a)  # narop would be just Python methods.
+            raise Exception(f'*** BUG: nary op {op} is not in builtins')
+            # return t(getattr(i, op)(*args) for i in a)  # *** BUG: narop would be just Python methods.
     else:
         if hasattr(op, '__scbuiltin__'):
             return op(a, *args)
         else:
-            return getattr(a, op)(*args)  # narop would be just Python methods.
+            raise Exception(f'*** BUG: nary op {op} is not in builtins')
+            # return getattr(a, op)(*args)  # *** BUG: narop would be just Python methods.
 
 
 def list_sum(lst):

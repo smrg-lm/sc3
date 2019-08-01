@@ -42,6 +42,9 @@ class Pattern(fn.AbstractFunction):
     def compose_binop(self, selector, other):
         return Pbinop(selector, self, other)
 
+    def rcompose_binop(self, selector, other):
+        return Pbinop(selector, other, self)
+
     def compose_narop(self, selector, *args):
         return Pnarop(selector, self, *args)
 

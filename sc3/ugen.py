@@ -57,19 +57,19 @@ class ChannelList(list):
         return utl.list_binop('add', self, other, type(self))
 
     def __radd__(self, other):
-        return utl.list_binop('add', self, other, type(self))
+        return utl.list_binop('add', other, self, type(self))
 
     def __sub__(self, other):  # -
         return utl.list_binop('sub', self, other, type(self))
 
     def __rsub__(self, other):
-        return utl.list_binop('sub', self, other, type(self))
+        return utl.list_binop('sub', other, self, type(self))
 
     def __mul__(self, other):  # *
         return utl.list_binop('mul', self, other, type(self))
 
     def __rmul__(self, other):
-        return utl.list_binop('mul', self, other, type(self))
+        return utl.list_binop('mul', other, self, type(self))
 
     # # def __matmul__(self, other):  # @
     # # def __rmatmul__(self, other):
@@ -78,19 +78,19 @@ class ChannelList(list):
         return utl.list_binop('truediv', self, other, type(self))
 
     def __rtruediv__(self, other):
-        return utl.list_binop('truediv', self, other, type(self))
+        return utl.list_binop('truediv', other, self, type(self))
 
     def __floordiv__(self, other):  # //
         return utl.list_binop('floordiv', self, other, type(self))
 
     def __rfloordiv__(self, other):
-        return utl.list_binop('floordiv', self, other, type(self))
+        return utl.list_binop('floordiv', other, self, type(self))
 
     def __mod__(self, other):  # %
         return utl.list_binop(bi.mod, self, other, type(self))
 
     def __rmod__(self, other):
-        return utl.list_binop(bi.mod, self, other, type(self))
+        return utl.list_binop(bi.mod, other, self, type(self))
 
     # # def __divmod__(self, other): # divmod(), método integrado
     # # def __rdivmod__(self, other):
@@ -99,37 +99,37 @@ class ChannelList(list):
         return utl.list_binop('pow', self, other, type(self))
 
     def __rpow__(self, other):
-        return utl.list_binop('pow', self, other, type(self))
+        return utl.list_binop('pow', other, self, type(self))
 
     def __lshift__(self, other):  # <<
         return utl.list_binop('lshift', self, other, type(self))
 
     def __rlshift__(self, other):
-        return utl.list_binop('lshift', self, other, type(self))
+        return utl.list_binop('lshift', other, self, type(self))
 
     def __rshift__(self, other):  # >>
         return utl.list_binop('rshift', self, other, type(self))
 
     def __rrshift__(self, other):
-        return utl.list_binop('rshift', self, other, type(self))
+        return utl.list_binop('rshift', other, self, type(self))
 
     def __and__(self, other):  # &
         return utl.list_binop('and', self, other, type(self))
 
     def __rand__(self, other):
-        return utl.list_binop('and', self, other, type(self))
+        return utl.list_binop('and', other, self, type(self))
 
     def __xor__(self, other):  # ^
         return utl.list_binop('xor', self, other, type(self))
 
     def __rxor__(self, other):
-        return utl.list_binop('xor', self, other, type(self))
+        return utl.list_binop('xor', other, self, type(self))
 
     def __or__(self, other):  # |
         return utl.list_binop('or', self, other, type(self))
 
     def __ror__(self, other):
-        return utl.list_binop('or', self, other, type(self))
+        return utl.list_binop('or', other, self, type(self))
 
     # nary operators
 
@@ -405,6 +405,9 @@ class UGen(fn.AbstractFunction):
         else:
             param.perform_binary_op_on_ugen(selector, self) # *** BUG: No entiendo por qué no retorna en sclang, si va por else siempre devuelve self.
         return self
+
+    def rcompose_binop(self, selector, ugen):
+        return BinaryOpUGen.new(selector, ugen, self)
 
     def compose_narop(self, selector, *args):
         raise NotImplementedError('UGen compose_narop is not supported')

@@ -1,6 +1,7 @@
 """AbstractFunction.sc"""
 
 import inspect
+import operator
 
 from . import builtins as bi # TODO: TEST, ver abajo.
 from . import graphparam as gpp
@@ -259,11 +260,11 @@ class UnaryOpFunction(AbstractFunction):
         self.selector = selector
         self.a = a
 
-    def __call__(self, *args): # TODO: los parámetros solo pueden ser posicionales, supongo que se podrían agregar palabras clase si se hace el filtrado.
+    def __call__(self, *args, **kwargs):
         if hasattr(self.selector, '__scbuiltin__'):
-            return self.selector(self.a(*args))
+            return self.selector(self.a(*args, **kwargs))
         else:
-            return getattr(self.a(*args), self.selector)() # TODO: qué pasa con los tipos de retorno de a() ... (ver NotImplementedError)
+            return getattr(operator, self.selector)(self.a(*args, **kwargs))
 
 
 class BinaryOpFunction(AbstractFunction):
@@ -272,33 +273,32 @@ class BinaryOpFunction(AbstractFunction):
         self.a = a
         self.b = b
 
-    def __call__(self, *args):
-        a_value = self.a(*args)
-        if callable(self.b): # TODO: puede ser cualquier función, pero podría restringirse a AbstractFunction, en sclang todo es AbstractFunction
-            b_value = self.b(*args)
-
+    def __call__(self, *args, **kwargs):
+        a_value = self.a(*args, **kwargs)
+        if callable(self.b):
+            b_value = self.b(*args, **kwargs)
+        else:
+            b_value = self.b
         if hasattr(self.selector, '__scbuiltin__'):
             return self.selector(a_value, b_value) # los scbuiltins se encargan de los tipos.
-
-        ret_value = getattr(a_value, self.selector)(b_value)
-        if ret_value is NotImplemented and type(a_value) is int and type(self.b) is float: # TODO: ver qué pasa con otros operadores integrados.
-            return getattr(float(a_value), self.selector)(self.b) # BUG: fuerza float por operaciones sobre tipos no conmutativos, no me acuerdo cuál era el caso, pero si por alguna otra razón se genera un error va a estar mál el itpo original de la operación.
-
-        return ret_value
+        else:
+            return getattr(operator, self.selector)(a_value, b_value)
 
 
 class NAryOpFunction(AbstractFunction):
-    def __init__(self, selector, a, *args): # **kwargs?
+    def __init__(self, selector, a, *args):
         self.selector = selector
         self.a = a
         self.args = args
 
-    def __call__(self, *args):
-        evaluated_args = [x(*args) if isinstance(x, AbstractFunction) else x for x in self.args]
+    def __call__(self, *args, **kwargs):
+        evaluated_args = [x(*args, **kwargs) if isinstance(x, Function) else x\
+                          for x in self.args]
         if hasattr(self.selector, '__scbuiltin__'):
-            return self.selector(self.a(*args), *evaluated_args)
+            return self.selector(self.a(*args, **kwargs), *evaluated_args)
         else:
-            return getattr(self.a(*args), self.selector)(*evaluated_args)
+            return getattr(
+                self.a(*args, **kwargs), self.selector)(*evaluated_args)  # narop would be just Python methods.
 
 
 # class FunctionList(AbstractFunction):
@@ -310,16 +310,17 @@ class NAryOpFunction(AbstractFunction):
 class Function(AbstractFunction):
     def __init__(self, func):
         if inspect.isfunction(func):
-            self._nargs = len(inspect.signature(func).parameters)
+            parameters = inspect.signature(func).parameters
+            self._nargs = len(parameters)
+            self._kwords = parameters.keys()
             self.func = func
         else:
             raise TypeError(
                 'Function wrapper only apply to user-defined functions')
 
-    def __call__(self, *args): # no kwargs
-        '''Parameters can only be positional (no keywords), remnant is
-        discarded.'''
-        return self.func(*args[:self._nargs])
+    def __call__(self, *args, **kwargs):
+        kwargs = {k: kwargs[k] for k in kwargs.keys() & self._kwords}
+        return self.func(*args[:self._nargs], **kwargs)
 
     def __awake__(self, beats, seconds, clock):  # Function, Routine, PauseStream, (Nil, Object).
         return self(beats, seconds, clock)

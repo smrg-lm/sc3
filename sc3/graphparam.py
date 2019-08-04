@@ -4,6 +4,7 @@ from math import isnan
 import struct
 
 from . import server as srv
+from . import _specialindex as _si
 
 # BUG: están dentro de las funciones, no se pueden importar
 # BUG: por los símbolos de herencia en relación a UGen.
@@ -86,6 +87,7 @@ class UGenParameter(GraphParameter):
                 "rate attribute or as_ugen_rate method") from e
 
     def perform_binary_op_on_ugen(self, selector, thing):
+        selector = _si.sc_opname(selector.__name__)
         if selector == '==':
             return False
         if selector == '!=':

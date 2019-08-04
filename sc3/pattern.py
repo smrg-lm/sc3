@@ -102,10 +102,7 @@ class Punop(Pattern):
         outval = None
         while True:
             outval = stream.next(inval)
-            if hasattr(self.selector, '__scbuiltin__'):
-                inval = yield self.selector(outval)
-            else:
-                inval = yield getattr(outval, self.selector)()
+            inval = yield self.selector(outval)
 
     # storeOn
 
@@ -147,10 +144,7 @@ class Pnarop(Pattern): # BUG: nombre cambiado
         while True:
             a = stream_a.next(inval)
             args = [x.next(inval) for x in stream_lst]
-            if hasattr(self.selector, '__scbuiltin__'):
-                inval = yield self.selector(a, *args)
-            else:
-                inval = yield getattr(a, self.selector)(*args)
+            inval = yield self.selector(a, *args)
 
     # storeOn
 

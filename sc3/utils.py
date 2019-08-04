@@ -3,7 +3,6 @@ Utility classes and functions from sclang style.
 """
 
 import itertools as _itertools
-import operator as _operator
 
 
 class ClassLibrary():
@@ -145,15 +144,9 @@ def list_unop(op, a, t=None):
     if isinstance(a, t_seq):
         if any(isinstance(i, t_seq) for i in a):
             return t(list_unop(op, i, type(i)) for i in a)
-        elif hasattr(op, '__scbuiltin__'):
-            return t(op(i) for i in a)
-        else:
-            return t(getattr(_operator, op)(i) for i in a)
+        return t(op(i) for i in a)
     else:
-        if hasattr(op, '__scbuiltin__'):  # just try no decorator?
-            return op(a)
-        else:
-            return getattr(_operator, op)(a)
+        return op(a)
 
 
 def list_binop(op, a, b, t=None):
@@ -198,19 +191,13 @@ def list_binop(op, a, b, t=None):
                 a2 = b2 = t2 = None
             return t(ret)
         else:
-            if hasattr(op, '__scbuiltin__'):
-                return t(op(i[0], i[1]) for i in zip(a, b))
-            else:
-                return t(getattr(_operator, op)(i[0], i[1]) for i in zip(a, b))
+            return t(op(i[0], i[1]) for i in zip(a, b))
     elif isinstance(a, t_seq):
         return t(list_binop(op, item_a, b, type(item_a)) for item_a in a)
     elif isinstance(b, t_seq):
         return t(list_binop(op, a, item_b, type(item_b)) for item_b in b)
     else:
-        if hasattr(op, '__scbuiltin__'):
-            return op(a, b)
-        else:
-            return getattr(_operator, op)(a, b)
+        return op(a, b)
 
 
 def list_narop(op, a, *args, t=None):  # t is keyword only.
@@ -219,17 +206,9 @@ def list_narop(op, a, *args, t=None):  # t is keyword only.
     if isinstance(a, t_seq):
         if any(isinstance(i, t_seq) for i in a):
             return t(list_narop(op, i, *args, t=type(i)) for i in a)
-        elif hasattr(op, '__scbuiltin__'):
-            return t(op(i, *args) for i in a)
-        else:
-            raise Exception(f'*** BUG: nary op {op} is not in builtins')
-            # return t(getattr(i, op)(*args) for i in a)  # *** BUG: narop would be just Python methods.
+        return t(op(i, *args) for i in a)
     else:
-        if hasattr(op, '__scbuiltin__'):
-            return op(a, *args)
-        else:
-            raise Exception(f'*** BUG: nary op {op} is not in builtins')
-            # return getattr(a, op)(*args)  # *** BUG: narop would be just Python methods.
+        return op(a, *args)
 
 
 def list_sum(lst):

@@ -67,10 +67,10 @@ _unops_list = [
     ('digitValue',), # no existe en sclang
     ('silence',), # no existe en sclang
     ('thru',), # no existe en sclang
-    ('rectWindow',),
-    ('hanWindow',),
-    ('welWindow',),
-    ('triWindow',),
+    ('rectWindow', 'rectwindow'),
+    ('hanWindow', 'hanwindow'),
+    ('welWindow', 'welwindow'),
+    ('triWindow', 'triwindow'),
     ('ramp',),
     ('scurve',),
     #opNumUnarySelectors
@@ -148,24 +148,23 @@ _binops = _build_op_dict(_binops_list)
 # Interface
 
 def sc_spindex_opname(operator):
-    '''Returns [special_index, sc_opname] or [-1, None].
-    operator can be a str or scbuiltin function.'''
-    if hasattr(operator, '__scbuiltin__'):
-        operator = operator.__name__
+    '''
+    Returns (special_index, sc_opname) or (-1, None). operator is a str.
+    '''
     try: return _unops[operator]
     except KeyError: pass
     try: return _binops[operator]
     except KeyError: pass
-    return [-1, None]
+    return (-1, None)
 
 
 def special_index(operator):
-    'Returns server operators special index or -1.'
+    '''Returns server operators special index or -1.'''
     ret = sc_spindex_opname(operator)
     return ret[0]
 
 
 def sc_opname(operator):
-    'Returns server operator name or None.'
+    '''Returns server operator name or None.'''
     ret = sc_spindex_opname(operator)
     return ret[1]

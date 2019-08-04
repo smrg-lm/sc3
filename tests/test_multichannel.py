@@ -1,5 +1,6 @@
 
 import unittest
+import operator
 
 from sc3.utils import list_unop, list_binop, list_narop
 from sc3.ugen import ChannelList, UGen, BinaryOpUGen
@@ -10,33 +11,33 @@ import sc3.builtins as bi
 class SeqOpTestCase(unittest.TestCase):
     def test_unop(self):
         # scalar
-        case = list_unop('neg', 10)
+        case = list_unop(operator.neg, 10)
         self.assertIs(type(case), int)
         self.assertEqual(case, -10)
 
         # list of scalars
-        case = list_unop('neg', [10, 20])
+        case = list_unop(operator.neg, [10, 20])
         self.assertIs(type(case), list)
         self.assertEqual(case, [-10, -20])
 
         # tuple of scalars, default type
-        case = list_unop('neg', (10, 20))
+        case = list_unop(operator.neg, (10, 20))
         self.assertIs(type(case), list)
         self.assertEqual(case, [-10, -20])
 
         # tuple of scalars as type
-        case = list_unop('neg', (10, 20), tuple)
+        case = list_unop(operator.neg, (10, 20), tuple)
         self.assertIs(type(case), tuple)
         self.assertEqual(case, (-10, -20))
 
         # tuple list
-        case = list_unop('neg', [(10, 20)])
+        case = list_unop(operator.neg, [(10, 20)])
         self.assertIs(type(case), list)
         self.assertIs(type(case[0]), tuple)
         self.assertEqual(case[0], (-10, -20))
 
         # list of tuple and scalar
-        case = list_unop('neg', [(10, 20), 30])
+        case = list_unop(operator.neg, [(10, 20), 30])
         self.assertIs(type(case), list)
         self.assertIs(type(case[0]), tuple)
         self.assertEqual(case[0], (-10, -20))
@@ -44,7 +45,7 @@ class SeqOpTestCase(unittest.TestCase):
 
         # nested tuples and lists
         case = list_unop(
-            'neg', [(10, 20, [30, 40]), 50, [60, [[70], (80,)], 90]])
+            operator.neg, [(10, 20, [30, 40]), 50, [60, [[70], (80,)], 90]])
         self.assertIs(type(case), list)
         self.assertIs(type(case[0]), tuple)
         self.assertIs(type(case[0][2]), list)
@@ -62,38 +63,38 @@ class SeqOpTestCase(unittest.TestCase):
 
     def test_binop(self):
         # scalars
-        case = list_binop('mul', 10, -1)
+        case = list_binop(operator.mul, 10, -1)
         self.assertIs(type(case), int)
         self.assertEqual(case, -10)
 
         # list and scalar
-        case = list_binop('mul', [10, 20], -1)
+        case = list_binop(operator.mul, [10, 20], -1)
         self.assertIs(type(case), list)
         self.assertEqual(case, [-10, -20])
 
         # scalar and list
-        case = list_binop('mul', -1, [10, 20])
+        case = list_binop(operator.mul, -1, [10, 20])
         self.assertIs(type(case), list)
         self.assertEqual(case, [-10, -20])
 
         # tuple and scalar
-        case = list_binop('mul', (10, 20), -1)
+        case = list_binop(operator.mul, (10, 20), -1)
         self.assertIs(type(case), list)  # default type
         self.assertEqual(case, [-10, -20])
 
         # scalar and tuple
-        case = list_binop('mul', -1, (10, 20), tuple)
+        case = list_binop(operator.mul, -1, (10, 20), tuple)
         self.assertIs(type(case), tuple)
         self.assertEqual(case, (-10, -20))
 
         # tuple list and scalar
-        case = list_binop('mul', [(10, 20)], -1)
+        case = list_binop(operator.mul, [(10, 20)], -1)
         self.assertIs(type(case), list)
         self.assertIs(type(case[0]), tuple)
         self.assertEqual(case[0], (-10, -20))
 
         # list of tuple and scalar
-        case = list_binop('mul', -1, [(10, 20), 30])
+        case = list_binop(operator.mul, -1, [(10, 20), 30])
         self.assertIs(type(case), list)
         self.assertIs(type(case[0]), tuple)
         self.assertEqual(case[0], (-10, -20))
@@ -101,7 +102,7 @@ class SeqOpTestCase(unittest.TestCase):
 
         # nested tuples and lists
         case = list_binop(
-            'mul', [(10, 20, [30, 40]), 50, [60, [[70], (80,)], 90]], -1)
+            operator.mul, [(10, 20, [30, 40]), 50, [60, [[70], (80,)], 90]], -1)
         self.assertIs(type(case), list)
         self.assertIs(type(case[0]), tuple)
         self.assertIs(type(case[0][2]), list)
@@ -117,7 +118,7 @@ class SeqOpTestCase(unittest.TestCase):
 
         # cases seq op seq mixed list and tuple
         case = list_binop(
-            'add', [[1], (2, (2,)), 3], (([10], (10,)), [20], [30, [30]]))
+            operator.add, [[1], (2, (2,)), 3], (([10], (10,)), [20], [30, [30]]))
         self.assertIs(type(case), list)  # default type
         self.assertIs(type(case[0]), tuple)
         self.assertIs(type(case[1]), tuple)
@@ -126,7 +127,7 @@ class SeqOpTestCase(unittest.TestCase):
 
         # cases seq op seq type conversion in three levels
         case = list_binop(
-            'sub', [([(1,)], ([1],)), [([2],), [(2,)]]], [[1], (2,)])
+            operator.sub, [([(1,)], ([1],)), [([2],), [(2,)]]], [[1], (2,)])
         self.assertIs(type(case), list)  # default type
         self.assertIs(type(case[0]), tuple)
         self.assertIs(type(case[0][0]), list)

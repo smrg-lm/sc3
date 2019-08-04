@@ -190,7 +190,7 @@ def triwindow(x):
     return -2. * x + 2.
 
 @scbuiltin
-def bitriwindow(x):
+def bitriwindow(x):  # not used in sclang
     # float32 ax = (float32)1. - std::abs(x);
     # if (ax <= (float32)0.) return (float32)0.;
     # return ax;
@@ -215,7 +215,7 @@ def scurve(x):
     return x * x * (3. - 2. * x)
 
 @scbuiltin
-def scurve0(x):
+def scurve0(x):  # not used in sclang
     # // assumes that x is in range
     # return x * x * ((float32)3. - (float32)2. * x);
     return x * x * (3. - 2. * x)
@@ -237,12 +237,12 @@ def sign(x):
     return 0.
 
 @scbuiltin
-def distort(x): # TODO: para mi, qué otras funciones de distorsión hay y cómo generan parciales agudos?
+def distort(x):
     # return x / ((float32)1. + std::abs(x));
     return x / (1. + abs(x))
 
 @scbuiltin
-def distortneg(x):
+def distortneg(x):  # not used in sclang
     # if (x < (float32)0.)
     #     return x/((float32)1. - x);
     # else
@@ -303,6 +303,7 @@ def bitnot(x):
 @scbuiltin
 def frac(x):
     # return x - sc_floor(x);
+    # return math.fmod(x)[0]
     return x - floor(x)
 
 _ONESIXTH = 1. / 6.
@@ -594,7 +595,7 @@ def hypotx(x, y):
     x = abs(x)
     y = abs(y)
     minxy = min(x, y)
-    return x + y - SQRT2M1 * minxy
+    return x + y - _SQRT2M1 * minxy
 
 @scbuiltin
 def gcd(a, b):
@@ -798,7 +799,6 @@ def sqrdif(a, b):
     z = a - b
     return z * z
 
-
 # TODO: En AbstractFunction
 #linrand
 #bilinrand
@@ -813,5 +813,125 @@ def sqrdif(a, b):
 #rotate
 #dist
 
-# Nary
-# ...
+@scbuiltin
+def absdif(a, b):
+    return abs(a - b)
+
+@scbuiltin
+def blend(a, b, frac):
+    # // frac should be from zero to one
+    return a + (frac * (b - a))
+
+def linlin(x, inmin, inmax, outmin, outmax, clip='minmax'):
+    if clip == 'minmax':
+        if x <= inmin: return outmin
+        if x >= inmax: return outmax
+    elif clip == 'min':
+        if x <= inmin: return outmin
+    elif clip == 'max':
+        if x >= inmax: return outmax
+    return (x - inmin) / (inmax - inmin) * (outmax - outmin) + outmin
+
+def linexp(x, inmin, inmax, outmin, outmax, clip='minmax'):
+    if clip == 'minmax':
+        if x <= inmin: return outmin
+        if x >= inmax: return outmax
+    elif clip == 'min':
+        if x <= inmin: return outmin
+    elif clip == 'max':
+        if x >= inmax: return outmax
+    return math.pow(outmax / outmin, (x - inmin) / (inmax - inmin)) * outmin
+
+def explin(x, inmin, inmax, outmin, outmax, clip='minmax'):
+    if clip == 'minmax':
+        if x <= inmin: return outmin
+        if x >= inmax: return outmax
+    elif clip == 'min':
+        if x <= inmin: return outmin
+    elif clip == 'max':
+        if x >= inmax: return outmax
+    return math.log(this / inmin, math.e) / math.log(inmax / inmin, math.e)\
+           * (outmax - outmin) + outmin
+
+def expexp(x, inmin, inmax, outmin, outmax, clip='minmax'):
+    if clip == 'minmax':
+        if x <= inmin: return outmin
+        if x >= inmax: return outmax
+    elif clip == 'min':
+        if x <= inmin: return outmin
+    elif clip == 'max':
+        if x >= inmax: return outmax
+    return math.pow(
+        outmax / outmin,
+        math.log(this / inmin, math.e) / math.log(inmax / inmin, math.e)
+    ) * outmin
+
+def lincurve(x, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
+    if clip == 'minmax':
+        if x <= inmin: return outmin
+        if x >= inmax: return outmax
+    elif clip == 'min':
+        if x <= inmin: return outmin
+    elif clip == 'max':
+        if x >= inmax: return outmax
+    if abs(curve) < 0.001:
+        # // If the value should be clipped, it has already been clipped (above).
+        # // If we got this far, then linlin does not need to do any clipping.
+        # // Inlining the formula here makes it even faster.
+        return (x - inmin) / (inmax - inmin) * (outmax - outmin) + outmin
+    grow = math.pow(math.e, curve)
+    a = outmax - outmin / (1.0 - grow)
+    b = outmin + a
+    scaled = (x - inmin) / (inmax - inmin)
+    return b - a * math.pow(grow, scaled, math.e)
+
+def curvelin(x, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
+    if clip == 'minmax':
+        if x <= inmin: return outmin
+        if x >= inmax: return outmax
+    elif clip == 'min':
+        if x <= inmin: return outmin
+    elif clip == 'max':
+        if x >= inmax: return outmax
+    if abs(curve):
+        # // If the value should be clipped, it has already been clipped (above).
+        return (x - inmin) / (inmax - inmin) * (outmax - outmin) + outmin
+    grow = math.pow(math.e, curve)
+    a = inmax - inmin / (1.0 - grow)
+    b = inmin + a
+    return math.log((b - x) / a, math.e) * (outmax - outmin) / curve + outmin
+
+def bilin(x, incenter, inmin, inmax, out_center, outmin, outmax,
+          clip='minmax'):
+    if clip == 'minmax':
+        if x <= inmin: return outmin
+        if x >= inmax: return outmax
+    elif clip == 'min':
+        if x <= inmin: return outmin
+    elif clip == 'max':
+        if x >= inmax: return outmax
+    if x >= incenter:
+        return linlin(x, incenter, inmax, outcenter, outmax, None)
+    else:
+        return linlin(inmin, incenter, outmin, outcenter, None)
+
+def biexp(x, incenter, inmin, inmax, out_center, outmin, outmax,
+          clip='minmax'):
+    if clip == 'minmax':
+        if x <= inmin: return outmin
+        if x >= inmax: return outmax
+    elif clip == 'min':
+        if x <= inmin: return outmin
+    elif clip == 'max':
+        if x >= inmax: return outmax
+    if x >= incenter:
+        return explin(incenter, inmax, outcenter, outmax, None)
+    else:
+        return explin(inmin, incenter, outmin, outcenter, None)
+
+# SimpleNumber:
+# moddif
+# lcurve
+# gauss
+# gaussCurve
+# ver otras funciones.

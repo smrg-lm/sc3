@@ -1,5 +1,6 @@
 
 import unittest
+import operator
 
 import sc3.builtins as bi
 from sc3.functions import (Function, function, UnaryOpFunction,
@@ -17,23 +18,23 @@ class FunctionTestCase(unittest.TestCase):
         f = -f1
         self.assertIs(type(f), UnaryOpFunction)
         self.assertIs(f.a, f1)
-        self.assertEqual(f.selector, 'neg')
+        self.assertIs(f.selector, operator.neg)
         self.assertEqual(f(), -2)
         f = +f1
         self.assertIs(type(f), UnaryOpFunction)
         self.assertIs(f.a, f1)
-        self.assertEqual(f.selector, 'pos')
+        self.assertIs(f.selector, operator.pos)
         self.assertEqual(f(), 2)
         f = abs(-f1)
         self.assertIs(type(f), UnaryOpFunction)
         self.assertIs(type(f.a), UnaryOpFunction)
         self.assertIs(f.a.a, f1)
-        self.assertEqual(f.selector, 'abs')
+        self.assertIs(f.selector, operator.abs)
         self.assertEqual(f(), 2)
         f = ~f1
         self.assertIs(type(f), UnaryOpFunction)
         self.assertIs(f.a, f1)
-        self.assertEqual(f.selector, 'invert')
+        self.assertIs(f.selector, operator.invert)
         self.assertEqual(f(), ~2)
 
         # builtins
@@ -44,7 +45,10 @@ class FunctionTestCase(unittest.TestCase):
         for op in unops:
             f = getattr(f1, op)()
             try:
-                self.assertIs(type(f), UnaryOpFunction)
+                if op == 'log':
+                    self.assertIs(type(f), NAryOpFunction)
+                else:
+                    self.assertIs(type(f), UnaryOpFunction)
                 self.assertIs(f.a, f1)
                 self.assertEqual(f.selector, getattr(bi, op))
                 self.assertEqual(f(), getattr(bi, op)(res))
@@ -77,49 +81,49 @@ class FunctionTestCase(unittest.TestCase):
         self.assertEqual(f1(), 2)
         self.assertEqual(f2(), 10)
         f = f1 + f2
-        assert_type_ab_selector(f, f1, f2, 'add')
+        assert_type_ab_selector(f, f1, f2, operator.add)
         self.assertEqual(f(), f1() + f2())
         f = f1 + 10
-        assert_type_ab_selector(f, f1, 10, 'add')
+        assert_type_ab_selector(f, f1, 10, operator.add)
         self.assertEqual(f(), f1() + 10)
         f = 2 + f2
-        assert_type_ab_selector(f, 2, f2, 'add')
+        assert_type_ab_selector(f, 2, f2, operator.add)
         self.assertEqual(f(), 2 + f2())
         f = f1 - f2
-        assert_type_ab_selector(f, f1, f2, 'sub')
+        assert_type_ab_selector(f, f1, f2, operator.sub)
         self.assertEqual(f(), f1() - f2())
         f = f1 - 10
-        assert_type_ab_selector(f, f1, 10, 'sub')
+        assert_type_ab_selector(f, f1, 10, operator.sub)
         self.assertEqual(f(), f1() - 10)
         f = 2 - f2
-        assert_type_ab_selector(f, 2, f2, 'sub')
+        assert_type_ab_selector(f, 2, f2, operator.sub)
         self.assertEqual(f(), 2 - f2())
         f = f1 * f2
-        assert_type_ab_selector(f, f1, f2, 'mul')
+        assert_type_ab_selector(f, f1, f2, operator.mul)
         self.assertEqual(f(), f1() * f2())
         f = f1 * 10
-        assert_type_ab_selector(f, f1, 10, 'mul')
+        assert_type_ab_selector(f, f1, 10, operator.mul)
         self.assertEqual(f(), f1() * 10)
         f = 2 * f2
-        assert_type_ab_selector(f, 2, f2, 'mul')
+        assert_type_ab_selector(f, 2, f2, operator.mul)
         self.assertEqual(f(), 2 * f2())
         f = f1 / f2
-        assert_type_ab_selector(f, f1, f2, 'truediv')
+        assert_type_ab_selector(f, f1, f2, operator.truediv)
         self.assertEqual(f(), f1() / f2())
         f = f1 / 10
-        assert_type_ab_selector(f, f1, 10, 'truediv')
+        assert_type_ab_selector(f, f1, 10, operator.truediv)
         self.assertEqual(f(), f1() / 10)
         f = 2 / f2
-        assert_type_ab_selector(f, 2, f2, 'truediv')
+        assert_type_ab_selector(f, 2, f2, operator.truediv)
         self.assertEqual(f(), 2 / f2())
         f = f1 // f2
-        assert_type_ab_selector(f, f1, f2, 'floordiv')
+        assert_type_ab_selector(f, f1, f2, operator.floordiv)
         self.assertEqual(f(), f1() // f2())
         f = f1 // 10
-        assert_type_ab_selector(f, f1, 10, 'floordiv')
+        assert_type_ab_selector(f, f1, 10, operator.floordiv)
         self.assertEqual(f(), f1() // 10)
         f = 2 // f2
-        assert_type_ab_selector(f, 2, f2, 'floordiv')
+        assert_type_ab_selector(f, 2, f2, operator.floordiv)
         self.assertEqual(f(), 2 // f2())
 
         f = f1 % f2

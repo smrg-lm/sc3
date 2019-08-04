@@ -117,11 +117,8 @@ class UnaryOpStream(Stream):
         self.a = a
 
     def next(self, inval=None):
-        a = self.a.next(inval) # NOTE: tira StopStream
-        if hasattr(self.selector, '__scbuiltin__'):
-            return self.selector(a)
-        else:
-            return getattr(a, self.selector)()
+        a = self.a.next(inval)  # raises StopStream
+        return self.selector(a)
 
     def reset(self):
         self.a.reset()
@@ -136,15 +133,9 @@ class BinaryOpStream(Stream):
         self.b = b
 
     def next(self, inval=None):
-        a = self.a.next(inval) # NOTE: tira StopStream
+        a = self.a.next(inval)  # raises StopStream
         b = self.b.next(inval)
-        if hasattr(self.selector, '__scbuiltin__'):
-            return self.selector(a, b)
-        else:
-            ret = getattr(a, self.selector)(b)
-            if ret is NotImplemented and type(a) is int and type(b) is float: # BUG: ver cuál era el caso de este problema
-                return getattr(float(a), self.selector)(b)
-            return ret
+        return self.selector(a, b)
 
     def reset(self):
         self.a.reset()
@@ -160,16 +151,13 @@ class NAryOpStream(Stream):
         self.args = args # BUG: cambié el nombres arglist, no uso la optimización isNumeric, todos los args son stream (convertidos en la llamada)
 
     def next(self, inval=None):
-        a = self.a.next(inval) # NOTE: tira StopStream
+        a = self.a.next(inval)  # raises StopStream
         args = []
         res = None
         for item in self.args:
-            res = item.next(inval) # NOTE: tira StopStream
+            res = item.next(inval)  # raises StopStream
             args.append(res)
-        if hasattr(self.selector, '__scbuiltin__'):
-            return self.selector(a, *args)
-        else:
-            return getattr(a, self.selector)(*args)
+        return self.selector(a, *args)
 
     def reset(self):
         self.a.reset()

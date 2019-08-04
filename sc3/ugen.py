@@ -2,6 +2,7 @@
 
 import struct
 import inspect
+import operator
 
 from . import functions as fn
 from . import _global as _gl
@@ -38,53 +39,53 @@ class ChannelList(list):
     # unary operators
 
     def __neg__(self):
-        return utl.list_unop('neg', self, type(self)) # -
+        return utl.list_unop(operator.neg, self, type(self))  # -
 
     def __pos__(self):
-        return utl.list_unop('pos', self, type(self)) # +
+        return utl.list_unop(operator.pos, self, type(self))  # +
 
     def __abs__(self):
-        return utl.list_unop('abs', self, type(self)) # abs()
+        return utl.list_unop(operator.abs, self, type(self))  # abs()
 
     def __invert__(self):
-        return utl.list_unop('invert', self, type(self)) # ~ bitwise inverse, depende de la representación
+        return utl.list_unop(operator.invert, self, type(self))  # ~ bitwise inverse
 
     # TODO: as AbstractFunction or def __getattr__(self, name):
 
     # binary operators
 
     def __add__(self, other):  # +
-        return utl.list_binop('add', self, other, type(self))
+        return utl.list_binop(operator.add, self, other, type(self))
 
     def __radd__(self, other):
-        return utl.list_binop('add', other, self, type(self))
+        return utl.list_binop(operator.add, other, self, type(self))
 
     def __sub__(self, other):  # -
-        return utl.list_binop('sub', self, other, type(self))
+        return utl.list_binop(operator.sub, self, other, type(self))
 
     def __rsub__(self, other):
-        return utl.list_binop('sub', other, self, type(self))
+        return utl.list_binop(operator.sub, other, self, type(self))
 
     def __mul__(self, other):  # *
-        return utl.list_binop('mul', self, other, type(self))
+        return utl.list_binop(operator.mul, self, other, type(self))
 
     def __rmul__(self, other):
-        return utl.list_binop('mul', other, self, type(self))
+        return utl.list_binop(operator.mul, other, self, type(self))
 
     # # def __matmul__(self, other):  # @
     # # def __rmatmul__(self, other):
 
     def __truediv__(self, other):  # /
-        return utl.list_binop('truediv', self, other, type(self))
+        return utl.list_binop(operator.truediv, self, other, type(self))
 
     def __rtruediv__(self, other):
-        return utl.list_binop('truediv', other, self, type(self))
+        return utl.list_binop(operator.truediv, other, self, type(self))
 
     def __floordiv__(self, other):  # //
-        return utl.list_binop('floordiv', self, other, type(self))
+        return utl.list_binop(operator.floordiv, self, other, type(self))
 
     def __rfloordiv__(self, other):
-        return utl.list_binop('floordiv', other, self, type(self))
+        return utl.list_binop(operator.floordiv, other, self, type(self))
 
     def __mod__(self, other):  # %
         return utl.list_binop(bi.mod, self, other, type(self))
@@ -96,40 +97,40 @@ class ChannelList(list):
     # # def __rdivmod__(self, other):
 
     def __pow__(self, other):  # pow(), **, object.__pow__(self, other[, modulo])
-        return utl.list_binop('pow', self, other, type(self))
+        return utl.list_binop(operator.pow, self, other, type(self))
 
     def __rpow__(self, other):
-        return utl.list_binop('pow', other, self, type(self))
+        return utl.list_binop(operator.pow, other, self, type(self))
 
     def __lshift__(self, other):  # <<
-        return utl.list_binop('lshift', self, other, type(self))
+        return utl.list_binop(operator.lshift, self, other, type(self))
 
     def __rlshift__(self, other):
-        return utl.list_binop('lshift', other, self, type(self))
+        return utl.list_binop(operator.lshift, other, self, type(self))
 
     def __rshift__(self, other):  # >>
-        return utl.list_binop('rshift', self, other, type(self))
+        return utl.list_binop(operator.rshift, self, other, type(self))
 
     def __rrshift__(self, other):
-        return utl.list_binop('rshift', other, self, type(self))
+        return utl.list_binop(operator.rshift, other, self, type(self))
 
     def __and__(self, other):  # &
-        return utl.list_binop('and', self, other, type(self))
+        return utl.list_binop(operator.and_, self, other, type(self))
 
     def __rand__(self, other):
-        return utl.list_binop('and', other, self, type(self))
+        return utl.list_binop(operator.and_, other, self, type(self))
 
     def __xor__(self, other):  # ^
-        return utl.list_binop('xor', self, other, type(self))
+        return utl.list_binop(operator.xor, self, other, type(self))
 
     def __rxor__(self, other):
-        return utl.list_binop('xor', other, self, type(self))
+        return utl.list_binop(operator.xor, other, self, type(self))
 
     def __or__(self, other):  # |
-        return utl.list_binop('or', self, other, type(self))
+        return utl.list_binop(operator.or_, self, other, type(self))
 
     def __ror__(self, other):
-        return utl.list_binop('or', other, self, type(self))
+        return utl.list_binop(operator.or_, other, self, type(self))
 
     # nary operators
 
@@ -396,15 +397,16 @@ class UGen(fn.AbstractFunction):
     ### AbstractFunction interface ###
 
     def compose_unop(self, selector):
+        selector = _si.sc_opname(selector.__name__)
         return UnaryOpUGen.new(selector, self)
 
     def compose_binop(self, selector, input):
         param = gpp.ugen_param(input)
         if param.is_valid_ugen_input():
+            selector = _si.sc_opname(selector.__name__)
             return BinaryOpUGen.new(selector, self, input)
         else:
-            param.perform_binary_op_on_ugen(selector, self) # *** BUG: No entiendo por qué no retorna en sclang, si va por else siempre devuelve self.
-        return self
+            return param.perform_binary_op_on_ugen(selector, self) # *** BUG: in scalng does not return?
 
     def rcompose_binop(self, selector, ugen):
         return BinaryOpUGen.new(selector, ugen, self)

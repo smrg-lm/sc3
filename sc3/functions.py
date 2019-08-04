@@ -2,6 +2,7 @@
 
 import inspect
 import operator
+import math
 
 from . import builtins as bi # TODO: TEST, ver abajo.
 from . import graphparam as gpp
@@ -33,50 +34,59 @@ class AbstractFunction(gpp.UGenParameter):
         return NAryOpFunction(selector, self, *args)
 
 
-    # TODO: ver módulo operator: https://docs.python.org/3/library/operator.html
-    # No estoy implementando los métodos inplace (e.g. a += b), por defecto
-    # cae en la implementación de __add__ y __radd__, por ejemplo.
-    # Además el módulo provee funciones para las operaciones sobre tipos integrados,
-    # ver cuáles sí implementa y sin funcionan mediante los métodos mágicos.
-
-    # https://docs.python.org/3/library/operator.html
-    # Categories: object comparison, logical operations, mathematical operations and sequence operations
-
-
-    # unary operators
+    ### Unary operators ###
 
     def __neg__(self):
-        return self.compose_unop('neg') # -
+        return self.compose_unop(operator.neg)  # -
 
     def __pos__(self):
-        return self.compose_unop('pos') # + # BUG: no está en _specialindex
+        return self.compose_unop(operator.pos)  # + (not in _specialindex)
 
     def __abs__(self):
-        return self.compose_unop('abs') # abs()
+        return self.compose_unop(operator.abs)  # abs()
 
     def __invert__(self):
-        return self.compose_unop('invert') # ~ bitwise inverse, depende de la representación
+        return self.compose_unop(operator.invert)  # ~ (bitwise inverse)
 
-    # conversion
-    # def __complex__(self): # builtin complex() # TODO: acá las builtins llamam directamente al método mágico, pero estas funciones tienen que retornar un objeto del tipo, no pueden retornar una función abstracta, y deberían evaluar la función perdiendo su lazzyness
-    #     return self.compose_unop('__complex__')
-    # def __int__(self): # builtin int()
-    #     return self.compose_unop('__int__')
-    # def __float__(self): # builtin float()
-    #     return self.compose_unop('__float__')
-    # object.__index__(self) # tiene que retornar int
-    # Python's builtin round and math trunc/floor/ceil
-    # def __round__(self): # TODO: object.__round__(self[, ndigits]) OPERADOR UNARIO QUE RECIBE ARGUMENTOS.
-    #     return self.compose_unop('__round__')
-    # def __trunc__(self):
-    #     return self.compose_unop('__trunc__')
-    # def __floor__(self):
-    #     return self.compose_unop('__floor__')
-    # def __ceil__(self):
-    #     return self.compose_unop('__ceil__')
 
-    def log(self): # BUG [,base] ES BINARIO, LO MISMO QUE PASA CON POW
-        return self.compose_unop(bi.log)
+    # Python's numeric type conversion
+
+    def __complex__(self):
+        raise NotImplementedError()
+
+    def __int__(self):
+        raise NotImplementedError()
+
+    def __float__(self):
+        raise NotImplementedError()
+
+
+    # Python's builtin round and math trunc/floor/ceil.
+
+    def __round__(self, *ndigits):
+        return self.compose_narop(round, *ndigits)  # sclang binary
+
+    def __trunc__(self):
+        return self.compose_unop(math.trunc)  # BUG: sclang binary, possible si problem
+
+    def __floor__(self):
+        return self.compose_unop(math.floor)
+
+    def __ceil__(self):
+        return self.compose_unop(math.ceil)
+
+
+    def reciprocal(self):
+        return self.compose_unop(bi.reciprocal)
+
+    def frac(self):
+        return self.compose_unop(bi.frac)
+
+    def sign(self):
+        return self.compose_unop(bi.sign)
+
+    def log(self, *base):
+        return self.compose_narop(bi.log, *base)  # BUG: sclang unary, possible si problem
 
     def log2(self):
         return self.compose_unop(bi.log2)
@@ -159,50 +169,87 @@ class AbstractFunction(gpp.UGenParameter):
     def sqrt(self):
         return self.compose_unop(bi.sqrt)
 
-    # TODO: FALTA, SEGUIR LA INTERFAZ DE ABSTRACTFUNCTION EN SCLANG,
-    # E IR COMPROBANDO LOS MÉTODOS.
+    # rand
+    # rand2
+    # linrand
+    # bilinrand
+    # sum3rand
+
+    def distort(self):
+        return self.compose_unop(bi.distort)
+
+    def softclip(self):
+        return self.compose_unop(bi.softclip)
+
+    # coin
+    # even
+    # odd
+
+    def rectwindow(self):
+        return self.compose_unop(bi.rectwindow)
+
+    def hanwindow(self):
+        return self.compose_unop(bi.hanwindow)
+
+    def welwindow(self):
+        return self.compose_unop(bi.welwindow)
+
+    def triwindow(self):
+        return self.compose_unop(bi.triwindow)
+
+    def scurve(self):
+        return self.compose_unop(bi.scurve)
+
+    def ramp(self):
+        return self.compose_unop(bi.ramp)
+
+    # isPositive
+    # isNegative
+    # isStrictlyPositive
+
+    # rho
+    # theta
+    # rotate
+    # dist
 
 
-    # binary operators
+    ### Binary operators ###
 
-    # Mathematical operations
-    # https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations
-    # https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
     def __add__(self, other): # +
-        return self.compose_binop('add', other)
+        return self.compose_binop(operator.add, other)
 
     def __radd__(self, other):
-        return self.rcompose_binop('add', other)
+        return self.rcompose_binop(operator.add, other)
 
     def __sub__(self, other): # -
-        return self.compose_binop('sub', other)
+        return self.compose_binop(operator.sub, other)
 
     def __rsub__(self, other):
-        return self.rcompose_binop('sub', other)
+        return self.rcompose_binop(operator.sub, other)
 
     def __mul__(self, other): # *
-        return self.compose_binop('mul', other)
+        return self.compose_binop(operator.mul, other)
 
     def __rmul__(self, other):
-        return self.rcompose_binop('mul', other)
+        return self.rcompose_binop(operator.mul, other)
 
     # def __matmul__(self, other): # @
-    #     return self.compose_binop('matmul', other)
+    #     return self.compose_binop(operator.matmul, other)
 
     # def __rmatmul__(self, other):
-    #     return self.rcompose_binop('matmul', other)
+    #     return self.rcompose_binop(operator.matmul, other)
 
     def __truediv__(self, other): # /
-        return self.compose_binop('truediv', other)
+        return self.compose_binop(operator.truediv, other)
 
     def __rtruediv__(self, other):
-        return self.rcompose_binop('truediv', other)
+        return self.rcompose_binop(operator.truediv, other)
 
     def __floordiv__(self, other): # //
-        return self.compose_binop('floordiv', other)
+        return self.compose_binop(operator.floordiv, other)
 
     def __rfloordiv__(self, other):
-        return self.rcompose_binop('floordiv', other)
+        return self.rcompose_binop(operator.floordiv, other)
 
     def __mod__(self, other): # %
         return self.compose_binop(bi.mod, other)
@@ -217,72 +264,132 @@ class AbstractFunction(gpp.UGenParameter):
     #     return self.rcompose_binop('divmod', other)
 
     def __pow__(self, other): # pow(), **, object.__pow__(self, other[, modulo])
-        return self.compose_binop('pow', other)
+        return self.compose_binop(operator.pow, other)
 
     def __rpow__(self, other):
-        return self.rcompose_binop('pow', other)
+        return self.rcompose_binop(operator.pow, other)
 
     def __lshift__(self, other): # <<
-        return self.compose_binop('lshift', other)
+        return self.compose_binop(operator.lshift, other)
 
     def __rlshift__(self, other):
-        return self.rcompose_binop('lshift', other)
+        return self.rcompose_binop(operator.lshift, other)
 
     def __rshift__(self, other): # >>
-        return self.compose_binop('rshift', other)
+        return self.compose_binop(operator.rshift, other)
 
     def __rrshift__(self, other):
-        return self.rcompose_binop('rshift', other)
+        return self.rcompose_binop(operator.rshift, other)
 
     def __and__(self, other): # &
-        return self.compose_binop('and', other)
+        return self.compose_binop(operator.and_, other)
 
     def __rand__(self, other):
-        return self.rcompose_binop('and', other)
+        return self.rcompose_binop(operator.and_, other)
 
     def __xor__(self, other): # ^
-        return self.compose_binop('xor', other)
+        return self.compose_binop(operator.xor, other)
 
     def __rxor__(self, other):
-        return self.rcompose_binop('xor', other)
+        return self.rcompose_binop(operator.xor, other)
 
     def __or__(self, other): # |
-        return self.compose_binop('or', other)
+        return self.compose_binop(operator.or_, other)
 
     def __ror__(self, other):
-        return self.rcompose_binop('or', other)
+        return self.rcompose_binop(operator.or_, other)
 
-    # Values comparison:
-    # https://docs.python.org/3/reference/expressions.html#comparisons
-    # Rich comparison:
-    # https://docs.python.org/3/reference/datamodel.html#object.__lt__
-    # hashable
-    # https://docs.python.org/3/glossary.html#term-hashable
-    # "Hashable objects which compare equal must have the same hash value." (__hash__ y __eq__)
+    # bitHammingDistance  # _HammingDistance -> ./lang/LangPrimSource/PyrBitPrim.cpp
 
     def __lt__(self, other): # <
-        return self.compose_binop('__lt__', other)
+        return self.compose_binop(operator.lt, other)
 
     def __le__(self, other): # <=
-        return self.compose_binop('__le__', other)
+        return self.compose_binop(operator.le, other)
 
-    # def __eq__(self, other): # == # ESTE MÉTODO NO SE IMPLEMENTA NI EN AbstractFunction NI EN UGen. Aunque está en la tabla de ops.
-    #     return self.compose_binop('__eq__', other)
+    # def __eq__(self, other):  # == (used in ugen dispatch, performBinaryOpOnUGen -> Object.performBinaryOpOnSomething)
+    #     return self.compose_binop(operator.eq, other)
 
-    # def __ne__(self, other): # != # ESTE MÉTODO NO SE IMPLEMENTA NI EN AbstractFunction NI EN UGen. Aunque está en la tabla de ops.
-    #     return self.compose_binop('__ne__', other)
+    # def __ne__(self, other):  # != # (used in ugen dispatch, performBinaryOpOnUGen -> Object.performBinaryOpOnSomething)
+    #     return self.compose_binop(operator.ne, other)
 
     def __gt__(self, other): # >
-        return self.compose_binop('__gt__', other)
+        return self.compose_binop(operator.gt, other)
 
     def __ge__(self, other): # >=
-        return self.compose_binop('__ge__', other)
+        return self.compose_binop(operator.ge, other)
 
 
-    # nary operators
+    def lcm(self, other):
+        return self.compose_binop(bi.lcm, other)
 
-    # TODO: los operadores enarios deberían ser implementados por duplicado
-    # como las funciones incluidas para los tipos numéricos. VER MIDICPS Y MOD ARRIBA.
+    def gcd(self, other):
+        return self.compose_binop(bi.gcd, other)
+
+    def atan2(self, other):
+        return self.compose_binop(bi.atan2, other)
+
+    def hypot(self, other):
+        return self.compose_binop(math.hypot, other)
+
+    def hypotx(self, other):
+        return self.compose_binop(bi.hypotx, other)
+
+    def ring1(self, other):
+        return self.compose_binop(bi.ring1, other)
+
+    def ring2(self, other):
+        return self.compose_binop(bi.ring2, other)
+
+    def ring3(self, other):
+        return self.compose_binop(bi.ring3, other)
+
+    def ring4(self, other):
+        return self.compose_binop(bi.ring4, other)
+
+    def difsqr(self, other):
+        return self.compose_binop(bi.difsqr, other)
+
+    def sumsqr(self, other):
+        return self.compose_binop(bi.sumsqr, other)
+
+    def sqrsum(self, other):
+        return self.compose_binop(bi.sqrsum, other)
+
+    def sqrdif(self, other):
+        return self.compose_binop(bi.sqrdif, other)
+
+    def absdif(self, other):
+        return self.compose_binop(bi.absdif, other)
+
+    def thresh(self, other):
+        return self.compose_binop(bi.thresh, other)
+
+    def amclip(self, other):
+        return self.compose_binop(bi.amclip, other)
+
+    def scaleneg(self, other):
+        return self.compose_binop(bi.scaleneg, other)
+
+    def clip2(self, other):
+        return self.compose_binop(bi.clip2, other)
+
+    def fold2(self, other):
+        return self.compose_binop(bi.fold2, other)
+
+    def wrap2(self, other):
+        return self.compose_binop(bi.wrap2, other)
+
+    def excess(self, other):
+        return self.compose_binop(bi.excess, other)
+
+    # firstArg -> _FirstArg -> SetRaw(a, slotRawObject(a));
+    # rrand (needs scrandom)
+    # exprand
+    # boolean operations
+
+
+    ### Nary operators ###
 
     def clip(self, lo, hi):
         return self.compose_narop(bi.clip, lo, hi)
@@ -293,7 +400,53 @@ class AbstractFunction(gpp.UGenParameter):
     def fold(self, lo, hi):
         return self.compose_narop(bi.fold, lo, hi)
 
-    # TODO...
+    def blend(self, other, frac=0.5):
+        return self.compose_narop(bi.blend, frac)
+
+    def linlin(self, in_min, in_max, out_min, out_max, clip='minmax'):
+        return self.compose_narop(bi.linlin, in_min, in_max, out_min, out_max,
+                                  clip)
+
+    def linexp(self, in_min, in_max, out_min, out_max, clip='minmax'):
+        return self.compose_narop(bi.linexp, in_min, in_max, out_min, out_max,
+                                  clip)
+
+    def explin(self, in_min, in_max, out_min, out_max, clip='minmax'):
+        return self.compose_narop(bi.explin, in_min, in_max, out_min, out_max,
+                                  clip)
+
+    def expexp(self, in_min, in_max, out_min, out_max, clip='minmax'):
+        return self.compose_narop(bi.expexp, in_min, in_max, out_min, out_max,
+                                  clip)
+
+    def lincurve(self, in_min, in_max, out_min, out_max, curve=-4,
+                 clip='minmax'):
+        return self.compose_narop(bi.lincurve, in_min, in_max, out_min,
+                                  out_max, curve, clip)
+
+    def curvelin(self, in_min, in_max, out_min, out_max, curve=-4,
+                 clip='minmax'):
+        return self.compose_narop(bi.curvelin, in_min, in_max, out_min,
+                                  out_max, curve, clip)
+
+    def bilin(self, in_center, in_min, in_max, out_center, out_min, out_max,
+              clip='minmax'):
+        return self.compose_narop(bi.bilin, in_center, in_min, in_max,
+                                  out_center, out_min, out_max, clip)
+
+    def biexp(self, in_center, in_min, in_max, out_center, out_min, out_max,
+              clip='minmax'):
+        return self.compose_narop(bi.biexp, in_center, in_min, in_max,
+                                  out_center, out_min, out_max, clip)
+
+    # moddif (circle distance)
+    # degreeToKey
+    # degrad (unary)
+    # raddeg (unary)
+
+    # applyTo
+    # <> function composition
+    # sampled
 
 
     ### UGen graph parameter interface ###
@@ -320,10 +473,7 @@ class UnaryOpFunction(AbstractFunction):
         self.a = a
 
     def __call__(self, *args, **kwargs):
-        if hasattr(self.selector, '__scbuiltin__'):
-            return self.selector(self.a(*args, **kwargs))
-        else:
-            return getattr(operator, self.selector)(self.a(*args, **kwargs))
+        return self.selector(self.a(*args, **kwargs))
 
 
 class BinaryOpFunction(AbstractFunction):
@@ -335,10 +485,7 @@ class BinaryOpFunction(AbstractFunction):
     def __call__(self, *args, **kwargs):
         a_value = self.a(*args, **kwargs) if callable(self.a) else self.a
         b_value = self.b(*args, **kwargs) if callable(self.b) else self.b
-        if hasattr(self.selector, '__scbuiltin__'):
-            return self.selector(a_value, b_value) # los scbuiltins se encargan de los tipos, incluso AbstractFunction (problema para posible cythonización)
-        else:
-            return getattr(operator, self.selector)(a_value, b_value)
+        return self.selector(a_value, b_value)
 
 
 class NAryOpFunction(AbstractFunction):
@@ -350,11 +497,7 @@ class NAryOpFunction(AbstractFunction):
     def __call__(self, *args, **kwargs):
         evaluated_args = [x(*args, **kwargs) if isinstance(x, Function) else x\
                           for x in self.args]
-        if hasattr(self.selector, '__scbuiltin__'):
-            return self.selector(self.a(*args, **kwargs), *evaluated_args)
-        else:
-            raise Exception(f'*** BUG: nary op {self.selector} is not in builtins')
-            # return getattr(self.a(*args, **kwargs), self.selector)(*evaluated_args)  # *** BUG: narop would be just Python methods.
+        return self.selector(self.a(*args, **kwargs), *evaluated_args)
 
 
 # class FunctionList(AbstractFunction):

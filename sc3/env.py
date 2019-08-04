@@ -283,7 +283,7 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
             contents.append(type(self)._shape_number(curves[i % len(curves)]))
             contents.append(type(self)._curve_value(curves[i % len(curves)]))
 
-        self._envgen_format = utl.flop(contents)
+        self._envgen_format = [tuple(i) for i in utl.flop(contents)]
         return self._envgen_format
 
     def interpolation_format(self):
@@ -309,7 +309,7 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
             contents.append(type(self)._curve_value(curves[i % len(curves)]))
             contents.append(levels[i + 1])
 
-        self._interpolation_format = utl.flop(contents)
+        self._interpolation_format = [tuple(i) for i in utl.flop(contents)]
         return self._interpolation_format
 
     ### UGen graph parameter interface ###

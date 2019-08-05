@@ -403,41 +403,35 @@ class AbstractFunction(gpp.UGenParameter):
     def blend(self, other, frac=0.5):
         return self.compose_narop(bi.blend, frac)
 
-    def linlin(self, in_min, in_max, out_min, out_max, clip='minmax'):
-        return self.compose_narop(bi.linlin, in_min, in_max, out_min, out_max,
-                                  clip)
+    def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return self.compose_narop(bi.linlin, inmin, inmax, outmin, outmax, clip)
 
-    def linexp(self, in_min, in_max, out_min, out_max, clip='minmax'):
-        return self.compose_narop(bi.linexp, in_min, in_max, out_min, out_max,
-                                  clip)
+    def linexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return self.compose_narop(bi.linexp, inmin, inmax, outmin, outmax, clip)
 
-    def explin(self, in_min, in_max, out_min, out_max, clip='minmax'):
-        return self.compose_narop(bi.explin, in_min, in_max, out_min, out_max,
-                                  clip)
+    def explin(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return self.compose_narop(bi.explin, inmin, inmax, outmin, outmax, clip)
 
-    def expexp(self, in_min, in_max, out_min, out_max, clip='minmax'):
-        return self.compose_narop(bi.expexp, in_min, in_max, out_min, out_max,
-                                  clip)
+    def expexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return self.compose_narop(bi.expexp, inmin, inmax, outmin, outmax, clip)
 
-    def lincurve(self, in_min, in_max, out_min, out_max, curve=-4,
-                 clip='minmax'):
-        return self.compose_narop(bi.lincurve, in_min, in_max, out_min,
-                                  out_max, curve, clip)
+    def lincurve(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
+        return self.compose_narop(bi.lincurve, inmin, inmax, outmin, outmax,
+                                  curve, clip)
 
-    def curvelin(self, in_min, in_max, out_min, out_max, curve=-4,
-                 clip='minmax'):
-        return self.compose_narop(bi.curvelin, in_min, in_max, out_min,
-                                  out_max, curve, clip)
+    def curvelin(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
+        return self.compose_narop(bi.curvelin, inmin, inmax, outmin, outmax,
+                                  curve, clip)
 
-    def bilin(self, in_center, in_min, in_max, out_center, out_min, out_max,
+    def bilin(self, incenter, inmin, inmax, outcenter, outmin, outmax,
               clip='minmax'):
-        return self.compose_narop(bi.bilin, in_center, in_min, in_max,
-                                  out_center, out_min, out_max, clip)
+        return self.compose_narop(bi.bilin, incenter, inmin, inmax,
+                                  outcenter, outmin, outmax, clip)
 
-    def biexp(self, in_center, in_min, in_max, out_center, out_min, out_max,
+    def biexp(self, incenter, inmin, inmax, outcenter, outmin, outmax,
               clip='minmax'):
-        return self.compose_narop(bi.biexp, in_center, in_min, in_max,
-                                  out_center, out_min, out_max, clip)
+        return self.compose_narop(bi.biexp, incenter, inmin, inmax,
+                                  outcenter, outmin, outmax, clip)
 
     # moddif (circle distance)
     # degreeToKey

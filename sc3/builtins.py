@@ -901,8 +901,7 @@ def curvelin(x, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
     b = inmin + a
     return math.log((b - x) / a, math.e) * (outmax - outmin) / curve + outmin
 
-def bilin(x, incenter, inmin, inmax, out_center, outmin, outmax,
-          clip='minmax'):
+def bilin(x, incenter, inmin, inmax, outcenter, outmin, outmax, clip='minmax'):
     if clip == 'minmax':
         if x <= inmin: return outmin
         if x >= inmax: return outmax
@@ -915,8 +914,7 @@ def bilin(x, incenter, inmin, inmax, out_center, outmin, outmax,
     else:
         return linlin(inmin, incenter, outmin, outcenter, None)
 
-def biexp(x, incenter, inmin, inmax, out_center, outmin, outmax,
-          clip='minmax'):
+def biexp(x, incenter, inmin, inmax, outcenter, outmin, outmax, clip='minmax'):
     if clip == 'minmax':
         if x <= inmin: return outmin
         if x >= inmax: return outmax

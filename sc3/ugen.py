@@ -43,10 +43,13 @@ class ChannelList(list, fn.AbstractFunction):
 
     ### UGen interface ###
 
+    def dup(self, n=2):
+        return ChannelList([self] * n)
+
     def madd(self, mul=1.0, add=0.0):
         return type(self)(MulAdd.new(i, mul, add) for i in self)
 
-    # TODO: ver el resto, qué falta que implementa array y se usa en el grafo.
+    # *** TODO: creo que solo es necesario agregar las que pertenecen a UGen y no están en AbstractFunction.
 
 
     ### Override list methods ###
@@ -98,7 +101,7 @@ class UGen(fn.AbstractFunction):
 
     _valid_rates = {'audio', 'control', 'demand', 'scalar'}
 
-    def __init__(self): # OJO: Las subclases de UGen no pueden implementar __init___ !!!
+    def __init__(self):  # Do not override.
         self.inputs = ()  # Always tuple.
         self.rate = 'audio'
         # atributos de instancia privados
@@ -164,9 +167,6 @@ class UGen(fn.AbstractFunction):
         if string not in cls._valid_rates:
             raise ValueError(f"{cls.__name__} invalid rate: '{string}'")
 
-    # VER: mutabilidad. *** Este método lo sobreescriben las subclases y se llama en _new1 que se llama desde multiNewList ***
-    # simplemente hace lo que se ve, guarda las entradas como un Array. Se llama después de setear rate y synthDef (a través de addToSynth)
-    # Pero en control names guarda otra cosa... creo que las salidas, o los índices de los controles, no sé.
     def _init_ugen(self, *inputs):
         '''
         This method is called by _new1 that uses its return value. It must
@@ -185,19 +185,114 @@ class UGen(fn.AbstractFunction):
         obj.special_index = special_index
         return obj
 
-    # // You can't really copy a UGen without disturbing the Synth.
-    # // Usually you want the same object. This makes .dup work.
-    # L45
-    # def copy(self): # se usa con dup en sclang SinOsc.ar!2 opuesto a { SinOsc.ar }!2
-    #     return self
-    # def __copy__(self): # para Lib/copy.py module, ver si tiene utilidad
-    #     return self
-    # def dup(self, n): # TODO: VER [1] * n, que es el equivalente a dup en Python
-        # return [self] * n
+    def __copy__(self):
+        # // You can't really copy a UGen without disturbing the Synth.
+        # // Usually you want the same object.
+        return self
 
-    # Desde L51 hasta L284 son, más que nada, métodos de operaciones
-    # mátemáticas que aplican las ugens correspondientes, el mismo
-    # principio de AbstractFunction aplicados a los ugengraphs.
+    def dup(self, n=2):
+        return ChannelList([self] * n)
+
+    def madd(self, mul=1.0, add=0.0):
+        return MulAdd.new(self, mul, add)
+
+    def range(self, lo=0.0, hi=1.0):
+        ...
+
+    def exprange(self, lo=0.01, hi=1.0):
+        ...
+
+    def curverange(self, lo=0.0, hi=1.0, curve=-4):
+        ...
+
+    def unipolar(self, mul=1):
+        ...
+
+    def bipolar(self, mul=1):
+        ...
+
+    def clip(self, lo=0.0, hi=1.0):
+        ...
+
+    def fold(self, lo=0.0, hi=0.0):
+        ...
+
+    def wrap(self, lo=0.0, hi=1.0):
+        ...
+
+    def degrad(self):
+        return self * (bi.pi / 180)
+
+    def raddeg(self):
+        return self * (180 / bi.pi)
+
+    def blend(self, other, frac=0.5):
+        ...
+
+    def min_nyquist(self):
+        ...
+
+    def lag(self, t1=0.1, t2=None):  # *** BUG: es redundante que llame a los lagud por t2.
+        ...
+
+    def lag2(self, t1=0.1, t2=None):  # *** BUG: es redundante que llame a los lagud por t2.
+        ...
+
+    def lag3(self, t1=0.1, t2=None):  # *** BUG: es redundante que llame a los lagud por t2.
+        ...
+
+    def lagud(self, utime=0.1, dtime=0.1):
+        ...
+
+    def lag2ud(self, utime=0.1, dtime=0.1):
+        ...
+
+    def lag3ud(self, utime=0.1, dtime=0.1):
+        ...
+
+    def varlag(self, time=0.1, curvature=0, wrap=5, start=None):
+        ...
+
+    def slew(self, up=1, down=1):
+        ...
+
+    def prune(self, min, max, type='minmax'):
+        ...
+
+    def snap(self, resolution=1.0, margin=0.05, strengh=1.0):
+        ...
+
+    def softround(self, resolution=1.0, margin=0.05, strengh=1.0):
+        ...
+
+    def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        ...
+
+    def linexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        ...
+
+    def explin(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        ...
+
+    def expexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        ...
+
+    def lincurve(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
+        ...
+
+    def curvelin(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
+        ...
+
+    def bilin(self, incenter, inmin, inmax, outcenter, outmin, outmax,
+              clip='minmax'):
+        ...
+
+    def moddif(self, that=0.0, mod=1.0):
+        ...
+
+    def sanitize(self):
+        ...
+
 
     # L284
     def signal_range(self):
@@ -477,9 +572,6 @@ class UGen(fn.AbstractFunction):
 
 
     ### UGen graph parameter interface ###
-
-    def madd(self, mul=1.0, add=0.0):
-        return MulAdd.new(self, mul, add)
 
     # def is_valid_ugen_input(self):  # BUG: sclang, is True already from AbstractFunction
     #     return True

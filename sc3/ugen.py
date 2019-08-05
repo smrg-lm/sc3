@@ -12,7 +12,7 @@ from . import graphparam as gpp
 from . import builtins as bi
 
 
-class ChannelList(list):
+class ChannelList(list, fn.AbstractFunction):
     '''List wrapper for multichannel expansion graph operations.'''
 
     def __init__(self, obj=None):
@@ -26,6 +26,21 @@ class ChannelList(list):
             super().__init__([obj])
 
 
+    ### AbstractFunction interface ###
+
+    def compose_unop(self, selector):
+        return utl.list_unop(selector, self, type(self))
+
+    def compose_binop(self, selector, other):
+        return utl.list_binop(selector, self, other, type(self))
+
+    def rcompose_binop(self, selector, other):
+        return utl.list_binop(selector, other, self, type(self))
+
+    def compose_narop(self, selector, *args):
+        return utl.list_narop(selector, self, *args, t=type(self))
+
+
     ### UGen interface ###
 
     def madd(self, mul=1.0, add=0.0):
@@ -34,116 +49,40 @@ class ChannelList(list):
     # TODO: ver el resto, qué falta que implementa array y se usa en el grafo.
 
 
-    ### Mathematical operations ###
+    ### Override list methods ###
 
-    # unary operators
+    def __add__(self, other): # +
+        return self.compose_binop(operator.add, other)
 
-    def __neg__(self):
-        return utl.list_unop(operator.neg, self, type(self))  # -
+    def __iadd__(self, other): # +=
+        return self.compose_binop(operator.add, other)
 
-    def __pos__(self):
-        return utl.list_unop(operator.pos, self, type(self))  # +
-
-    def __abs__(self):
-        return utl.list_unop(operator.abs, self, type(self))  # abs()
-
-    def __invert__(self):
-        return utl.list_unop(operator.invert, self, type(self))  # ~ bitwise inverse
-
-    # TODO: as AbstractFunction or def __getattr__(self, name):
-
-    # binary operators
-
-    def __add__(self, other):  # +
-        return utl.list_binop(operator.add, self, other, type(self))
-
-    def __radd__(self, other):
-        return utl.list_binop(operator.add, other, self, type(self))
-
-    def __sub__(self, other):  # -
-        return utl.list_binop(operator.sub, self, other, type(self))
-
-    def __rsub__(self, other):
-        return utl.list_binop(operator.sub, other, self, type(self))
-
-    def __mul__(self, other):  # *
-        return utl.list_binop(operator.mul, self, other, type(self))
+    def __mul__(self, other): # *
+        return self.compose_binop(operator.mul, other)
 
     def __rmul__(self, other):
-        return utl.list_binop(operator.mul, other, self, type(self))
+        return self.rcompose_binop(operator.mul, other)
 
-    # # def __matmul__(self, other):  # @
-    # # def __rmatmul__(self, other):
+    def __imul__(self, other): # *=
+        return self.compose_binop(operator.mul, other)
 
-    def __truediv__(self, other):  # /
-        return utl.list_binop(operator.truediv, self, other, type(self))
+    def __lt__(self, other): # <
+        return self.compose_binop(operator.lt, other)
 
-    def __rtruediv__(self, other):
-        return utl.list_binop(operator.truediv, other, self, type(self))
+    def __le__(self, other): # <=
+        return self.compose_binop(operator.le, other)
 
-    def __floordiv__(self, other):  # //
-        return utl.list_binop(operator.floordiv, self, other, type(self))
+    # def __eq__(self, other):
+    #     return self.compose_binop(operator.eq, other)
 
-    def __rfloordiv__(self, other):
-        return utl.list_binop(operator.floordiv, other, self, type(self))
+    # def __ne__(self, other):
+    #     return self.compose_binop(operator.ne, other)
 
-    def __mod__(self, other):  # %
-        return utl.list_binop(bi.mod, self, other, type(self))
+    def __gt__(self, other): # >
+        return self.compose_binop(operator.gt, other)
 
-    def __rmod__(self, other):
-        return utl.list_binop(bi.mod, other, self, type(self))
-
-    # # def __divmod__(self, other): # divmod(), método integrado
-    # # def __rdivmod__(self, other):
-
-    def __pow__(self, other):  # pow(), **, object.__pow__(self, other[, modulo])
-        return utl.list_binop(operator.pow, self, other, type(self))
-
-    def __rpow__(self, other):
-        return utl.list_binop(operator.pow, other, self, type(self))
-
-    def __lshift__(self, other):  # <<
-        return utl.list_binop(operator.lshift, self, other, type(self))
-
-    def __rlshift__(self, other):
-        return utl.list_binop(operator.lshift, other, self, type(self))
-
-    def __rshift__(self, other):  # >>
-        return utl.list_binop(operator.rshift, self, other, type(self))
-
-    def __rrshift__(self, other):
-        return utl.list_binop(operator.rshift, other, self, type(self))
-
-    def __and__(self, other):  # &
-        return utl.list_binop(operator.and_, self, other, type(self))
-
-    def __rand__(self, other):
-        return utl.list_binop(operator.and_, other, self, type(self))
-
-    def __xor__(self, other):  # ^
-        return utl.list_binop(operator.xor, self, other, type(self))
-
-    def __rxor__(self, other):
-        return utl.list_binop(operator.xor, other, self, type(self))
-
-    def __or__(self, other):  # |
-        return utl.list_binop(operator.or_, self, other, type(self))
-
-    def __ror__(self, other):
-        return utl.list_binop(operator.or_, other, self, type(self))
-
-    # nary operators
-
-    # *** HACK: a bit too much overload, also works for unops, doesn't appear in object __dict__ although they could be created with the object
-    def __getattr__(self, name):
-        print('@@@ HACK: ChannelList.__getattr__')
-        import sc3.builtins as bi
-        from types import MethodType
-        func = lambda self, *args: utl.list_narop(getattr(bi, name), self,
-                                                  *args, t=type(self))
-        func.__name__ = getattr(bi, name).__name__
-        func.__qualname__ = f'{type(self).__name__}.{func.__name__}'
-        return MethodType(func, self)
+    def __ge__(self, other): # >=
+        return self.compose_binop(operator.ge, other)
 
 
     def __repr__(self):

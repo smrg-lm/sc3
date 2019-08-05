@@ -301,7 +301,7 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
         contents.append(levels[0])
         contents.append(size)
         contents.append(utl.list_sum(times))
-        # curvesArray = curves.asArray; # BUG: sclang, overides curvesArray without as_ugen_input.
+        # curvesArray = curves.asArray; # BUG: sclang, overrides curvesArray without as_ugen_input.
 
         for i in range(size):  # BUG: sclang, uses times.size.do instead of size that is timeArray.size that is times.asUGenInput.
             contents.append(times[i])

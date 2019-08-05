@@ -147,6 +147,8 @@ class UGenScalar(UGenParameter):
 
 
 class UGenSequence(UGenParameter):
+    # Same as UGenSequence, keep sync.
+
     @classmethod
     def param_type(cls):
         return (list, tuple)  # tuple prevents multichannel expansion, type must be kept for UGen inputs.

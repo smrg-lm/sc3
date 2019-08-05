@@ -92,6 +92,38 @@ class ChannelList(list, fn.AbstractFunction):
         return f'ChannelList({super().__repr__()})'
 
 
+    ### UGen graph parameter interface ###
+
+    # Same as UGenSequence, keep sync. Problem is that this being an
+    # AbstractFunction makes it an UGenParameter so graph_param will no work.
+
+    def is_valid_ugen_input(self):
+        return True if self else False
+
+    def as_ugen_input(self, *ugen_cls):
+        return type(self)(gpp.ugen_param(x).as_ugen_input(*ugen_cls)\
+                          for x in self)
+
+    def as_control_input(self):
+        return type(self)(gpp.ugen_param(x).as_control_input() for x in self)
+
+    def as_audio_rate_input(self, *ugen_cls):
+        return type(self)(gpp.ugen_param(x).as_audio_rate_input(*ugen_cls)\
+                          for x in self)
+
+    def as_ugen_rate(self):
+        if len(self) == 1:
+            return gpp.ugen_param(self[0]).as_ugen_rate()
+        lst = [gpp.ugen_param(x).as_ugen_rate() for x in self]
+        if not lst or any(x is None for x in lst):
+            return None
+        return min(lst)  # minItem. Rates are in lexicographic order.
+
+    def write_input_spec(self, file, synthdef):
+        for item in self:
+            gpp.ugen_param(item).write_input_spec(file, synthdef)
+
+
 class UGen(fn.AbstractFunction):
     '''
     Subclasses should not use __init__ to implement graph logic, interface

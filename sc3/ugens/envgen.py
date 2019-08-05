@@ -2,6 +2,7 @@
 
 from .. import ugen as ugn
 from .. import env as env
+from .. import utils as utl
 
 
 class Done(ugn.UGen):
@@ -74,7 +75,7 @@ class EnvGen(ugn.UGen):
         or an instance of Env.
         '''
         if isinstance(envelope, env.Env):
-            envelope = envelope.envgen_format()
+            envelope = utl.unbubble(envelope.envgen_format())  # Was as_multichannel_list.
         return cls._multi_new('audio', gate, level_scale, level_bias,
                               time_scale, done_action, envelope)
 
@@ -86,7 +87,7 @@ class EnvGen(ugn.UGen):
         or an instance of Env.
         '''
         if isinstance(envelope, env.Env):
-            envelope = envelope.envgen_format()  # Was as_multichannel_list.
+            envelope = utl.unbubble(envelope.envgen_format())  # Was as_multichannel_list.
         return cls._multi_new('control', gate, level_scale, level_bias,
                               time_scale, done_action, envelope)
 

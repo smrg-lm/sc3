@@ -12,6 +12,13 @@ from . import graphparam as gpp
 from . import builtins as bi
 
 
+def late_imports():  # *** HACK
+    '''Imports in cyclic conflict used only at runtime, hack test.'''
+    import sys
+    import sc3.ugens.trig  # BUG: general, how to avoid runnig ugens __init__.py or do the import * in ugens as ugs.
+    sys.modules[__name__].__dict__.update({'trg': sc3.ugens.trig})
+
+
 class ChannelList(list, fn.AbstractFunction):
     '''List wrapper for multichannel expansion graph operations.'''
 
@@ -50,6 +57,7 @@ class ChannelList(list, fn.AbstractFunction):
         return type(self)(MulAdd.new(i, mul, add) for i in self)
 
     # *** TODO: creo que solo es necesario agregar las que pertenecen a UGen y no están en AbstractFunction.
+    # *** TODO: ver nota en SequenceableCollection L1148.
 
 
     ### Override list methods ###
@@ -229,28 +237,55 @@ class UGen(fn.AbstractFunction):
         return MulAdd.new(self, mul, add)
 
     def range(self, lo=0.0, hi=1.0):
-        ...
+        if self.signal_range() == 'bipolar':
+            mul = (hi - lo) * 0.5
+            add = mul + lo
+        else:
+            mul = (hi - lo)
+            add = lo
+        return MulAdd.new(self, mul, add)
 
     def exprange(self, lo=0.01, hi=1.0):
-        ...
+        if self.signal_range() == 'bipolar':
+            return self.linexp(-1, 1, lo, hi, None)
+        else:
+            return self.linexp(0, 1, lo, hi, None)
 
     def curverange(self, lo=0.0, hi=1.0, curve=-4):
-        ...
+        if self.signal_range() == 'bipolar':
+            return self.lincurve(-1, 1, lo, hi, curve, None)
+        else:
+            return self.lincurve(0, 1, lo, hi, curve, None)
 
     def unipolar(self, mul=1):
-        ...
+        return self.range(0, mul)
 
     def bipolar(self, mul=1):
-        ...
+        return self.range(-mul, mul)
 
     def clip(self, lo=0.0, hi=1.0):
-        ...
+        if self.rate == 'demand':
+            bi.max(lo, bi.min(hi, self))
+        else:
+            return getattr(
+                trg.Clip,
+                trg.Clip.method_selector_for_rate(self.rate))(self, lo, hi)
 
     def fold(self, lo=0.0, hi=0.0):
-        ...
+        if self.rate == 'demand':
+            raise NotImplementedError('fold is not implemented for dr ugens')
+        else:
+            return getattr(
+                trg.Fold,
+                trg.Fold.method_selector_for_rate(self.rate))(self, lo, hi)
 
     def wrap(self, lo=0.0, hi=1.0):
-        ...
+        if self.rate == 'demand':
+            raise NotImplementedError('wrap is not implemented for dr ugens')
+        else:
+            return getattr(
+                trg.Wrap,
+                trg.Wrap.method_selector_for_rate(self.rate))(self, lo, hi)
 
     def degrad(self):
         return self * (bi.pi / 180)

@@ -1,6 +1,7 @@
 """SC_InlineUnaryOp.h, SC_InlineBinaryOp.h"""
 
 import math
+import builtins
 
 from . import functions as fn # TODO: desde la terminal, funciona solo si el otro módulo fue cargado antes.
 
@@ -33,6 +34,37 @@ def scbuiltin(func):
     scbuiltin_.__name__ = func.__name__ # Este es el nombre que se usa para obtener special_index.
     scbuiltin_.__qualname__ += func.__name__
     return scbuiltin_
+
+# Function like in Python
+
+# NOTE: builtins are going to be confusing if they don't work ootb anyhow.
+def min(a, b):
+    try:
+        return a.min(b)
+    except AttributeError:
+        try:
+            return b.min(a)
+        except AttributeError:
+            try:
+                return builtins.min(a, b)
+            except TypeError:
+                pass
+    raise TypeError("sc 'min' function is not supported between instances of "
+                    f"'{type(a).__name__}' and '{type(b).__name__}'")
+
+def max(a, b):
+    try:
+        return a.max(b)
+    except AttributeError:
+        try:
+            return b.max(a)
+        except AttributeError:
+            try:
+                return builtins.max(a, b)
+            except TypeError:
+                pass
+    raise TypeError("sc 'max' function is not supported between instances of "
+                    f"'{type(a).__name__}' and '{type(b).__name__}'")
 
 # Unary
 

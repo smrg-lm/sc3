@@ -320,6 +320,12 @@ class AbstractFunction(gpp.UGenParameter):
         return self.compose_binop(operator.ge, other)
 
 
+    def min(self, other):
+        return self.compose_binop(bi.min, other)
+
+    def max(self, other):
+        return self.compose_binop(bi.max, other)
+
     def lcm(self, other):
         return self.compose_binop(bi.lcm, other)
 

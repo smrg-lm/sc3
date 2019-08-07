@@ -63,11 +63,11 @@ class AbstractFunction(gpp.UGenParameter):
 
     # Python's builtin round and math trunc/floor/ceil.
 
-    def __round__(self, *ndigits):
-        return self.compose_narop(round, *ndigits)  # sclang binary
+    def __round__(self, ndigits=0):
+        return self.compose_binop(round, ndigits)
 
     def __trunc__(self):
-        return self.compose_unop(math.trunc)  # BUG: sclang binary, possible si problem
+        return self.compose_unop(math.trunc)  # *** BUG: sclang binary, possible si problem
 
     def __floor__(self):
         return self.compose_unop(math.floor)
@@ -85,8 +85,8 @@ class AbstractFunction(gpp.UGenParameter):
     def sign(self):
         return self.compose_unop(bi.sign)
 
-    def log(self, *base):
-        return self.compose_narop(bi.log, *base)  # BUG: sclang unary, possible si problem
+    def log(self, base=math.e):
+        return self.compose_binop(bi.log, base)  # *** BUG: sclang unary, possible si problem
 
     def log2(self):
         return self.compose_unop(bi.log2)

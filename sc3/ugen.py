@@ -17,8 +17,16 @@ def late_imports():  # *** HACK
     import sys
     import sc3.ugens.trig  # BUG: general, how to avoid runnig ugens __init__.py or do the import * in ugens as ugs.
     import sc3.ugens.pan
+    import sc3.ugens.infougens
+    import sc3.ugens.filter
+    import sc3.ugens.osc
+    import sc3.ugens.testugens
     sys.modules[__name__].__dict__.update({'trg': sc3.ugens.trig})
     sys.modules[__name__].__dict__.update({'pan': sc3.ugens.pan})
+    sys.modules[__name__].__dict__.update({'ifu': sc3.ugens.infougens})
+    sys.modules[__name__].__dict__.update({'flr': sc3.ugens.filter})
+    sys.modules[__name__].__dict__.update({'osc': sc3.ugens.osc})
+    sys.modules[__name__].__dict__.update({'tsu': sc3.ugens.testugens})
 
 
 class ChannelList(list, fn.AbstractFunction):
@@ -248,6 +256,8 @@ class UGen(fn.AbstractFunction):
         # // Usually you want the same object.
         return self
 
+    ### Convenience methods ###
+
     def dup(self, n=2):
         return ChannelList([self] * n)
 
@@ -285,26 +295,22 @@ class UGen(fn.AbstractFunction):
         if self.rate == 'demand':
             bi.max(lo, bi.min(hi, self))
         else:
-            return getattr(
-                trg.Clip,
-                trg.Clip.method_selector_for_rate(self.rate))(self, lo, hi)
+            selector = trg.Clip.method_selector_for_rate(self.rate)
+            return getattr(trg.Clip, selector)(self, lo, hi)
 
     def fold(self, lo=0.0, hi=0.0):
         if self.rate == 'demand':
             raise NotImplementedError('fold is not implemented for dr ugens')
         else:
-            return getattr(
-                trg.Fold,
-                trg.Fold.method_selector_for_rate(self.rate))(self, lo, hi)
+            selector = trg.Fold.method_selector_for_rate(self.rate)
+            return getattr(trg.Fold, selector)(self, lo, hi)
 
     def wrap(self, lo=0.0, hi=1.0):
         if self.rate == 'demand':
             raise NotImplementedError('wrap is not implemented for dr ugens')
         else:
-            return getattr(
-                trg.Wrap,
-                trg.Wrap.method_selector_for_rate(self.rate)
-            )(self, lo, hi)
+            selector = trg.Wrap.method_selector_for_rate(self.rate)
+            return getattr(trg.Wrap, selector)(self, lo, hi)
 
     def degrad(self):
         return self * (bi.pi / 180)
@@ -321,46 +327,64 @@ class UGen(fn.AbstractFunction):
                 return pan.XFade2.ar(self, other, pan)
             if gpp.ugen_param(other).rate == 'audio':
                 return pan.XFade2.ar(other, self, -pan)
-            return getattr(
-                pan.LinXFade2,
-                pan.LinXFade2.method_selector_for_rate(self.rate)
-            )(self, other, pan)
+            selector = pan.LinXFade2.method_selector_for_rate(self.rate)
+            return getattr(pan.LinXFade2, selector)(self, other, pan)
 
     def min_nyquist(self):
-        ...
+        return bi.min(self, ifu.SampleRate.ir * 0.5)
 
-    def lag(self, t1=0.1, t2=None):  # *** BUG: es redundante que llame a los lagud por t2.
-        ...
+    def lag(self, time=0.1):
+        selector = flr.Lag.method_selector_for_rate(self.rate)
+        return getattr(flr.Lag, selector)(self, time)
 
-    def lag2(self, t1=0.1, t2=None):  # *** BUG: es redundante que llame a los lagud por t2.
-        ...
+    def lag2(self, time=0.1):
+        selector = flr.Lag2.method_selector_for_rate(self.rate)
+        return getattr(flr.Lag2, selector)(self, time)
 
-    def lag3(self, t1=0.1, t2=None):  # *** BUG: es redundante que llame a los lagud por t2.
-        ...
+    def lag3(self, time=0.1):
+        selector = flr.Lag3.method_selector_for_rate(self.rate)
+        return getattr(flr.Lag3, selector)(self, time)
 
     def lagud(self, utime=0.1, dtime=0.1):
-        ...
+        selector = flr.LagUD.method_selector_for_rate(self.rate)
+        return getattr(flr.LagUD, selector)(self, utime, dtime)
 
     def lag2ud(self, utime=0.1, dtime=0.1):
-        ...
+        selector = flr.Lag2UD.method_selector_for_rate(self.rate)
+        return getattr(flr.Lag2UD, selector)(self, utime, dtime)
 
     def lag3ud(self, utime=0.1, dtime=0.1):
-        ...
+        selector = flr.Lag3UD.method_selector_for_rate(self.rate)
+        return getattr(flr.Lag3UD, selector)(self, utime, dtime)
 
     def varlag(self, time=0.1, curvature=0, wrap=5, start=None):
-        ...
+        selector = flr.VarLag.method_selector_for_rate(self.rate)
+        return getattr(flr.VarLag, selector)(self, time, curvature, wrap, start)
 
     def slew(self, up=1, down=1):
-        ...
+        selector = flr.Slew.method_selector_for_rate(self.rate)
+        return getattr(flr.Slew, selector)(self, up, down)
 
     def prune(self, min, max, type='minmax'):
-        ...
+        if type == 'minmax':
+            return self.clip(min, max)
+        elif type == 'min':
+            return self.max(min)
+        elif type == 'max':
+            return self.min(max)
+        return self
 
     def snap(self, resolution=1.0, margin=0.05, strengh=1.0):
-        ...
+        selector = osc.Select.method_selector_for_rate(self.rate)
+        diff = round(self, resolution) - self
+        return getattr(osc.Select, selector)(abs(diff) < margin,
+                                             [self, self + strengh * diff])
 
     def softround(self, resolution=1.0, margin=0.05, strengh=1.0):
-        ...
+        selector = osc.Select.method_selector_for_rate(self.rate)
+        diff = round(self, resolution) - self
+        return getattr(osc.Select, selector)(abs(diff) > margin,
+                                             [self, self + strengh * diff])
 
     def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
         ...
@@ -382,13 +406,18 @@ class UGen(fn.AbstractFunction):
 
     def bilin(self, incenter, inmin, inmax, outcenter, outmin, outmax,
               clip='minmax'):
-        ...
+        selector = osc.Select.method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class and doesn't uses _multi_new as above.
+        return getattr(osc.Select, selector)(self < incenter, [
+            self.linlin(incenter, inmax, outcenter, outmax, clip),
+            self.linlin(inmin, incenter, outmin, outcenter, clip)])
 
     def moddif(self, that=0.0, mod=1.0):
-        ...
+        selector = trg.ModDif.method_selector_for_rate(self.rate)
+        return getattr(trg.ModDif, selector)(self, that, mod)
 
     def sanitize(self):
-        ...
+        selector = tsu.Sanitize.method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class.
+        return getattr(tsu.Sanitize, selector)(self)
 
 
     # L284

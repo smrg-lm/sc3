@@ -432,7 +432,7 @@ class SynthDef():
                     if input is a:
                         aux = list(item.inputs) # TODO: hasta ahora es el único lugar donde se modifica ugen.inputs
                         aux[i] = b
-                        item.inputs = tuple(aux)
+                        item._inputs = tuple(aux)
 
     def add_constant(self, value): # lo usa UGen:collectConstants
         if value not in self.constant_set:

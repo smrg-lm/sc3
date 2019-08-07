@@ -37,7 +37,7 @@ class DC(ugn.PureMultiOutUGen):
         return cls._multi_new('control', input)
 
     def _init_ugen(self, *inputs):
-        self.inputs = inputs # TODO: es tupla. En sclang es nil si no hay inputs.
+        self._inputs = inputs
         return self._init_outputs(len(inputs), self.rate)
 
 

@@ -13,7 +13,7 @@ class Pan2(ugn.MultiOutUGen):
         return cls._multi_new('control', input, pos, level)
 
     def _init_ugen(self, *inputs):
-        self.inputs = inputs
+        self._inputs = inputs
         self.channels = [
             ugn.OutputProxy.new(self.rate, self, 0),
             ugn.OutputProxy.new(self.rate, self, 1)

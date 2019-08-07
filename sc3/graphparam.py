@@ -5,6 +5,7 @@ import struct
 
 from . import server as srv
 from . import _specialindex as _si
+from . import utils as utl
 
 # BUG: están dentro de las funciones, no se pueden importar
 # BUG: por los símbolos de herencia en relación a UGen.
@@ -63,6 +64,10 @@ class GraphParameter():
 ### UGen graph parameter interface ###
 
 class UGenParameter(GraphParameter):
+    @property
+    def rate(self):
+        return 'scalar'
+
     def is_valid_ugen_input(self):
         return False
 
@@ -104,6 +109,10 @@ class UGenNone(UGenParameter):
     @classmethod
     def param_type(cls):
         return (type(None),)
+
+    @property
+    def rate(self):
+        return None
 
     def as_ugen_rate(self):
         return None
@@ -148,6 +157,14 @@ class UGenScalar(UGenParameter):
 
 class UGenSequence(UGenParameter):
     # Same as UGenSequence, keep sync.
+
+    @property
+    def rate(self):
+        if len(self.value) == 1:
+            return ugen_param(self.value[0]).rate
+        else:
+            return utl.list_min([ugen_param(item).rate or 'scalar'\
+                                for item in self.value])
 
     @classmethod
     def param_type(cls):

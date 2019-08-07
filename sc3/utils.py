@@ -3,6 +3,7 @@ Utility classes and functions from sclang style.
 """
 
 import itertools as _itertools
+import operator
 
 
 class ClassLibrary():
@@ -214,7 +215,7 @@ def list_narop(op, a, *args, t=None):  # t is keyword only.
 def list_sum(lst):
     res = 0
     for item in lst:
-        res = list_binop('add', res, item)
+        res = list_binop(operator.add, res, item)
     return res
 
 # NOTE: maxItem used in Env.duration gives the clue that only one level of
@@ -226,6 +227,19 @@ def list_sum(lst):
 # [1, 2, [3, 4]].maxItem // not ok
 # [[1, 2], [3, 4]].maxItem // not ok
 
+def list_min(lst):
+    t_seq = (list, tuple)
+    min_item = lst[0]
+    if isinstance(min_item, t_seq):
+        min_item = list_min(min_item)
+    for item in lst[1:]:
+        if isinstance(item, t_seq):
+            item = list_min(item)
+        if list_binop(operator.lt, item, min_item):
+            min_item = item
+    return min_item
+
+
 def list_max(lst):
     t_seq = (list, tuple)
     max_item = lst[0]
@@ -234,7 +248,7 @@ def list_max(lst):
     for item in lst[1:]:
         if isinstance(item, t_seq):
             item = list_max(item)
-        if list_binop('gt', item, max_item):
+        if list_binop(operator.gt, item, max_item):
             max_item = item
     return max_item
 

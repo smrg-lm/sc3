@@ -16,7 +16,9 @@ def late_imports():  # *** HACK
     '''Imports in cyclic conflict used only at runtime, hack test.'''
     import sys
     import sc3.ugens.trig  # BUG: general, how to avoid runnig ugens __init__.py or do the import * in ugens as ugs.
+    import sc3.ugens.pan
     sys.modules[__name__].__dict__.update({'trg': sc3.ugens.trig})
+    sys.modules[__name__].__dict__.update({'pan': sc3.ugens.pan})
 
 
 class ChannelList(list, fn.AbstractFunction):
@@ -105,6 +107,14 @@ class ChannelList(list, fn.AbstractFunction):
     # Same as UGenSequence, keep sync. Problem is that this being an
     # AbstractFunction makes it an UGenParameter so graph_param will no work.
 
+    @property
+    def rate(self):
+        if len(self) == 1:
+            return ugen_param(self[0]).rate
+        else:
+            return utl.list_min([gpp.ugen_param(item).rate or 'scalar'\
+                                for item in self])
+
     def is_valid_ugen_input(self):
         return True if self else False
 
@@ -142,8 +152,8 @@ class UGen(fn.AbstractFunction):
     _valid_rates = {'audio', 'control', 'demand', 'scalar'}
 
     def __init__(self):  # Do not override.
-        self.inputs = ()  # Always tuple.
-        self.rate = 'audio'
+        self._inputs = ()  # Always tuple.
+        self._rate = 'audio'
         # atributos de instancia privados
         self.synthdef = None # es _gl.current_synthdef luego de add_to_synth
         self.synth_index = -1
@@ -156,6 +166,14 @@ class UGen(fn.AbstractFunction):
         # TODO: (sigue) tal vez convenga crea propiedades pero para esta clase sería mucho código.
         self.output_index = 0 # TODO: en UGen es un método, pero lo pasé a propiedad porque es una propiedad en OutputPorxy (!)
 
+    @property
+    def rate(self):
+        return self._rate
+
+    @property
+    def inputs(self):
+        return self._inputs
+
     @classmethod
     def _new1(cls, rate, *args):
         '''
@@ -164,7 +182,7 @@ class UGen(fn.AbstractFunction):
         instance is needed.
         '''
         obj = cls()
-        obj.rate = rate
+        obj._rate = rate
         obj.add_to_synth()
         return obj._init_ugen(*args)
 
@@ -214,14 +232,14 @@ class UGen(fn.AbstractFunction):
         returning scalars or None (for no output) are usually returned by
         public UGen constructors (ar, kr, dr, ir or new).
         '''
-        self.inputs = inputs
+        self._inputs = inputs
         return self
 
     @classmethod
     def new_from_desc(cls, rate, num_outputs, inputs, special_index):
         obj = cls()
-        obj.rate = rate
-        obj.inputs = tuple(inputs)
+        obj._rate = rate
+        obj._inputs = tuple(inputs)
         obj.special_index = special_index
         return obj
 
@@ -285,7 +303,8 @@ class UGen(fn.AbstractFunction):
         else:
             return getattr(
                 trg.Wrap,
-                trg.Wrap.method_selector_for_rate(self.rate))(self, lo, hi)
+                trg.Wrap.method_selector_for_rate(self.rate)
+            )(self, lo, hi)
 
     def degrad(self):
         return self * (bi.pi / 180)
@@ -294,7 +313,18 @@ class UGen(fn.AbstractFunction):
         return self * (180 / bi.pi)
 
     def blend(self, other, frac=0.5):
-        ...
+        if self.range == 'demand' or gpp.ugen_param(other).rate == 'demand':
+            raise NotImplementedError('blend is not implemented for dr ugens')
+        else:
+            pan = bi.linlin(frec, 0.0, 1.0, -1.0, 1.0)
+            if self.rate == 'audio':
+                return pan.XFade2.ar(self, other, pan)
+            if gpp.ugen_param(other).rate == 'audio':
+                return pan.XFade2.ar(other, self, -pan)
+            return getattr(
+                pan.LinXFade2,
+                pan.LinXFade2.method_selector_for_rate(self.rate)
+            )(self, other, pan)
 
     def min_nyquist(self):
         ...
@@ -695,8 +725,8 @@ class MultiOutUGen(UGen):
     @classmethod
     def new_from_desc(cls, rate, num_outputs, inputs, special_index=None):
         obj = cls()
-        obj.rate = rate
-        obj.inputs = tuple(inputs)
+        obj._rate = rate
+        obj._inputs = tuple(inputs)
         obj._init_outputs(num_outputs, rate)
         return obj
 
@@ -801,8 +831,8 @@ class UnaryOpUGen(BasicOpUGen):
 
     def _init_ugen(self, operator, input):
         self.operator = operator
-        self.rate = gpp.ugen_param(input).as_ugen_rate()
-        self.inputs = (input,)
+        self._rate = gpp.ugen_param(input).as_ugen_rate()
+        self._inputs = (input,)
         return self  # Must return self.
 
     def optimize_graph(self):
@@ -837,8 +867,8 @@ class BinaryOpUGen(BasicOpUGen):
 
     def _init_ugen(self, operator, a, b):
         self.operator = operator
-        self.rate = self.determine_rate(a, b)
-        self.inputs = (a, b)
+        self._rate = self.determine_rate(a, b)
+        self._inputs = (a, b)
         return self  # Must return self.
 
     def determine_rate(self, a, b):
@@ -1065,8 +1095,8 @@ class MulAdd(UGen):
         return (input * mul) + add
 
     def _init_ugen(self, input, mul, add):
-        self.inputs = (input, mul, add)
-        self.rate = gpp.ugen_param(self.inputs).as_ugen_rate()
+        self._inputs = (input, mul, add)
+        self._rate = gpp.ugen_param(self.inputs).as_ugen_rate()
         return self  # Must return self.
 
     @classmethod

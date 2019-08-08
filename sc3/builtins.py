@@ -98,7 +98,7 @@ def log(x, base=math.e): # BUG: ES BINARIO.
     return math.log(x, base)
 @scbuiltin
 def exp(x):
-    return math.exp(x)
+    return math.exp(x)  # TODO: exp = math.exp so bi.exp
 @scbuiltin
 def sin(x):
     return math.sin(x)
@@ -911,8 +911,8 @@ def lincurve(x, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
         # // If we got this far, then linlin does not need to do any clipping.
         # // Inlining the formula here makes it even faster.
         return (x - inmin) / (inmax - inmin) * (outmax - outmin) + outmin
-    grow = math.pow(math.e, curve)
-    a = outmax - outmin / (1.0 - grow)
+    grow = math.exp(curve)
+    a = (outmax - outmin) / (1.0 - grow)
     b = outmin + a
     scaled = (x - inmin) / (inmax - inmin)
     return b - a * math.pow(grow, scaled, math.e)
@@ -928,8 +928,8 @@ def curvelin(x, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
     if abs(curve):
         # // If the value should be clipped, it has already been clipped (above).
         return (x - inmin) / (inmax - inmin) * (outmax - outmin) + outmin
-    grow = math.pow(math.e, curve)
-    a = inmax - inmin / (1.0 - grow)
+    grow = math.exp(curve)
+    a = (inmax - inmin) / (1.0 - grow)
     b = inmin + a
     return math.log((b - x) / a, math.e) * (outmax - outmin) / curve + outmin
 

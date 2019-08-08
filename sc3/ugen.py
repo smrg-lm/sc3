@@ -21,12 +21,14 @@ def late_imports():  # *** HACK
     import sc3.ugens.filter
     import sc3.ugens.osc
     import sc3.ugens.testugens
+    import sc3.ugens.line
     sys.modules[__name__].__dict__.update({'trg': sc3.ugens.trig})
     sys.modules[__name__].__dict__.update({'pan': sc3.ugens.pan})
     sys.modules[__name__].__dict__.update({'ifu': sc3.ugens.infougens})
     sys.modules[__name__].__dict__.update({'flr': sc3.ugens.filter})
     sys.modules[__name__].__dict__.update({'osc': sc3.ugens.osc})
     sys.modules[__name__].__dict__.update({'tsu': sc3.ugens.testugens})
+    sys.modules[__name__].__dict__.update({'lne': sc3.ugens.line})
 
 
 class ChannelList(list, fn.AbstractFunction):
@@ -256,6 +258,7 @@ class UGen(fn.AbstractFunction):
         # // Usually you want the same object.
         return self
 
+
     ### Convenience methods ###
 
     def dup(self, n=2):
@@ -387,22 +390,55 @@ class UGen(fn.AbstractFunction):
                                              [self, self + strengh * diff])
 
     def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        ...
+        selector = lne.LinLin.method_selector_for_rate(self.rate)  # BUG: I see these can fail for ir/dr ugens however sclang implementation semantics is diverse and not clear.
+        return getattr(lne.LinLin, selector)(self.prune(inmin, inmax, clip),
+                                             inmin, inmax, outmin, outmax)
 
     def linexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        ...
+        selector = lne.LinExp.method_selector_for_rate(self.rate)
+        return getattr(lne.LinExp, selector)(self.prune(inmin, inmax, clip),
+                                             inmin, inmax, outmin, outmax)
 
     def explin(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        ...
+        return (bi.log(self.prune(inmin, inmax, clip) / inmin) /
+                bi.log(inmax / inmin) * (outmax - outmin) + outmin)  # // no separate ugen yet
 
     def expexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        ...
+        return pow(outmax / outmin,
+                   bi.log(self.prune(inmin, inmax, clip) / inmin) /
+                   bi.log(inmax / inmin)) * outmin
 
     def lincurve(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
-        ...
+        if isinstance(curve, (int, float)) and abs(curve) < 0.125:
+            return self.linlin(inmin, inmax, outmin, outmax, clip)
+        grow = bi.exp(curve)
+        a = (outmax - outmin) / (1.0 - grow)
+        b = outmin + a
+        scaled = (self.prune(inmin, inmax, clip) - inmin) / (inmax - inmin)
+        curved_res = b - a * pow(grow, scaled)
+        if gpp.ugen_param(curve).rate == 'scalar':
+            return curved_res
+        else:
+            selector = osc.Select.method_selector_for_rate(self.rate)
+            return getattr(osc.Select, selector)(abs(curve) >= 0.125, [
+                self.linlin(inmin, inmax, outmin, outmax, clip),
+                curved_res])
 
     def curvelin(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
-        ...
+        if isinstance(curve, (int, float)) and abs(curve) < 0.125:
+            return self.linlin(inmin, inmax, outmin, outmax, clip)
+        grow = bi.exp(curve)
+        a = (inmax - inmin) / (1.0 - grow)
+        b = inmin + a
+        lin_res = (bi.log((b - this.prune(inmin, inmax, clip)) / a) *
+                   (outmax - outmin) / curve + outmin)
+        if gpp.ugen_param(curve).rate == 'scalar':
+            return lin_res
+        else:
+            selector = osc.Select.method_selector_for_rate(self.rate)
+            return getattr(osc.Select, selector)(abs(curve) >= 0.125, [
+                self.linlin(inmin, inmax, outmin, outmax, clip),
+                lin_res])
 
     def bilin(self, incenter, inmin, inmax, outcenter, outmin, outmax,
               clip='minmax'):
@@ -537,8 +573,6 @@ class UGen(fn.AbstractFunction):
     def replace_zeroes_with_silence(cls, lst): # es recursiva y la usan Function-asBuffer, (AtkMatrixMix*ar), GraphBuilder-wrapOut, LocalOut*ar, Out*ar, XOut*ar.
         # // This replaces zeroes with audio rate silence.
         # // Sub collections are deep replaced.
-        from .ugens import line as lne # BUG: import cíclico fatal por el tipo en la herencia.
-
         num_zeroes = lst.count(0.0)
         if num_zeroes == 0:
             return lst

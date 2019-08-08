@@ -183,3 +183,7 @@ class main(metaclass=Process):
 
 main.rt()
 utl.ClassLibrary.init()
+
+print('HACK: delete late_imports at the end of main')
+from sc3.ugen import late_imports
+late_imports()

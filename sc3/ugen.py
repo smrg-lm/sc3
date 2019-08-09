@@ -67,7 +67,10 @@ class ChannelList(list, fn.AbstractFunction):
     ### UGen convenience methods (keep in sync) ###
 
     def _multichannel_perform(self, selector, *args):
-        return type(self)(getattr(item, selector)(*args) for item in self)
+        # BUG: Only one level, only for sc builints?
+        return type(self)(
+            getattr(item, selector)(*args) if isinstance(item, UGen)\
+            else getattr(bi, selector)(item, *args) for item in self)
 
     def dup(self, n=2):
         return ChannelList([self] * n)
@@ -596,6 +599,7 @@ class UGen(fn.AbstractFunction):
         getattr(tsu.CheckBadValues, selector)(self, id, post)
         # // add the UGen to the tree but keep self as the output
         return self
+
 
     # L284
     def signal_range(self):

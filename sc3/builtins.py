@@ -68,6 +68,7 @@ def max(a, b):
 
 # Unary
 
+# TODO: some functions defined in sclang (e.g. range in SimpleNumber) are missing.
 # TODO: Ver AbstractFunction y la documentación de Operators en SuperCollider.
 
 # // this is a function for preventing pathological math operations in ugens.

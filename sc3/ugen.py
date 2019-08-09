@@ -22,6 +22,8 @@ def late_imports():  # *** HACK
     import sc3.ugens.osc
     import sc3.ugens.testugens
     import sc3.ugens.line
+    import sc3.ugens.demand
+    import sc3.ugens.poll
     sys.modules[__name__].__dict__.update({'trg': sc3.ugens.trig})
     sys.modules[__name__].__dict__.update({'pan': sc3.ugens.pan})
     sys.modules[__name__].__dict__.update({'ifu': sc3.ugens.infougens})
@@ -29,6 +31,8 @@ def late_imports():  # *** HACK
     sys.modules[__name__].__dict__.update({'osc': sc3.ugens.osc})
     sys.modules[__name__].__dict__.update({'tsu': sc3.ugens.testugens})
     sys.modules[__name__].__dict__.update({'lne': sc3.ugens.line})
+    sys.modules[__name__].__dict__.update({'dmd': sc3.ugens.demand})
+    sys.modules[__name__].__dict__.update({'pll': sc3.ugens.poll})
 
 
 class ChannelList(list, fn.AbstractFunction):
@@ -60,7 +64,10 @@ class ChannelList(list, fn.AbstractFunction):
         return utl.list_narop(selector, self, *args, t=type(self))
 
 
-    ### UGen interface ###
+    ### UGen convenience methods (keep in sync) ###
+
+    def _multichannel_perform(self, selector, *args):
+        return type(self)(getattr(item, selector)(*args) for item in self)
 
     def dup(self, n=2):
         return ChannelList([self] * n)
@@ -68,8 +75,127 @@ class ChannelList(list, fn.AbstractFunction):
     def madd(self, mul=1.0, add=0.0):
         return type(self)(MulAdd.new(i, mul, add) for i in self)
 
-    # *** TODO: creo que solo es necesario agregar las que pertenecen a UGen y no están en AbstractFunction.
-    # *** TODO: ver nota en SequenceableCollection L1148.
+    # in SequenceableCollection L1148.
+
+    def range(self, lo=0.0, hi=1.0):
+        return self._multichannel_perform('range', lo, hi)
+
+    def exprange(self, lo=0.01, hi=1.0):
+        return self._multichannel_perform('exprange', lo, hi)
+
+    def curverange(self, lo=0.0, hi=1.0, curve=-4):
+        return self._multichannel_perform('curverange', lo, hi, curve)
+
+    def unipolar(self, mul=1):
+        return self._multichannel_perform('unipolar', mul)
+
+    def bipolar(self, mul=1):
+        return self._multichannel_perform('bipolar', mul)
+
+    def clip(self, lo=0.0, hi=1.0):
+        return self._multichannel_perform('clip', lo, hi)
+
+    def fold(self, lo=0.0, hi=1.0):
+        return self._multichannel_perform('fold', lo, hi)
+
+    def wrap(self, lo=0.0, hi=1.0):
+        return self._multichannel_perform('wrap', lo, hi)
+
+    def min_nyquist(self):
+        return type(self)(bi.min(item, ifu.SampleRate.ir * 0.5) for item in self)
+
+    # degrad implemented with performUnaryOp, is not overridden here
+    # raddeg implemented with performUnaryOp, is not overridden here
+
+    def blend(self, other, frac=0.5):
+        return self._multichannel_perform('blend', other, frac)
+
+    def lag(self, time=0.1):
+        return self._multichannel_perform('lag', time)
+
+    def lag2(self, time=0.1):
+        return self._multichannel_perform('lag2', time)
+
+    def lag3(self, time=0.1):
+        return self._multichannel_perform('lag3', time)
+
+    def lagud(self, utime=0.1, dtime=0.1):
+        return self._multichannel_perform('lagud', utime, dtime)
+
+    def lag2ud(self, utime=0.1, dtime=0.1):
+        return self._multichannel_perform('lag2ud', utime, dtime)
+
+    def lag3ud(self, utime=0.1, dtime=0.1):
+        return self._multichannel_perform('lag3ud', utime, dtime)
+
+    def varlag(self, time=0.1, curvature=0, wrap=5, start=None):
+        return self._multichannel_perform('varlag', time, curvature, wrap, start)
+
+    def slew(self, up=1, down=1):
+        return self._multichannel_perform('slew', up, down)
+
+    def prune(self, min, max, type='minmax'):
+        return self._multichannel_perform('prune', min, max, type)
+
+    # snap is not implemented
+    # softround is not implemented
+
+    def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return self._multichannel_perform('linlin', inmin, inmax, outmin,
+                                          outmax, clip)
+
+    def linexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return self._multichannel_perform('linexp', inmin, inmax, outmin,
+                                          outmax, clip)
+
+    def explin(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return self._multichannel_perform('explin', inmin, inmax, outmin,
+                                          outmax, clip)
+
+    def expexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return self._multichannel_perform('expexp', inmin, inmax, outmin,
+                                          outmax, clip)
+
+    def lincurve(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
+        return self._multichannel_perform('lincurve', inmin, inmax, outmin,
+                                          outmax, curve, clip)
+
+    def curvelin(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
+        return self._multichannel_perform('curvelin', inmin, inmax, outmin,
+                                          outmax, curve, clip)
+
+    def bilin(self, incenter, inmin, inmax, outcenter, outmin, outmax,
+              clip='minmax'):
+        return self._multichannel_perform('bilin', incenter, inmin, inmax,
+                                          outcenter, outmin, outmax, clip)
+
+    def biexp(self, incenter, inmin, inmax, outcenter, outmin, outmax,
+              clip='minmax'):
+        return self._multichannel_perform('biexp', incenter, inmin, inmax,
+                                          outcenter, outmin, outmax, clip)
+
+    def moddif(self, that=0.0, mod=1.0):
+        return self._multichannel_perform('moddif', that, mod)
+
+    # in Array.sc
+
+    # num_channels, no (is len, UGen don't really know about channels), TODO: ensure consistency.
+    # source_ugen, no if not needed.
+
+    # Synth debug
+
+    def poll(self, trig=10, label=None, trig_id=-1):
+        if label is None:
+            label = [f'ChannelList UGen [{i}]' for i in range(len(self))]
+        return pll.Poll(trig, self, label, trig_id)
+
+    def dpoll(self, label=None, run=1, trig_id=-1):
+        if label is None:
+            label = [f'ChannelList UGen [{i}]' for i in range(len(self))]
+        return dmd.Dpoll(self, label, run, trig_id)
+
+    def check_bad_values(self, id=0, post=2):
+        return self._multichannel_perform('check_bad_values', id, post)
 
 
     ### Override list methods ###
@@ -259,7 +385,7 @@ class UGen(fn.AbstractFunction):
         return self
 
 
-    ### Convenience methods ###
+    ### Convenience methods (sync with ChannelList) ###
 
     def dup(self, n=2):
         return ChannelList([self] * n)
@@ -377,13 +503,13 @@ class UGen(fn.AbstractFunction):
             return self.min(max)
         return self
 
-    def snap(self, resolution=1.0, margin=0.05, strengh=1.0):
+    def snap(self, resolution=1.0, margin=0.05, strengh=1.0):  # NOTE: UGen/SimpleNumber, not in AbstractFunction
         selector = osc.Select.method_selector_for_rate(self.rate)
         diff = round(self, resolution) - self
         return getattr(osc.Select, selector)(abs(diff) < margin,
                                              [self, self + strengh * diff])
 
-    def softround(self, resolution=1.0, margin=0.05, strengh=1.0):
+    def softround(self, resolution=1.0, margin=0.05, strengh=1.0):  # NOTE: UGen/SimpleNumber, not in AbstractFunction
         selector = osc.Select.method_selector_for_rate(self.rate)
         diff = round(self, resolution) - self
         return getattr(osc.Select, selector)(abs(diff) > margin,
@@ -447,6 +573,8 @@ class UGen(fn.AbstractFunction):
             self.linlin(incenter, inmax, outcenter, outmax, clip),
             self.linlin(inmin, incenter, outmin, outcenter, clip)])
 
+    # biexp is not overridden
+
     def moddif(self, that=0.0, mod=1.0):
         selector = trg.ModDif.method_selector_for_rate(self.rate)
         return getattr(trg.ModDif, selector)(self, that, mod)
@@ -455,6 +583,19 @@ class UGen(fn.AbstractFunction):
         selector = tsu.Sanitize.method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class.
         return getattr(tsu.Sanitize, selector)(self)
 
+    # Synth debug
+
+    def poll(self, trig=10, label=None, trig_id=-1):
+        return pll.Poll(trig, self, label, trig_id)
+
+    def dpoll(self, label=None, run=1, trig_id=-1):
+        return dmd.Dpoll(self, label, run, trig_id)
+
+    def check_bad_values(self, id=0, post=2):
+        selector = tsu.CheckBadValues.method_selector_for_rate(self.rate)
+        getattr(tsu.CheckBadValues, selector)(self, id, post)
+        # // add the UGen to the tree but keep self as the output
+        return self
 
     # L284
     def signal_range(self):
@@ -560,14 +701,6 @@ class UGen(fn.AbstractFunction):
 
     def dump_name(self):
         return str(self.synth_index) + '_' + self.name()
-
-    # VER: por qué estas no están más arriba con las matemáticas y mezcladas
-    # acá, porque de alguna manera se relacoinan porque crean ugens, aunque
-    # son para debuguing de la definición de síntesis en el servidor.
-    # Un buen comentario sería '''Debug methods for running synths'''
-    #poll
-    #dpoll
-    #checkBadValues
 
     @classmethod # VER: la locación de este método, es una utilidad de clase.
     def replace_zeroes_with_silence(cls, lst): # es recursiva y la usan Function-asBuffer, (AtkMatrixMix*ar), GraphBuilder-wrapOut, LocalOut*ar, Out*ar, XOut*ar.

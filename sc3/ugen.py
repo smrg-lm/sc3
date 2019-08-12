@@ -190,7 +190,7 @@ class ChannelList(list, fn.AbstractFunction):
     def poll(self, trig=10, label=None, trig_id=-1):
         if label is None:
             label = [f'ChannelList UGen [{i}]' for i in range(len(self))]
-        return pll.Poll(trig, self, label, trig_id)
+        return pll.Poll.new(trig, self, label, trig_id)
 
     def dpoll(self, label=None, run=1, trig_id=-1):
         if label is None:
@@ -252,7 +252,7 @@ class ChannelList(list, fn.AbstractFunction):
             return ugen_param(self[0]).rate
         else:
             return utl.list_min([gpp.ugen_param(item).rate or 'scalar'\
-                                for item in self])
+                                for item in self])  # lexicographic order
 
     def is_valid_ugen_input(self):
         return True if self else False
@@ -589,10 +589,10 @@ class UGen(fn.AbstractFunction):
     # Synth debug
 
     def poll(self, trig=10, label=None, trig_id=-1):
-        return pll.Poll(trig, self, label, trig_id)
+        return pll.Poll.new(trig, self, label, trig_id)
 
     def dpoll(self, label=None, run=1, trig_id=-1):
-        return dmd.Dpoll(self, label, run, trig_id)
+        return dmd.Dpoll.new(self, label, run, trig_id)
 
     def check_bad_values(self, id=0, post=2):
         selector = tsu.CheckBadValues.method_selector_for_rate(self.rate)

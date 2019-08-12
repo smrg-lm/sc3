@@ -23,7 +23,23 @@ class SinOsc(ugn.PureUGen):
         return cls._multi_new('control', freq, phase).madd(mul, add)
 
 
-# TODO: mucas otras...
+# TODO: ...
+
+
+class Impulse(ugn.PureUGen):
+    @classmethod
+    def ar(cls, freq=440.0, phase=0.0, mul=1.0, add=0.0):
+        return cls._multi_new('audio', freq, phase).madd(mul, add)
+
+    @classmethod
+    def kr(cls, freq=440.0, phase=0.0, mul=1.0, add=0.0):
+        return cls._multi_new('control', freq, phase).madd(mul, add)
+
+    def signal_range(self):
+        return 'unipolar'
+
+
+# TODO: ...
 
 
 class VarSaw(ugn.PureUGen):

@@ -101,7 +101,7 @@ class EnvGen(ugn.UGen):
         return obj._init_ugen(*args, *envelope)
 
     # Override may be an optimization in sclang.
-    # def _init_ugen(self, inputs)
+    # def _init_ugen(self, inputs)  # override
 
     def arg_names_inputs_offset(self):
         return 2

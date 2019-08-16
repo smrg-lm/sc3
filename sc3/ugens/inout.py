@@ -60,7 +60,7 @@ class Control(ugn.MultiOutUGen):
     def kr(cls, values):
         return cls._multi_new_list(['control'] + utl.as_list(values))
 
-    def _init_ugen(self, *values):
+    def _init_ugen(self, *values):  # override
         self.values = list(values)
         if self.synthdef is not None:
             self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
@@ -104,7 +104,7 @@ class AudioControl(ugn.MultiOutUGen):
     def ar(cls, values):
         return cls._multi_new_list(['audio'] + utl.as_list(values))
 
-    def _init_ugen(self, *values):
+    def _init_ugen(self, *values):  # override
         self.values = list(values)
         if self.synthdef is not None:
             self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
@@ -156,7 +156,7 @@ class LagControl(Control):
     def ar(cls, values, lags):
         return AudioControl.ar(values).lag(lags)
 
-    def _init_ugen(self, *stuff):
+    def _init_ugen(self, *stuff):  # override
         # *** BUG: in sclang, lags variable not used.
         size = len(stuff)
         size2 = size >> 1  # size // 2
@@ -185,7 +185,7 @@ class In(AbstractIn):
     def kr(cls, bus=0, num_channels=1):
         return cls._multi_new('control', num_channels, bus)
 
-    def _init_ugen(self, num_channels, *arg_bus):
+    def _init_ugen(self, num_channels, *arg_bus):  # override
         self._inputs = list(arg_bus)
         return self._init_outputs(num_channels, self.rate)
 
@@ -199,7 +199,7 @@ class LocalIn(AbstractIn):
     def kr(cls, num_channels=1, default=0.0):
         return cls._multi_new('control', num_channels, *utl.as_list(default))
 
-    def _init_ugen(self, num_channels, *default):
+    def _init_ugen(self, num_channels, *default):  # override
         self._inputs = list(utl.wrap_extend(list(default), num_channels))
         return self._init_outputs(num_channels, self.rate)
 
@@ -209,7 +209,7 @@ class LagIn(AbstractIn):
     def kr(cls, bus=0, num_channels=1, lag=0.1):
         return cls._multi_new('control', num_channels, bus, lag)
 
-    def _init_ugen(self, num_channels, *inputs):
+    def _init_ugen(self, num_channels, *inputs):  # override
         self._inputs = list(inputs)
         return self._init_outputs(num_channels, self.rate)
 
@@ -219,7 +219,7 @@ class InFeedback(AbstractIn):
     def ar(cls, bus=0, num_channels=1):
         return cls._multi_new('audio', num_channels, bus)
 
-    def _init_ugen(self, num_channels, *arg_bus):
+    def _init_ugen(self, num_channels, *arg_bus):  # override
         self._inputs = list(arg_bus)
         return self._init_outputs(num_channels, self.rate)
 
@@ -229,7 +229,7 @@ class InTrig(AbstractIn):
     def kr(cls, bus=0, num_channels=1):
         return cls._multi_new('control', num_channels, bus)
 
-    def _init_ugen(self, num_channels, *arg_bus):
+    def _init_ugen(self, num_channels, *arg_bus):  # override
         self._inputs = list(arg_bus)
         return self._init_outputs(num_channels, self.rate)
 
@@ -274,7 +274,7 @@ class Out(AbstractOut):
     def ar(cls, bus, output):
         output = gpp.ugen_param(utl.as_list(output))
         output = output.as_ugen_input(cls)
-        output = cls.replace_zeroes_with_silence(output)
+        output = cls._replace_zeroes_with_silence(output)
         cls._multi_new_list(['audio', bus] + output)
         # return 0.0  # // Out has no output.
 
@@ -307,7 +307,7 @@ class LocalOut(AbstractOut):
     def ar(cls, output):
         output = gpp.ugen_param(utl.as_list(output))
         output = output.as_ugen_input(cls)
-        output = cls.replace_zeroes_with_silence(output)
+        output = cls._replace_zeroes_with_silence(output)
         cls._multi_new_list(['audio'] + output)
         # return 0.0  # // LocalOut has no output.
 
@@ -330,7 +330,7 @@ class XOut(AbstractOut):
     def ar(cls, bus, xfade, output):
         output = gpp.ugen_param(utl.as_list(output))
         output = output.as_ugen_input(cls)
-        output = cls.replace_zeroes_with_silence(output)
+        output = cls._replace_zeroes_with_silence(output)
         cls._multi_new_list(['audio', bus, xfade] + output)
         # return 0.0  # // XOut has no output.
 

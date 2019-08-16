@@ -12,7 +12,7 @@ class Pan2(ugn.MultiOutUGen):
     def kr(cls, input, pos=0.0, level=1.0):
         return cls._multi_new('control', input, pos, level)
 
-    def _init_ugen(self, *inputs):
+    def _init_ugen(self, *inputs):  # override
         self._inputs = inputs
         self.channels = [
             ugn.OutputProxy.new(self.rate, self, 0),

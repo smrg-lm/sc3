@@ -336,12 +336,12 @@ class SynthDef():
     # of connection buffers is optimized.
 
     # L472
-    def _optimize_graph(self): # ping pong privato
+    def _optimize_graph(self):  # ping
         self._init_topo_sort()
 
-        self._rewrite_in_progress = True # Comprueba en SynthDef:add_ugen que se llama desde las ugen, la variable es privada de SynthDef. No me cierra en que caso se produce porque si ugen.optimize_graph quiere agregar una ugen no fallaría?
-        for ugen in self.children[:]: # ***** Hace children.copy.do porque modifica los valores de la lista sobre la que itera. VER RECURSIVIDAD: SI MODIFICA UN VALOR ACCEDIDO POSTERIORMENTE None.optimize_graph FALLA??
-            ugen.optimize_graph() # pong, las ugens optimizadas se deben convertir en None dentro de la lista self.children, pasa en UGen.performDeadCodeElimination y en las opugens.
+        self._rewrite_in_progress = True  # Comprueba en SynthDef:add_ugen que se llama desde las ugen, la variable es privada de SynthDef. No me cierra en que caso se produce porque si ugen._optimize_graph quiere agregar una ugen no fallaría?
+        for ugen in self.children[:]:  # ***** Hace children.copy.do porque modifica los valores de la lista sobre la que itera. VER RECURSIVIDAD: SI MODIFICA UN VALOR ACCEDIDO POSTERIORMENTE None._optimize_graph FALLA??
+            ugen._optimize_graph()  # pong, las ugens optimizadas se deben convertir en None dentro de la lista self.children, pasa en UGen.performDeadCodeElimination y en las opugens.
         self._rewrite_in_progress = False
 
         # OC: Fixup removed ugens.
@@ -350,19 +350,19 @@ class SynthDef():
         if old_size != len(self.children):
             self._index_ugens()
 
-    def _init_topo_sort(self): # ping # CAMBIADO A ORDEN DE LECTURA (sería orden de llamada?)
+    def _init_topo_sort(self):  # ping
         self.available = []
         for ugen in self.children:
-            ugen.antecedents = set()
-            ugen.descendants = set()
+            ugen._antecedents = set()
+            ugen._descendants = set()
         for ugen in self.children:
-            # OC: This populates the descendants and antecedents.
-            ugen.init_topo_sort() # pong
+            # // This populates the _descendants and _antecedents.
+            ugen._init_topo_sort()  # pong
         for ugen in reversed(self.children):
-            ugen.descendants = list(ugen.descendants) # VER: lo convierte en lista (asArray en el original) para ordenarlo y lo deja como lista. ugen.init_topo_sort() es la función que puebla el conjunto.
-            ugen.descendants.sort(key=lambda x: x.synth_index) # VER: pero que pasa con antecedents? tal vez no se usa para hacer recorridos?
-            # OC: All ugens with no antecedents are made available.
-            ugen.make_available()
+            ugen._descendants = list(ugen._descendants) # VER: lo convierte en lista (asArray en el original) para ordenarlo y lo deja como lista. ugen._init_topo_sort() es la función que puebla el conjunto.
+            ugen._descendants.sort(key=lambda x: x.synth_index) # VER: pero que pasa con _antecedents? tal vez no se usa para hacer recorridos?
+            # // All ugens with no antecedents are made available.
+            ugen._make_available()
 
     def _index_ugens(self): # CAMBIADO A ORDEN DE LECTURA
         for i, ugen in enumerate(self.children):
@@ -394,15 +394,15 @@ class SynthDef():
         out_stack = []
         while len(self.available) > 0:
             ugen = self.available.pop()
-            ugen.schedule(out_stack) # puebla out_stack. ugen.schedule() se remueve de los antecedentes, se agrega a out_stack y devuelve out_stack. Acá no es necesaria la reasignación.
+            ugen._arrange(out_stack)  # puebla out_stack. ugen._arrange() se remueve de los antecedentes, se agrega a out_stack y devuelve out_stack. Acá no es necesaria la reasignación.
         self.children = out_stack
         self._cleanup_topo_sort()
 
     def _cleanup_topo_sort(self):
         for ugen in self.children:
-            ugen.antecedents = set()
-            ugen.descendants = set()
-            ugen.width_first_antecedents = [] # *** ÍDEM, OJO: no es SynthDef:_width_first_ugens, los nombres son confusos.
+            ugen._antecedents = set()
+            ugen._descendants = set()
+            ugen._width_first_antecedents = [] # *** ÍDEM, OJO: no es SynthDef:_width_first_ugens, los nombres son confusos.
 
     # L428
     # OC: UGens do these.
@@ -410,7 +410,7 @@ class SynthDef():
     def add_ugen(self, ugen): # lo usan UGen y WithFirstUGen implementando el método de instancia addToSynth
         if not self._rewrite_in_progress:
             ugen.synth_index = len(self.children)
-            ugen.width_first_antecedents = self._width_first_ugens[:] # with1sth antec/ugens refieren a lo mismo en distintos momentos, la lista es parcial para la ugen agregada.
+            ugen._width_first_antecedents = self._width_first_ugens[:] # with1sth antec/ugens refieren a lo mismo en distintos momentos, la lista es parcial para la ugen agregada.
             self.children.append(ugen)
 
     def remove_ugen(self, ugen): # # lo usan UGen y BinaryOpUGen para optimizaciones
@@ -421,8 +421,8 @@ class SynthDef():
         if not isinstance(b, ugn.UGen):
             raise Exception('replace_ugen assumes a UGen')
 
-        b.width_first_antecedents = a.width_first_antecedents
-        b.descendants = a.descendants
+        b._width_first_antecedents = a._width_first_antecedents
+        b._descendants = a._descendants
         b.synth_index = a.synth_index
         self.children[a.synth_index] = b
 

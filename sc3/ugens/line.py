@@ -36,7 +36,7 @@ class DC(ugn.PureMultiOutUGen):
     def kr(cls, input=0.0):
         return cls._multi_new('control', input)
 
-    def _init_ugen(self, *inputs):
+    def _init_ugen(self, *inputs):  # override
         self._inputs = inputs
         return self._init_outputs(len(inputs), self.rate)
 

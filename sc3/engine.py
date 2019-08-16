@@ -176,15 +176,15 @@ class ContiguousBlock():
         if self.adjoins(block):
             start = min(self.start, block.start)
             size = max(self.start + self.size, block.start + block.size) - start
-            return self.__class__(start, size)
+            return type(self)(start, size)
         else:
             return None
 
     def split(self, span):
         if span < self.size:
             return [
-                self.__class__(self.start, span),
-                self.__class__(self.start + span, self.size - span)
+                type(self)(self.start, span),
+                type(self)(self.start + span, self.size - span)
             ]
         elif span == self.size:
             return [self, None]
@@ -201,7 +201,7 @@ class ContiguousBlock():
     # se usa, correctamente porque devuelve una llamada al constructor
     # con un argumento de más ('used').
     # def __repr__(self):
-    #     string = self.__class__.__name__
+    #     string = type(self).__name__
     #     string += '({}, {})'.format(self.start, self.size)
     #     return string
 

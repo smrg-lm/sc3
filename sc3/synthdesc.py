@@ -262,7 +262,7 @@ class SynthDesc():
 
         def add_io(lst, nchan): # lambda
             b = ugen.inputs[0]
-            if b.__class__ is ugn.OutputProxy and isinstance(b.source_ugen, scio.Control):
+            if type(b) is ugn.OutputProxy and isinstance(b.source_ugen, scio.Control):
                 control = None
                 for item in self.controls: # detect
                     if item.index == (b.output_index + b.source_ugen.special_index):

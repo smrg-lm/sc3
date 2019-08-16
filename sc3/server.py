@@ -376,7 +376,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         mdl.NotificationCenter.notify(type(self), 'server_added', self)
 
         # TODO: siempre revisar que no esté usando las de variables clase
-        # porque no va a funcionar con metaclass sin llamar a __class__.
+        # porque no va a funcionar con metaclass sin llamar a type(self).
         # TODO: ver qué atributos no tienen setter y convertirlos en propiedad.
 
     @property
@@ -462,7 +462,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         mdl.NotificationCenter.notify(self, 'new_allocators')
 
     def new_node_allocators(self):
-        self.node_allocator = self.__class__.node_alloc_class(
+        self.node_allocator = type(self).node_alloc_class(
             self.client_id,
             self.options.initial_node_id,
             # self.max_num_clients # BUG: en sclang, node_alloc_class es eng.NodeIDAllocator por defecto, los alocadores originales reciben 2 parámetros, ContiguousBlockAllocator, que se usa para buses y buffers, recibe uno más, cambia la interfaz. Acá se pasa el tercer parámetro y NodeIDAllocator lo ignora (característica de las funciones de sclang), tengo que ver cómo maneja los ids de los nodos por cliente.
@@ -482,12 +482,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         audio_reserved_offset = self.options.reserved_num_audio_bus_channels
         audio_bus_client_offset = num_audio_per_client * self.client_id
 
-        self.control_bus_allocator = self.__class__.bus_alloc_class(
+        self.control_bus_allocator = type(self).bus_alloc_class(
             num_ctrl_per_client,
             ctrl_reserved_offset,
             ctrl_bus_client_offset
         )
-        self.audio_bus_allocator = self.__class__.bus_alloc_class(
+        self.audio_bus_allocator = type(self).bus_alloc_class(
             num_audio_per_client,
             audio_reserved_offset,
             audio_bus_client_offset + audio_bus_io_offset
@@ -498,7 +498,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         num_reserved_buffers = self.options.reserved_num_buffers
         buffer_client_offset = num_buffers_per_client * self.client_id
 
-        self.buffer_allocator = self.__class__.buffer_alloc_class(
+        self.buffer_allocator = type(self).buffer_alloc_class(
             num_buffers_per_client,
             num_reserved_buffers,
             buffer_client_offset

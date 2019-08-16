@@ -653,7 +653,7 @@ class UGen(fn.AbstractFunction):
     def arg_name_for_input_at(self, i): # se usa acá y en basicopugen dentro de checkValidInputs, ambas clases lo implementan.
         try:
             selector = self.method_selector_for_rate(self.rate)
-            method = getattr(self.__class__, selector)
+            method = getattr(type(self), selector)
             sig = inspect.signature(method)
             params = list(sig.parameters.values())
             arg_names = [x.name for x in params]
@@ -698,7 +698,7 @@ class UGen(fn.AbstractFunction):
             arg_name = self.arg_name_for_input_at(i)
             if arg_name is None: arg_name = str(i)
             msg += tab + arg_name + ' ' + str(input)
-            msg += ' ' + self.__class__.__name__ + '\n'
+            msg += ' ' + type(self).__name__ + '\n'
         print(msg, end='')
 
     #degreeToKey VER: por qué está acá y pegada a las otras !!! Es interfaz pero de simple number o math opes, creo, no sé por qué no está arriba.
@@ -774,7 +774,7 @@ class UGen(fn.AbstractFunction):
 
     # L467
     def name(self): # es ugen name
-        return self.__class__.__name__
+        return type(self).__name__
 
     def rate_number(self): #rateNumber # se usa en writeDef/Old y writeOutputSpec
         # El orden de los tres primeros no importa, pero en otra parte se usa la comparación lt/gt entre strings y este sería el orden lexicográfico.
@@ -1017,7 +1017,7 @@ class BasicOpUGen(UGen):
             arg_name = self.arg_name_for_input_at(i)
             if not arg_name: arg_name = str(i)
             msg += tab + arg_name + ' ' + str(input)
-            msg += ' ' + self.__class__.__name__ + '\n'
+            msg += ' ' + type(self).__name__ + '\n'
         print(msg, end='')
 
     def dump_name(self):

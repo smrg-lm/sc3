@@ -258,7 +258,7 @@ class SynthDesc():
         ugen = ugen_class.new_from_desc(rate, num_outputs, ugen_inputs, special_index)
         if isinstance(ugen, ugn.OutputProxy):
             ugen = ugen.source_ugen # BUG: esta propiedad se llama source en sclang y la implementan todas las clases pero solo se usa para OutputProxy. Comentarios en UGen.init_topo_sort
-        ugen.add_to_synth() # BUG: vaya a saber uno por qué en el código original se pasa a si mismo como parámetro si addToSynth no recibe en ninguna implementación, esto es porque sclang ignora los argumentos demás.
+        ugen._add_to_synth() # BUG: vaya a saber uno por qué en el código original se pasa a si mismo como parámetro si addToSynth no recibe en ninguna implementación, esto es porque sclang ignora los argumentos demás.
 
         def add_io(lst, nchan): # lambda
             b = ugen.inputs[0]

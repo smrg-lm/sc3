@@ -95,7 +95,7 @@ class EnvGen(ugn.UGen):
     def _new1(cls, rate, *args):
         obj = cls()
         obj._rate = rate
-        obj.add_to_synth()
+        obj._add_to_synth()
         args = list(args)
         envelope = args.pop()
         return obj._init_ugen(*args, *envelope)

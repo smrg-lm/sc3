@@ -32,14 +32,14 @@ class Poll(ugn.UGen):
         if rate == 'scalar':
             rate = 'control'
         if isinstance(trig, (int, float)):
-            selector = osc.Impulse.method_selector_for_rate(rate)
+            selector = osc.Impulse._method_selector_for_rate(rate)
             trig = getattr(osc.Impulse, selector)(trig, 0)
         obj = cls()
         obj._rate = rate
-        obj.add_to_synth()
+        obj._add_to_synth()
         return obj._init_ugen(trig, input, trig_id, len(label), *label)
 
-    def check_inputs(self):
-        return self.check_sr_as_first_input()  # TODO: volver a check_sample_rate_as_first_input?
+    def _check_inputs(self):  # override
+        return self._check_sr_as_first_input()
 
     # init_ugen, same override pattern as EnvGen, I don't get it.

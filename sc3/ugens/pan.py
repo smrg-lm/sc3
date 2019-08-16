@@ -20,8 +20,8 @@ class Pan2(ugn.MultiOutUGen):
         ]
         return self.channels # NOTE: RECORDAR: las ugens retornan self en _init_ugen que es método de interfaz, pero las output ugens retornan self.channels (o _init_outputs que retorna self.channels)
 
-    def check_inputs(self):
-        return self.check_n_inputs(1)
+    def _check_inputs(self):  # override
+        return self._check_n_inputs(1)
 
 
 # TODO: todo el resto...

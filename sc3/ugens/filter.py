@@ -4,8 +4,8 @@ from .. import ugen as ugn
 
 
 class Filter(ugn.PureUGen):
-    def check_inputs(self):
-        return self.check_sr_as_first_input() # NOTE: le cambié el nombre de check_sample_rate_as_first_input por extensas razones
+    def _check_inputs(self):  # override
+        return self._check_sr_as_first_input()
 
 
 # TODO: muchas, muchas...

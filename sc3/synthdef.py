@@ -377,16 +377,16 @@ class SynthDef():
     def _check_inputs(self): # ping
         first_err = None
         for ugen in self.children: # *** Itera sobre self.children por enésima vez.
-            err = ugen.check_inputs() # pong, en sclang devuelve nil o un string, creo que esos serían todos los casos según la lógica de este bloque.
-            if err: # *** HACER *** EN SCLANG ES ASIGNA A err Y COMPRUEBA notNil, acá puede ser none, pero ver qué retornan de manera sistemática, ver return acá abajo.
+            err = ugen._check_inputs() # pong, en sclang devuelve nil o un string, creo que esos serían todos los casos según la lógica de este bloque.
+            if err: # *** TODO EN SCLANG ES ASIGNA A err Y COMPRUEBA notNil, acá puede ser none, pero ver qué retornan de manera sistemática, ver return acá abajo.
                 # err = ugen.class.asString + err;
                 # err.postln;
-                # ugen.dumpArgs; # *** OJO, no es dumpUGens
+                # ugen._dump_args
                 if first_err is None: first_err = err
         if first_err:
             #"SynthDef % build failed".format(this.name).postln;
             raise Exception(first_err)
-        return True # porque ugen.check_inputs() retorna nil y acá true
+        return True # porque ugen._check_inputs() retorna nil y acá true
 
     def _topological_sort(self):
         self._init_topo_sort()
@@ -450,9 +450,9 @@ class SynthDef():
         for ugen in self.children: # tampoco terminó usando el índice
             inputs = None
             if ugen.inputs is not None:
-                inputs = [x.dump_name() if isinstance(x, ugn.UGen)
+                inputs = [x._dump_name() if isinstance(x, ugn.UGen)
                           else x for x in ugen.inputs] # ugen.inputs.collect {|in| if (in.respondsTo(\dumpName)) { in.dumpName }{ in }; }; # Las únicas clases que implementan dumpName son UGen, BasicOpUGen y OutputProxy, sería interfaz de UGen, sería if is UGen
-            print([ugen.dump_name(), ugen.rate, inputs])
+            print([ugen._dump_name(), ugen.rate, inputs])
 
     # L549
     # OC: make SynthDef available to all servers

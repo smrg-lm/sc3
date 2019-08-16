@@ -294,7 +294,7 @@ class UGen(fn.AbstractFunction):
         self._inputs = ()  # Always tuple.
         self._rate = 'audio'
         # atributos de instancia privados
-        self.synthdef = None # es _gl.current_synthdef luego de add_to_synth
+        self.synthdef = None # es _gl.current_synthdef luego de _add_to_synth
         self.synth_index = -1
         self.special_index = 0 # self.specialIndex = 0; # se obtiene de los símbolos, llama a _Symbol_SpecialIndex
         # topo sorting
@@ -322,7 +322,7 @@ class UGen(fn.AbstractFunction):
         '''
         obj = cls()
         obj._rate = rate
-        obj.add_to_synth()
+        obj._add_to_synth()
         return obj._init_ugen(*args)
 
     @classmethod
@@ -427,21 +427,21 @@ class UGen(fn.AbstractFunction):
         if self.rate == 'demand':
             bi.max(lo, bi.min(hi, self))
         else:
-            selector = trg.Clip.method_selector_for_rate(self.rate)
+            selector = trg.Clip._method_selector_for_rate(self.rate)
             return getattr(trg.Clip, selector)(self, lo, hi)
 
     def fold(self, lo=0.0, hi=0.0):
         if self.rate == 'demand':
             raise NotImplementedError('fold is not implemented for dr ugens')
         else:
-            selector = trg.Fold.method_selector_for_rate(self.rate)
+            selector = trg.Fold._method_selector_for_rate(self.rate)
             return getattr(trg.Fold, selector)(self, lo, hi)
 
     def wrap(self, lo=0.0, hi=1.0):
         if self.rate == 'demand':
             raise NotImplementedError('wrap is not implemented for dr ugens')
         else:
-            selector = trg.Wrap.method_selector_for_rate(self.rate)
+            selector = trg.Wrap._method_selector_for_rate(self.rate)
             return getattr(trg.Wrap, selector)(self, lo, hi)
 
     def degrad(self):
@@ -459,42 +459,42 @@ class UGen(fn.AbstractFunction):
                 return pan.XFade2.ar(self, other, pan)
             if gpp.ugen_param(other).rate == 'audio':
                 return pan.XFade2.ar(other, self, -pan)
-            selector = pan.LinXFade2.method_selector_for_rate(self.rate)
+            selector = pan.LinXFade2._method_selector_for_rate(self.rate)
             return getattr(pan.LinXFade2, selector)(self, other, pan)
 
     def min_nyquist(self):
         return bi.min(self, ifu.SampleRate.ir * 0.5)
 
     def lag(self, time=0.1):
-        selector = flr.Lag.method_selector_for_rate(self.rate)
+        selector = flr.Lag._method_selector_for_rate(self.rate)
         return getattr(flr.Lag, selector)(self, time)
 
     def lag2(self, time=0.1):
-        selector = flr.Lag2.method_selector_for_rate(self.rate)
+        selector = flr.Lag2._method_selector_for_rate(self.rate)
         return getattr(flr.Lag2, selector)(self, time)
 
     def lag3(self, time=0.1):
-        selector = flr.Lag3.method_selector_for_rate(self.rate)
+        selector = flr.Lag3._method_selector_for_rate(self.rate)
         return getattr(flr.Lag3, selector)(self, time)
 
     def lagud(self, utime=0.1, dtime=0.1):
-        selector = flr.LagUD.method_selector_for_rate(self.rate)
+        selector = flr.LagUD._method_selector_for_rate(self.rate)
         return getattr(flr.LagUD, selector)(self, utime, dtime)
 
     def lag2ud(self, utime=0.1, dtime=0.1):
-        selector = flr.Lag2UD.method_selector_for_rate(self.rate)
+        selector = flr.Lag2UD._method_selector_for_rate(self.rate)
         return getattr(flr.Lag2UD, selector)(self, utime, dtime)
 
     def lag3ud(self, utime=0.1, dtime=0.1):
-        selector = flr.Lag3UD.method_selector_for_rate(self.rate)
+        selector = flr.Lag3UD._method_selector_for_rate(self.rate)
         return getattr(flr.Lag3UD, selector)(self, utime, dtime)
 
     def varlag(self, time=0.1, curvature=0, wrap=5, start=None):
-        selector = flr.VarLag.method_selector_for_rate(self.rate)
+        selector = flr.VarLag._method_selector_for_rate(self.rate)
         return getattr(flr.VarLag, selector)(self, time, curvature, wrap, start)
 
     def slew(self, up=1, down=1):
-        selector = flr.Slew.method_selector_for_rate(self.rate)
+        selector = flr.Slew._method_selector_for_rate(self.rate)
         return getattr(flr.Slew, selector)(self, up, down)
 
     def prune(self, min, max, type='minmax'):
@@ -507,24 +507,24 @@ class UGen(fn.AbstractFunction):
         return self
 
     def snap(self, resolution=1.0, margin=0.05, strengh=1.0):  # NOTE: UGen/SimpleNumber, not in AbstractFunction
-        selector = osc.Select.method_selector_for_rate(self.rate)
+        selector = osc.Select._method_selector_for_rate(self.rate)
         diff = round(self, resolution) - self
         return getattr(osc.Select, selector)(abs(diff) < margin,
                                              [self, self + strengh * diff])
 
     def softround(self, resolution=1.0, margin=0.05, strengh=1.0):  # NOTE: UGen/SimpleNumber, not in AbstractFunction
-        selector = osc.Select.method_selector_for_rate(self.rate)
+        selector = osc.Select._method_selector_for_rate(self.rate)
         diff = round(self, resolution) - self
         return getattr(osc.Select, selector)(abs(diff) > margin,
                                              [self, self + strengh * diff])
 
     def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        selector = lne.LinLin.method_selector_for_rate(self.rate)  # BUG: I see these can fail for ir/dr ugens however sclang implementation semantics is diverse and not clear.
+        selector = lne.LinLin._method_selector_for_rate(self.rate)  # BUG: I see these can fail for ir/dr ugens however sclang implementation semantics is diverse and not clear.
         return getattr(lne.LinLin, selector)(self.prune(inmin, inmax, clip),
                                              inmin, inmax, outmin, outmax)
 
     def linexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        selector = lne.LinExp.method_selector_for_rate(self.rate)
+        selector = lne.LinExp._method_selector_for_rate(self.rate)
         return getattr(lne.LinExp, selector)(self.prune(inmin, inmax, clip),
                                              inmin, inmax, outmin, outmax)
 
@@ -548,7 +548,7 @@ class UGen(fn.AbstractFunction):
         if gpp.ugen_param(curve).rate == 'scalar':
             return curved_res
         else:
-            selector = osc.Select.method_selector_for_rate(self.rate)
+            selector = osc.Select._method_selector_for_rate(self.rate)
             return getattr(osc.Select, selector)(abs(curve) >= 0.125, [
                 self.linlin(inmin, inmax, outmin, outmax, clip),
                 curved_res])
@@ -564,14 +564,14 @@ class UGen(fn.AbstractFunction):
         if gpp.ugen_param(curve).rate == 'scalar':
             return lin_res
         else:
-            selector = osc.Select.method_selector_for_rate(self.rate)
+            selector = osc.Select._method_selector_for_rate(self.rate)
             return getattr(osc.Select, selector)(abs(curve) >= 0.125, [
                 self.linlin(inmin, inmax, outmin, outmax, clip),
                 lin_res])
 
     def bilin(self, incenter, inmin, inmax, outcenter, outmin, outmax,
               clip='minmax'):
-        selector = osc.Select.method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class and doesn't uses _multi_new as above.
+        selector = osc.Select._method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class and doesn't uses _multi_new as above.
         return getattr(osc.Select, selector)(self < incenter, [
             self.linlin(incenter, inmax, outcenter, outmax, clip),
             self.linlin(inmin, incenter, outmin, outcenter, clip)])
@@ -579,11 +579,11 @@ class UGen(fn.AbstractFunction):
     # biexp is not overridden
 
     def moddif(self, that=0.0, mod=1.0):
-        selector = trg.ModDif.method_selector_for_rate(self.rate)
+        selector = trg.ModDif._method_selector_for_rate(self.rate)
         return getattr(trg.ModDif, selector)(self, that, mod)
 
     def sanitize(self):
-        selector = tsu.Sanitize.method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class.
+        selector = tsu.Sanitize._method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class.
         return getattr(tsu.Sanitize, selector)(self)
 
     # Synth debug
@@ -595,10 +595,12 @@ class UGen(fn.AbstractFunction):
         return dmd.Dpoll.new(self, label, run, trig_id)
 
     def check_bad_values(self, id=0, post=2):
-        selector = tsu.CheckBadValues.method_selector_for_rate(self.rate)
+        selector = tsu.CheckBadValues._method_selector_for_rate(self.rate)
         getattr(tsu.CheckBadValues, selector)(self, id, post)
         # // add the UGen to the tree but keep self as the output
         return self
+
+    # degreeToKey (I don't know why this method is important)
 
 
     # L284
@@ -608,7 +610,7 @@ class UGen(fn.AbstractFunction):
     # @ { arg y; ^Point.new(this, y) } // dynamic geometry support # ??? no sé qué será ni por qué está acá en el medio...
 
     # L287
-    def add_to_synth(self): # este método lo reimplementan OuputProxy y WidthFirstUGen
+    def _add_to_synth(self):
         self.synthdef = _gl.current_synthdef
         if self.synthdef is not None:
             self.synthdef.add_ugen(self)
@@ -621,20 +623,20 @@ class UGen(fn.AbstractFunction):
 
     # L304
     # Estos métodos son interfaz pero creo que solo para las UGens, serían interfaz protejida
-    def check_inputs(self): # pong, se llama desde SynthDef _check_inputs(), lo reimplementan muchas sub-clases, es interfaz de UGen
+    def _check_inputs(self): # pong, se llama desde SynthDef _check_inputs(), lo reimplementan muchas sub-clases, es interfaz de UGen
         '''Returns error msg or None.'''
-        return self.check_valid_inputs()
+        return self._check_valid_inputs()
 
-    def check_valid_inputs(self):  # este método se usa acá y en otras ugens dentro de check_inputs, es interfaz de UGen se usa junto con check_inputs
+    def _check_valid_inputs(self):  # este método se usa acá y en otras ugens dentro de _check_inputs
         '''Returns error msg or None.'''
         for i, input in enumerate(self.inputs):
             if not gpp.ugen_param(input).is_valid_ugen_input():
-                arg_name = self.arg_name_for_input_at(i)
+                arg_name = self._arg_name_for_input_at(i)
                 if arg_name is None: arg_name = i
                 return f'arg: {arg_name} has bad input: {input}'
         return None
 
-    def check_n_inputs(self, n): # ídem anterior, deben ser interfaz protejida.
+    def _check_n_inputs(self, n): # ídem anterior, deben ser interfaz protejida.
         if self.rate == 'audio':
             if n > len(self.inputs):
                 n = len(self.inputs)
@@ -642,17 +644,17 @@ class UGen(fn.AbstractFunction):
                 if gpp.ugen_param(self.inputs[i]).as_ugen_rate() != 'audio':
                     return (f'input {i} is not audio rate: {self.inputs[i]} '
                             f'{gpp.ugen_param(self.inputs[i]).as_ugen_rate()}')
-        return self.check_valid_inputs() # comprueba is_valid_ugen_input no el rate.
+        return self._check_valid_inputs() # comprueba is_valid_ugen_input no el rate.
 
-    def check_sr_as_first_input(self): # checkSameRateAsFirstInput ídem anterior, deben ser interfaz protejida
+    def _check_sr_as_first_input(self): # checkSameRateAsFirstInput ídem anterior, deben ser interfaz protejida
         if self.rate != gpp.ugen_param(self.inputs[0]).as_ugen_rate():
             return (f'first input is not {self.rate} rate: {self.inputs[0]} '
                     f'{gpp.ugen_param(self.inputs[0]).as_ugen_rate()}')
-        return self.check_valid_inputs()
+        return self._check_valid_inputs()
 
-    def arg_name_for_input_at(self, i): # se usa acá y en basicopugen dentro de checkValidInputs, ambas clases lo implementan.
+    def _arg_name_for_input_at(self, i): # se usa acá y en basicopugen dentro de checkValidInputs, ambas clases lo implementan.
         try:
-            selector = self.method_selector_for_rate(self.rate)
+            selector = type(self)._method_selector_for_rate(self.rate)
             method = getattr(type(self), selector)
             sig = inspect.signature(method)
             params = list(sig.parameters.values())
@@ -673,37 +675,44 @@ class UGen(fn.AbstractFunction):
     # a = SinOsc.ar; a.class.class.findMethod(\ar).argNames; -> SymbolArray[ this, freq, phase, mul, add ]
     # arg_names como se extrae arriba omite el primer argumento que es self/cls, salvo para los métodos mágicos.
     # Si se usa __init__ como new de sclang *sí* se necesita offset. Los métodos mágicos devuelven self/cls. VER los métodos de clase.
-    # Además, lo implementan muchas UGens (devuelven 2). Se usa solo en arg_name_for_input_at, de UGen y BasicOpUGenself.
+    # Además, lo implementan muchas UGens (devuelven 2). Se usa solo en _arg_name_for_input_at, de UGen y BasicOpUGenself.
     # En todo caso sería una propiedad o un método?
     # def arg_names_inputs_offset(self): # lo implementan varias clases como intefaz, se usa solo acá y basicopugen en argNameForInputAt
     #     return 1
 
     @classmethod
-    def method_selector_for_rate(cls, rate): # TODO VER: este no tendría try/except en getattr? VER: repite el código porque comprueba con self.rate que cambia si se inicializa con ar/kr/ir, pero no es lo mismo así?? No lo implementa ninguna sub-clase. En sclang tiene una variante de instancia que acá no puede existir.
-        if rate == 'audio': return 'ar'
-        if rate == 'control': return 'kr'
-        if rate == 'scalar':
-            if 'ir' in dir(cls):
+    def _method_selector_for_rate(cls, rate):
+        if rate == 'audio':
+            if hasattr(cls, 'ar'):
+                return 'ar'
+        elif rate == 'control':
+            if hasattr(cls, 'kr'):
+                return 'kr'
+        elif rate == 'scalar':
+            if hasattr(cls, 'ir'):
                 return 'ir'
-            else:
+            elif hasattr(cls, 'new'):
                 return 'new'
-        if rate == 'demand': return 'dr'
-        return None
+        elif rate == 'demand':
+            if hasattr(cls, 'dr'):
+                return 'dr'
+        # return None  # original behaviour
+        raise AttributeError(f'{cls.__name__} as not {rate} rate constructor')
 
-    def dump_args(self): # implementa acá y en basicopugen se usa en SynthDef checkInputs y en Mix*kr
+    def _dump_args(self):
+        '''Used for error messages.'''
         msg = 'ARGS:\n'
         tab = ' ' * 4
         arg_name = None
         for i, input in enumerate(self.inputs):
-            arg_name = self.arg_name_for_input_at(i)
+            arg_name = self._arg_name_for_input_at(i)
             if arg_name is None: arg_name = str(i)
             msg += tab + arg_name + ' ' + str(input)
             msg += ' ' + type(self).__name__ + '\n'
         print(msg, end='')
 
-    #degreeToKey VER: por qué está acá y pegada a las otras !!! Es interfaz pero de simple number o math opes, creo, no sé por qué no está arriba.
-
-    def dump_name(self):
+    def _dump_name(self):
+        '''Used for SynthDef.dump_ugens().'''
         return str(self.synth_index) + '_' + self.name()
 
     @classmethod # VER: la locación de este método, es una utilidad de clase.
@@ -969,11 +978,11 @@ class OutputProxy(UGen):
         self.synth_index = source_ugen.synth_index
         return self  # Must return self.
 
-    def add_to_synth(self): # OutputProxy no se agrega a sí con add_ugen, por lo tanto no se puebla con init_topo_sort y no se guarda en antecedents. init_topo_sort comprueba if isinstance(input, OutputProxy): y agrega source_ugen
+    def _add_to_synth(self):  # override # OutputProxy no se agrega a sí con add_ugen, por lo tanto no se puebla con init_topo_sort y no se guarda en antecedents. init_topo_sort comprueba if isinstance(input, OutputProxy): y agrega source_ugen
         self.synthdef = _gl.current_synthdef
 
-    def dump_name(self):
-        return self.source_ugen.dump_name() + '['\
+    def _dump_name(self):
+        return self.source_ugen._dump_name() + '['\
                + str(self.output_index) + ']'
 
 
@@ -1008,19 +1017,19 @@ class BasicOpUGen(UGen):
     #argNamesInputsOffset # VER: estos métodos no se cambian acá porque estoy usando *new* que no es __init__ en Python y no incluye this/self como primer argumento. sclang hace lo mismo que Python con new, argNames devuevle [this, ...] para Meta_Object*new
     #argNameForInputAt
 
-    def dump_args(self):
+    def _dump_args(self):
         msg = 'ARGS:\n'
         tab = ' ' * 4
         msg += tab + 'operator: ' + self.operator + '\n'
         arg_name = None
         for i, input in enumerate(self.inputs):
-            arg_name = self.arg_name_for_input_at(i)
+            arg_name = self._arg_name_for_input_at(i)
             if not arg_name: arg_name = str(i)
             msg += tab + arg_name + ' ' + str(input)
             msg += ' ' + type(self).__name__ + '\n'
         print(msg, end='')
 
-    def dump_name(self):
+    def _dump_name(self):
         return str(self.synth_index) + '_' + self.operator
 
 

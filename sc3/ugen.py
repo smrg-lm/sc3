@@ -51,16 +51,16 @@ class ChannelList(list, fn.AbstractFunction):
 
     ### AbstractFunction interface ###
 
-    def compose_unop(self, selector):
+    def _compose_unop(self, selector):
         return utl.list_unop(selector, self, type(self))
 
-    def compose_binop(self, selector, other):
+    def _compose_binop(self, selector, other):
         return utl.list_binop(selector, self, other, type(self))
 
-    def rcompose_binop(self, selector, other):
+    def _rcompose_binop(self, selector, other):
         return utl.list_binop(selector, other, self, type(self))
 
-    def compose_narop(self, selector, *args):
+    def _compose_narop(self, selector, *args):
         return utl.list_narop(selector, self, *args, t=type(self))
 
 
@@ -204,37 +204,37 @@ class ChannelList(list, fn.AbstractFunction):
     ### Override list methods ###
 
     def __add__(self, other): # +
-        return self.compose_binop(operator.add, other)
+        return self._compose_binop(operator.add, other)
 
     def __iadd__(self, other): # +=
-        return self.compose_binop(operator.add, other)
+        return self._compose_binop(operator.add, other)
 
     def __mul__(self, other): # *
-        return self.compose_binop(operator.mul, other)
+        return self._compose_binop(operator.mul, other)
 
     def __rmul__(self, other):
-        return self.rcompose_binop(operator.mul, other)
+        return self._rcompose_binop(operator.mul, other)
 
     def __imul__(self, other): # *=
-        return self.compose_binop(operator.mul, other)
+        return self._compose_binop(operator.mul, other)
 
     def __lt__(self, other): # <
-        return self.compose_binop(operator.lt, other)
+        return self._compose_binop(operator.lt, other)
 
     def __le__(self, other): # <=
-        return self.compose_binop(operator.le, other)
+        return self._compose_binop(operator.le, other)
 
     # def __eq__(self, other):
-    #     return self.compose_binop(operator.eq, other)
+    #     return self._compose_binop(operator.eq, other)
 
     # def __ne__(self, other):
-    #     return self.compose_binop(operator.ne, other)
+    #     return self._compose_binop(operator.ne, other)
 
     def __gt__(self, other): # >
-        return self.compose_binop(operator.gt, other)
+        return self._compose_binop(operator.gt, other)
 
     def __ge__(self, other): # >=
-        return self.compose_binop(operator.ge, other)
+        return self._compose_binop(operator.ge, other)
 
 
     def __repr__(self):
@@ -586,7 +586,9 @@ class UGen(fn.AbstractFunction):
         selector = tsu.Sanitize._method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class.
         return getattr(tsu.Sanitize, selector)(self)
 
-    # Synth debug
+    # degreeToKey (I don't know why this method is important)
+
+    # Synth debug convenience methods
 
     def poll(self, trig=10, label=None, trig_id=-1):
         return pll.Poll.new(trig, self, label, trig_id)
@@ -599,8 +601,6 @@ class UGen(fn.AbstractFunction):
         getattr(tsu.CheckBadValues, selector)(self, id, post)
         # // add the UGen to the tree but keep self as the output
         return self
-
-    # degreeToKey (I don't know why this method is important)
 
 
     # L284
@@ -622,8 +622,7 @@ class UGen(fn.AbstractFunction):
                 self.synthdef.add_constant(float(input))
 
     # L304
-    # Estos métodos son interfaz pero creo que solo para las UGens, serían interfaz protejida
-    def _check_inputs(self): # pong, se llama desde SynthDef _check_inputs(), lo reimplementan muchas sub-clases, es interfaz de UGen
+    def _check_inputs(self):  # pong # se llama desde SynthDef _check_inputs(), lo reimplementan muchas sub-clases, es interfaz de UGen
         '''Returns error msg or None.'''
         return self._check_valid_inputs()
 
@@ -737,11 +736,11 @@ class UGen(fn.AbstractFunction):
 
     ### AbstractFunction interface ###
 
-    def compose_unop(self, selector):
+    def _compose_unop(self, selector):
         selector = _si.sc_opname(selector.__name__)
         return UnaryOpUGen.new(selector, self)
 
-    def compose_binop(self, selector, input):
+    def _compose_binop(self, selector, input):
         param = gpp.ugen_param(input)
         if param.is_valid_ugen_input():
             selector = _si.sc_opname(selector.__name__)
@@ -749,11 +748,11 @@ class UGen(fn.AbstractFunction):
         else:
             return param.perform_binary_op_on_ugen(selector, self) # *** BUG: in scalng does not return?
 
-    def rcompose_binop(self, selector, ugen):
+    def _rcompose_binop(self, selector, ugen):
         return BinaryOpUGen.new(selector, ugen, self)
 
-    def compose_narop(self, selector, *args):
-        raise NotImplementedError('UGen compose_narop is not supported')
+    def _compose_narop(self, selector, *args):
+        raise NotImplementedError('UGen _compose_narop is not supported')
 
 
     # L426
@@ -764,9 +763,10 @@ class UGen(fn.AbstractFunction):
     # L431, el método if que no voy a poner...
     #if(self, trueugen, falseugen)
 
+
+    ### Binary SynthDef format ###
+
     # L470
-    # Este método llama a los de abajo, reordené por orden de lectura.
-    # Escribe a archivo, pero también generan el formato. VER con SynthDef
     def write_def(self, file):
         try:
             file.write(struct.pack('B', len(self.name()))) # 01 putPascalString, unsigned int8 -> bytes
@@ -804,6 +804,7 @@ class UGen(fn.AbstractFunction):
 
     def write_output_specs(self, file): # TODO: variación con 's' que llama a la sin 's', este método sería para las ugens con salidas múltiples, el nombre del método debería ser más descriptivo porque es fácil de confundir, además. # lo implementan AbstractOut, MultiOutUGen, SendPeakRMS, SendTrig y UGen.
         self.write_output_spec(file)
+
 
     ### Topo sort methods ###
 
@@ -848,6 +849,7 @@ class UGen(fn.AbstractFunction):
             self.synthdef.remove_ugen(self)
             return True
         return False
+
 
     # Interfaz/protocolo de UGen
 

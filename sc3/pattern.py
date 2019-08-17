@@ -36,16 +36,16 @@ class Pattern(fn.AbstractFunction):
     # select
     # reject
 
-    def compose_unop(self, selector):
+    def _compose_unop(self, selector):
         return Punop(selector, self)
 
-    def compose_binop(self, selector, other):
+    def _compose_binop(self, selector, other):
         return Pbinop(selector, self, other)
 
-    def rcompose_binop(self, selector, other):
+    def _rcompose_binop(self, selector, other):
         return Pbinop(selector, other, self)
 
-    def compose_narop(self, selector, *args):
+    def _compose_narop(self, selector, *args):
         return Pnarop(selector, self, *args)
 
     # mtranspose

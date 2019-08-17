@@ -87,16 +87,16 @@ class Stream(fn.AbstractFunction): #, ABC):
     # collate # // ascending order merge of two streams # NOTE: usa interlace
     # <> # Pchain
 
-    def compose_unop(self, selector):
+    def _compose_unop(self, selector):
         return UnaryOpStream(selector, self)
 
-    def compose_binop(self, selector, other):
+    def _compose_binop(self, selector, other):
         return BinaryOpStream(selector, self, stream(other)) # BUG: BUG: en sclang usa el adverbio y si es nil la operación binaria retorna nil, tal vez porque sin él no hace la operación elemento a elemento de los streams.
 
-    def rcompose_binop(self, selector, other):
+    def _rcompose_binop(self, selector, other):
         return BinaryOpStream(selector, stream(other), self)
 
-    def compose_narop(self, selector, *args):
+    def _compose_narop(self, selector, *args):
         args = [stream(x) for x in args]
         return NAryOpStream(selector, self, *args)
 

@@ -21,32 +21,32 @@ class AbstractFunction(gpp.UGenParameter):
     # // override these in subclasses to perform
     # // different kinds of function compositions
 
-    def compose_unop(self, selector):
+    def _compose_unop(self, selector):
         return UnaryOpFunction(selector, self)
 
-    def compose_binop(self, selector, other):
+    def _compose_binop(self, selector, other):
         return BinaryOpFunction(selector, self, other)
 
-    def rcompose_binop(self, selector, other):
+    def _rcompose_binop(self, selector, other):
         return BinaryOpFunction(selector, other, self)
 
-    def compose_narop(self, selector, *args):
+    def _compose_narop(self, selector, *args):
         return NAryOpFunction(selector, self, *args)
 
 
     ### Unary operators ###
 
     def __neg__(self):
-        return self.compose_unop(operator.neg)  # -
+        return self._compose_unop(operator.neg)  # -
 
     def __pos__(self):
-        return self.compose_unop(operator.pos)  # + (not in _specialindex)
+        return self._compose_unop(operator.pos)  # + (not in _specialindex)
 
     def __abs__(self):
-        return self.compose_unop(operator.abs)  # abs()
+        return self._compose_unop(operator.abs)  # abs()
 
     def __invert__(self):
-        return self.compose_unop(operator.invert)  # ~ (bitwise inverse)
+        return self._compose_unop(operator.invert)  # ~ (bitwise inverse)
 
 
     # Python's numeric type conversion
@@ -64,110 +64,110 @@ class AbstractFunction(gpp.UGenParameter):
     # Python's builtin round and math trunc/floor/ceil.
 
     def __round__(self, ndigits=0):
-        return self.compose_binop(round, ndigits)
+        return self._compose_binop(round, ndigits)
 
     def __trunc__(self):
-        return self.compose_unop(math.trunc)  # *** BUG: sclang binary, possible si problem
+        return self._compose_unop(math.trunc)  # *** BUG: sclang binary, possible si problem
 
     def __floor__(self):
-        return self.compose_unop(math.floor)
+        return self._compose_unop(math.floor)
 
     def __ceil__(self):
-        return self.compose_unop(math.ceil)
+        return self._compose_unop(math.ceil)
 
 
     def reciprocal(self):
-        return self.compose_unop(bi.reciprocal)
+        return self._compose_unop(bi.reciprocal)
 
     def frac(self):
-        return self.compose_unop(bi.frac)
+        return self._compose_unop(bi.frac)
 
     def sign(self):
-        return self.compose_unop(bi.sign)
+        return self._compose_unop(bi.sign)
 
     def log(self, base=math.e):
-        return self.compose_binop(bi.log, base)  # *** BUG: sclang unary, possible si problem
+        return self._compose_binop(bi.log, base)  # *** BUG: sclang unary, possible si problem
 
     def log2(self):
-        return self.compose_unop(bi.log2)
+        return self._compose_unop(bi.log2)
 
     def log10(self):
-        return self.compose_unop(bi.log10)
+        return self._compose_unop(bi.log10)
 
     # def log1p(self):
-    #     return self.compose_unop(bi.log1p)
+    #     return self._compose_unop(bi.log1p)
 
     def exp(self):
-        return self.compose_unop(bi.exp)
+        return self._compose_unop(bi.exp)
 
     def sin(self):
-        return self.compose_unop(bi.sin)
+        return self._compose_unop(bi.sin)
 
     def cos(self):
-        return self.compose_unop(bi.cos)
+        return self._compose_unop(bi.cos)
 
     def tan(self):
-        return self.compose_unop(bi.tan)
+        return self._compose_unop(bi.tan)
 
     def asin(self):
-        return self.compose_unop(bi.asin)
+        return self._compose_unop(bi.asin)
 
     def acos(self):
-        return self.compose_unop(bi.acos)
+        return self._compose_unop(bi.acos)
 
     def atan(self):
-        return self.compose_unop(bi.atan)
+        return self._compose_unop(bi.atan)
 
     def sinh(self):
-        return self.compose_unop(bi.sinh)
+        return self._compose_unop(bi.sinh)
 
     def cosh(self):
-        return self.compose_unop(bi.cosh)
+        return self._compose_unop(bi.cosh)
 
     def tanh(self):
-        return self.compose_unop(bi.tanh)
+        return self._compose_unop(bi.tanh)
 
     # def asinh(x):
-    #     return self.compose_unop(bi.asinh)
+    #     return self._compose_unop(bi.asinh)
 
     # def acosh(x):
-    #     return self.compose_unop(bi.acosh)
+    #     return self._compose_unop(bi.acosh)
 
     # def atanh(x):
-    #     return self.compose_unop(bi.atanh)
+    #     return self._compose_unop(bi.atanh)
 
     def midicps(self):
-        return self.compose_unop(bi.midicps)
+        return self._compose_unop(bi.midicps)
 
     def cpsmidi(self):
-        return self.compose_unop(bi.cpsmidi)
+        return self._compose_unop(bi.cpsmidi)
 
     def midiratio(self):
-        return self.compose_unop(bi.midiratio)
+        return self._compose_unop(bi.midiratio)
 
     def ratiomidi(self):
-        return self.compose_unop(bi.ratiomidi)
+        return self._compose_unop(bi.ratiomidi)
 
     def octcps(self):
-        return self.compose_unop(bi.octcps)
+        return self._compose_unop(bi.octcps)
 
     def cpsoct(self):
-        return self.compose_unop(bi.cpsoct)
+        return self._compose_unop(bi.cpsoct)
 
     def ampdb(self):
-        return self.compose_unop(bi.ampdb)
+        return self._compose_unop(bi.ampdb)
 
     def dbamp(self):
-        return self.compose_unop(bi.dbamp)
+        return self._compose_unop(bi.dbamp)
 
     def squared(self):
-        return self.compose_unop(bi.squared)
+        return self._compose_unop(bi.squared)
 
     def cubed(self):
-        return self.compose_unop(bi.cubed)
+        return self._compose_unop(bi.cubed)
 
     def sqrt(self):
-        return self.compose_unop(bi.sqrt)
+        return self._compose_unop(bi.sqrt)
 
     # rand
     # rand2
@@ -176,32 +176,32 @@ class AbstractFunction(gpp.UGenParameter):
     # sum3rand
 
     def distort(self):
-        return self.compose_unop(bi.distort)
+        return self._compose_unop(bi.distort)
 
     def softclip(self):
-        return self.compose_unop(bi.softclip)
+        return self._compose_unop(bi.softclip)
 
     # coin
     # even
     # odd
 
     def rectwindow(self):
-        return self.compose_unop(bi.rectwindow)
+        return self._compose_unop(bi.rectwindow)
 
     def hanwindow(self):
-        return self.compose_unop(bi.hanwindow)
+        return self._compose_unop(bi.hanwindow)
 
     def welwindow(self):
-        return self.compose_unop(bi.welwindow)
+        return self._compose_unop(bi.welwindow)
 
     def triwindow(self):
-        return self.compose_unop(bi.triwindow)
+        return self._compose_unop(bi.triwindow)
 
     def scurve(self):
-        return self.compose_unop(bi.scurve)
+        return self._compose_unop(bi.scurve)
 
     def ramp(self):
-        return self.compose_unop(bi.ramp)
+        return self._compose_unop(bi.ramp)
 
     # isPositive
     # isNegative
@@ -216,178 +216,178 @@ class AbstractFunction(gpp.UGenParameter):
     ### Binary operators ###
 
     def __add__(self, other): # +
-        return self.compose_binop(operator.add, other)
+        return self._compose_binop(operator.add, other)
 
     def __radd__(self, other):
-        return self.rcompose_binop(operator.add, other)
+        return self._rcompose_binop(operator.add, other)
 
     def __sub__(self, other): # -
-        return self.compose_binop(operator.sub, other)
+        return self._compose_binop(operator.sub, other)
 
     def __rsub__(self, other):
-        return self.rcompose_binop(operator.sub, other)
+        return self._rcompose_binop(operator.sub, other)
 
     def __mul__(self, other): # *
-        return self.compose_binop(operator.mul, other)
+        return self._compose_binop(operator.mul, other)
 
     def __rmul__(self, other):
-        return self.rcompose_binop(operator.mul, other)
+        return self._rcompose_binop(operator.mul, other)
 
     # def __matmul__(self, other): # @
-    #     return self.compose_binop(operator.matmul, other)
+    #     return self._compose_binop(operator.matmul, other)
 
     # def __rmatmul__(self, other):
-    #     return self.rcompose_binop(operator.matmul, other)
+    #     return self._rcompose_binop(operator.matmul, other)
 
     def __truediv__(self, other): # /
-        return self.compose_binop(operator.truediv, other)
+        return self._compose_binop(operator.truediv, other)
 
     def __rtruediv__(self, other):
-        return self.rcompose_binop(operator.truediv, other)
+        return self._rcompose_binop(operator.truediv, other)
 
     def __floordiv__(self, other): # //
-        return self.compose_binop(operator.floordiv, other)
+        return self._compose_binop(operator.floordiv, other)
 
     def __rfloordiv__(self, other):
-        return self.rcompose_binop(operator.floordiv, other)
+        return self._rcompose_binop(operator.floordiv, other)
 
     def __mod__(self, other): # %
-        return self.compose_binop(bi.mod, other)
+        return self._compose_binop(bi.mod, other)
 
     def __rmod__(self, other):
-        return self.rcompose_binop(bi.mod, other)
+        return self._rcompose_binop(bi.mod, other)
 
     # def __divmod__(self, other): # divmod(), método integrado
-    #     return self.compose_binop('divmod', other)
+    #     return self._compose_binop('divmod', other)
 
     # def __rdivmod__(self, other):
-    #     return self.rcompose_binop('divmod', other)
+    #     return self._rcompose_binop('divmod', other)
 
     def __pow__(self, other): # pow(), **, object.__pow__(self, other[, modulo])
-        return self.compose_binop(operator.pow, other)
+        return self._compose_binop(operator.pow, other)
 
     def __rpow__(self, other):
-        return self.rcompose_binop(operator.pow, other)
+        return self._rcompose_binop(operator.pow, other)
 
     def __lshift__(self, other): # <<
-        return self.compose_binop(operator.lshift, other)
+        return self._compose_binop(operator.lshift, other)
 
     def __rlshift__(self, other):
-        return self.rcompose_binop(operator.lshift, other)
+        return self._rcompose_binop(operator.lshift, other)
 
     def __rshift__(self, other): # >>
-        return self.compose_binop(operator.rshift, other)
+        return self._compose_binop(operator.rshift, other)
 
     def __rrshift__(self, other):
-        return self.rcompose_binop(operator.rshift, other)
+        return self._rcompose_binop(operator.rshift, other)
 
     def __and__(self, other): # &
-        return self.compose_binop(operator.and_, other)
+        return self._compose_binop(operator.and_, other)
 
     def __rand__(self, other):
-        return self.rcompose_binop(operator.and_, other)
+        return self._rcompose_binop(operator.and_, other)
 
     def __xor__(self, other): # ^
-        return self.compose_binop(operator.xor, other)
+        return self._compose_binop(operator.xor, other)
 
     def __rxor__(self, other):
-        return self.rcompose_binop(operator.xor, other)
+        return self._rcompose_binop(operator.xor, other)
 
     def __or__(self, other): # |
-        return self.compose_binop(operator.or_, other)
+        return self._compose_binop(operator.or_, other)
 
     def __ror__(self, other):
-        return self.rcompose_binop(operator.or_, other)
+        return self._rcompose_binop(operator.or_, other)
 
     # bitHammingDistance  # _HammingDistance -> ./lang/LangPrimSource/PyrBitPrim.cpp
 
     def __lt__(self, other): # <
-        return self.compose_binop(operator.lt, other)
+        return self._compose_binop(operator.lt, other)
 
     def __le__(self, other): # <=
-        return self.compose_binop(operator.le, other)
+        return self._compose_binop(operator.le, other)
 
     # def __eq__(self, other):  # == (used in ugen dispatch, performBinaryOpOnUGen -> Object.performBinaryOpOnSomething)
-    #     return self.compose_binop(operator.eq, other)
+    #     return self._compose_binop(operator.eq, other)
 
     # def __ne__(self, other):  # != # (used in ugen dispatch, performBinaryOpOnUGen -> Object.performBinaryOpOnSomething)
-    #     return self.compose_binop(operator.ne, other)
+    #     return self._compose_binop(operator.ne, other)
 
     def __gt__(self, other): # >
-        return self.compose_binop(operator.gt, other)
+        return self._compose_binop(operator.gt, other)
 
     def __ge__(self, other): # >=
-        return self.compose_binop(operator.ge, other)
+        return self._compose_binop(operator.ge, other)
 
 
     def min(self, other):
-        return self.compose_binop(bi.min, other)
+        return self._compose_binop(bi.min, other)
 
     def max(self, other):
-        return self.compose_binop(bi.max, other)
+        return self._compose_binop(bi.max, other)
 
     def lcm(self, other):
-        return self.compose_binop(bi.lcm, other)
+        return self._compose_binop(bi.lcm, other)
 
     def gcd(self, other):
-        return self.compose_binop(bi.gcd, other)
+        return self._compose_binop(bi.gcd, other)
 
     def atan2(self, other):
-        return self.compose_binop(bi.atan2, other)
+        return self._compose_binop(bi.atan2, other)
 
     def hypot(self, other):
-        return self.compose_binop(math.hypot, other)
+        return self._compose_binop(math.hypot, other)
 
     def hypotx(self, other):
-        return self.compose_binop(bi.hypotx, other)
+        return self._compose_binop(bi.hypotx, other)
 
     def ring1(self, other):
-        return self.compose_binop(bi.ring1, other)
+        return self._compose_binop(bi.ring1, other)
 
     def ring2(self, other):
-        return self.compose_binop(bi.ring2, other)
+        return self._compose_binop(bi.ring2, other)
 
     def ring3(self, other):
-        return self.compose_binop(bi.ring3, other)
+        return self._compose_binop(bi.ring3, other)
 
     def ring4(self, other):
-        return self.compose_binop(bi.ring4, other)
+        return self._compose_binop(bi.ring4, other)
 
     def difsqr(self, other):
-        return self.compose_binop(bi.difsqr, other)
+        return self._compose_binop(bi.difsqr, other)
 
     def sumsqr(self, other):
-        return self.compose_binop(bi.sumsqr, other)
+        return self._compose_binop(bi.sumsqr, other)
 
     def sqrsum(self, other):
-        return self.compose_binop(bi.sqrsum, other)
+        return self._compose_binop(bi.sqrsum, other)
 
     def sqrdif(self, other):
-        return self.compose_binop(bi.sqrdif, other)
+        return self._compose_binop(bi.sqrdif, other)
 
     def absdif(self, other):
-        return self.compose_binop(bi.absdif, other)
+        return self._compose_binop(bi.absdif, other)
 
     def thresh(self, other):
-        return self.compose_binop(bi.thresh, other)
+        return self._compose_binop(bi.thresh, other)
 
     def amclip(self, other):
-        return self.compose_binop(bi.amclip, other)
+        return self._compose_binop(bi.amclip, other)
 
     def scaleneg(self, other):
-        return self.compose_binop(bi.scaleneg, other)
+        return self._compose_binop(bi.scaleneg, other)
 
     def clip2(self, other):
-        return self.compose_binop(bi.clip2, other)
+        return self._compose_binop(bi.clip2, other)
 
     def fold2(self, other):
-        return self.compose_binop(bi.fold2, other)
+        return self._compose_binop(bi.fold2, other)
 
     def wrap2(self, other):
-        return self.compose_binop(bi.wrap2, other)
+        return self._compose_binop(bi.wrap2, other)
 
     def excess(self, other):
-        return self.compose_binop(bi.excess, other)
+        return self._compose_binop(bi.excess, other)
 
     # firstArg -> _FirstArg -> SetRaw(a, slotRawObject(a));
     # rrand (needs scrandom)
@@ -398,45 +398,45 @@ class AbstractFunction(gpp.UGenParameter):
     ### Nary operators ###
 
     def clip(self, lo, hi):
-        return self.compose_narop(bi.clip, lo, hi)
+        return self._compose_narop(bi.clip, lo, hi)
 
     def wrap(self, lo, hi):
-        return self.compose_narop(bi.wrap, lo, hi)
+        return self._compose_narop(bi.wrap, lo, hi)
 
     def fold(self, lo, hi):
-        return self.compose_narop(bi.fold, lo, hi)
+        return self._compose_narop(bi.fold, lo, hi)
 
     def blend(self, other, frac=0.5):
-        return self.compose_narop(bi.blend, frac)
+        return self._compose_narop(bi.blend, frac)
 
     def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        return self.compose_narop(bi.linlin, inmin, inmax, outmin, outmax, clip)
+        return self._compose_narop(bi.linlin, inmin, inmax, outmin, outmax, clip)
 
     def linexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        return self.compose_narop(bi.linexp, inmin, inmax, outmin, outmax, clip)
+        return self._compose_narop(bi.linexp, inmin, inmax, outmin, outmax, clip)
 
     def explin(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        return self.compose_narop(bi.explin, inmin, inmax, outmin, outmax, clip)
+        return self._compose_narop(bi.explin, inmin, inmax, outmin, outmax, clip)
 
     def expexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        return self.compose_narop(bi.expexp, inmin, inmax, outmin, outmax, clip)
+        return self._compose_narop(bi.expexp, inmin, inmax, outmin, outmax, clip)
 
     def lincurve(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
-        return self.compose_narop(bi.lincurve, inmin, inmax, outmin, outmax,
+        return self._compose_narop(bi.lincurve, inmin, inmax, outmin, outmax,
                                   curve, clip)
 
     def curvelin(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
-        return self.compose_narop(bi.curvelin, inmin, inmax, outmin, outmax,
+        return self._compose_narop(bi.curvelin, inmin, inmax, outmin, outmax,
                                   curve, clip)
 
     def bilin(self, incenter, inmin, inmax, outcenter, outmin, outmax,
               clip='minmax'):
-        return self.compose_narop(bi.bilin, incenter, inmin, inmax,
+        return self._compose_narop(bi.bilin, incenter, inmin, inmax,
                                   outcenter, outmin, outmax, clip)
 
     def biexp(self, incenter, inmin, inmax, outcenter, outmin, outmax,
               clip='minmax'):
-        return self.compose_narop(bi.biexp, incenter, inmin, inmax,
+        return self._compose_narop(bi.biexp, incenter, inmin, inmax,
                                   outcenter, outmin, outmax, clip)
 
     # moddif (circle distance)

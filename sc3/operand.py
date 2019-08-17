@@ -21,20 +21,20 @@ class Operand(fn.AbstractFunction):
 
     ### AbstractFunction interface ###
 
-    def compose_unop(self, selector):
+    def _compose_unop(self, selector):
         return type(self)(selector(self.value))
 
-    def compose_binop(self, selector, other):
+    def _compose_binop(self, selector, other):
         a = self.value
         b = other.value if isinstance(other, Operand) else other
         return type(self)(selector(a, b))
 
-    def rcompose_binop(self, selector, other):
+    def _rcompose_binop(self, selector, other):
         a = other.value if isinstance(other, Operand) else other
         b = self.value
         return type(self)(selector(a, b))
 
-    def compose_narop(self, selector, *args):
+    def _compose_narop(self, selector, *args):
         return type(self)(selector(self.value, *args))
 
 

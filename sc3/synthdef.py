@@ -306,7 +306,7 @@ class SynthDef():
     def _set_control_names(self, ctrl_ugens, cn):
         if isinstance(ctrl_ugens, list):
             for ctrl_ugen in ctrl_ugens: # TODO:, posible BUG? Este loop me da la pauta de que no soporta más que un nivel de anidamiento? (!) Qué pasaba si hay más de un nivel acá?
-                ctrl_ugen.name = cn.name
+                ctrl_ugen.name = cn.name  # *** BUG: funciona correctamente, pero ctrl_ugen son OutputProxy(es) credos mediante Controls, 'name' es método de UGen y atributo en OutputProxy, esto es confuso.
         else:
             ctrl_ugens.name = cn.name
 
@@ -554,7 +554,7 @@ class SynthDef():
 
             file.write(struct.pack('>i', len(self.children))) # putInt32
             for item in self.children:
-                item.write_def(file)
+                item._write_def(file)
 
             file.write(struct.pack('>h', len(self.variants))) # putInt16
             if len(self.variants) > 0:

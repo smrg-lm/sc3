@@ -764,46 +764,46 @@ class UGen(fn.AbstractFunction):
     #if(self, trueugen, falseugen)
 
 
-    ### Binary SynthDef format ###
+    ### SynthDef binary format ###
 
     # L470
-    def write_def(self, file):
+    def _write_def(self, file):
         try:
             file.write(struct.pack('B', len(self.name()))) # 01 putPascalString, unsigned int8 -> bytes
             file.write(bytes(self.name(), 'ascii')) # 02 putPascalString
-            file.write(struct.pack('b', self.rate_number())) # putInt8
-            file.write(struct.pack('>i', self.num_inputs())) # putInt32
-            file.write(struct.pack('>i', self.num_outputs())) # putInt32
+            file.write(struct.pack('b', self._rate_number()))  # putInt8
+            file.write(struct.pack('>i', self._num_inputs()))  # putInt32
+            file.write(struct.pack('>i', self._num_outputs()))  # putInt32
             file.write(struct.pack('>h', self.special_index)) # putInt16
             # // write wire spec indices.
             for input in self.inputs:
                 gpp.ugen_param(input).write_input_spec(file, self.synthdef)
-            self.write_output_specs(file)
+            self._write_output_specs(file)
         except Exception as e:
             raise Exception('SynthDef: could not write def') from e
 
     # L467
-    def name(self): # es ugen name
+    def name(self):  # *** BUG: es ugen name, debería ser @property, OutputProxy define <>name, Control UGens devuelven OutputPorxy que se usa en SynthDef _set_control_names, es muy confuso y volatil esto.
         return type(self).__name__
 
-    def rate_number(self): #rateNumber # se usa en writeDef/Old y writeOutputSpec
+    def _rate_number(self): # rateNumber # se usa en writeDef/Old y writeOutputSpec
         # El orden de los tres primeros no importa, pero en otra parte se usa la comparación lt/gt entre strings y este sería el orden lexicográfico.
         if self.rate == 'audio': return 2
         if self.rate == 'control': return 1
         if self.rate == 'demand': return 3
         return 0 # 'scalar'
 
-    def num_inputs(self):
+    def _num_inputs(self):
         return len(self.inputs)
 
-    def num_outputs(self):
+    def _num_outputs(self):
         return 1
 
-    def write_output_spec(self, file):
-        file.write(struct.pack('b', self.rate_number())) # putInt8
+    def _write_output_spec(self, file):
+        file.write(struct.pack('b', self._rate_number()))  # putInt8
 
-    def write_output_specs(self, file): # TODO: variación con 's' que llama a la sin 's', este método sería para las ugens con salidas múltiples, el nombre del método debería ser más descriptivo porque es fácil de confundir, además. # lo implementan AbstractOut, MultiOutUGen, SendPeakRMS, SendTrig y UGen.
-        self.write_output_spec(file)
+    def _write_output_specs(self, file): # TODO: variación con 's' que llama a la sin 's', este método sería para las ugens con salidas múltiples, el nombre del método debería ser más descriptivo porque es fácil de confundir, además. # lo implementan AbstractOut, MultiOutUGen, SendPeakRMS, SendTrig y UGen.
+        self._write_output_spec(file)
 
 
     ### Topo sort methods ###
@@ -956,12 +956,12 @@ class MultiOutUGen(UGen):
             return self.channels[0]
         return self.channels
 
-    def num_outputs(self):
+    def _num_outputs(self):  # override
         return len(self.channels)
 
-    def write_output_specs(self, file):
+    def _write_output_specs(self, file):  # override
         for output in self.channels:
-            output.write_output_spec(file)
+            output._write_output_spec(file)
 
 
 class PureMultiOutUGen(MultiOutUGen):

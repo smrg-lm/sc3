@@ -237,10 +237,10 @@ class InTrig(AbstractIn):
 ### Outputs ###
 
 class AbstractOut(ugn.UGen):
-    def num_outputs(self):
+    def _num_outputs(self):  # override
         return 0
 
-    def write_output_specs(self, file):
+    def _write_output_specs(self, file):  # override
         pass # Se define como no hacer nada porque las ugens que escriben a buses no tienen señales de salida (cables internos). Es interfaz de polimorfismo desde UGen.
 
     def _check_inputs(self):  # override

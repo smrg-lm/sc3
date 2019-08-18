@@ -48,4 +48,4 @@ class Silent(): # No es una UGen.
         if num_channels == 1:
             return sig
         else:
-            return [sig] * num_channels
+            return ugn.ChannelList([sig] * num_channels)

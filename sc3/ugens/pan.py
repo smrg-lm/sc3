@@ -14,10 +14,10 @@ class Pan2(ugn.MultiOutUGen):
 
     def _init_ugen(self, *inputs):  # override
         self._inputs = inputs
-        self.channels = [
+        self.channels = ugn.ChannelList([
             ugn.OutputProxy.new(self.rate, self, 0),
             ugn.OutputProxy.new(self.rate, self, 1)
-        ]
+        ])
         return self.channels # NOTE: RECORDAR: las ugens retornan self en _init_ugen que es método de interfaz, pero las output ugens retornan self.channels (o _init_outputs que retorna self.channels)
 
     def _check_inputs(self):  # override

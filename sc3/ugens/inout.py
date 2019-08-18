@@ -147,14 +147,18 @@ class LagControl(Control):
         n = 16
         values = [values[i:i + n] for i in range(0, len(values), n)]  # values.clump(16)
         lags = [lags[i:i + n] for i in range(0, len(lags), n)]  # lags.clump(16)
-        outputs = []
+        outputs = ugn.ChannelList()
         for i in range(len(values)):
-            outputs.extend(cls._multi_new_list(['control'] + values[i] + lags[i]))
-        return outputs
+            out = cls._multi_new_list(['control'] + values[i] + lags[i])
+            outputs.extend(utl.as_list(out))
+        if len(outputs) == 1:  # *** BUG: sclang retorna siempre array y array vacío si se llama sin argumentos.
+            return outputs[0]
+        else:
+            return outputs
 
     @classmethod
     def ar(cls, values, lags):
-        return AudioControl.ar(values).lag(lags)
+        return AudioControl.ar(values).lag(lags)  # *** BUG: no está implementada Lag
 
     def _init_ugen(self, *stuff):  # override
         # *** BUG: in sclang, lags variable not used.

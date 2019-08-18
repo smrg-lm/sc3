@@ -712,7 +712,7 @@ class UGen(fn.AbstractFunction):
 
     def _dump_name(self):
         '''Used for SynthDef.dump_ugens().'''
-        return str(self.synth_index) + '_' + self.name()
+        return str(self.synth_index) + '_' + self.name
 
 
     @classmethod # VER: la locación de este método, es una utilidad de clase.
@@ -769,8 +769,8 @@ class UGen(fn.AbstractFunction):
     # L470
     def _write_def(self, file):
         try:
-            file.write(struct.pack('B', len(self.name()))) # 01 putPascalString, unsigned int8 -> bytes
-            file.write(bytes(self.name(), 'ascii')) # 02 putPascalString
+            file.write(struct.pack('B', len(self.name))) # 01 putPascalString, unsigned int8 -> bytes
+            file.write(bytes(self.name, 'ascii')) # 02 putPascalString
             file.write(struct.pack('b', self._rate_number()))  # putInt8
             file.write(struct.pack('>i', self._num_inputs()))  # putInt32
             file.write(struct.pack('>i', self._num_outputs()))  # putInt32
@@ -783,7 +783,8 @@ class UGen(fn.AbstractFunction):
             raise Exception('SynthDef: could not write def') from e
 
     # L467
-    def name(self):  # *** BUG: es ugen name, debería ser @property, OutputProxy define <>name, Control UGens devuelven OutputPorxy que se usa en SynthDef _set_control_names, es muy confuso y volatil esto.
+    @property
+    def name(self):  # Was method, see OutputPorxy
         return type(self).__name__
 
     def _rate_number(self): # rateNumber # se usa en writeDef/Old y writeOutputSpec
@@ -935,7 +936,7 @@ class MultiOutUGen(UGen):
         del self._synth_index
 
     @classmethod
-    def new_from_desc(cls, rate, num_outputs, inputs, special_index=None):
+    def new_from_desc(cls, rate, num_outputs, inputs, special_index=None):  # override
         obj = cls()
         obj._rate = rate
         obj._inputs = tuple(inputs)
@@ -949,7 +950,7 @@ class MultiOutUGen(UGen):
         '''
         if num_channels is None or num_channels < 1:
             raise Exception(
-                f'{self.name()}: wrong number of channels ({num_channels})')
+                f'{self.name}: wrong number of channels ({num_channels})')
         self.channels = ChannelList(
             [OutputProxy.new(rate, self, i) for i in range(num_channels)])
         if num_channels == 1:
@@ -988,6 +989,21 @@ class OutputProxy(UGen):
         return self.source_ugen._dump_name() + '['\
                + str(self.output_index) + ']'
 
+    @property
+    def name(self):
+        # *** OutputProxy define <>name, Control UGen return OutputPorxy in
+        # *** SynthDef _set_control_names and change this property but can't
+        # *** find where this getter is used (if used).
+        print('@@@ FOUND: OutputPorxy name getter, take note where.')
+        try:
+            return self.__name
+        except AttributeError:
+            return None
+
+    @name.setter
+    def name(self, value):
+        self.__name = value
+
 
 ### BasicOpUGens.sc ###
 
@@ -997,7 +1013,7 @@ class BasicOpUGen(UGen):
         super().__init__()
         self._operator = None
 
-    # TODO: El método writeName está comentado en el original. Agregar comentado.
+    # writeName commented method, no other standard UGen class defines it.
 
     @property
     def operator(self):
@@ -1041,6 +1057,13 @@ class UnaryOpUGen(BasicOpUGen):
     def new(cls, selector, a):
         return cls._multi_new('audio', selector, a)
 
+    @classmethod
+    def new_from_desc(cls, rate, num_outputs, inputs, special_index):  # override
+        # *** BUG: this method is missing in sclang
+        obj = super().new_from_desc(rate, num_outputs, inputs, special_index)
+        obj._operator = _si.sc_opname_from_index(special_index, 'unary')
+        return obj
+
     def _init_ugen(self, operator, input):  # override
         self.operator = operator
         self._rate = gpp.ugen_param(input).as_ugen_rate()
@@ -1076,6 +1099,13 @@ class BinaryOpUGen(BasicOpUGen):
     @classmethod
     def new(cls, selector, a, b):
         return cls._multi_new('audio', selector, a, b)
+
+    @classmethod
+    def new_from_desc(cls, rate, num_outputs, inputs, special_index):  # override
+        # *** BUG: this method is missing in sclang
+        obj = super().new_from_desc(rate, num_outputs, inputs, special_index)
+        obj._operator = _si.sc_opname_from_index(special_index, 'binary')
+        return obj
 
     def _init_ugen(self, operator, a, b):  # override
         self.operator = operator

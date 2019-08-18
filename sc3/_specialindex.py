@@ -168,3 +168,12 @@ def sc_opname(operator):
     '''Returns server operator name or None.'''
     ret = sc_spindex_opname(operator)
     return ret[1]
+
+
+def sc_opname_from_index(index, arity='unary'):
+    if arity == 'unary':
+        return _unops_list[index][0]
+    elif arity == 'binary':
+        return _binops_list[index][0]
+    else:
+        raise ValueError(f'arity {arity} not supported by special index')

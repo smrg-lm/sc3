@@ -304,9 +304,10 @@ class SynthDef():
 
     # L263
     def _set_control_names(self, ctrl_ugens, cn):
+        # *** BUG: can't find where is this name change is used (name getter of OutputProxy)
         if isinstance(ctrl_ugens, list):
             for ctrl_ugen in ctrl_ugens: # TODO:, posible BUG? Este loop me da la pauta de que no soporta más que un nivel de anidamiento? (!) Qué pasaba si hay más de un nivel acá?
-                ctrl_ugen.name = cn.name  # *** BUG: funciona correctamente, pero ctrl_ugen son OutputProxy(es) credos mediante Controls, 'name' es método de UGen y atributo en OutputProxy, esto es confuso.
+                ctrl_ugen.name = cn.name
         else:
             ctrl_ugens.name = cn.name
 
@@ -625,7 +626,7 @@ class SynthDef():
         for each in servers:
             if not each.has_booted(): # BUG: no está implementada, creo.
                 msg = "Server '{}' not running, could not send SynthDef"
-                warnings.warn(msg.format(each.name)) # BUG en sclang: imprime server.name en vez de each.name
+                warnings.warn(msg.format(each.name)) # *** BUG in sclang: prints server.name instead of each.name
             if 'shouldNotSend' in self.metadata and self.metadata['shouldNotSend']:
                 self._load_reconstructed(each) # BUG: completion_msg)
             else:

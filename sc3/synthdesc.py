@@ -2,7 +2,7 @@
 
 import io
 import struct
-import warnings
+import logging
 import glob # sclang usa glob y glob se encarga de '*' (que no lista los archivos ocultos), hace str(path) para poder usar Path en la interfaz
 #from pathlib import Path # BUG: no se si es necesario, se usa cuando sd.SynthDef.synthdef_dir devuelve un objeto Path en SynthDescLib:read.
 
@@ -16,6 +16,9 @@ from . import server as srv
 from . import systemactions as sac
 from . import model as mdl
 from . import synthdef as sdf
+
+
+_logger = logging.getLogger(__name__)
 
 
 class IODesc():
@@ -73,7 +76,7 @@ class SynthDesc():
         self.metadata = None
 
         self.constants = None
-        self.sdef = None
+        self.sdef = None  # Was def, reserved word.
         self.msg_func = lambda event: [] # NOTE: Se llama si la SynthDef no define argumentos. Necesita definir el argumento porque siempre se pasa Event para obtener las llaves, y tiene que devolver una lista.
         self.has_gate = False
         self.has_array_args = None
@@ -224,8 +227,9 @@ class SynthDesc():
         try:
             ugen_class = ugns.installed_ugens[ugen_class]
         except NameError as e:
-            msg = "no UGen class found for '{}' which was specified in synth def file: {}"
-            raise Exception(msg.format(ugen_class, self.name)) from e
+            raise Exception(
+                f"no UGen class found for '{ugen_class}' which was "
+                f"specified in synth def file: {self.name}") from e
 
         rate_index = struct.unpack('b', stream.read(1))[0] # getInt8
         num_inputs = struct.unpack('>i', stream.read(4))[0] # getInt32
@@ -297,19 +301,23 @@ class SynthDesc():
             if cname.name[0].isalpha(): # BUG: creo que cname.name siempre es str, pero usa asString, revisar.
                 name = cname.name
                 if name in names:
-                    msg = "could not build msg_func for this SynthDesc: duplicate control name '{}'"
-                    warnings.warn(msg.format(name))
+                    _logger.warning(
+                        "could not build msg_func for this SynthDesc: "
+                        f"duplicated control name '{name}'")
                     duplicated_cn = True
                 else:
                     names.add(name)
 
         if len(names) > 255:
-            msg = "a SynthDef cannot have more than 255 control names ('{}')"
-            raise Exception(msg.format(self.name))
+            raise Exception("a SynthDef cannot have more than 255 "
+                            f"control names ('{self.name}')")
 
         if duplicated_cn:
-            msg = "SynthDef '{}' has been saved in the library and loaded on the server, if running. Use of this synth in Patterns will not detect argument names automatically because of the duplicate name(s)."
-            warnings.warn(msg.format(self.name))
+            _logger.warning(
+                f"SynthDef '{self.name}' has been saved in the library and  "
+                "loaded on the server, if running. Use of this synth in "
+                "Patterns will not detect argument names automatically because "
+                "of the duplicate name(s)")
             self.msg_func = None
             return
 
@@ -446,8 +454,7 @@ class SynthDescLib(metaclass=MetaSynthDescLib):
         try:
             return cls.all[libname]
         except KeyError as e:
-            msg = "library '{}' not found"
-            raise Exception(msg.format(libname)) from e
+            raise Exception(f"library '{libname}' not found") from e
 
     # Todos los métodos duplicados entre instancia y clase se volvieron
     # solo de instancia. El atributo global pasó a ser default como en server

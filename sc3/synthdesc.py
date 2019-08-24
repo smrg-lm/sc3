@@ -81,7 +81,7 @@ class SynthDesc():
         self.has_gate = False
         self.has_array_args = None
         self.has_variants = False
-        self.can_free_synth = False
+        # self.can_free_synth = False  # Non core interface, see note in SynthDef.
         self._msg_func_keep_gate = False # @property
 
     @classmethod
@@ -287,8 +287,8 @@ class SynthDesc():
                 add_io(self.inputs, len(ugen.channels))
             elif issubclass(ugen_class, scio.AbstractOut):
                 add_io(self.outputs, ugen._num_audio_channels())
-            else:
-                self.can_free_synth = self.can_free_synth or ugen._can_free_synth() # TODO, revisar protocolo: también es una función implementadas por muchas ugens (true) y y Object (false). Es una propiedad solo en esta clase.
+            # else:
+            #     self.can_free_synth = self.can_free_synth or ugen._can_free_synth()  # Non core interface, see note in SynthDef.
 
     def make_msg_func(self):
         duplicated_cn = False

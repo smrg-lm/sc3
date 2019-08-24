@@ -702,6 +702,12 @@ class SynthDef():
     def play(self, target, args, add_action='addToHead'):
         raise Exception('SynthDef.play no está implementada') # BUG: esta función de deprecated y des-deprecated
 
+    # canFreeSynth.sc Is an added interface used at least by JITlib and wslib.
+    # It adds too much to core, better to find another non instrusive way.
+    # can_release_synth Is used by GraphBuilder.sc for automatic outputs
+    # creation (e.g. in {}.play) with *wrapOut in Function-asSynthDef.
+    # hasGateControl Used in canReleaseSynth.
+
 
 # decorator syntax
 class synthdef():

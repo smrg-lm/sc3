@@ -236,7 +236,7 @@ class SynthDesc():
         num_outputs = struct.unpack('>i', stream.read(4))[0] # getInt32
         special_index = struct.unpack('>h', stream.read(2))[0] # getInt16
 
-        aux_i32 = stream.read(num_inputs * 4 * 2) # read Int32Array 01 # nota: write_input_spec escribe synth_index y output_index como int32
+        aux_i32 = stream.read(num_inputs * 4 * 2) # read Int32Array 01 # nota: write_input_spec escribe _synth_index y _output_index como int32
         aux_i32 = struct.unpack('>' + 'i' * (num_inputs * 2), aux_i32) # read Int32Array 02
         input_specs = list(aux_i32) # read Int32Array 03
 
@@ -259,7 +259,7 @@ class SynthDesc():
             ugen_inputs.append(input)
 
         rate = ['scalar', 'control', 'audio'][rate_index]
-        ugen = ugen_class.new_from_desc(rate, num_outputs, ugen_inputs, special_index)
+        ugen = ugen_class._new_from_desc(rate, num_outputs, ugen_inputs, special_index)
         if isinstance(ugen, ugn.OutputProxy):
             ugen = ugen.source_ugen # BUG: esta propiedad se llama source en sclang y la implementan todas las clases pero solo se usa para OutputProxy. Comentarios en UGen._init_topo_sort
         ugen._add_to_synth() # BUG: vaya a saber uno por qué en el código original se pasa a si mismo como parámetro si addToSynth no recibe en ninguna implementación, esto es porque sclang ignora los argumentos demás.
@@ -269,26 +269,26 @@ class SynthDesc():
             if type(b) is ugn.OutputProxy and isinstance(b.source_ugen, scio.Control):
                 control = None
                 for item in self.controls: # detect
-                    if item.index == (b.output_index + b.source_ugen.special_index):
+                    if item.index == (b._output_index + b.source_ugen._special_index):
                         control = item
                         break
                 if control is not None:
                     b = control.name
             lst.append(IODesc(rate, nchan, b, ugen_class))
 
-        if ugen_class.is_control_ugen(): # TODO, revisar protocolo: otra de esas cosas de sclang, AudioControl y Control implementan y devuelve True, Object devuelve False, además en Object es método de instancia y no de calse como en las otras.
-            # // Control.newFromDesc does not set the specialIndex, since it doesn't call Control-init.
-            # // Therefore we fill it in here:
-            ugen.special_index = special_index
+        if issubclass(ugen_class, scio.AbstractControl):
+            # // Control.newFromDesc does not set the specialIndex, since it
+            # // doesn't call Control-init. Therefore we fill it in here:
+            ugen._special_index = special_index
             for i in range(num_outputs):
                 self.controls[i + special_index].rate = rate
         else:
-            if ugen_class.is_input_ugen(): # TODO, revisar protocolo: implementan AbstractIn (true) y Object (false) ídem is_control_ugen()
+            if issubclass(ugen_class, scio.AbstractIn):
                 add_io(self.inputs, len(ugen.channels))
-            elif ugen_class.is_output_ugen(): # TODO, revisar protocolo: implementan AbstractOut (true) y Object (false) ídem is_control_ugen()
-                add_io(self.outputs, ugen.num_audio_channels())
+            elif issubclass(ugen_class, scio.AbstractOut):
+                add_io(self.outputs, ugen._num_audio_channels())
             else:
-                self.can_free_synth = self.can_free_synth or ugen.can_free_synth() # TODO, revisar protocolo: también es una función implementadas por muchas ugens (true) y y Object (false). Es una propiedad solo en esta clase.
+                self.can_free_synth = self.can_free_synth or ugen._can_free_synth() # TODO, revisar protocolo: también es una función implementadas por muchas ugens (true) y y Object (false). Es una propiedad solo en esta clase.
 
     def make_msg_func(self):
         duplicated_cn = False
@@ -419,7 +419,7 @@ class SynthDesc():
     def output_data(self): # TODO: no parece usar este método en ninguna parte
         ugens = self.sdef.children
         outs = [x for x in ugens if x.wirtes_to_bus()] # BUG: interfaz/protocolo, falta implementar
-        return [{'rate': x.rate, 'num_channels': x.num_audio_channels()} for x in outs]
+        return [{'rate': x.rate, 'num_channels': x._num_audio_channels()} for x in outs]
 
 
 class MetaSynthDescLib(type):

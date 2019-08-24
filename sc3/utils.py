@@ -263,11 +263,9 @@ def list_max(lst):
 # también está la función all en Python.
 
 # detect sería:
-# control = None
-# for item in self.controls:
-#     if item.index == (b.output_index + b.source_ugen.special_index):
-#         control = item
-#         break
+# for item in sequence:
+#     if item == something:
+#         return item
 # pero no es nada compacto, tal vez haya un truco
 
 # clump [l[i:i + n] for i in range(0, len(l), n)] https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks

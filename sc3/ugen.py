@@ -294,16 +294,15 @@ class UGen(fn.AbstractFunction):
         self._inputs = ()  # Always tuple.
         self._rate = 'audio'
         # atributos de instancia privados
-        self.synthdef = None # es _gl.current_synthdef luego de _add_to_synth
-        self.synth_index = -1
-        self.special_index = 0 # self.specialIndex = 0; # se obtiene de los símbolos, llama a _Symbol_SpecialIndex
+        self._synthdef = None # es _gl.current_synthdef luego de _add_to_synth
+        self._synth_index = -1  # Order in built graph.
+        self._output_index = 0 # Is property in OutputProxy, used by UGen.writeInputSpec and SynthDesc.readUGenSpec se obtiene de las inputs.
+        self._special_index = 0 # Server op index.
         # topo sorting
         self._antecedents = None #set() # estos sets los inicializa SynthDef _init_topo_sort, _antecedents lo transforma en lista luego, por eso los dejo en none.
         self._descendants = None #list() # inicializa en set() y lo transforma en list() inmediatamente después de poblarlo
         self._width_first_antecedents = [] # se inicializa con SynthDef _width_first_ugens[:] que es un array
-        # output_index TODO: VER DE NUEVO las propiedades y los métodos en general.
         # TODO: (sigue) tal vez convenga crea propiedades pero para esta clase sería mucho código.
-        self.output_index = 0 # TODO: en UGen es un método, pero lo pasé a propiedad porque es una propiedad en OutputPorxy (!)
 
     @property
     def rate(self):
@@ -312,6 +311,10 @@ class UGen(fn.AbstractFunction):
     @property
     def inputs(self):
         return self._inputs
+
+    @classmethod
+    def signal_range(self):
+        return 'bipolar'
 
     @classmethod
     def _new1(cls, rate, *args):
@@ -375,11 +378,11 @@ class UGen(fn.AbstractFunction):
         return self
 
     @classmethod
-    def new_from_desc(cls, rate, num_outputs, inputs, special_index):
+    def _new_from_desc(cls, rate, num_outputs, inputs, special_index):
         obj = cls()
         obj._rate = rate
         obj._inputs = tuple(inputs)
-        obj.special_index = special_index
+        obj._special_index = special_index
         return obj
 
     def __copy__(self):
@@ -397,7 +400,7 @@ class UGen(fn.AbstractFunction):
         return MulAdd.new(self, mul, add)
 
     def range(self, lo=0.0, hi=1.0):
-        if self.signal_range() == 'bipolar':
+        if type(self).signal_range() == 'bipolar':
             mul = (hi - lo) * 0.5
             add = mul + lo
         else:
@@ -406,13 +409,13 @@ class UGen(fn.AbstractFunction):
         return MulAdd.new(self, mul, add)
 
     def exprange(self, lo=0.01, hi=1.0):
-        if self.signal_range() == 'bipolar':
+        if type(self).signal_range() == 'bipolar':
             return self.linexp(-1, 1, lo, hi, None)
         else:
             return self.linexp(0, 1, lo, hi, None)
 
     def curverange(self, lo=0.0, hi=1.0, curve=-4):
-        if self.signal_range() == 'bipolar':
+        if type(self).signal_range() == 'bipolar':
             return self.lincurve(-1, 1, lo, hi, curve, None)
         else:
             return self.lincurve(0, 1, lo, hi, curve, None)
@@ -602,24 +605,20 @@ class UGen(fn.AbstractFunction):
         # // add the UGen to the tree but keep self as the output
         return self
 
-
-    # L284
-    def signal_range(self):
-        return 'bipolar'
-
     # @ { arg y; ^Point.new(this, y) } // dynamic geometry support # ??? no sé qué será ni por qué está acá en el medio...
+
 
     # L287
     def _add_to_synth(self):
-        self.synthdef = _gl.current_synthdef
-        if self.synthdef is not None:
-            self.synthdef.add_ugen(self)
+        self._synthdef = _gl.current_synthdef
+        if self._synthdef is not None:
+            self._synthdef.add_ugen(self)
 
     # L292
     def _collect_constants(self): # pong
         for input in self.inputs:
             if isinstance(input, (int, float)):
-                self.synthdef.add_constant(float(input))
+                self._synthdef.add_constant(float(input))
 
     # L304
     def _check_inputs(self):  # pong # se llama desde SynthDef _check_inputs(), lo reimplementan muchas sub-clases, es interfaz de UGen
@@ -712,7 +711,7 @@ class UGen(fn.AbstractFunction):
 
     def _dump_name(self):
         '''Used for SynthDef.dump_ugens().'''
-        return str(self.synth_index) + '_' + self.name
+        return str(self._synth_index) + '_' + self.name
 
 
     @classmethod # VER: la locación de este método, es una utilidad de clase.
@@ -774,10 +773,10 @@ class UGen(fn.AbstractFunction):
             file.write(struct.pack('b', self._rate_number()))  # putInt8
             file.write(struct.pack('>i', self._num_inputs()))  # putInt32
             file.write(struct.pack('>i', self._num_outputs()))  # putInt32
-            file.write(struct.pack('>h', self.special_index)) # putInt16
+            file.write(struct.pack('>h', self._special_index)) # putInt16
             # // write wire spec indices.
             for input in self.inputs:
-                gpp.ugen_param(input).write_input_spec(file, self.synthdef)
+                gpp.ugen_param(input).write_input_spec(file, self._synthdef)
             self._write_output_specs(file)
         except Exception as e:
             raise Exception('SynthDef: could not write def') from e
@@ -825,7 +824,7 @@ class UGen(fn.AbstractFunction):
 
     def _make_available(self):
         if len(self._antecedents) == 0:
-            self.synthdef.available.append(self)
+            self._synthdef.available.append(self)
 
     def _remove_antecedent(self, ugen):
         self._antecedents.remove(ugen)
@@ -847,38 +846,27 @@ class UGen(fn.AbstractFunction):
                 if isinstance(input, UGen):
                     input._descendants.remove(self)
                     input._optimize_graph()
-            self.synthdef.remove_ugen(self)
+            self._synthdef.remove_ugen(self)
             return True
         return False
 
 
-    # Interfaz/protocolo de UGen
+    ### SynthDesc interface ###
 
-    # TODO: REVISAR TODAS LAS CLASES Y EXT, ESTOS MÉTODOS SE USAN EN SynthDesc-read_ugen_spec2
-    @classmethod
-    def is_control_ugen(cls): # AudioControl y Control implementan y devuelve True, Object devuelve False, además en Object es método de instancia y no de clase como en las otras dos.
+    # def is_control_ugen(cls):  # Use issubclass(cls, AbstractControl).
+    # def is_input_ugen(cls):  # Use issubclass(cls, AbstractIn).
+    # def is_output_ugen(cls):  # Use issubclass(cls, AbstractOut).
+    # BUG: en sclang: no veo el por qué de que estos trés métodos anteriores sean de instancia en Object.
+    # def is_ugen(self):  # Use isinstance(obj, UGen) (not used in sclang).
+    # def _output_index(self): # Is attribute now.
+
+    # BUG: this type of information is of class for ugens but used only through
+    # BUG: instances. But not all, e.g. _can_free_synth as used in EnvGen, Line, etc.
+    def _writes_to_bus(self): # All AbstractOut except LocalOut write to buses, is used only in SynthDesc.outputData that is used only in Pfx.isolate.
         return False
 
-    @classmethod
-    def is_input_ugen(cls): # implementan AbstractIn (true) y Object (false) ídem is_control_ugen()
+    def _can_free_synth(self): # used by SynthDesc readUGenSpec defined for all clases in canFreeSynth.sc, is also defined in SynhtDef (in SequenceableCollection for SynthDef-children), is attriute for SynhtDesc,
         return False
-
-    @classmethod
-    def is_output_ugen(cls): # implementan AbstractOut (true) y Object (false) ídem is_control_ugen()
-        return False
-
-    # def is_ugen(self): # Object devuelve false, UGen, true. No se usa en ninguna parte, y no tiene sentido (se hace isinstance(esto, UGen))
-    #     return True
-
-    # def output_index(self): # es una propiedad de OutputProxy, es método constante acá. No tiene otra implementación en la librería estandar. Se usa solo UGen.writeInputSpec y SynthDesc.readUGenSpec se obtiene de las inputs.
-    #     return 0
-
-    def writes_to_bus(self): # la implementan algunas out ugens, se usa en SynthDesc.outputData
-        return False
-
-    def can_free_synth(self): # BUG: tiene ext canFreeSynth.sc y es método de instancia (BUG: lo usa EnvGen!). También es una función implementadas por muchas ugens (true), SequenceableCollection (revisa any), SynthDef (childre.canFreeSynth (seq col)) y Object (false). Es una propiedad solo en esta clase.
-        return False
-    # BUG: puede faltar algún otro que se use en otro lado.
 
 
     ### UGen graph parameter interface ###
@@ -904,8 +892,8 @@ class UGen(fn.AbstractFunction):
     # def perform_binary_op_on_ugen(input, selector, thing):
 
     def write_input_spec(self, file, synthdef):
-        file.write(struct.pack('>i', self.synth_index)) # putInt32
-        file.write(struct.pack('>i', self.output_index)) # putInt32
+        file.write(struct.pack('>i', self._synth_index)) # putInt32
+        file.write(struct.pack('>i', self._output_index)) # putInt32
 
 
 # // UGen which has no side effect and can therefore be considered for
@@ -917,26 +905,25 @@ class PureUGen(UGen):
 
 class MultiOutUGen(UGen):
     def __init__(self):
-        self.channels = [] # Nueva propiedad # VER: se necesita antes de llamar a super().__init__() porque en UGen inicializa self.synth_index y llama al setter de esta sub-clase.
-        super().__init__() # TODO: *** super().__init__() inicializa las propiedades correctamente desde _new1 *** VER métodos de UGen
-        #self._synth_index = -1 # BUG: VER: en UGen synth_index es una propiedad sin setter/getter/deleter, Pero llama al setter solo si se llama desde subclase.
+        self.channels = []  # Needed before super().__init__ for self._synth_index setter.
+        super().__init__()
 
     @property
-    def synth_index(self):
-        return self._synth_index
+    def _synth_index(self):
+        return self.__synth_index
 
-    @synth_index.setter
-    def synth_index(self, value):
-        self._synth_index = value
+    @_synth_index.setter
+    def _synth_index(self, value):
+        self.__synth_index = value
         for output in self.channels:
-            output.synth_index = value
+            output._synth_index = value
 
-    @synth_index.deleter
-    def synth_index(self):
-        del self._synth_index
+    @_synth_index.deleter
+    def _synth_index(self):
+        del self.__synth_index
 
     @classmethod
-    def new_from_desc(cls, rate, num_outputs, inputs, special_index=None):  # override
+    def _new_from_desc(cls, rate, num_outputs, inputs, special_index=None):  # override
         obj = cls()
         obj._rate = rate
         obj._inputs = tuple(inputs)
@@ -978,16 +965,16 @@ class OutputProxy(UGen):
 
     def _init_ugen(self, source_ugen, index):  # override
         self.source_ugen = source_ugen  # *** NOTE: OJO: source cambia a source_ugen, y puede no ser necesario inicializarla en init
-        self.output_index = index
-        self.synth_index = source_ugen.synth_index
+        self._output_index = index
+        self._synth_index = source_ugen._synth_index
         return self  # Must return self.
 
     def _add_to_synth(self):  # override # OutputProxy no se agrega a sí con add_ugen, por lo tanto no se puebla con _init_topo_sort y no se guarda en _antecedents. _init_topo_sort comprueba if isinstance(input, OutputProxy): y agrega source_ugen
-        self.synthdef = _gl.current_synthdef
+        self._synthdef = _gl.current_synthdef
 
     def _dump_name(self):  # override
         return self.source_ugen._dump_name() + '['\
-               + str(self.output_index) + ']'
+               + str(self._output_index) + ']'
 
     @property
     def name(self):
@@ -1023,8 +1010,8 @@ class BasicOpUGen(UGen):
     def operator(self, value):
         index, operator = _si.sc_spindex_opname(value)
         self._operator = operator
-        self.special_index = index # TODO: en inout.py hace: self.special_index = len(self.synthdef.controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
-        if self.special_index < 0:
+        self._special_index = index
+        if self._special_index < 0:
             # TODO: ver cuáles son los soportados por el servidor porque Symbol responde a muchos más.
             raise Exception(f"operator '{value}' applied to a UGen "
                             "is not supported by the server")
@@ -1049,7 +1036,7 @@ class BasicOpUGen(UGen):
         print(msg, end='')
 
     def _dump_name(self):  # override
-        return str(self.synth_index) + '_' + self.operator
+        return str(self._synth_index) + '_' + self.operator
 
 
 class UnaryOpUGen(BasicOpUGen):
@@ -1058,9 +1045,9 @@ class UnaryOpUGen(BasicOpUGen):
         return cls._multi_new('audio', selector, a)
 
     @classmethod
-    def new_from_desc(cls, rate, num_outputs, inputs, special_index):  # override
+    def _new_from_desc(cls, rate, num_outputs, inputs, special_index):  # override
         # *** BUG: this method is missing in sclang
-        obj = super().new_from_desc(rate, num_outputs, inputs, special_index)
+        obj = super()._new_from_desc(rate, num_outputs, inputs, special_index)
         obj._operator = _si.sc_opname_from_index(special_index, 'unary')
         return obj
 
@@ -1101,9 +1088,9 @@ class BinaryOpUGen(BasicOpUGen):
         return cls._multi_new('audio', selector, a, b)
 
     @classmethod
-    def new_from_desc(cls, rate, num_outputs, inputs, special_index):  # override
+    def _new_from_desc(cls, rate, num_outputs, inputs, special_index):  # override
         # *** BUG: this method is missing in sclang
-        obj = super().new_from_desc(rate, num_outputs, inputs, special_index)
+        obj = super()._new_from_desc(rate, num_outputs, inputs, special_index)
         obj._operator = _si.sc_opname_from_index(special_index, 'binary')
         return obj
 
@@ -1150,7 +1137,7 @@ class BinaryOpUGen(BasicOpUGen):
             optimized_ugen = self._optimize_addneg()
 
         if optimized_ugen:
-            self.synthdef.replace_ugen(self, optimized_ugen)
+            self._synthdef.replace_ugen(self, optimized_ugen)
 
     # L239
     def _optimize_to_sum3(self):
@@ -1161,7 +1148,7 @@ class BinaryOpUGen(BasicOpUGen):
 
         if isinstance(a, BinaryOpUGen) and a.operator == '+'\
         and len(a._descendants) == 1:
-            self.synthdef.remove_ugen(a)
+            self._synthdef.remove_ugen(a)
             replacement = Sum3.new(a.inputs[0], a.inputs[1], b) # .descendants_(descendants);
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, a)
@@ -1170,7 +1157,7 @@ class BinaryOpUGen(BasicOpUGen):
         # Ídem b... lo único que veo es que retornan y que la función debería devolver un valor comprobable para luego retornoar.
         if isinstance(b, BinaryOpUGen) and b.operator == '+'\
         and len(b._descendants) == 1:
-            self.synthdef.remove_ugen(b)
+            self._synthdef.remove_ugen(b)
             replacement = Sum3.new(b.inputs[0], b.inputs[1], a)
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, b)
@@ -1186,14 +1173,14 @@ class BinaryOpUGen(BasicOpUGen):
             return None
 
         if isinstance(a, Sum3) and len(a._descendants) == 1:
-            self.synthdef.remove_ugen(a)
+            self._synthdef.remove_ugen(a)
             replacement = Sum4.new(a.inputs[0], a.inputs[1], a.inputs[2], b)
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, a)
             return replacement
 
         if isinstance(b, Sum3) and len(b._descendants) == 1:
-            self.synthdef.remove_ugen(b)
+            self._synthdef.remove_ugen(b)
             replacement = Sum4.new(b.inputs[0], b.inputs[1], b.inputs[2], a)
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, b)
@@ -1209,14 +1196,14 @@ class BinaryOpUGen(BasicOpUGen):
         and len(a._descendants) == 1:
 
             if MulAdd._can_be_muladd(a.inputs[0], a.inputs[1], b):
-                self.synthdef.remove_ugen(a)
+                self._synthdef.remove_ugen(a)
                 replacement = MulAdd.new(a.inputs[0], a.inputs[1], b)
                 replacement._descendants = self._descendants
                 self._optimize_update_descendants(replacement, a)
                 return replacement
 
             if MulAdd._can_be_muladd(a.inputs[1], a.inputs[0], b):
-                self.synthdef.remove_ugen(a)
+                self._synthdef.remove_ugen(a)
                 replacement = MulAdd.new(a.inputs[1], a.inputs[0], b)
                 replacement._descendants = self._descendants
                 self._optimize_update_descendants(replacement, a)
@@ -1227,14 +1214,14 @@ class BinaryOpUGen(BasicOpUGen):
         and len(b._descendants) == 1:
 
             if MulAdd._can_be_muladd(b.inputs[0], b.inputs[1], a):
-                self.synthdef.remove_ugen(b)
+                self._synthdef.remove_ugen(b)
                 replacement = MulAdd.new(b.inputs[0], b.inputs[1], a)
                 replacement._descendants = self._descendants
                 self._optimize_update_descendants(replacement, b)
                 return replacement
 
             if MulAdd._can_be_muladd(b.inputs[1], b.inputs[0], a):
-                self.synthdef.remove_ugen(b)
+                self._synthdef.remove_ugen(b)
                 replacement = MulAdd.new(b.inputs[1], b.inputs[0], a)
                 replacement._descendants = self._descendants
                 self._optimize_update_descendants(replacement, b)
@@ -1249,7 +1236,7 @@ class BinaryOpUGen(BasicOpUGen):
         if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
         and len(b._descendants) == 1:
             # OC: a + b.neg -> a - b
-            self.synthdef.remove_ugen(b)
+            self._synthdef.remove_ugen(b)
             replacement = a - b.inputs[0]
             # // This is the first time the dependants logic appears. It's
             # // repeated below. We will remove 'self' from the synthdef, and
@@ -1264,7 +1251,7 @@ class BinaryOpUGen(BasicOpUGen):
         if isinstance(a, UnaryOpUGen) and a.operator == 'neg'\
         and len(a._descendants) == 1:
             # OC: a.neg + b -> b - a
-            self.synthdef.remove_ugen(a)
+            self._synthdef.remove_ugen(a)
             replacement = b - a.inputs[0]
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, a)
@@ -1279,11 +1266,11 @@ class BinaryOpUGen(BasicOpUGen):
         if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
         and len(b._descendants) == 1:
             # OC: a - b.neg -> a + b
-            self.synthdef.remove_ugen(b)
+            self._synthdef.remove_ugen(b)
             replacement = BinaryOpUGen.new('+', a, b.inputs[0])
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, b)
-            self.synthdef.replace_ugen(self, replacement)
+            self._synthdef.replace_ugen(self, replacement)
             replacement._optimize_graph()  # // Not called from _optimize_add, no need to return ugen here.
 
         return None

@@ -35,6 +35,7 @@ class Impulse(ugn.PureUGen):
     def kr(cls, freq=440.0, phase=0.0, mul=1.0, add=0.0):
         return cls._multi_new('control', freq, phase).madd(mul, add)
 
+    @classmethod
     def signal_range(self):
         return 'unipolar'
 

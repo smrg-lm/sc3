@@ -361,13 +361,13 @@ class SynthDef():
             ugen._init_topo_sort()  # pong
         for ugen in reversed(self.children):
             ugen._descendants = list(ugen._descendants) # VER: lo convierte en lista (asArray en el original) para ordenarlo y lo deja como lista. ugen._init_topo_sort() es la función que puebla el conjunto.
-            ugen._descendants.sort(key=lambda x: x.synth_index) # VER: pero que pasa con _antecedents? tal vez no se usa para hacer recorridos?
+            ugen._descendants.sort(key=lambda x: x._synth_index) # VER: pero que pasa con _antecedents? tal vez no se usa para hacer recorridos?
             # // All ugens with no antecedents are made available.
             ugen._make_available()
 
     def _index_ugens(self): # CAMBIADO A ORDEN DE LECTURA
         for i, ugen in enumerate(self.children):
-            ugen.synth_index = i
+            ugen._synth_index = i
 
     # L489
     def _collect_constants(self): # ping
@@ -410,13 +410,13 @@ class SynthDef():
     # Métodos para ping pong
     def add_ugen(self, ugen): # lo usan UGen y WithFirstUGen implementando el método de instancia addToSynth
         if not self._rewrite_in_progress:
-            ugen.synth_index = len(self.children)
+            ugen._synth_index = len(self.children)
             ugen._width_first_antecedents = self._width_first_ugens[:] # with1sth antec/ugens refieren a lo mismo en distintos momentos, la lista es parcial para la ugen agregada.
             self.children.append(ugen)
 
     def remove_ugen(self, ugen): # # lo usan UGen y BinaryOpUGen para optimizaciones
         # OC: Lazy removal: clear entry and later remove all None entries # Tiene un typo, dice enties
-        self.children[ugen.synth_index] = None
+        self.children[ugen._synth_index] = None
 
     def replace_ugen(self, a, b): # lo usa BinaryOpUGen para optimizaciones
         if not isinstance(b, ugn.UGen):
@@ -424,8 +424,8 @@ class SynthDef():
 
         b._width_first_antecedents = a._width_first_antecedents
         b._descendants = a._descendants
-        b.synth_index = a.synth_index
-        self.children[a.synth_index] = b
+        b._synth_index = a._synth_index
+        self.children[a._synth_index] = b
 
         for item in self.children: # tampoco usa el contador, debe ser una desprolijidad después de una refacción, uso la i para el loop interno
             if item is not None:

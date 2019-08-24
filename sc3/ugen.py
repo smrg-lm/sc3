@@ -861,12 +861,13 @@ class UGen(fn.AbstractFunction):
     # def _output_index(self): # Is attribute now.
 
     # BUG: this type of information is of class for ugens but used only through
-    # BUG: instances. But not all, e.g. _can_free_synth as used in EnvGen, Line, etc.
-    def _writes_to_bus(self): # All AbstractOut except LocalOut write to buses, is used only in SynthDesc.outputData that is used only in Pfx.isolate.
-        return False
+    # instances. But not all, e.g. _can_free_synth as used in EnvGen, Line,
+    # etc., that are being omitted by now.
+    # def _writes_to_bus(self):  # NOTE: All AbstractOut except LocalOut write to buses, is used only in SynthDesc.outputData that is used only in Pfx.isolate.
+    #     return False
 
-    def _can_free_synth(self): # used by SynthDesc readUGenSpec defined for all clases in canFreeSynth.sc, is also defined in SynhtDef (in SequenceableCollection for SynthDef-children), is attriute for SynhtDesc,
-        return False
+    # def _can_free_synth(self):  # Non core interface, see note in SynthDef.
+    #     return False
 
 
     ### UGen graph parameter interface ###

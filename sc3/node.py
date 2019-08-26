@@ -229,7 +229,7 @@ class Node(gpp.NodeParameter, gpp.UGenParameter):
         raise NotImplementedError('should not use a Node inside a SynthDef') # NOTE: dice esto pero implmente as_control_input, por qué?
 
     def as_control_input(self):
-        return gpp.ugen_param(self.node_id).as_control_input()
+        return self.node_id
 
     ### Node parameter interface ###
 

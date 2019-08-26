@@ -7,41 +7,6 @@ from . import server as srv
 from . import _specialindex as _si
 from . import utils as utl
 
-# BUG: están dentro de las funciones, no se pueden importar
-# BUG: por los símbolos de herencia en relación a UGen.
-# from . import ugen as ugn
-# from . import node as nod
-
-
-def graph_param(obj, param_cls):
-    if isinstance(obj, GraphParameter):
-        obj = obj.value
-    new_cls = None
-    for sub_class in param_cls.__subclasses__():
-        if isinstance(obj, sub_class.param_type()):
-            new_cls = sub_class
-            break
-    if new_cls is None:
-        raise TypeError(
-            f"{param_cls.__name__}: type '{type(obj).__name__}' not supported")
-    return new_cls(obj)
-
-
-def ugen_param(obj):
-    from . import ugen as ugn
-
-    if isinstance(obj, (UGenParameter, ugn.UGen)):
-        return obj
-    return graph_param(obj, UGenParameter)
-
-
-def node_param(obj):
-    from . import node as nod
-
-    if isinstance(obj, (NodeParameter, nod.Node)):
-        return obj
-    return graph_param(obj, NodeParameter)
-
 
 ### Graphs Parameter Base Class ###
 
@@ -315,19 +280,29 @@ class NodeSequence(NodeParameter):
         return lst
 
 
-# # NOTE: se usa solo para clases de JITlib
-# ### as_node_id ###
-# @singledispatch
-# def as_node_id(obj):
-#     msg = "invalid value for Node node id: '{}'"
-#     raise TypeError(msg.format(type(obj).__name__))
-# @as_node_id.register(int)
-# @as_node_id.register(type(None))
-# def _(obj):
-#     return obj
-# @as_node_id.register(srv.Server)
-# def _(obj):
-#     return 0
-# @as_node_id.register(Node)
-# def _(obj):
-#     return obj.node_id
+### Module functions ###
+
+def _graph_param(obj, param_cls):
+    if isinstance(obj, GraphParameter):
+        obj = obj.value
+    new_cls = None
+    for sub_class in param_cls.__subclasses__():
+        if isinstance(obj, sub_class.param_type()):
+            new_cls = sub_class
+            break
+    if new_cls is None:
+        raise TypeError(
+            f"{param_cls.__name__}: type '{type(obj).__name__}' not supported")
+    return new_cls(obj)
+
+
+def ugen_param(obj):
+    if isinstance(obj, UGenParameter):
+        return obj
+    return _graph_param(obj, UGenParameter)
+
+
+def node_param(obj):
+    if isinstance(obj, NodeParameter):
+        return obj
+    return _graph_param(obj, NodeParameter)

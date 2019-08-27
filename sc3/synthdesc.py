@@ -236,7 +236,7 @@ class SynthDesc():
         num_outputs = struct.unpack('>i', stream.read(4))[0] # getInt32
         special_index = struct.unpack('>h', stream.read(2))[0] # getInt16
 
-        aux_i32 = stream.read(num_inputs * 4 * 2) # read Int32Array 01 # nota: write_input_spec escribe _synth_index y _output_index como int32
+        aux_i32 = stream.read(num_inputs * 4 * 2) # read Int32Array 01 # NOTE: _write_input_spec writes _synth_index and _output_index as int32
         aux_i32 = struct.unpack('>' + 'i' * (num_inputs * 2), aux_i32) # read Int32Array 02
         input_specs = list(aux_i32) # read Int32Array 03
 

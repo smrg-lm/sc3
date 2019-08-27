@@ -25,6 +25,6 @@ class Rest(opd.Operand):
     # como Stream. Rest debe poder ser el valor de retorno de un event pattter
     # en vez de un Evento, por eso actúá como tal (__embed__, __stream__). Rest
     # debe poder ser un parámetro de nodo en alguna parte, por eso
-    # as_control_input, pero pone el método junto a playAndDelta e isRest.
+    # _as_control_input, pero pone el método junto a playAndDelta e isRest.
 
     # TODO... hereda la capacidad de ops de Operand, luego tiene "event support" con asControlInput, playAndDelta e isRest

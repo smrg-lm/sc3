@@ -325,6 +325,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         return result
 
     def __init__(self, name, addr, options=None, client_id=None):
+        super(gpp.NodeParameter, self).__init__(self)  # *** BUG: VER AHORA: ESTO SE SOLUCIONA CON __INIT_SUBCLASS__ HOOCK? (NO TENER QUE PONER EN CADA UNA)
         self._max_num_clients = None # BUG: subida, se necesita antes de setear self.client_id # // maxLogins as sent from booted scsynth # la setea en _handle_client_login_info_from_server
         self._client_id = None # BUG: se necesita antes de setear self.client_id
 
@@ -637,7 +638,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     #     pass
 
     def reorder(self, node_list, target, add_action='addToHead'): # BUG: ver los comandos en notación camello, creo que el servidor los usa así, no se puede cambiar.
-        target = gpp.node_param(target).as_target()
+        target = gpp.node_param(target)._as_target()
         node_list = [x.node_id for x in node_list]
         self.send(
             '/n_order', nod.Node.action_number_for(add_action), # 62
@@ -1211,9 +1212,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def supernova(cls):
         cls.program = cls.program.replace('scsynth', 'supernova')
 
+
     ### Node parameter interface ###
 
-    def as_target(self):
+    def _as_target(self):
         return self.default_group
 
 

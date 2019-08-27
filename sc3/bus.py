@@ -13,6 +13,7 @@ _logger = logging.getLogger(__name__)
 
 class Bus(gpp.UGenParameter, gpp.NodeParameter):
     def __init__(self, rate='audio', index=0, num_channels=2, server=None): # NOTE: es *new
+        super(gpp.UGenParameter, self).__init__(self)
         self._rate = rate # todos tienen solo getter salvo _map_symbol que es privado.
         self._index = index
         self._num_channels = num_channels
@@ -229,16 +230,18 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
     # // alternate syntaxes
     # TODO: hay métodos que son importantes (e.g. asMap), VER.
 
-    # UGen graph parameter interface #
 
-    def as_ugen_input(self, *_):
+    ### UGen graph parameter interface ###
+
+    def _as_ugen_input(self, *_):
         return self._index
 
-    def as_control_input(self):
-        return self._index
-
-    def as_ugen_rate(self):
+    def _as_ugen_rate(self):
         return self._rate
 
-    # Node parameter interface #
-    # NOTE: Usa todos los valores por defecto de Object
+
+    ### Node parameter interface ###
+    # NOTE: Usa todos los valores por defecto de Object. VISTO, BORRAR.
+
+    def _as_control_input(self):
+        return self._index

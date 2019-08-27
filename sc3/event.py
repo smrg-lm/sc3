@@ -241,10 +241,10 @@ class Event(dict):
     # UGen graph parameter interface #
     # TODO: ver el resto en UGenParameter
 
-    def as_ugen_input(self, *_):
-        return self.as_control_input()
+    def _as_ugen_input(self, *_):
+        return self._as_control_input()
 
-    def as_control_input(self):
+    def _as_control_input(self):
         pass # TODO ^this[ EventTypesWithCleanup.ugenInputTypes[this[\type] ] ];
 
     # TODO...
@@ -788,7 +788,7 @@ def _make_parent_events():
         add_action = nod.Node.action_number_for(event.add_action)
         # // compute the control values and generate OSC commands
         ids = None # BUG: debería posponer su declaración al momento en que se usa abajo y acá usar None como literal. NOTE: Es None por defecto y modifica el mensaje después generando ids.
-        group = gpp.node_param(event.value('group')).as_control_input() # BUG: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido? VER PERORATA ABAJO EN GRAIN
+        group = gpp.node_param(event.value('group'))._as_control_input() # BUG: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido? VER PERORATA ABAJO EN GRAIN
         bndl = ['/s_new', instrument_name, ids, add_action, group] # event.value('group')] # NOTE: ~group en realidad deja una función acá, no el valor de retorno, parece que se evalúa en _NetAddr_SendBundle.
         bndl.extend(msg_func()) # NOTE: si se obtiene como atributo es un bound method de self (msg_func necesita el evento argumento para comprobar las llaves).
 
@@ -815,7 +815,7 @@ def _make_parent_events():
         event.id = ids = [server.next_node_id() for _ in bndl]
         for i, b in enumerate(bndl):
             b[2] = ids[i]
-            bndl[i] = gpp.node_param(b).as_osc_arg_list() # NOTE: modifico el item de la lista sobre el cuál itero al final del ciclo, pero no la lista en sí.
+            bndl[i] = gpp.node_param(b)._as_osc_arg_list() # NOTE: modifico el item de la lista sobre el cuál itero al final del ciclo, pero no la lista en sí.
         # // schedule when the bundles are sent
         if strum == 0:
             event.sched_bundle(lag, offset, server, bndl, event.latency) # NOTE: puede ser cualquier cantidad de mensajes/notas, esto es algo que no está claro en la implementación de sclang, aquí offset es escalar, en strummed es una lista.
@@ -877,37 +877,37 @@ def _make_parent_events():
         event.sustain = event.value('sustain') # BUG: posiblemente en sclang, el problema es que asume que el evento se crea desde un stream y se descarta.
         add_action = nod.Node.action_number_for(event.add_action)
 
-        # BUG IMPORTANTE: PARA TODO ESTO QUEDÓ IMPLEMENTANDO PROVISORIAMENTE NodeParameter.as_control_input como return ugen_param(self).as_control_input()
+        # BUG IMPORTANTE: PARA TODO ESTO QUEDÓ IMPLEMENTANDO PROVISORIAMENTE NodeParameter._as_control_input como return ugen_param(self)._as_control_input()
         # BUG IMPORTANTE: en sclang usa ~group.asControlInput que retorna nodeID (y debería hacer lo mismo para la función 'note' arriba aunque como anoté deja la función y se evalúa abajo nivel)
         # BUG IMPORTANTE: de un grupo o this de un entero, y la llave group acá se
         # BUG IMPORTANTE: define como node id. *********** PERO ***********
-        # BUG IMPORTANTE: en graph_param.py as_control_input funciona para Group
-        # BUG IMPORTANTE: si se llama a node_param: node_param(g).as_control_input()
-        # BUG IMPORTANTE: pero no funciona para int: node_param(1000).as_control_input() -> AttributeError: 'NodeScalar' object has no attribute 'as_control_input'
-        # BUG IMPORTANTE: y funciona para int si se llama a ugen_param: ugen_param(1000).as_control_input()
-        # BUG IMPORTANTE: pero no funicona para Group:ugen_param(g).as_control_input() -> TypeError: UGenParameter: type 'Group' not supported
-        # BUG IMPORTANTE: as_control_input, por más que sea interfaz de los Nodos
+        # BUG IMPORTANTE: en graph_param.py _as_control_input funciona para Group
+        # BUG IMPORTANTE: si se llama a node_param: node_param(g)._as_control_input()
+        # BUG IMPORTANTE: pero no funciona para int: node_param(1000)._as_control_input() -> AttributeError: 'NodeScalar' object has no attribute '_as_control_input'
+        # BUG IMPORTANTE: y funciona para int si se llama a ugen_param: ugen_param(1000)._as_control_input()
+        # BUG IMPORTANTE: pero no funicona para Group:ugen_param(g)._as_control_input() -> TypeError: UGenParameter: type 'Group' not supported
+        # BUG IMPORTANTE: _as_control_input, por más que sea interfaz de los Nodos
         # BUG IMPORTANTE: TIENE QUE FUNCIONAR TAMBIÉN PARA ENTEROS DESDE NODE_PARAM ¿Por qué no quedó así?
         # BUG IMPORTANTE: Y buscando, veo que la clase BusPlug tiene el método asControlInput que retorna u símbolo como si fuera asMap !!!!!!!!!!!!!!!
         # BUG IMPORTANTE: Y la documentacionde Event.asControlInput dice "Enables events to represent the server resources they created in an Event."
         # BUG IMPORTANTE: Y la documentacion de Ref.asControlInput dice "Returns the value - this is used when sending a Ref as a control value to a server Node."
         # BUG IMPORTANTE: Vamos ¿Quién miente? Por Ref, ahora creo que asControlInput es interface de Node y UGen.
-        # BUG IMPORTANTE: El problema de pasar as_control_input a GraphParameter es que class UGenList(UGenParameter) lo redefine y se usa en NodeParameter a través de ugen_param.
+        # BUG IMPORTANTE: El problema de pasar _as_control_input a GraphParameter es que class UGenList(UGenParameter) lo redefine y se usa en NodeParameter a través de ugen_param.
         # BUG IMPORTANTE: Pero también es claro que el método tiene que actuar polimoficamente entre int y Group para esta llave.
-        # BUG IMPORTANTE: Tal vez solo convenga definir GraphParameter en vez de dividir entre Node y UGen? Pero no es lo mismo, por UGen no usa as_target.
-        # BUG IMPORTANTE: Otra opción es definir NodeParameter.as_control_input como return ugen_param(self).as_control_input().
-        # BUG IMPORTANTE: Pienso que los as_control_inputs se pueden pasar a los nodos que se pasan a las ugens, que debería ser de ambas.
-        # BUG IMPORTANTE: IMPLEMENTANDO NodeParameter.as_control_input como return ugen_param(self).as_control_input()
-        # BUG IMPORTANTE: EL ÚNICO CASO QUE NO FUNCIONA ES ugen_param(g).as_control_input() -> TypeError: UGenParameter: type 'Group' not supported
+        # BUG IMPORTANTE: Tal vez solo convenga definir GraphParameter en vez de dividir entre Node y UGen? Pero no es lo mismo, por UGen no usa _as_target.
+        # BUG IMPORTANTE: Otra opción es definir NodeParameter._as_control_input como return ugen_param(self)._as_control_input().
+        # BUG IMPORTANTE: Pienso que los _as_control_inputs se pueden pasar a los nodos que se pasan a las ugens, que debería ser de ambas.
+        # BUG IMPORTANTE: IMPLEMENTANDO NodeParameter._as_control_input como return ugen_param(self)._as_control_input()
+        # BUG IMPORTANTE: EL ÚNICO CASO QUE NO FUNCIONA ES ugen_param(g)._as_control_input() -> TypeError: UGenParameter: type 'Group' not supported
         # BUG IMPORTANTE: PERO LA UGEN Free.kr USA NODE ID COMO PARÁMETRO ASÍ QUE NODE DEBERÍA IMPLEMENTAR LA INTERFAZ.
         # BUG IMPORTANTE: HAY QUE HACER UNA ESPECIFICACIÓN/MODELO DE LOS DATOS VÁLIDOS, SU SIGNIFICADO Y SUS RELACIONES POSIBLES COMO PARÁMETROS VÁLIDOS PARA DISTINTAS ESTRUCTURAS (E.G. NODOS Y UGENS)
         # BUG IMPORTANTE: El problema es que ugen_param es una interfaz de polimorfismo que de objetos UGen aplicada a datos integrados (int, str, list, etc.)
         # BUG IMPORTANTE: y que node_param es una interfaz de polimorfismo que de objetos de objetos Node aplicada a datos integrados (int, str, list, etc.)
-        # BUG IMPORTANTE: y que as_control_input es un método de interfaz presente en ambas UGen y Node, y que en sclang cualquier objeto puede actuar as_control_input.
+        # BUG IMPORTANTE: y que _as_control_input es un método de interfaz presente en ambas UGen y Node, y que en sclang cualquier objeto puede actuar _as_control_input.
         # BUG IMPORTANTE: El problema son los datos de entrada válidos y el abuso de polimofismo en sclang, flata organizar y especificar como puse acá arriba.
         # BUG IMPORTANTE: VER Pattern Guide 08: Event Types and Parameters.
         # // compute the control values and generate OSC commands
-        group = gpp.node_param(event.value('group')).as_control_input() # BUG: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido?
+        group = gpp.node_param(event.value('group'))._as_control_input() # BUG: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido?
         bndl = ['/s_new', instrument_name, -1, add_action, group] # NOTE: ~group en realidad deja una función acá, no el valor de retorno, parece que se evalúa en _NetAddr_SendBundle.
         bndl.extend(msg_func(event)) # NOTE: como no se obtuvo como atributo de Event no es un bound method de self y hay que pasar event.
         event.sched_bundle( # NOTE: puede ser cualquier cantidad de mensajes/notas, esto es algo que no está claro en la implementación de sclang

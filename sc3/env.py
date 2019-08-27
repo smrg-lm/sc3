@@ -29,6 +29,7 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
 
     def __init__(self, levels=None, times=None, curves='lin',
                  release_node=None, loop_node=None, offset=0):
+        super(gpp.UGenParameter, self).__init__(self)
         self.levels = levels or [0, 1, 0]
         self.times = utl.wrap_extend(utl.as_list(times or [1, 1]),
                                      len(self.levels) - 1)
@@ -235,7 +236,7 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
         name = utl.as_list(name)
         ret = []
         for item in name:
-            if gpp.ugen_param(item).is_valid_ugen_input():
+            if gpp.ugen_param(item)._is_valid_ugen_input():
                 ret.append(5)  # 'curvature value', items is not NaN SimpleNumber.
             else:
                 try:
@@ -250,13 +251,13 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
         if isinstance(curve, list):
             ret = []
             for item in curve:
-                if gpp.ugen_param(item).is_valid_ugen_input():
+                if gpp.ugen_param(item)._is_valid_ugen_input():
                     ret.append(item)
                 else:
                     ret.append(0)
             return ret
         else:
-            if gpp.ugen_param(curve).is_valid_ugen_input():
+            if gpp.ugen_param(curve)._is_valid_ugen_input():
                 return curve
             else:
                 return 0
@@ -266,16 +267,16 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
             return self._envgen_format
 
         # prAsArray
-        levels = gpp.ugen_param(self.levels).as_ugen_input()
-        times = gpp.ugen_param(self.times).as_ugen_input()
-        curves = gpp.ugen_param(utl.as_list(self.curves)).as_ugen_input()
+        levels = gpp.ugen_param(self.levels)._as_ugen_input()
+        times = gpp.ugen_param(self.times)._as_ugen_input()
+        curves = gpp.ugen_param(utl.as_list(self.curves))._as_ugen_input()
         size = len(self.times)
         contents = []
 
         contents.append(levels[0])
         contents.append(size)
-        contents.append(gpp.ugen_param(self.release_node).as_ugen_input() or -99)
-        contents.append(gpp.ugen_param(self.loop_node).as_ugen_input() or -99)
+        contents.append(gpp.ugen_param(self.release_node)._as_ugen_input() or -99)
+        contents.append(gpp.ugen_param(self.loop_node)._as_ugen_input() or -99)
 
         for i in range(size):
             contents.append(levels[i + 1])
@@ -291,17 +292,17 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
         if self._interpolation_format:
             return self._interpolation_format
 
-        levels = gpp.ugen_param(self.levels).as_ugen_input()
-        times = gpp.ugen_param(self.times).as_ugen_input()
-        curves = gpp.ugen_param(utl.as_list(self.curves)).as_ugen_input()
+        levels = gpp.ugen_param(self.levels)._as_ugen_input()
+        times = gpp.ugen_param(self.times)._as_ugen_input()
+        curves = gpp.ugen_param(utl.as_list(self.curves))._as_ugen_input()
         size = len(self.times)
         contents = []
 
-        contents.append(gpp.ugen_param(self.offset).as_ugen_input() or 0)
+        contents.append(gpp.ugen_param(self.offset)._as_ugen_input() or 0)
         contents.append(levels[0])
         contents.append(size)
         contents.append(utl.list_sum(times))
-        # curvesArray = curves.asArray; # BUG: sclang, overrides curvesArray without as_ugen_input.
+        # curvesArray = curves.asArray; # BUG: sclang, overrides curvesArray without _as_ugen_input.
 
         for i in range(size):  # BUG: sclang, uses times.size.do instead of size that is timeArray.size that is times.asUGenInput.
             contents.append(times[i])
@@ -312,14 +313,12 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
         self._interpolation_format = [tuple(i) for i in utl.flop(contents)]
         return self._interpolation_format
 
-    ### UGen graph parameter interface ###
-    # TODO: ver el resto en UGenParameter
-
-    def as_control_input(self):
-        pass # TODO
 
     ### Node parameter interface ###
 
-    def as_osc_arg_embedded_list(self, lst):
-        env_lst = gpp.ugen_param(self).as_control_input()
-        return gpp.node_param(env_lst).as_osc_arg_embedded_list(lst)
+    def _as_control_input(self):
+        return utl.unbubble(self.envgen_format())
+
+    def _as_osc_arg_embedded_list(self, lst):
+        env_lst = gpp.node_param(self)._as_control_input()
+        return gpp.node_param(env_lst)._as_osc_arg_embedded_list(lst)

@@ -42,12 +42,6 @@ class UniqueID(): # TODO: en sclang está en Common/Collections/ObjectTable.sc
 
 # Lists
 
-# NOTE: asArray tiene implementación especial varias clases, que no están
-# directamente relacionadas con las ugens, en particular, Env implemenenta
-# asArray para as_control_input (ver ugen.as_control_input y
-# node.as_osc_arg_list). La idea es no implemetar esa funcionalidad tan
-# específica y dispersa en la librería de clases sino pasarlas a las
-# funciones que lo requieran para la construcción de synthdefs u omitirlas.
 def as_list(obj):
     '''
     Bubble non iterable objects, tuples and strings in a list. If obj is None

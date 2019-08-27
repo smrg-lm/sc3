@@ -4,14 +4,10 @@ import inspect
 import operator
 import math
 
-from . import builtins as bi # TODO: TEST, ver abajo.
-from . import graphparam as gpp
+from . import builtins as bi
 
 
-class AbstractFunction(gpp.UGenParameter):
-    def __init__(self):
-        pass  # Don't call GraphParameter.__init__
-
+class AbstractFunction():
     def __call__(self, *args):
         raise NotImplementedError(
             f'callable interface has no use for {type(self).__name__}')
@@ -449,22 +445,25 @@ class AbstractFunction(gpp.UGenParameter):
     # sampled
 
 
-    ### UGen graph parameter interface ###
-
-    def is_valid_ugen_input(self):
-        return True
-
-    def as_ugen_input(self, *ugen_cls):
-        return self(*ugen_cls)
-
-    def as_control_input(self):
-        return self()
-
-    def as_audio_rate_input(self, *args):
-        res = self(*args)
-        if gpp.ugen_param(res).as_ugen_rate() != 'audio':
-            return xxx.K2A.ar(res)
-        return res
+    # ### UGen graph parameter interface ###
+    # # Is a mistake to make AbstractFunction an UGenParameter because some
+    # # subclases are not (e.g. every stream), if needed it could be better to
+    # # create a ugen_param for functions, callables or alike.
+    #
+    # def _is_valid_ugen_input(self):
+    #     return True
+    #
+    # def _as_ugen_input(self, *ugen_cls):
+    #     return self(*ugen_cls)
+    #
+    # def _as_control_input(self):  # Is NodeParameter interface.
+    #     return self()
+    #
+    # def _as_audio_rate_input(self, *args):
+    #     res = self(*args)
+    #     if gpp.ugen_param(res)._as_ugen_rate() != 'audio':
+    #         return xxx.K2A.ar(res)
+    #     return res
 
 
 class UnaryOpFunction(AbstractFunction):

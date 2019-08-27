@@ -1,4 +1,15 @@
-"""Support for built in or extensions data types as UGen/Node parameters."""
+"""
+Support for built in or extensions data types as UGen or Node parameters. This
+module is an internal interface. To extend type support classes inherit either
+from UGenParameter or NodeParameter or both, define _param_type() for the
+extending type and override the needed interface methods.
+
+UGenParameter are values intended for UGens parameters. NodeParameter are values
+intended for Node messages. UGen, Node, SynthDef and SynthDescLib classes make
+use of this interface to prepare data in the right format. This functionality
+shoudln't be exposed to the user interface, supported data types must just work
+with its own interface.
+"""
 
 from math import isnan
 import struct
@@ -12,282 +23,254 @@ from . import utils as utl
 
 class GraphParameter():
     def __init__(self, value):
-        self.__value = value
-
-    # def __repr__(self):
-    #     return "{}({})".format(type(self).__name__, repr(self.value))
+        self.__param_value = value
 
     @property
-    def value(self): # TODO: tal vez sería mejor que se llame param_value
-        return self.__value
+    def _param_value(self):
+        return self.__param_value
 
     @classmethod
-    def param_type(cls):
+    def _param_type(cls):
         return (cls,)
+
+    def __repr__(self):
+        return f'{type(self).__name__}({repr(self._param_value)})'
 
 
 ### UGen graph parameter interface ###
 
 class UGenParameter(GraphParameter):
-    @property
-    def rate(self):
-        return 'scalar'
-
-    def is_valid_ugen_input(self):
+    def _is_valid_ugen_input(self):
         return False
 
-    def as_ugen_input(self, *_):
-        return self.value
+    def _as_ugen_input(self, *_):
+        return self._param_value
 
-    def as_control_input(self):
-        return self.value
-
-    def as_audio_rate_input(self):
-        if self.as_ugen_rate() != 'audio':
-            return xxx.K2A.ar(self.value)
+    def _as_audio_rate_input(self):
+        if self._as_ugen_rate() != 'audio':
+            return xxx.K2A.ar(self._param_value)
         else:
-            return self.value
+            return self._param_value
 
-    def as_ugen_rate(self):
+    @property
+    def rate(self):
+        # NOTE: Convenience for polimorfism, use _as_ugen_rate. TODO: check if used, it shouldn't, remove later.
+        print('*** ERROR: should not call UGenParameter.rate')
+        return self._as_ugen_rate()
+
+    def _as_ugen_rate(self):  # Was rate for many non UGen objects in sclang.
         try:
             return self.rate
         except AttributeError as e:
-            raise AttributeError(
-                f"'{type(self).__name__}' must implement "
-                "rate attribute or as_ugen_rate method") from e
+            raise AttributeError(f'{type(self).__name__} does not implement '
+                                 'rate attribute or _as_ugen_rate method') from e
 
-    def perform_binary_op_on_ugen(self, selector, thing):
+    def _perform_binary_op_on_ugen(self, selector, ugen):
         selector = _si.sc_opname(selector.__name__)
-        if selector == '==':
-            return False
-        if selector == '!=':
-            return True
-        raise ValueError(
-            f"operations between ugens and '{self.value}' are not supported")
+        raise TypeError(f"operation '{selector}' is not supported between "
+                        f"UGen and {type(self._param_value).__name__}")
 
-    def write_input_spec(self, file, synthdef):
-        raise NotImplementedError(
-            f"'{type(self).__name__}' does not implement write_input_spec")
+    def _r_perform_binary_op_on_ugen(self, selector, ugen):
+        selector = _si.sc_opname(selector.__name__)
+        raise TypeError(f"operation '{selector}' is not supported between "
+                        f"{type(self._param_value).__name__} and UGen")
+
+    def _write_input_spec(self, file, synthdef):
+        raise NotImplementedError(f'{type(self).__name__} does '
+                                  'not implement _write_input_spec()')
 
 
 class UGenNone(UGenParameter):
     @classmethod
-    def param_type(cls):
+    def _param_type(cls):
         return (type(None),)
 
-    @property
-    def rate(self):
-        return None
-
-    def as_ugen_rate(self):
+    def _as_ugen_rate(self):
         return None
 
 
 class UGenString(UGenParameter):
     @classmethod
-    def param_type(cls):
+    def _param_type(cls):
         return (str,)
 
-    def as_ugen_rate(self):
+    def _as_ugen_rate(self):
         return 'scalar'
 
 
 class UGenScalar(UGenParameter):
     @classmethod
-    def param_type(cls):
+    def _param_type(cls):
         return (int, float, bool)
 
-    def is_valid_ugen_input(self):
-        return not isnan(self.value)
+    def _is_valid_ugen_input(self):
+        return not isnan(self._param_value)
 
-    def as_audio_rate_input(self):
-        if self.value == 0:
+    def _as_audio_rate_input(self):
+        if self._param_value == 0:
             return xxx.Silent.ar()
         else:
-            return xxx.DC.ar(self.value)
+            return xxx.DC.ar(self._param_value)
 
-    def as_ugen_rate(self):
+    def _as_ugen_rate(self):
         return 'scalar'
 
-    def write_input_spec(self, file, synthdef):
+    def _write_input_spec(self, file, synthdef):
         try:
-            const_index = synthdef.constants[float(self.value)]
-            file.write(struct.pack('>i', -1)) # putInt32
-            file.write(struct.pack('>i', const_index)) # putInt32
+            const_index = synthdef.constants[float(self._param_value)]
+            file.write(struct.pack('>i', -1))  # putInt32
+            file.write(struct.pack('>i', const_index))  # putInt32
         except KeyError as e:
             raise Exception(
-                'write_input_spec constant not found: '
-                f'{float(self.value)}') from e
+                '_write_input_spec constant not found: '
+                f'{float(self._param_value)}') from e
 
 
 class UGenSequence(UGenParameter):
-    # Same as UGenSequence, keep sync.
-
-    @property
-    def rate(self):
-        if len(self.value) == 1:
-            return ugen_param(self.value[0]).rate
-        else:
-            return utl.list_min([ugen_param(item).rate or 'scalar'\
-                                for item in self.value])
-
     @classmethod
-    def param_type(cls):
-        return (list, tuple)  # tuple prevents multichannel expansion, type must be kept for UGen inputs.
+    def _param_type(cls):
+        # tuple prevents multichannel expansion,
+        # type must be kept for UGen inputs.
+        return (list, tuple)
 
-    # BUG: array implementa num_channels?
+    def _is_valid_ugen_input(self):
+        return True if self._param_value else False  # *** BUG: en sclang, debería comprobar isEmpty porque tira error en SynthDesc (SinOsc.ar() * []). O tal vez cuando construye BinaryOpUGen? Ver el grafo generado, tal vez deba ser None.
 
-    def is_valid_ugen_input(self):
-        return True if self.value else False  # *** BUG: en sclang, debería comprobar isEmpty porque tira error en SynthDesc (SinOsc.ar() * []). O tal vez cuando construye BinaryOpUGen? Ver el grafo generado, tal vez deba ser None.
+    def _as_ugen_input(self, *ugen_cls):
+        m = map(lambda x: ugen_param(x)._as_ugen_input(*ugen_cls),
+                self._param_value)
+        return type(self._param_value)(m)
 
-    def as_ugen_input(self, *ugen_cls):
-        m = map(lambda x: ugen_param(x).as_ugen_input(*ugen_cls), self.value)
-        return type(self.value)(m)
+    def _as_audio_rate_input(self, *ugen_cls):
+        m = map(lambda x: ugen_param(x)._as_audio_rate_input(*ugen_cls),
+                self._param_value)
+        return type(self._param_value)(m)
 
-    def as_control_input(self):
-        return type(self.value)(
-            ugen_param(x).as_control_input() for x in self.value)
+    def _as_ugen_rate(self):
+        if len(self._param_value) == 1:
+            return ugen_param(self._param_value[0])._as_ugen_rate()
+        else:
+            return utl.list_min([ugen_param(item)._as_ugen_rate() or 'scalar'\
+                                 for item in self._param_value])
 
-    def as_audio_rate_input(self, *ugen_cls):
-        m = map(lambda x: ugen_param(x).as_audio_rate_input(*ugen_cls), self.value) # NOTE: de Array: ^this.collect(_.asAudioRateInput(for))
-        return type(self.value)(m)
-
-    def as_ugen_rate(self):
-        if len(self.value) == 1:
-            return ugen_param(self.value[0]).as_ugen_rate() # NOTE: en SequenceableCollection si this.size es 1 devuelve this.first.rate
-        lst = [ugen_param(x).as_ugen_rate() for x in self.value]
-        if not lst or any(x is None for x in lst): # TODO: reduce con Collection minItem, los símbolos por orden lexicográfico, si algún elemento es nil devuelve nil !!!
-            return None
-        return min(lst)
-
-    def write_input_spec(self, file, synthdef):
-        for item in self.value:
-            ugen_param(item).write_input_spec(file, synthdef)
+    def _write_input_spec(self, file, synthdef):
+        for item in self._param_value:
+            ugen_param(item)._write_input_spec(file, synthdef)
 
 
-### asTarget.sc interface ###
 ### Node Graph Parameters ###
 
 class NodeParameter(GraphParameter):
-    ### Node parameter interface ###
+    # asTarget.sc interface
+    def _as_target(self):
+        raise TypeError('invalid value for Node target: '
+                        f'{type(self._param_value).__name__}')
 
-    def as_target(self):
-        raise TypeError(
-            f"invalid value for Node target: '{type(self.value).__name__}'")
+    def _as_control_input(self):
+        return self._param_value
 
-    # BUG IMPORTANTE: VER EL VERDADERO SIGNIFICADO DE LA VIDA DE AS_CONTROL_INPUT.
-    # BUG IMPORTANTE: VER LAS NOTAS EN EL TIPO DE EVENTO GRAIN EN event.py.
-    # BUG IMPORTANTE: **** Podría llamarse as_osc_arg_control_input, para ser
-    # BUG IMPORTANTE: coherente con la interfaz de abajo dejando claro que se
-    # BUG IMPORTANTE: aplica a nodos (mensajes osc) aunque sea lo mismo que
-    # BUG IMPORTANTE: as_control_input de las UGens. Así quedan más explícitos
-    # BUG IMPORTANTE: los tipos de datos posibles **** Lo que no tengo claro es
-    # BUG IMPORTANTE: si "control" refiere a señal kr o data para Control ugens,
-    # BUG IMPORTANTE: es este caso serían tipos osc permitidos.
-    def as_control_input(self):
-        return ugen_param(self).as_control_input()
-
-    ### extConvertToOSC.sc interface ###
-
+    # extConvertToOSC.sc interface
     # // The following interface in an optimized version of asControlInput that
-    # // flattens arrayed values and marks the outermost array of a value with $[ and $]
-    # // These Chars are turning into typetags ([ and ]) in the OSC message to mark that array
-    # // Inner arrays are flattened (they are not meaningful in the server context)
-    # // This makes it possible to write Synth("test", [0, [[100,200,300], [0.1,0.2,0.3], [10,20,30]] ])
-    # // and have all the arguments be assigned to consecutive controls in the synth.
+    # // flattens arrayed values and marks the outermost array of a value with
+    # // '[' and ']'. These Chars are turning into typetags ([ and ]) in the OSC
+    # // message to mark that array. Inner arrays are flattened (they are not
+    # // meaningful in the server context), this makes it possible to write
+    # // Synth("test", [0, [[100,200,300], [0.1,0.2,0.3], [10,20,30]] ]) and
+    # // have all the arguments be assigned to consecutive controls in the synth.
 
-    def as_osc_arg_list(self): # NOTE: incluye Env, ver @as_control_input.register(Env), tengo que ver la clase Ref que es una AbstractFunction
-        return ugen_param(self).as_control_input()
+    def _as_osc_arg_list(self):
+        return self._as_control_input()
 
-    def as_osc_arg_embedded_list(self, lst): # NOTE: incluye None, tengo que ver la clase Ref que es una AbstractFunction
-        lst.append(ugen_param(self).as_control_input())
+    def _as_osc_arg_embedded_list(self, lst):
+        lst.append(self._as_control_input())
         return lst
 
-    def as_osc_arg_bundle(self): # NOTE: incluye None y Env, tengo que ver la clase Ref que es una AbstractFunction
-        return ugen_param(self).as_control_input()
+    def _as_osc_arg_bundle(self):
+        return self._as_control_input()
 
 
 class NodeNone(NodeParameter):
     @classmethod
-    def param_type(cls):
+    def _param_type(cls):
         return (type(None),)
 
-    def as_target(self):
+    def _as_target(self):
         return srv.Server.default.default_group
 
-    def as_osc_arg_list(self):
-        return self.value
+    def _as_osc_arg_list(self):
+        return self._param_value
 
 
 class NodeScalar(NodeParameter):
     @classmethod
-    def param_type(cls):
+    def _param_type(cls):
         return (int, float)
 
-    def as_target(self):
+    def _as_target(self):
         from . import node as nod
         return nod.Group.basic_new(srv.Server.default, obj)
 
 
 class NodeString(NodeParameter):
     @classmethod
-    def param_type(cls):
+    def _param_type(cls):
         return (str,)
 
-    def as_osc_arg_list(self):
-        return self.value
+    def _as_osc_arg_list(self):
+        return self._param_value
 
-    def as_osc_arg_embedded_list(self, lst):
-        lst.append(self.value)
+    def _as_osc_arg_embedded_list(self, lst):
+        lst.append(self._param_value)
         return lst
 
     # NOTE: porque hereda de RawArray que hereda de SequenceableCollection
     # le correspondería la misma implementación de NodeSequence, pero creo que
-    # el único método que llama a este es as_osc_arg_embedded_list que
+    # el único método que llama a este es _as_osc_arg_embedded_list que
     # String sobreescribe de manera distinta por lo que supongo que nunca
     # usa este método (además de que no parece consistente).
-    def as_osc_arg_bundle(self):
-        raise Exeption('BUG: NodeString as_osc_arg_bundle') # *** BUG: TEST
+    def _as_osc_arg_bundle(self):
+        raise Exeption('BUG: NodeString _as_osc_arg_bundle') # *** BUG: TEST
         lst = []
-        for e in self.value:
-            lst.append(node_param(e).as_osc_arg_list())
+        for e in self._param_value:
+            lst.append(node_param(e)._as_osc_arg_list())
         return lst
 
 
 class NodeSequence(NodeParameter):
     @classmethod
-    def param_type(cls):
+    def _param_type(cls):
         return (list, tuple)
 
-    def as_osc_arg_list(self):
+    def _as_control_input(self):
+        return type(self._param_value)(
+            node_param(x)._as_control_input() for x in self._param_value)
+
+    def _as_osc_arg_list(self):
         lst = []
-        for e in self.value:
-            node_param(e).as_osc_arg_embedded_list(lst)
+        for e in self._param_value:
+            node_param(e)._as_osc_arg_embedded_list(lst)
         return lst
 
-    def as_osc_arg_embedded_list(self, lst):
+    def _as_osc_arg_embedded_list(self, lst):
         lst.append('[')
-        for e in self.value:
-            #lst.append(as_osc_arg_embedded_list(e, lst)) # NOTE: estaba mal, pero ver por qué crea elipsis!
-            node_param(e).as_osc_arg_embedded_list(lst)
+        for e in self._param_value:
+            node_param(e)._as_osc_arg_embedded_list(lst)
         lst.append(']')
         return lst
 
-    def as_osc_arg_bundle(self):
+    def _as_osc_arg_bundle(self):
         lst = []
-        for e in self.value:
-            lst.append(node_param(e).as_osc_arg_list())
+        for e in self._param_value:
+            lst.append(node_param(e)._as_osc_arg_list())
         return lst
 
 
 ### Module functions ###
 
 def _graph_param(obj, param_cls):
-    if isinstance(obj, GraphParameter):
-        obj = obj.value
     new_cls = None
     for sub_class in param_cls.__subclasses__():
-        if isinstance(obj, sub_class.param_type()):
+        if isinstance(obj, sub_class._param_type()):
             new_cls = sub_class
             break
     if new_cls is None:

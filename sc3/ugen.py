@@ -35,7 +35,7 @@ def late_imports():  # *** HACK
     sys.modules[__name__].__dict__.update({'pll': sc3.ugens.poll})
 
 
-class ChannelList(list, fn.AbstractFunction):
+class ChannelList(list, gpp.UGenSequence, fn.AbstractFunction):
     '''List wrapper for multichannel expansion graph operations.'''
 
     def __init__(self, obj=None):
@@ -47,6 +47,7 @@ class ChannelList(list, fn.AbstractFunction):
             super().__init__(obj)
         else:
             super().__init__([obj])
+        super(gpp.UGenSequence, self).__init__(self)
 
 
     ### AbstractFunction interface ###
@@ -241,47 +242,7 @@ class ChannelList(list, fn.AbstractFunction):
         return f'ChannelList({super().__repr__()})'
 
 
-    ### UGen graph parameter interface ###
-
-    # Same as UGenSequence, keep sync. Problem is that this being an
-    # AbstractFunction makes it an UGenParameter so graph_param will no work.
-
-    @property
-    def rate(self):
-        if len(self) == 1:
-            return ugen_param(self[0]).rate
-        else:
-            return utl.list_min([gpp.ugen_param(item).rate or 'scalar'\
-                                for item in self])  # lexicographic order
-
-    def is_valid_ugen_input(self):
-        return True if self else False
-
-    def as_ugen_input(self, *ugen_cls):
-        return type(self)(gpp.ugen_param(x).as_ugen_input(*ugen_cls)\
-                          for x in self)
-
-    def as_control_input(self):
-        return type(self)(gpp.ugen_param(x).as_control_input() for x in self)
-
-    def as_audio_rate_input(self, *ugen_cls):
-        return type(self)(gpp.ugen_param(x).as_audio_rate_input(*ugen_cls)\
-                          for x in self)
-
-    def as_ugen_rate(self):
-        if len(self) == 1:
-            return gpp.ugen_param(self[0]).as_ugen_rate()
-        lst = [gpp.ugen_param(x).as_ugen_rate() for x in self]
-        if not lst or any(x is None for x in lst):
-            return None
-        return min(lst)  # minItem. Rates are in lexicographic order.
-
-    def write_input_spec(self, file, synthdef):
-        for item in self:
-            gpp.ugen_param(item).write_input_spec(file, synthdef)
-
-
-class UGen(fn.AbstractFunction):
+class UGen(gpp.UGenParameter, fn.AbstractFunction):
     '''
     Subclasses should not use __init__ to implement graph logic, interface
     methods are _new1, _multi_new, _multi_new_list, _init_ugen, _init_outputs
@@ -291,6 +252,7 @@ class UGen(fn.AbstractFunction):
     _valid_rates = {'audio', 'control', 'demand', 'scalar'}
 
     def __init__(self):  # Do not override.
+        super(gpp.UGenParameter, self).__init__(self)
         self._inputs = ()  # Always tuple.
         self._rate = 'audio'
         # atributos de instancia privados
@@ -342,7 +304,7 @@ class UGen(fn.AbstractFunction):
         '''
         # single channel, one ugen
         length = 0
-        args = gpp.ugen_param(args).as_ugen_input(cls)
+        args = gpp.ugen_param(args)._as_ugen_input(cls)
         for item in args:
             if isinstance(item, list):
                 length = max(length, len(item))
@@ -628,7 +590,7 @@ class UGen(fn.AbstractFunction):
     def _check_valid_inputs(self):  # este método se usa acá y en otras ugens dentro de _check_inputs
         '''Returns error msg or None.'''
         for i, input in enumerate(self.inputs):
-            if not gpp.ugen_param(input).is_valid_ugen_input():
+            if not gpp.ugen_param(input)._is_valid_ugen_input():
                 arg_name = self._arg_name_for_input_at(i)
                 if arg_name is None: arg_name = i
                 return f'arg: {arg_name} has bad input: {input}'
@@ -639,15 +601,15 @@ class UGen(fn.AbstractFunction):
             if n > len(self.inputs):
                 n = len(self.inputs)
             for i in range(n):
-                if gpp.ugen_param(self.inputs[i]).as_ugen_rate() != 'audio':
+                if gpp.ugen_param(self.inputs[i])._as_ugen_rate() != 'audio':
                     return (f'input {i} is not audio rate: {self.inputs[i]} '
-                            f'{gpp.ugen_param(self.inputs[i]).as_ugen_rate()}')
-        return self._check_valid_inputs() # comprueba is_valid_ugen_input no el rate.
+                            f'{gpp.ugen_param(self.inputs[i])._as_ugen_rate()}')
+        return self._check_valid_inputs() # comprueba _is_valid_ugen_input no el rate.
 
     def _check_sr_as_first_input(self): # checkSameRateAsFirstInput ídem anterior, deben ser interfaz protejida
-        if self.rate != gpp.ugen_param(self.inputs[0]).as_ugen_rate():
+        if self.rate != gpp.ugen_param(self.inputs[0])._as_ugen_rate():
             return (f'first input is not {self.rate} rate: {self.inputs[0]} '
-                    f'{gpp.ugen_param(self.inputs[0]).as_ugen_rate()}')
+                    f'{gpp.ugen_param(self.inputs[0])._as_ugen_rate()}')
         return self._check_valid_inputs()
 
     def _arg_name_for_input_at(self, i): # se usa acá y en basicopugen dentro de checkValidInputs, ambas clases lo implementan.
@@ -741,14 +703,19 @@ class UGen(fn.AbstractFunction):
 
     def _compose_binop(self, selector, input):
         param = gpp.ugen_param(input)
-        if param.is_valid_ugen_input():
+        if param._is_valid_ugen_input():
             selector = _si.sc_opname(selector.__name__)
             return BinaryOpUGen.new(selector, self, input)
         else:
-            return param.perform_binary_op_on_ugen(selector, self) # *** BUG: in scalng does not return?
+            return param._perform_binary_op_on_ugen(selector, self)
 
-    def _rcompose_binop(self, selector, ugen):
-        return BinaryOpUGen.new(selector, ugen, self)
+    def _rcompose_binop(self, selector, input):
+        param = gpp.ugen_param(input)
+        if param._is_valid_ugen_input():
+            selector = _si.sc_opname(selector.__name__)
+            return BinaryOpUGen.new(selector, input, self)
+        else:
+            return param._r_perform_binary_op_on_ugen(selector, self)
 
     def _compose_narop(self, selector, *args):
         raise NotImplementedError('UGen _compose_narop is not supported')
@@ -776,7 +743,7 @@ class UGen(fn.AbstractFunction):
             file.write(struct.pack('>h', self._special_index)) # putInt16
             # // write wire spec indices.
             for input in self.inputs:
-                gpp.ugen_param(input).write_input_spec(file, self._synthdef)
+                gpp.ugen_param(input)._write_input_spec(file, self._synthdef)
             self._write_output_specs(file)
         except Exception as e:
             raise Exception('SynthDef: could not write def') from e
@@ -872,27 +839,27 @@ class UGen(fn.AbstractFunction):
 
     ### UGen graph parameter interface ###
 
-    # def is_valid_ugen_input(self):  # BUG: sclang, is True already from AbstractFunction
-    #     return True
+    def _is_valid_ugen_input(self):
+        return True
 
-    def as_ugen_input(self, *ugen_cls):
+    def _as_ugen_input(self, *ugen_cls):
         return self
 
-    def as_control_input(self):
-        raise TypeError("UGen can't be set as control input")
+    # def _as_control_input(self):  # Is NodeParameter interface.
+    #     raise TypeError("UGen can't be set as control input")
 
-    def as_audio_rate_input(self):
+    def _as_audio_rate_input(self):
         if self.rate != 'audio':
             return xxx.K2A.ar(self)
         return self
 
-    def as_ugen_rate(self): # BUG: en sclang es simplemente 'rate' aplicada a cualquier objeto...
+    def _as_ugen_rate(self): # BUG: en sclang es simplemente 'rate' aplicada a cualquier objeto...
         return self.rate
 
     # BUG: VER
-    # def perform_binary_op_on_ugen(input, selector, thing):
+    # def _perform_binary_op_on_ugen(input, selector, thing):
 
-    def write_input_spec(self, file, synthdef):
+    def _write_input_spec(self, file, synthdef):
         file.write(struct.pack('>i', self._synth_index)) # putInt32
         file.write(struct.pack('>i', self._output_index)) # putInt32
 
@@ -1054,7 +1021,7 @@ class UnaryOpUGen(BasicOpUGen):
 
     def _init_ugen(self, operator, input):  # override
         self.operator = operator
-        self._rate = gpp.ugen_param(input).as_ugen_rate()
+        self._rate = gpp.ugen_param(input)._as_ugen_rate()
         self._inputs = (input,)
         return self  # Must return self.
 
@@ -1102,8 +1069,8 @@ class BinaryOpUGen(BasicOpUGen):
         return self  # Must return self.
 
     def _determine_rate(self, a, b):
-        a_rate = gpp.ugen_param(a).as_ugen_rate()
-        b_rate = gpp.ugen_param(b).as_ugen_rate()
+        a_rate = gpp.ugen_param(a)._as_ugen_rate()
+        b_rate = gpp.ugen_param(b)._as_ugen_rate()
         # Order matters.
         if a_rate == 'demand': return 'demand'
         if b_rate == 'demand': return 'demand'
@@ -1143,8 +1110,8 @@ class BinaryOpUGen(BasicOpUGen):
     # L239
     def _optimize_to_sum3(self):
         a, b = self.inputs
-        if gpp.ugen_param(a).as_ugen_rate() == 'demand'\
-        or gpp.ugen_param(b).as_ugen_rate() == 'demand':
+        if gpp.ugen_param(a)._as_ugen_rate() == 'demand'\
+        or gpp.ugen_param(b)._as_ugen_rate() == 'demand':
             return None
 
         if isinstance(a, BinaryOpUGen) and a.operator == '+'\
@@ -1169,8 +1136,8 @@ class BinaryOpUGen(BasicOpUGen):
     # L262
     def _optimize_to_sum4(self):
         a, b = self.inputs
-        if gpp.ugen_param(a).as_ugen_rate() == 'demand'\
-        or gpp.ugen_param(b).as_ugen_rate() == 'demand':
+        if gpp.ugen_param(a)._as_ugen_rate() == 'demand'\
+        or gpp.ugen_param(b)._as_ugen_rate() == 'demand':
             return None
 
         if isinstance(a, Sum3) and len(a._descendants) == 1:
@@ -1302,8 +1269,8 @@ class MulAdd(UGen):
     @classmethod
     def new(cls, input, mul=1.0, add=0.0):
         params = gpp.ugen_param([input, mul, add])
-        rate = params.as_ugen_rate()
-        args = params.as_ugen_input(cls)
+        rate = params._as_ugen_rate()
+        args = params._as_ugen_input(cls)
         return cls._multi_new_list([rate] + args)
 
     @classmethod
@@ -1327,17 +1294,17 @@ class MulAdd(UGen):
 
     def _init_ugen(self, input, mul, add):  # override
         self._inputs = (input, mul, add)
-        self._rate = gpp.ugen_param(self.inputs).as_ugen_rate()
+        self._rate = gpp.ugen_param(self.inputs)._as_ugen_rate()
         return self  # Must return self.
 
     @classmethod
     def _can_be_muladd(cls, input, mul, add):
         # // see if these inputs satisfy the constraints of a MulAdd ugen.
-        in_rate = gpp.ugen_param(input).as_ugen_rate()
+        in_rate = gpp.ugen_param(input)._as_ugen_rate()
         if in_rate == 'audio':
             return True
-        mul_rate = gpp.ugen_param(mul).as_ugen_rate()
-        add_rate = gpp.ugen_param(add).as_ugen_rate()
+        mul_rate = gpp.ugen_param(mul)._as_ugen_rate()
+        add_rate = gpp.ugen_param(add)._as_ugen_rate()
         if in_rate == 'control'\
         and (mul_rate == 'control' or mul_rate == 'scalar')\
         and (add_rate == 'control' or add_rate == 'scalar'):
@@ -1357,8 +1324,8 @@ class Sum3(UGen):
         if in0 == 0.0: return in1 + in2
 
         arg_list = [in0, in1, in2]
-        rate = gpp.ugen_param(arg_list).as_ugen_rate()
-        arg_list.sort(key=lambda x: gpp.ugen_param(x).as_ugen_rate()) # NOTE: no sé para qué ordena.
+        rate = gpp.ugen_param(arg_list)._as_ugen_rate()
+        arg_list.sort(key=lambda x: gpp.ugen_param(x)._as_ugen_rate()) # NOTE: no sé para qué ordena.
 
         return super()._new1(rate, *arg_list)
 
@@ -1376,7 +1343,7 @@ class Sum4(UGen):
         if in3 == 0.0: return Sum3._new1(None, in0, in1, in2)
 
         arg_list = [in0, in1, in2, in3]
-        rate = gpp.ugen_param(arg_list).as_ugen_rate()
-        arg_list.sort(key=lambda x: gpp.ugen_param(x).as_ugen_rate()) # NOTE: no sé para qué ordena.
+        rate = gpp.ugen_param(arg_list)._as_ugen_rate()
+        arg_list.sort(key=lambda x: gpp.ugen_param(x)._as_ugen_rate()) # NOTE: no sé para qué ordena.
 
         return super()._new1(rate, *arg_list)

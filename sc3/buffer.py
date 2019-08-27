@@ -6,11 +6,12 @@ from . import responsedefs as rdf
 from . import model as mdl
 
 
-class Buffer(gpp.UGenParameter):
+class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     _server_caches = dict()
 
     def __init__(self, server=None, num_frames=None,
                  num_channels=None, bufnum=None):
+        super(gpp.UGenParameter, self).__init__(self)
         # // Doesn't send.
         self._server = server or srv.Server.default
         self._bufnum = bufnum or self._server.next_buffer_number(1)
@@ -299,13 +300,20 @@ class Buffer(gpp.UGenParameter):
 
     # duration, pasada arriba como propiedead de solo lectura.
 
-    # UGen graph parameter interface #
-    # TODO: ver el resto en UGenParameter
 
-    def as_ugen_input(self, *_):
+    ### UGen graph parameter interface ###
+
+    def _as_ugen_input(self, *_):
         return self.bufnum
 
-    def as_control_input(self):
+    def _as_audio_rate_input(self):
+        raise TypeError("Buffer can't be used as audio rate input")
+
+
+    ### Node parameter interface ###
+
+    def _as_control_input(self):
         return self.bufnum
+
 
     # asBufWithValues # NOTE: se implementa acá, en Ref y en SimpleNumber pero no se usa en la librería estandar.

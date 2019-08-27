@@ -19,7 +19,7 @@ class Poll(ugn.UGen):
 
     @classmethod
     def new(cls, trig, input, label=None, trig_id=-1):
-        rate = [gpp.ugen_param(item).rate for item in utl.as_list(input)]
+        rate = [gpp.ugen_param(item)._as_ugen_rate() for item in utl.as_list(input)]
         rate = utl.unbubble(rate)
         cls._multi_new_list([rate, trig, input, label, trig_id])
         return input

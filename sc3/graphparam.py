@@ -17,6 +17,7 @@ import struct
 from . import server as srv
 from . import _specialindex as _si
 from . import utils as utl
+# from .ugens import line as lne
 
 
 ### Graphs Parameter Base Class ###
@@ -48,7 +49,7 @@ class UGenParameter(GraphParameter):
 
     def _as_audio_rate_input(self):
         if self._as_ugen_rate() != 'audio':
-            return xxx.K2A.ar(self._param_value)
+            return lne.K2A.ar(self._param_value)
         else:
             return self._param_value
 
@@ -108,9 +109,9 @@ class UGenScalar(UGenParameter):
 
     def _as_audio_rate_input(self):
         if self._param_value == 0:
-            return xxx.Silent.ar()
+            return lne.Silent.ar()
         else:
-            return xxx.DC.ar(self._param_value)
+            return lne.DC.ar(self._param_value)
 
     def _as_ugen_rate(self):
         return 'scalar'

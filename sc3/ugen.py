@@ -10,6 +10,7 @@ from . import utils as utl
 from . import _specialindex as _si
 from . import graphparam as gpp
 from . import builtins as bi
+# from .ugens import line as lne
 
 
 def late_imports():  # *** HACK
@@ -850,7 +851,7 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
 
     def _as_audio_rate_input(self):
         if self.rate != 'audio':
-            return xxx.K2A.ar(self)
+            return lne.K2A.ar(self)
         return self
 
     def _as_ugen_rate(self): # BUG: en sclang es simplemente 'rate' aplicada a cualquier objeto...

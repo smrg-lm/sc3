@@ -30,17 +30,17 @@ class SynthDef():
         obj.metadata = dict()
         obj.desc = None
 
-        obj.controls = None
-        obj.control_names = []
-        obj.all_control_names = []
-        obj.control_index = 0
-        obj.children = []
+        obj._controls = None
+        obj._control_names = []
+        obj._all_control_names = []
+        obj._control_index = 0
+        obj._children = []
 
-        obj.constants = dict()
-        obj.constant_set = set()
-        obj.max_local_bufs = None
+        obj._constants = dict()
+        obj._constant_set = set()
+        obj._max_local_bufs = None
 
-        obj.available = []
+        obj._available = []
         obj._width_first_ugens = []
         obj._rewrite_in_progress = False
 
@@ -55,18 +55,18 @@ class SynthDef():
         self.metadata = metadata or dict()
         self.desc = None
 
-        #self.controls = None # inicializa en initBuild, esta propiedad la setean las ugens mediante _gl.current_synthdef agregando controles
-        self.control_names = [] # en sclang se inicializan desde nil en addControlNames, en Python tienen que estar acá porque se pueden llamar desde wrap
-        self.all_control_names = [] # en sclang se inicializan desde nil en addControlNames
-        self.control_index = 0 # lo inicializa cuando declara la propiedad y lo reinicializa al mismo valor en initBuild
-        self.children = [] # Array.new(64) # esta probablemente sea privada pero se usa para ping pong
+        # self._controls = None  # init_build, is set by ugens using _gl.current_synthdef
+        self._control_names = [] # en sclang se inicializan desde nil en addControlNames, en Python tienen que estar acá porque se pueden llamar desde wrap
+        self._all_control_names = [] # en sclang se inicializan desde nil en addControlNames
+        self._control_index = 0 # lo inicializa cuando declara la propiedad y lo reinicializa al mismo valor en initBuild
+        self._children = [] # Array.new(64) # esta probablemente sea privada pero se usa para ping pong
 
-        #self.constants = dict() # inicializa en initBuild
-        #self.constant_set = set() # inicializa en initBuild
-        #self.max_local_bufs = None # inicializa en initBuild, la usa LocalBus*new1 y checka por nil
+        # self._constants = dict()  # init_build
+        # self._constant_set = set()  # init_build
+        # self._max_local_bufs = None  # init_build, used by LocalBus*new1 check for nil.
 
         # topo sort
-        self.available = [] # la inicializan las ugens con .makeAvailable() creando el array desde nil, initTopoSort la vuelve a nil.
+        self._available = []  # inited by ugens through .makeAvailable()
         self._width_first_ugens = [] # se puebla desde nil con WidthFirstUGen.addToSynth (solo para IFFT)
         self._rewrite_in_progress = False # = la inicializa a True en optimizeGraph L472 y luego la vuelve a nil, pero es mejor que sea false por los 'if'
 
@@ -107,20 +107,20 @@ class SynthDef():
     # L69
     def _init_build(self):
         # UGen.buildSynthDef, lock above.
-        self.constants = dict()
-        self.constant_set = set()
-        self.controls = []
-        self.control_index = 0
-        self.max_local_bufs = None
+        self._constants = dict()
+        self._constant_set = set()
+        self._controls = []
+        self._control_index = 0
+        self._max_local_bufs = None
 
     def _build_ugen_graph(self, graph_func, rates, prepend_args):
         # // Save/restore controls in case of SynthDef.wrap.
-        save_ctl_names = self.control_names
-        self.control_names = []
-        self.prepend_args = prepend_args
-        self._args_to_controls(graph_func, rates, len(self.prepend_args))
+        save_ctl_names = self._control_names
+        self._control_names = []
+        prepend_args = utl.as_list(prepend_args)
+        self._args_to_controls(graph_func, rates, len(prepend_args))
         result = graph_func(*(prepend_args + self._build_controls()))
-        self.control_names = save_ctl_names
+        self._control_names = save_ctl_names
         return result
 
     def _args_to_controls(self, func, rates, skip_args=0):  # Was addControlsFromArgsOfFunc.
@@ -159,18 +159,18 @@ class SynthDef():
             if (lag == 'ir') or (note == 'ir'):
                 if isinstance(lag, (int, float)) and lag != 0:
                     warnings.warn(msg.format(lag, 'i-rate', name))
-                self.add_ir(name, value)
+                self._add_ir(name, value)
             elif (lag == 'tr') or (note == 'tr'):
                 if isinstance(lag, (int, float)) and lag != 0:
                     warnings.warn(msg.format(lag, 'trigger', name))
-                self.add_tr(name, value)
+                self._add_tr(name, value)
             elif (lag == 'ar') or (note == 'ar'):
                 if isinstance(lag, (int, float)) and lag != 0:
                     warnings.warn(msg.format(lag, 'audio', name))
-                self.add_ar(name, value)
+                self._add_ar(name, value)
             else:
                 if lag == 'kr': lag = 0.0
-                self.add_kr(name, value, lag)
+                self._add_kr(name, value, lag)
 
     # método agregado
     def _apply_metadata_specs(self, names, values):
@@ -196,41 +196,39 @@ class SynthDef():
 
     # // Allow incremental building of controls.
     # BUG, BUG: de cada parámetro value hace value.copy, ver posibles consecuencias...
-    def add_non_control(self, name, values):  # Not used in the standard library.
-        self.add_control_name(scio.ControlName(name, None, 'noncontrol',
-            values, len(self.control_names))) # values hace copy *** VER self.controls/control_names no pueden ser None
+    def _add_non_control(self, name, values):  # Not used in the standard library.
+        self._add_control_name(scio.ControlName(name, None, 'noncontrol',
+            values, len(self._control_names)))
 
-    def add_ir(self, name, values): # *** VER dice VALUES en plural, pero salvo que se pase un array como valor todos los que calcula son escalares u objetos no iterables.
-        self.add_control_name(scio.ControlName(name, len(self.controls), 'scalar', # *** VER self.controls/control_names no pueden ser None
-            values, len(self.control_names))) # values *** VER el argumento de ControlName es defaultValue que puede ser un array para expansión multicanal de controles, pero eso puede pasar acá saliendo de los argumentos?
+    def _add_ir(self, name, values):  # *** VER dice VALUES en plural, pero salvo que se pase un array como valor todos los que calcula son escalares u objetos no iterables.
+        self._add_control_name(scio.ControlName(name, len(self._controls), 'scalar',
+            values, len(self._control_names)))  # values *** VER el argumento de ControlName es defaultValue que puede ser un array para expansión multicanal de controles, pero eso puede pasar acá saliendo de los argumentos?
 
-    def add_tr(self, name, values):
-        self.add_control_name(scio.ControlName(name, len(self.controls), 'trigger', # *** VER self.controls/control_names no pueden ser None
-            values, len(self.control_names))) # values hace copy, *** VER ControlName hace expansión multicanal como dice la documentación???
+    def _add_tr(self, name, values):
+        self._add_control_name(scio.ControlName(name, len(self._controls), 'trigger',
+            values, len(self._control_names)))
 
-    def add_ar(self, name, values):
-        self.add_control_name(scio.ControlName(name, len(self.controls), 'audio', # *** VER self.controls/control_names no pueden ser None
-            values, len(self.control_names))) # values hace copy
+    def _add_ar(self, name, values):
+        self._add_control_name(scio.ControlName(name, len(self._controls), 'audio',
+            values, len(self._control_names)))
 
-    def add_kr(self, name, values, lags): # acá también dice lags en plural pero es un valor simple como string (symbol) o number según interpreto del código anterior.
-        self.add_control_name(scio.ControlName(name, len(self.controls), 'control', # *** VER self.controls/control_names no pueden ser None
-            values, len(self.control_names), lags)) # *** VER values y lag hacen copy
+    def _add_kr(self, name, values, lags):  # Acá también dice lags en plural pero es un valor simple como string (symbol) o number según interpreto del código anterior.
+        self._add_control_name(scio.ControlName(name, len(self._controls), 'control',
+            values, len(self._control_names), lags))
 
-    # este también está expuesto como variente de la interfaz, debe ser el original.
-    # el problema es que son internos de la implementación de la librería, no deberían ser expuestos al usuario.
-    def add_control_name(self, cn): # lo llama también desde las ugens mediante _gl.current_synthdef, e.g. audiocontrol
-        self.control_names.append(cn)
-        self.all_control_names.append(cn)
+    def _add_control_name(self, cn):
+        self._control_names.append(cn)
+        self._all_control_names.append(cn)
 
     # L178
     def _build_controls(self): # llama solo desde _build_ugen_graph, retorna una lista
-        nn_cns = [x for x in self.control_names if x.rate == 'noncontrol']
-        ir_cns = [x for x in self.control_names if x.rate == 'scalar']
-        tr_cns = [x for x in self.control_names if x.rate == 'trigger']
-        ar_cns = [x for x in self.control_names if x.rate == 'audio']
-        kr_cns = [x for x in self.control_names if x.rate == 'control']
+        nn_cns = [x for x in self._control_names if x.rate == 'noncontrol']
+        ir_cns = [x for x in self._control_names if x.rate == 'scalar']
+        tr_cns = [x for x in self._control_names if x.rate == 'trigger']
+        ar_cns = [x for x in self._control_names if x.rate == 'audio']
+        kr_cns = [x for x in self._control_names if x.rate == 'control']
 
-        arguments = [0] * len(self.control_names)
+        arguments = [0] * len(self._control_names)
         values = []
         index = None
         ctrl_ugens = None
@@ -246,7 +244,7 @@ class SynthDef():
                 values = []
                 for cn in ita_cns:
                     values.append(cn.default_value)
-                index = self.control_index
+                index = self._control_index
                 ctrl_ugens = getattr(ctrl_class, method)(utl.flat(values)) # XControl.xr(values.flat)
                 ctrl_ugens = utl.as_list(ctrl_ugens) # .asArray
                 ctrl_ugens = utl.reshape_like(ctrl_ugens, values) # .reshapeLike(values);
@@ -269,7 +267,7 @@ class SynthDef():
                     lags.append(utl.wrap_extend(utl.as_list(cn.lag), valsize))
                 else:
                     lags.append(cn.lag)
-            index = self.control_index # TODO: esto puede ir abajo si los kr no cambian el índice.
+            index = self._control_index # TODO: esto puede ir abajo si los kr no cambian el índice.
 
             if any(x != 0 for x in lags):
                 ctrl_ugens = scio.LagControl.kr(utl.flat(values), lags) # LagControl.kr(values.flat, lags) //.asArray.reshapeLike(values);
@@ -284,7 +282,7 @@ class SynthDef():
                 arguments[cn.arg_num] = ctrl_ugens[i]
                 self._set_control_names(ctrl_ugens[i], cn)
 
-        self.control_names = [x for x in self.control_names
+        self._control_names = [x for x in self._control_names
                               if x.rate != 'noncontrol']
         return arguments
 
@@ -326,44 +324,44 @@ class SynthDef():
     def _optimize_graph(self):  # ping
         self._init_topo_sort()
 
-        self._rewrite_in_progress = True  # Comprueba en SynthDef:add_ugen que se llama desde las ugen, la variable es privada de SynthDef. No me cierra en que caso se produce porque si ugen._optimize_graph quiere agregar una ugen no fallaría?
-        for ugen in self.children[:]:  # ***** Hace children.copy.do porque modifica los valores de la lista sobre la que itera. VER RECURSIVIDAD: SI MODIFICA UN VALOR ACCEDIDO POSTERIORMENTE None._optimize_graph FALLA??
-            ugen._optimize_graph()  # pong, las ugens optimizadas se deben convertir en None dentro de la lista self.children, pasa en UGen.performDeadCodeElimination y en las opugens.
+        self._rewrite_in_progress = True  # Comprueba en SynthDef:_add_ugen que se llama desde las ugen, la variable es privada de SynthDef. No me cierra en que caso se produce porque si ugen._optimize_graph quiere agregar una ugen no fallaría?
+        for ugen in self._children[:]:  # ***** Hace _children.copy.do porque modifica los valores de la lista sobre la que itera. VER RECURSIVIDAD: SI MODIFICA UN VALOR ACCEDIDO POSTERIORMENTE None._optimize_graph FALLA??
+            ugen._optimize_graph()  # pong, las ugens optimizadas se deben convertir en None dentro de la lista self._children, pasa en UGen.performDeadCodeElimination y en las opugens.
         self._rewrite_in_progress = False
 
         # OC: Fixup removed ugens.
-        old_size = len(self.children)
-        self.children = [x for x in self.children if x is not None] #children.removeEvery(#[nil]);  *** por qué no es un reject?
-        if old_size != len(self.children):
+        old_size = len(self._children)
+        self._children = [x for x in self._children if x is not None] # _children.removeEvery(#[nil]);  *** por qué no es un reject?
+        if old_size != len(self._children):
             self._index_ugens()
 
     def _init_topo_sort(self):  # ping
-        self.available = []
-        for ugen in self.children:
+        self._available = []
+        for ugen in self._children:
             ugen._antecedents = set()
             ugen._descendants = set()
-        for ugen in self.children:
+        for ugen in self._children:
             # // This populates the _descendants and _antecedents.
             ugen._init_topo_sort()  # pong
-        for ugen in reversed(self.children):
+        for ugen in reversed(self._children):
             ugen._descendants = list(ugen._descendants) # VER: lo convierte en lista (asArray en el original) para ordenarlo y lo deja como lista. ugen._init_topo_sort() es la función que puebla el conjunto.
             ugen._descendants.sort(key=lambda x: x._synth_index) # VER: pero que pasa con _antecedents? tal vez no se usa para hacer recorridos?
             # // All ugens with no antecedents are made available.
             ugen._make_available()
 
     def _index_ugens(self): # CAMBIADO A ORDEN DE LECTURA
-        for i, ugen in enumerate(self.children):
+        for i, ugen in enumerate(self._children):
             ugen._synth_index = i
 
     # L489
     def _collect_constants(self): # ping
-        for ugen in self.children:
+        for ugen in self._children:
             ugen._collect_constants() # pong
 
     # L409
     def _check_inputs(self): # ping
         first_err = None
-        for ugen in self.children: # *** Itera sobre self.children por enésima vez.
+        for ugen in self._children: # *** Itera sobre self._children por enésima vez.
             err = ugen._check_inputs() # pong, en sclang devuelve nil o un string, creo que esos serían todos los casos según la lógica de este bloque.
             if err: # *** TODO EN SCLANG ES ASIGNA A err Y COMPRUEBA notNil, acá puede ser none, pero ver qué retornan de manera sistemática, ver return acá abajo.
                 # err = ugen.class.asString + err;
@@ -379,14 +377,14 @@ class SynthDef():
         self._init_topo_sort()
         ugen = None
         out_stack = []
-        while len(self.available) > 0:
-            ugen = self.available.pop()
+        while len(self._available) > 0:
+            ugen = self._available.pop()
             ugen._arrange(out_stack)  # puebla out_stack. ugen._arrange() se remueve de los antecedentes, se agrega a out_stack y devuelve out_stack. Acá no es necesaria la reasignación.
-        self.children = out_stack
+        self._children = out_stack
         self._cleanup_topo_sort()
 
     def _cleanup_topo_sort(self):
-        for ugen in self.children:
+        for ugen in self._children:
             ugen._antecedents = set()
             ugen._descendants = set()
             ugen._width_first_antecedents = [] # *** ÍDEM, OJO: no es SynthDef:_width_first_ugens, los nombres son confusos.
@@ -394,26 +392,26 @@ class SynthDef():
     # L428
     # OC: UGens do these.
     # Métodos para ping pong
-    def add_ugen(self, ugen): # lo usan UGen y WithFirstUGen implementando el método de instancia addToSynth
+    def _add_ugen(self, ugen): # lo usan UGen y WithFirstUGen implementando el método de instancia addToSynth
         if not self._rewrite_in_progress:
-            ugen._synth_index = len(self.children)
+            ugen._synth_index = len(self._children)
             ugen._width_first_antecedents = self._width_first_ugens[:] # with1sth antec/ugens refieren a lo mismo en distintos momentos, la lista es parcial para la ugen agregada.
-            self.children.append(ugen)
+            self._children.append(ugen)
 
-    def remove_ugen(self, ugen): # # lo usan UGen y BinaryOpUGen para optimizaciones
-        # OC: Lazy removal: clear entry and later remove all None entries # Tiene un typo, dice enties
-        self.children[ugen._synth_index] = None
+    def _remove_ugen(self, ugen):
+        # // Lazy removal: clear entry and later remove all None entries
+        self._children[ugen._synth_index] = None
 
-    def replace_ugen(self, a, b): # lo usa BinaryOpUGen para optimizaciones
+    def _replace_ugen(self, a, b):
         if not isinstance(b, ugn.UGen):
-            raise Exception('replace_ugen assumes a UGen')
+            raise Exception('_replace_ugen assumes a UGen')
 
         b._width_first_antecedents = a._width_first_antecedents
         b._descendants = a._descendants
         b._synth_index = a._synth_index
-        self.children[a._synth_index] = b
+        self._children[a._synth_index] = b
 
-        for item in self.children: # tampoco usa el contador, debe ser una desprolijidad después de una refacción, uso la i para el loop interno
+        for item in self._children: # tampoco usa el contador, debe ser una desprolijidad después de una refacción, uso la i para el loop interno
             if item is not None:
                 for i, input in enumerate(item.inputs):
                     if input is a:
@@ -421,10 +419,10 @@ class SynthDef():
                         aux[i] = b
                         item._inputs = tuple(aux)
 
-    def add_constant(self, value): # lo usa UGen:collectConstants
-        if value not in self.constant_set:
-            self.constant_set.add(value) # es un set, como su nombre lo indica, veo que se usa por primera vez
-            self.constants[value] = len(self.constants) # value lo setea UGen.collectConstants, el único método que llama a este y agrega las input de las ugens que son números (value es float)
+    def _add_constant(self, value):
+        if value not in self._constant_set:
+            self._constant_set.add(value) # es un set, como su nombre lo indica, veo que se usa por primera vez
+            self._constants[value] = len(self._constants) # value lo setea UGen.collectConstants, el único método que llama a este y agrega las input de las ugens que son números (value es float)
                                                         # value (float) es la llave, el valor de la llave es el índice de la constante almacenada en la synthdef en el momento de la inserción.
                                                         # collect_constants es un método ping/pong (synthdef/ugen), se llama desde SynthDef._finish_build, antes de _check_inputs y re-sort
                                                         # es simplemente un conjunto de constantes que almacena como datos reusables de las synthdef cuyo valor se accede por el índice aquí generado con len.
@@ -434,7 +432,7 @@ class SynthDef():
     def dump_ugens(self): # no se usa, no está documentado, pero es ÚTIL! se puede hacer hasta acá y pasar a las ugens (pero hay que hacer addUGen, etc., acá)
         #ugen_name = None # esta no la usa, es un descuido del programador
         print(self.name)
-        for ugen in self.children: # tampoco terminó usando el índice
+        for ugen in self._children: # tampoco terminó usando el índice
             inputs = None
             if ugen.inputs is not None:
                 inputs = [x._dump_name() if isinstance(x, ugn.UGen)
@@ -442,7 +440,7 @@ class SynthDef():
             print([ugen._dump_name(), ugen.rate, inputs])
 
     # L549
-    # OC: make SynthDef available to all servers
+    # // Make SynthDef available to all servers.
     def add(self, libname=None, completion_msg=None, keep_def=True):
         self.as_synthdesc(libname or 'default', keep_def) # BUG: puede que sea self.desc que parece que no se usa? en sclang declara y no usa la variable local desc. La cuestión es que este método hay que llamarlo para agregar la desc a la librería. Otra cosa confusa.
         if libname is None:
@@ -450,7 +448,7 @@ class SynthDef():
         else:
             servers = sdc.SynthDescLib.get_lib(libname).servers
         for server in servers:
-            self.do_send(server) # , completion_msg(server)) # BUG: completion_msg no se usa/recibe en do_send # BUG: no sé por qué usa server.value() en sclang
+            self._do_send(server) # , completion_msg(server)) # BUG: completion_msg no se usa/recibe en _do_send # BUG: no sé por qué usa server.value() en sclang
 
     # L645
     def as_synthdesc(self, libname='default', keep_def=True): # Subido, estaba abajo, lo usa add.
@@ -461,7 +459,7 @@ class SynthDef():
         return desc
 
     # L587
-    def do_send(self, server): #, completion_msg): # BUG: parece que no existe un argumento que reciba completionMsg
+    def _do_send(self, server): #, completion_msg): # BUG: parece que no existe un argumento que reciba completionMsg
         buffer = self.as_bytes()
         if len(buffer) < (65535 // 4): # BUG: acá hace dividido 4, en clumpBundles hace > 20000, en bytes se puede mandar más, ver que hace scsynth.
             server.send_msg('/d_recv', buffer) # BUG: completion_msg) ninunga función send especifica ni documenta parece tener un completionMsg, tampoco tiene efecto o sentido en las pruebas que hice
@@ -469,7 +467,7 @@ class SynthDef():
             if server.is_local:
                 msg = 'SynthDef {} too big for sending. Retrying via synthdef file'
                 warnings.warn(msg.format(self.name))
-                self.write_def_file(SynthDef.synthdef_dir)
+                self._write_def_file(SynthDef.synthdef_dir)
                 server.send_msg('/d_load', str(SynthDef.synthdef_dir / (self.name + '.scsyndef'))) # BUG: , completionMsg)
             else:
                 msg = 'SynthDef {} too big for sending'
@@ -480,26 +478,26 @@ class SynthDef():
         write_def([self], stream) # Es Array-writeDef, hace asArray que devuelve [ a SynthDef ] porque Array-writeDef puede escribir varias synthdef en un def file. Tiene que ser una función para list abajo.
         return stream.getbuffer() # TODO: ver si hay conversiones posteriores. Arriba en as_synthdesc lo vuevle a convertir en CollStream...
                                              # el método asBytes se usa para enviar la data en NRT también, como array.
-                                             # En do_send, arriba, está la llamada server.send_msg('/d_recv', self.as_bytes()), en sclang tiene que ser un array, ver implementación.
+                                             # En _do_send, arriba, está la llamada server.send_msg('/d_recv', self.as_bytes()), en sclang tiene que ser un array, ver implementación.
                                              # En sclang retorna un array de bytes (Int8Array)
                                              # En liblo, es un blob (osc 'b') que se mapea a una lista de int(s) (python2.x) o bytes (python3.x)
                                              # stream = bytearray(stream.getbuffer())
                                              # return [bytes(x) for x in stream] ?? pero esto no funciona con io.BytesIO(stream)
 
-    def write_def_file(self, dir, overwrite=True, md_plugin=None):
+    def _write_def_file(self, dir, overwrite=True, md_plugin=None):
         if ('shouldNotSend' not in self.metadata)\
         or ('shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']): # BUG: ver condición, sclang usa metadata.tryPerform(\at, \shouldNotSend) y tryPerform devuelve nil si el método no existe. Supongo que synthdef.metadata *siempre* tiene que ser un diccionario y lo único que hay que comprobar es que la llave exista y -> # si shouldNotSend no existe TRUE # si shouldNotSend existe y es falso TRUE # si shouldNotSend existe y es verdadero FALSO
             dir = dir or SynthDef.synthdef_dir # TODO: ver indentación, parece que se puede pero tal vez no sea muy PEP8
             dir = pathlib.Path(dir) # dir puede ser str
             file_existed_before = pathlib.Path(dir / (self.name + '.scsyndef')).exists()
-            self.write_def_after_startup(self.name, dir, overwrite)
+            self._write_def_after_startup(self.name, dir, overwrite)
             if overwrite or not file_existed_before:
                 desc = self.as_synthdesc()
                 desc.metadata = self.metadata
                 sdc.SynthDesc.populate_metadata_func(desc) # BUG: (populate_metadata_func) aún no sé quién asigna la función a esta propiedad
                 desc.write_metadata(dir / self.name, md_plugin) # BUG: No está implementada del todo, faltan dependencias.
 
-    def write_def_after_startup(self, name, dir, overwrite=True): # TODO/BUG/WHATDA, este método es sclang Object:writeDefFile
+    def _write_def_after_startup(self, name, dir, overwrite=True): # TODO/BUG/WHATDA, este método es sclang Object:writeDefFile
         def defer_func():
             nonlocal name
             if name is None:
@@ -518,29 +516,29 @@ class SynthDef():
             file.write(struct.pack('B', len(self.name))) # 01 putPascalString, unsigned int8 -> bytes
             file.write(bytes(self.name, 'ascii')) # 02 putPascalString
 
-            self.write_constants(file)
+            self._write_constants(file)
 
             # //controls have been added by the Control UGens
-            file.write(struct.pack('>i', len(self.controls))) # putInt32
-            for item in self.controls:
+            file.write(struct.pack('>i', len(self._controls)))  # putInt32
+            for item in self._controls:
                 file.write(struct.pack('>f', item)) # putFloat
 
-            allcns_tmp = [x for x in self.all_control_names
+            allcns_tmp = [x for x in self._all_control_names
                           if x.rate != 'noncontrol'] # reject
             file.write(struct.pack('>i', len(allcns_tmp))) # putInt32
             for item in allcns_tmp:
                 # comprueba if (item.name.notNil) # TODO: posible BUG? (ver arriba _set_control_names). Pero no debería poder agregarse items sin no son ControlNames. Arrays anidados como argumentos, de más de un nivel, no están soportados porque fallar _set_control_names según analicé.
                 #if item.name: # TODO: y acá solo comprueba que sea un string no vacío, pero no comprueba el typo ni de name ni de item.
                 if not isinstance(item, scio.ControlName): # TODO: test para debugear luego.
-                    raise Exception('** Falla Test ** SynthDef self.all_control_names contiene un objeto no ControlName')
+                    raise Exception('ERROR: SynthDef self._all_control_names has non ControlName object')
                 elif not item.name: # ídem.
-                    raise Exception('** Falla Test ** SynthDef self.all_control_names contiene un ControlName con name vacío = {}'.format(item.name))
+                    raise Exception(f'ERROR: SynthDef self._all_control_names has empty ControlName object = {item.name}')
                 file.write(struct.pack('B', len(item.name))) # 01 putPascalString, unsigned int8 -> bytes
                 file.write(bytes(item.name, 'ascii')) # 02 putPascalString
                 file.write(struct.pack('>i', item.index))
 
-            file.write(struct.pack('>i', len(self.children))) # putInt32
-            for item in self.children:
+            file.write(struct.pack('>i', len(self._children)))  # putInt32
+            for item in self._children:
                 item._write_def(file)
 
             file.write(struct.pack('>h', len(self.variants))) # putInt16
@@ -556,7 +554,7 @@ class SynthDef():
                         warnings.warn(msg.format(varname))
                         return False
 
-                    varcontrols = self.controls[:]
+                    varcontrols = self._controls[:]
                     for cname, values in pairs.items():
                         if allcns_map.keys().isdisjoint([cname]):
                             msg = "control '{}' of variant '{}' not found, not writing more variants"
@@ -582,10 +580,10 @@ class SynthDef():
         except Exception as e:
             raise Exception('SynthDef: could not write def') from e
 
-    def write_constants(self, file):
-        size = len(self.constants)
+    def _write_constants(self, file):
+        size = len(self._constants)
         arr = [None] * size
-        for value, index in self.constants.items():
+        for value, index in self._constants.items():
             arr[index] = value
         file.write(struct.pack('>i', size)) # putInt32
         for item in arr:
@@ -593,11 +591,11 @@ class SynthDef():
 
     # // Only write if no file exists
     def write_once(self, dir, md_plugin): # Nota: me quedo solo con el método de instancia, usar el método de clase es equivalente a crear una instancia sin llamar a add u otro método similar.
-        self.write_def_file(dir, False, md_plugin) # TODO: ver la documentación, este método es obsoleto.
+        self._write_def_file(dir, False, md_plugin)  # TODO: ver la documentación, este método es obsoleto.
 
     # L561
     @classmethod
-    def remove_at(cls, name, libname='default'): # TODO: Este método lo debe usar en SynthDesc.sc. Ojo que hay mil métodos removeAt.
+    def remove_at(cls, name, libname='default'):  # *** BUG: Este método es de dudosa utilidad para SynthDef en core.
         lib = sdc.SynthDescLib.get_lib(libname)
         lib.remove_at(name)
         for server in lib.servers:
@@ -616,7 +614,7 @@ class SynthDef():
             if 'shouldNotSend' in self.metadata and self.metadata['shouldNotSend']:
                 self._load_reconstructed(each) # BUG: completion_msg)
             else:
-                self.do_send(each) # BUG: completion_msg)
+                self._do_send(each) # BUG: completion_msg)
 
     # L653
     # // This method warns and does not halt because
@@ -644,7 +642,7 @@ class SynthDef():
             # // should remember what dir synthDef was written to
             dir = dir or SynthDef.synthdef_dir
             dir = pathlib.Path(dir)
-            self.write_def_file(dir)
+            self._write_def_file(dir)
             server.send_msg('/d_load', str(dir / (self.name + '.scsyndef'))) # BUG: completion_msg) tendría que ver cómo es que se usa acá, no parece funcionar en sclang pero es un msj osc... (?)
 
     # L615
@@ -660,7 +658,7 @@ class SynthDef():
                 write_def([self], file)
             lib.read(path)
             for server in lib.servers:
-                self.do_send(server) # BUG: server.value y completion_msg
+                self._do_send(server) # BUG: server.value y completion_msg
             desc = lib.at(self.name)
             desc.metadata = self.metadata
             sdc.SynthDesc.populate_metadata_func(desc) # BUG: (populate_metadata_func) aún no sé quién asigna la función a esta propiedad

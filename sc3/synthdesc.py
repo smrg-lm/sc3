@@ -46,13 +46,16 @@ class IODesc():
 class AbstractMDPlugin():
     @classmethod
     def clear_metadata(cls, path):
-        pass # BUG: Falta implementar, es test para SynthDef write_def_after_startup
+        pass # BUG: Falta implementar, es test para SynthDef _write_def_after_startup
+
     @classmethod
     def write_metadata(cls, metadata, synthdef, path):
-        pass # BUG: Falta implementar, es test para SynthDef write_def_after_startup, acá se llama en la función homónima de SynthDesc
+        pass # BUG: Falta implementar, es test para SynthDef _write_def_after_startup, acá se llama en la función homónima de SynthDesc
+
     @classmethod
     def read_metadata(cls, path):
         return None # BUG: BUG: Falta implementar, hace varias cosas, retorna nil si no lo logra.
+
     # TODO: todo...
 
 
@@ -165,9 +168,9 @@ class SynthDesc():
                 num_controls = struct.unpack('>i', stream.read(4))[0] # getInt32
                 aux_f = stream.read(num_controls * 4) # read FloatArray 01
                 aux_f = struct.unpack('>' + 'f' * num_controls, aux_f) # read FloatArray 02
-                self.sdef.controls = list(aux_f) # read FloatArray 03
+                self.sdef._controls = list(aux_f) # read FloatArray 03
                 self.controls = [
-                    scio.ControlName('?', i, '?', self.sdef.controls[i], None)
+                    scio.ControlName('?', i, '?', self.sdef._controls[i], None)
                     for i in range(num_controls)]
 
                 num_control_names = struct.unpack('>i', stream.read(4))[0] # getInt32
@@ -195,7 +198,7 @@ class SynthDesc():
                         aux_ctrl = ctrl
                 # end of BUG: inject(nil), revisar
 
-                self.sdef.control_names = [x for x in self.controls if x.name is not None] # select x.name.notNil
+                self.sdef._control_names = [x for x in self.controls if x.name is not None] # select x.name.notNil
                 self.has_array_args = any(cn.name == '?' for cn in self.controls)
 
                 num_variants = struct.unpack('>h', stream.read(2))[0] # getInt16
@@ -203,9 +206,9 @@ class SynthDesc():
                 # // maybe later, read in variant names and values
                 # // this is harder than it might seem at first
 
-                self.sdef.constants = dict()
+                self.sdef._constants = dict()
                 for i, k in enumerate(self.constants):
-                    self.sdef.constants[k] = i
+                    self.sdef._constants[k] = i
 
                 if not keep_def:
                     # // throw away unneeded stuff
@@ -251,7 +254,7 @@ class SynthDesc():
             if ugen_index < 0:
                 input = self.constants[output_index]
             else:
-                ugen = self.sdef.children[ugen_index]
+                ugen = self.sdef._children[ugen_index]
                 if isinstance(ugen, ugn.MultiOutUGen):
                     input = ugen.channels[output_index]
                 else:
@@ -417,7 +420,7 @@ class SynthDesc():
         return str(aux_string, 'ascii') # getPascalString 03
 
     def output_data(self): # TODO: no parece usar este método en ninguna parte
-        ugens = self.sdef.children
+        ugens = self.sdef._children
         outs = [x for x in ugens if x.wirtes_to_bus()] # BUG: interfaz/protocolo, falta implementar
         return [{'rate': x.rate, 'num_channels': x._num_audio_channels()} for x in outs]
 

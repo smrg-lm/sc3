@@ -118,7 +118,7 @@ class UGenScalar(UGenParameter):
 
     def _write_input_spec(self, file, synthdef):
         try:
-            const_index = synthdef.constants[float(self._param_value)]
+            const_index = synthdef._constants[float(self._param_value)]
             file.write(struct.pack('>i', -1))  # putInt32
             file.write(struct.pack('>i', const_index))  # putInt32
         except KeyError as e:

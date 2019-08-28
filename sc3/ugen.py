@@ -575,13 +575,13 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
     def _add_to_synth(self):
         self._synthdef = _gl.current_synthdef
         if self._synthdef is not None:
-            self._synthdef.add_ugen(self)
+            self._synthdef._add_ugen(self)
 
     # L292
     def _collect_constants(self): # pong
         for input in self.inputs:
             if isinstance(input, (int, float)):
-                self._synthdef.add_constant(float(input))
+                self._synthdef._add_constant(float(input))
 
     # L304
     def _check_inputs(self):  # pong # se llama desde SynthDef _check_inputs(), lo reimplementan muchas sub-clases, es interfaz de UGen
@@ -792,7 +792,7 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
 
     def _make_available(self):
         if len(self._antecedents) == 0:
-            self._synthdef.available.append(self)
+            self._synthdef._available.append(self)
 
     def _remove_antecedent(self, ugen):
         self._antecedents.remove(ugen)
@@ -814,7 +814,7 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
                 if isinstance(input, UGen):
                     input._descendants.remove(self)
                     input._optimize_graph()
-            self._synthdef.remove_ugen(self)
+            self._synthdef._remove_ugen(self)
             return True
         return False
 
@@ -938,7 +938,7 @@ class OutputProxy(UGen):
         self._synth_index = source_ugen._synth_index
         return self  # Must return self.
 
-    def _add_to_synth(self):  # override # OutputProxy no se agrega a sí con add_ugen, por lo tanto no se puebla con _init_topo_sort y no se guarda en _antecedents. _init_topo_sort comprueba if isinstance(input, OutputProxy): y agrega source_ugen
+    def _add_to_synth(self):  # override # OutputProxy no se agrega a sí con _add_ugen, por lo tanto no se puebla con _init_topo_sort y no se guarda en _antecedents. _init_topo_sort comprueba if isinstance(input, OutputProxy): y agrega source_ugen
         self._synthdef = _gl.current_synthdef
 
     def _dump_name(self):  # override
@@ -1106,7 +1106,7 @@ class BinaryOpUGen(BasicOpUGen):
             optimized_ugen = self._optimize_addneg()
 
         if optimized_ugen:
-            self._synthdef.replace_ugen(self, optimized_ugen)
+            self._synthdef._replace_ugen(self, optimized_ugen)
 
     # L239
     def _optimize_to_sum3(self):
@@ -1117,7 +1117,7 @@ class BinaryOpUGen(BasicOpUGen):
 
         if isinstance(a, BinaryOpUGen) and a.operator == '+'\
         and len(a._descendants) == 1:
-            self._synthdef.remove_ugen(a)
+            self._synthdef._remove_ugen(a)
             replacement = Sum3.new(a.inputs[0], a.inputs[1], b) # .descendants_(descendants);
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, a)
@@ -1126,7 +1126,7 @@ class BinaryOpUGen(BasicOpUGen):
         # Ídem b... lo único que veo es que retornan y que la función debería devolver un valor comprobable para luego retornoar.
         if isinstance(b, BinaryOpUGen) and b.operator == '+'\
         and len(b._descendants) == 1:
-            self._synthdef.remove_ugen(b)
+            self._synthdef._remove_ugen(b)
             replacement = Sum3.new(b.inputs[0], b.inputs[1], a)
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, b)
@@ -1142,14 +1142,14 @@ class BinaryOpUGen(BasicOpUGen):
             return None
 
         if isinstance(a, Sum3) and len(a._descendants) == 1:
-            self._synthdef.remove_ugen(a)
+            self._synthdef._remove_ugen(a)
             replacement = Sum4.new(a.inputs[0], a.inputs[1], a.inputs[2], b)
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, a)
             return replacement
 
         if isinstance(b, Sum3) and len(b._descendants) == 1:
-            self._synthdef.remove_ugen(b)
+            self._synthdef._remove_ugen(b)
             replacement = Sum4.new(b.inputs[0], b.inputs[1], b.inputs[2], a)
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, b)
@@ -1165,14 +1165,14 @@ class BinaryOpUGen(BasicOpUGen):
         and len(a._descendants) == 1:
 
             if MulAdd._can_be_muladd(a.inputs[0], a.inputs[1], b):
-                self._synthdef.remove_ugen(a)
+                self._synthdef._remove_ugen(a)
                 replacement = MulAdd.new(a.inputs[0], a.inputs[1], b)
                 replacement._descendants = self._descendants
                 self._optimize_update_descendants(replacement, a)
                 return replacement
 
             if MulAdd._can_be_muladd(a.inputs[1], a.inputs[0], b):
-                self._synthdef.remove_ugen(a)
+                self._synthdef._remove_ugen(a)
                 replacement = MulAdd.new(a.inputs[1], a.inputs[0], b)
                 replacement._descendants = self._descendants
                 self._optimize_update_descendants(replacement, a)
@@ -1183,14 +1183,14 @@ class BinaryOpUGen(BasicOpUGen):
         and len(b._descendants) == 1:
 
             if MulAdd._can_be_muladd(b.inputs[0], b.inputs[1], a):
-                self._synthdef.remove_ugen(b)
+                self._synthdef._remove_ugen(b)
                 replacement = MulAdd.new(b.inputs[0], b.inputs[1], a)
                 replacement._descendants = self._descendants
                 self._optimize_update_descendants(replacement, b)
                 return replacement
 
             if MulAdd._can_be_muladd(b.inputs[1], b.inputs[0], a):
-                self._synthdef.remove_ugen(b)
+                self._synthdef._remove_ugen(b)
                 replacement = MulAdd.new(b.inputs[1], b.inputs[0], a)
                 replacement._descendants = self._descendants
                 self._optimize_update_descendants(replacement, b)
@@ -1205,7 +1205,7 @@ class BinaryOpUGen(BasicOpUGen):
         if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
         and len(b._descendants) == 1:
             # OC: a + b.neg -> a - b
-            self._synthdef.remove_ugen(b)
+            self._synthdef._remove_ugen(b)
             replacement = a - b.inputs[0]
             # // This is the first time the dependants logic appears. It's
             # // repeated below. We will remove 'self' from the synthdef, and
@@ -1220,7 +1220,7 @@ class BinaryOpUGen(BasicOpUGen):
         if isinstance(a, UnaryOpUGen) and a.operator == 'neg'\
         and len(a._descendants) == 1:
             # OC: a.neg + b -> b - a
-            self._synthdef.remove_ugen(a)
+            self._synthdef._remove_ugen(a)
             replacement = b - a.inputs[0]
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, a)
@@ -1235,11 +1235,11 @@ class BinaryOpUGen(BasicOpUGen):
         if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
         and len(b._descendants) == 1:
             # OC: a - b.neg -> a + b
-            self._synthdef.remove_ugen(b)
+            self._synthdef._remove_ugen(b)
             replacement = BinaryOpUGen.new('+', a, b.inputs[0])
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, b)
-            self._synthdef.replace_ugen(self, replacement)
+            self._synthdef._replace_ugen(self, replacement)
             replacement._optimize_graph()  # // Not called from _optimize_add, no need to return ugen here.
 
         return None

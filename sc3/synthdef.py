@@ -22,17 +22,6 @@ class SynthDef():
 
     @classmethod
     def dummy(cls, name):
-        # TODO: VER. Es Object:*prNew. Se usa para SynthDesc:read_synthdef2
-        # // creates a new instance that can hold up to maxSize
-        # // indexable slots. the indexed size will be zero.
-        # // to actually put things in the object you need to
-        # // add them.
-        # https://stackoverflow.com/questions/6383914/is-there-a-way-to-instantiate-a-class-without-calling-init
-        # BUG: peligroso, ver el link de arriba. Tal vez sea mejor agregar un parámetro 'dummy' a __init__(). Aunque no hay herencia en este caso hay que ver qué cosas no se inicializan pero funcionan como propiedades necesarias.
-        # BUG: Aunque creo que sclang crea un objeto totalmente vacío, ver si lo métodos son 'slots', pero le pasa name como argumento y en object prNew arg es maxSize = 0.
-        # BUG: tengo que ver qué hace realmente prNew con el parámetro name, parece que no lo usa...
-        # BUG: haciendo d = SynthDef.prNew("nombre"); d.dump; el valor "nombre" no está asignado a name, parece que sí crea los slots de las variables de instancia y le asigna el valor por defecto a d = SynthDef.prNew("nombre"), el resto es nil.
-        # ***** LE AGREGUÉ TODAS LAS PROPIEDADES, EN tODO CASO QUEDA IGUAL A UN OBJETO VACÍO (tener en cuenta que no hereda) ***
         obj = cls.__new__(cls)
 
         obj.name = name
@@ -58,14 +47,13 @@ class SynthDef():
         return obj
 
     #*new L35
-    #rates y prependeargs pueden ser anotaciones de tipo, ver variantes y metadata, le constructor hace demasiado...
     def __init__(self, name, graph_func, rates=None,
-                 prepend_args=None, variants=None, metadata=None): # rates y prepend args pueden ser anotaciones, prepargs puede ser un tipo especial en las anotaciones, o puede ser otro decorador?
+                 prepend_args=None, variants=None, metadata=None):
         self.name = name
-        self.func = None # la inicializa en build luego de finishBuild de lo contrario no funciona wrap
-        self.variants = variants or {} # # BUG: comprobar tipo, no es un valor que se genere internamente. No sé por qué está agrupada como propiedad junto con las variables de topo sort
-        self.metadata = metadata or {}
-        self.desc = None # *** Aún no vi dónde inicializa
+        self.func = None
+        self.variants = variants or dict()
+        self.metadata = metadata or dict()
+        self.desc = None
 
         #self.controls = None # inicializa en initBuild, esta propiedad la setean las ugens mediante _gl.current_synthdef agregando controles
         self.control_names = [] # en sclang se inicializan desde nil en addControlNames, en Python tienen que estar acá porque se pueden llamar desde wrap
@@ -118,66 +106,65 @@ class SynthDef():
 
     # L69
     def _init_build(self):
-        #UGen.buildSynthDef = this; Ahora se hace como _gl.current_synthdef con un lock.
-        self.constants = dict() # o {} crea un diccionario en Python
-        self.constant_set = set() # será constantS_set?
+        # UGen.buildSynthDef, lock above.
+        self.constants = dict()
+        self.constant_set = set()
         self.controls = []
-        self.control_index = 0 # reset this might be not necessary
-        self.max_local_bufs = None # la usa LocalBus*new1 y checka por nil.
-        #inicializa todo en lugares separados cuando podría no hacerlo? VER.
+        self.control_index = 0
+        self.max_local_bufs = None
 
     def _build_ugen_graph(self, graph_func, rates, prepend_args):
-        # OC: save/restore controls in case of *wrap
-        save_ctl_names = self.control_names # aún no se inicializó self.control_names usando new, es para wrap que se llama desde dentro de otra SynthDef ya en construcción.
-        self.control_names = [] # None # no puede ser None acá
-        self.prepend_args = prepend_args # Acá es una lista, no hay asArray.
+        # // Save/restore controls in case of SynthDef.wrap.
+        save_ctl_names = self.control_names
+        self.control_names = []
+        self.prepend_args = prepend_args
         self._args_to_controls(graph_func, rates, len(self.prepend_args))
-        result = graph_func(*(prepend_args + self._build_controls())) # usa func.valueArray(prepend_args ++ this.buildControls) buildControls tiene que devolver una lista.
+        result = graph_func(*(prepend_args + self._build_controls()))
         self.control_names = save_ctl_names
         return result
 
-    #addControlsFromArgsOfFunc (llamada desde buildUGenGraph)
-    def _args_to_controls(self, func, rates, skip_args=0):
-        # var def, names, values,argNames, specs;
+    def _args_to_controls(self, func, rates, skip_args=0):  # Was addControlsFromArgsOfFunc.
         if not inspect.isfunction(func):
             raise TypeError('@synthdef only apply to functions')
 
         sig = inspect.signature(func)
         params = list(sig.parameters.values())
-        arg_names = [x.name for x in params] # list(map(lambda x: x.name, params))
-        if len(arg_names) < 1: return None
+        names = [x.name for x in params]
+        if len(names) < 1:
+            return None
 
-        # OC: OK what we do here is separate the ir, tr and kr rate arguments,
-        # create one Control ugen for all of each rate,
-        # and then construct the argument array from combining
-        # the OutputProxies of these two Control ugens in the original order.
-        names = arg_names[skip_args:]
-        arg_values = [x.default for x in params] # list(map(lambda x: x.default, params))
-        values = [x if x != inspect.Signature.empty else None for x in arg_values] # any replace method?
-        values = values[skip_args:] # **** VER, original tiene extend, no se si es necesario acá (o allá), len(names) debería ser siempre igual a len(values), se puede aplicar "extend" como abajo, pero VER!
-                                    # **** VER, puede ser que hace extend por si el valor de alguno de los argumentos es un array no literal.
-                                    # **** def.prototypeFrame DEVUELVE NIL EN VEZ DE LOS ARRAY NO LITERALES!
-                                    # **** Además, ver cómo es en Python porque no tendría las mismas restricciones que sclang
-        values = self._apply_metadata_specs(names, values) # convierte Nones en ceros o valores por defecto
-        rates += [0] * (len(names) - len(rates)) # VER: sclang extend, pero no trunca
+        # // What we do here is separate the ir, tr and kr rate arguments,
+        # // create one Control ugen for all of each rate, and then construct
+        # // the argument array from combining the OutputProxies of these two
+        # // Control ugens in the original order.
+        names = names[skip_args:]
+        values = [x.default if x != inspect.Signature.empty else None
+                  for x in params]
+        values = values[skip_args:]
+        values = self._apply_metadata_specs(names, values)
+
+        annotations = [x.annotation if x != inspect.Signature.empty else None
+                       for x in params]
+        annotations = annotations[skip_args:]
+
+        rates += [0] * (len(names) - len(rates))
         rates = [x if x is not None else 0.0 for x in rates]
 
         for i, name in enumerate(names):
-            prefix = name[:2]
+            note = annotations[i]
             value = values[i]
             lag = rates[i]
-
             msg = 'Lag value {} for {} arg {} will be ignored'
-            # pero realmente me gustaría sacar los nombres x_param y reemplazarlos por anotaciones, es lo mismo y mejor, aunque se usan las anotaciones para otra cosa.
-            if (lag == 'ir') or (prefix == 'i_'):
+
+            if (lag == 'ir') or (note == 'ir'):
                 if isinstance(lag, (int, float)) and lag != 0:
                     warnings.warn(msg.format(lag, 'i-rate', name))
                 self.add_ir(name, value)
-            elif (lag == 'tr') or (prefix == 't_'):
+            elif (lag == 'tr') or (note == 'tr'):
                 if isinstance(lag, (int, float)) and lag != 0:
                     warnings.warn(msg.format(lag, 'trigger', name))
                 self.add_tr(name, value)
-            elif (lag == 'ar') or (prefix == 'a_'):
+            elif (lag == 'ar') or (note == 'ar'):
                 if isinstance(lag, (int, float)) and lag != 0:
                     warnings.warn(msg.format(lag, 'audio', name))
                 self.add_ar(name, value)
@@ -207,11 +194,10 @@ class SynthDef():
             new_values = [x if x is not None else 0.0 for x in values]
         return new_values # values no la reescribo acá por ser mutable
 
-    # OC: Allow incremental building of controls.
-    # estos métodos los usa solamente NamedControls desde afuera y no es subclase de SynthDef ni de UGen
+    # // Allow incremental building of controls.
     # BUG, BUG: de cada parámetro value hace value.copy, ver posibles consecuencias...
-    def add_non_control(self, name, values): # lo cambio por _add_nc _add_non? este método no se usa en ninguna parte de la librería estandar
-        self.add_control_name(scio.ControlName(name, None, 'noncontrol', # IMPLEMENTAR CONTROLNAME
+    def add_non_control(self, name, values):  # Not used in the standard library.
+        self.add_control_name(scio.ControlName(name, None, 'noncontrol',
             values, len(self.control_names))) # values hace copy *** VER self.controls/control_names no pueden ser None
 
     def add_ir(self, name, values): # *** VER dice VALUES en plural, pero salvo que se pase un array como valor todos los que calcula son escalares u objetos no iterables.

@@ -2,11 +2,11 @@
 
 import warnings
 
-from . import clock as clk
-from . import model as mdl
-from . import stream as stm
-from . import systemactions as sac
-from . import responsedefs as rdf
+from ..seq import clock as clk
+from ..seq import stream as stm
+from ..base import model as mdl
+from ..base import systemactions as sac
+from ..base import responsedefs as rdf
 
 
 class ServerStatusWatcher():

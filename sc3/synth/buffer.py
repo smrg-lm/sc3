@@ -2,8 +2,8 @@
 
 from . import graphparam as gpp
 from . import server as srv
-from . import responsedefs as rdf
-from . import model as mdl
+from ..base import responsedefs as rdf
+from ..base import model as mdl
 
 
 class Buffer(gpp.UGenParameter, gpp.NodeParameter):

@@ -7,17 +7,17 @@ import warnings as _warnings
 import os as _os
 import pathlib as _pathlib
 
-from . import main as _libsc3
-from . import utils as utl
-from . import netaddr as nad
-from . import model as mdl
+from ..base import main as _libsc3
+from ..base import utils as utl
+from ..base import netaddr as nad
+from ..base import model as mdl
+from ..base import responsedefs as rdf
+from ..base import systemactions as sac
+from ..seq import stream as stm
+from ..seq import clock as clk
 from . import engine as eng
 from . import synthdef as sdf
-from . import clock as clk
-from . import systemactions as sac
 from . import serverstatus as sst
-from . import responsedefs as rdf
-from . import stream as stm
 from . import node as nod
 from . import bus
 from . import graphparam as gpp

@@ -1,7 +1,7 @@
 """Osc.sc"""
 
+from ...base import builtins as bi
 from .. import ugen as ugn
-from .. import builtins as bi
 
 
 class Osc(ugn.PureUGen):

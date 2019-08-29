@@ -4,11 +4,11 @@ import inspect
 import enum
 import random
 
-from . import main as _libsc3
+from ..base import main as _libsc3
+from ..base import functions as fn
+from ..base import model as mdl
+from ..base import systemactions as sac
 from . import clock as clk
-from . import functions as fn
-from . import model as mdl
-from . import systemactions as sac
 from . import event as evt
 
 

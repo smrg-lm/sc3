@@ -10,18 +10,16 @@ import pathlib as _pathlib
 
 installed_ugens = dict()
 
-
-_package_path = _pathlib.Path(__file__).parent
-
-_module = _importlib.import_module(_package_path.parent.name + '.ugen')
+_package_qual_name = 'sc3.synth.ugens'
+_module = _importlib.import_module(_package_qual_name)
 _mapping = _inspect.getmembers(_module, _inspect.isclass)  # NOTE: abajo
 installed_ugens.update(dict(_mapping))
 
-_package_qual = _package_path.parent.name + '.' + _package_path.name
-_sub_modules = _package_path.glob('**/[!_]*.py')
+_package_path = _pathlib.Path(__file__).parent
+_sub_modules_list = _package_path.glob('**/[!_]*.py')
 
-for _module_filename in _sub_modules:
-    _full_name = _package_qual + '.' + _module_filename.stem
+for _sub_module_filename in _sub_modules_list:
+    _full_name = _package_qual_name + '.' + _sub_module_filename.stem
     print('@@@ full_name:', _full_name)
     _module = _importlib.import_module(_full_name)
     _mapping = _inspect.getmembers(_module, _inspect.isclass)  # *** NOTE: y también tiene que ser UGen... # es un array de tuplas # el formato se convierte en diccionario con dict(_mapping)

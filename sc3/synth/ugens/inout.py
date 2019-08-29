@@ -2,9 +2,9 @@
 
 import logging
 
+from ...base import utils as utl
 from .. import ugen as ugn
 from .. import _global as _gl
-from .. import utils as utl
 from .. import graphparam as gpp
 
 

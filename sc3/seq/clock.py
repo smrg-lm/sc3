@@ -10,13 +10,13 @@ import traceback as _traceback
 import math as _math
 import types as _types
 
-from . import utils as utl
-from . import main as _libsc3
-from . import builtins as bi
-from . import functions as fn
+from ..base import utils as utl
+from ..base import main as _libsc3
+from ..base import builtins as bi
+from ..base import functions as fn
+from ..base import systemactions as sac
+from ..base import model as mdl
 from . import stream as stm
-from . import systemactions as sac
-from . import model as mdl
 
 
 # // Clocks for timing threads.

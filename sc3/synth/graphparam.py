@@ -16,7 +16,7 @@ import struct
 
 from . import server as srv
 from . import _specialindex as _si
-from . import utils as utl
+from ..base import utils as utl
 # from .ugens import line as lne
 
 

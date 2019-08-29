@@ -1,8 +1,8 @@
 """Line.sc"""
 
+from ...base import builtins as bi
 from .. import ugen as ugn
 from .. import graphparam as gpp
-from .. import builtins as bi
 
 
 class Line(ugn.UGen):

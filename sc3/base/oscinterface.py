@@ -5,12 +5,12 @@ import atexit
 
 import liblo as _lo
 
+from . import main as _libsc3
 from . import utils as utl
 from . import netaddr as nad
-from . import clock as clk
-from . import stream as stm
 from . import responsedefs as rdf
-from . import main as _libsc3
+from ..seq import clock as clk
+from ..seq import stream as stm
 
 
 class AbstractOSCInteface(ABC):

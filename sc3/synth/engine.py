@@ -4,7 +4,7 @@ import math
 import random
 import warnings
 
-from . import builtins as bi
+from ..base import builtins as bi
 
 
 class NodeIDAllocator():

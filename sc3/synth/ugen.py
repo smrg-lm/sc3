@@ -4,36 +4,36 @@ import struct
 import inspect
 import operator
 
-from . import functions as fn
+from ..base import utils as utl
+from ..base import builtins as bi
+from ..base import functions as fn
 from . import _global as _gl
-from . import utils as utl
 from . import _specialindex as _si
 from . import graphparam as gpp
-from . import builtins as bi
 # from .ugens import line as lne
 
 
 def late_imports():  # *** HACK
     '''Imports in cyclic conflict used only at runtime, hack test.'''
     import sys
-    import sc3.ugens.trig  # BUG: general, how to avoid runnig ugens __init__.py or do the import * in ugens as ugs.
-    import sc3.ugens.pan
-    import sc3.ugens.infougens
-    import sc3.ugens.filter
-    import sc3.ugens.osc
-    import sc3.ugens.testugens
-    import sc3.ugens.line
-    import sc3.ugens.demand
-    import sc3.ugens.poll
-    sys.modules[__name__].__dict__.update({'trg': sc3.ugens.trig})
-    sys.modules[__name__].__dict__.update({'pan': sc3.ugens.pan})
-    sys.modules[__name__].__dict__.update({'ifu': sc3.ugens.infougens})
-    sys.modules[__name__].__dict__.update({'flr': sc3.ugens.filter})
-    sys.modules[__name__].__dict__.update({'osc': sc3.ugens.osc})
-    sys.modules[__name__].__dict__.update({'tsu': sc3.ugens.testugens})
-    sys.modules[__name__].__dict__.update({'lne': sc3.ugens.line})
-    sys.modules[__name__].__dict__.update({'dmd': sc3.ugens.demand})
-    sys.modules[__name__].__dict__.update({'pll': sc3.ugens.poll})
+    import sc3.synth.ugens.trig  # BUG: general, how to avoid runnig ugens __init__.py or do the import * in ugens as ugs.
+    import sc3.synth.ugens.pan
+    import sc3.synth.ugens.infougens
+    import sc3.synth.ugens.filter
+    import sc3.synth.ugens.osc
+    import sc3.synth.ugens.testugens
+    import sc3.synth.ugens.line
+    import sc3.synth.ugens.demand
+    import sc3.synth.ugens.poll
+    sys.modules[__name__].__dict__.update({'trg': sc3.synth.ugens.trig})
+    sys.modules[__name__].__dict__.update({'pan': sc3.synth.ugens.pan})
+    sys.modules[__name__].__dict__.update({'ifu': sc3.synth.ugens.infougens})
+    sys.modules[__name__].__dict__.update({'flr': sc3.synth.ugens.filter})
+    sys.modules[__name__].__dict__.update({'osc': sc3.synth.ugens.osc})
+    sys.modules[__name__].__dict__.update({'tsu': sc3.synth.ugens.testugens})
+    sys.modules[__name__].__dict__.update({'lne': sc3.synth.ugens.line})
+    sys.modules[__name__].__dict__.update({'dmd': sc3.synth.ugens.demand})
+    sys.modules[__name__].__dict__.update({'pll': sc3.synth.ugens.poll})
 
 
 class ChannelList(list, gpp.UGenSequence, fn.AbstractFunction):

@@ -1,7 +1,7 @@
 """Poll.sc"""
 
+from ...base import utils as utl
 from .. import ugen as ugn
-from .. import utils as utl
 from .. import graphparam as gpp
 from . import osc
 

@@ -1,7 +1,7 @@
 """Rest.sc"""
 
-from . import operand as opd
-from . import graphparam as gpp
+from ..base import operand as opd
+from ..synth import graphparam as gpp
 
 
 class Rest(opd.Operand):

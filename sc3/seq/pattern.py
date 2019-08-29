@@ -1,6 +1,6 @@
 """Patterns.sc"""
 
-from . import functions as fn
+from ..base import functions as fn
 from . import stream as stm
 
 

@@ -4,9 +4,9 @@ import math
 import copy
 
 from . import graphparam as gpp
-from . import utils as utl
 from . import _global as _gl
-from . import builtins as bi
+from ..base import utils as utl
+from ..base import builtins as bi
 
 
 class Env(gpp.UGenParameter, gpp.NodeParameter):

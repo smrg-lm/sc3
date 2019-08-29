@@ -3,8 +3,8 @@
 from abc import ABC, abstractclassmethod
 import warnings
 
-from . import server as srv
-from . import clock as clk
+from ..synth import server as srv
+from ..seq import clock as clk
 
 
 class AbstractSystemAction(ABC):

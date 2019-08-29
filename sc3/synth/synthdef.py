@@ -6,14 +6,14 @@ import io
 import struct
 import pathlib
 
+from ..base import utils as utl
+from ..base import platform as plf
+from ..base import systemactions as sac
 from . import _global as _gl
-from .ugens import inout as scio  # *** BUG: si hago que ugens importe todos los nombres tengo que descartar estos sub-module imports
-from . import utils as utl
 from . import ugen as ugn
 from . import server as srv
-from . import platform as plf
-from . import systemactions as sac
 from . import synthdesc as sdc
+from .ugens import inout as scio
 
 
 class SynthDef():

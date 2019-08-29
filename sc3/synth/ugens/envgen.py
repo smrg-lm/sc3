@@ -1,8 +1,8 @@
 """EnvGen.sc"""
 
+from ...base import utils as utl
 from .. import ugen as ugn
 from .. import env as env
-from .. import utils as utl
 
 
 class Done(ugn.UGen):

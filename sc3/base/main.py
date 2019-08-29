@@ -5,12 +5,12 @@ import atexit
 import time
 import random
 
-from . import server as srv
-from . import stream as stm
+from ..synth import server as srv
+from ..seq import stream as stm
+from ..seq import clock as clk
 from . import oscinterface as osc
 from . import responsedefs as rdf
 from . import utils as utl
-from . import clock as clk
 
 
 class TimeException(ValueError):
@@ -185,5 +185,5 @@ main.rt()
 utl.ClassLibrary.init()
 
 print('HACK: delete late_imports at the end of main')
-from sc3.ugen import late_imports
+from sc3.synth.ugen import late_imports
 late_imports()

@@ -6,16 +6,15 @@ import logging
 import glob # sclang usa glob y glob se encarga de '*' (que no lista los archivos ocultos), hace str(path) para poder usar Path en la interfaz
 #from pathlib import Path # BUG: no se si es necesario, se usa cuando sd.SynthDef.synthdef_dir devuelve un objeto Path en SynthDescLib:read.
 
+from ..base import utils as utl
+from ..base import systemactions as sac
+from ..base import model as mdl
 from . import _global as _gl
-
 from . import ugen as ugn
 from . import ugens as ugns
-from .ugens import inout as scio  # *** BUG: si hago que ugens importe todos los nombres tengo que descartar estos sub-module imports
-from . import utils as utl
 from . import server as srv
-from . import systemactions as sac
-from . import model as mdl
 from . import synthdef as sdf
+from .ugens import inout as scio
 
 
 _logger = logging.getLogger(__name__)

@@ -8,16 +8,16 @@ import itertools as it
 import operator as op
 
 from .rest import Rest
-from . import builtins as bi
 from . import scale as scl
-from . import synthdef as sdf
-from . import synthdesc as sdc
-from . import main as _libsc3
-from . import utils as utl
-from . import graphparam as gpp
-from . import clock as clk
-from . import server as srv
-from . import node as nod
+from ..base import builtins as bi
+from ..base import main as _libsc3
+from ..base import utils as utl
+from ..synth import synthdef as sdf
+from ..synth import synthdesc as sdc
+from ..synth import graphparam as gpp
+from ..synth import server as srv
+from ..synth import node as nod
+from ..seq import clock as clk
 
 
 # NOTE: para putAll -> Event({**a, **b, **c, ...}) en vez de updates... (>= Python 3.5)

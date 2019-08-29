@@ -2,6 +2,7 @@
 
 import math
 import copy
+import operator
 
 from . import graphparam as gpp
 from . import _global as _gl
@@ -122,8 +123,9 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
               sustain_level=0.5, release_time=1.0, peak_level=1.0,
               curve=-4.0, bias=0.0):
         return cls(
-            utl.list_binop(
-                'add', [0, 0, peak_level, peak_level * sustain_level, 0], bias),
+            utl.list_binop(operator.add,
+                           [0, 0, peak_level, peak_level * sustain_level, 0],
+                           bias),
             [delay_time, attack_time, decay_time, release_time],
             curve, 3)
 
@@ -131,8 +133,9 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
     def adsr(cls, attack_time=0.01, decay_time=0.3, sustain_level=0.5,
              release_time=1.0, peak_level=1.0, curve=-4.0, bias=0.0):
         return cls(
-            utl.list_binop(
-                'add', [0, peak_level, peak_level * sustain_level, 0], bias),
+            utl.list_binop(operator.add,
+                           [0, peak_level, peak_level * sustain_level, 0],
+                           bias),
             [attack_time, decay_time, release_time],
             curve, 2)
 
@@ -177,8 +180,8 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
 
     @duration.setter
     def duration(self, value):
-        res = utl.list_binop('mul', self.times, 1 / self.total_duration())
-        self.times = utl.list_binop('mul', res, value)
+        res = utl.list_binop(operator.mul, self.times, 1 / self.total_duration())
+        self.times = utl.list_binop(operator.mul, res, value)
 
     def total_duration(self):
         duration = utl.list_sum(self.times)

@@ -35,7 +35,10 @@ class GraphParameter():
         return (cls,)
 
     def __repr__(self):
-        return f'{type(self).__name__}({repr(self._param_value)})'
+        if self is self._param_value:
+            return super().__repr__()   # *** BUG: MRO/MULTIPLE INHERITANCE
+        else:
+            return f'{type(self).__name__}({repr(self._param_value)})'
 
 
 ### UGen graph parameter interface ###

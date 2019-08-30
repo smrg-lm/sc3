@@ -474,28 +474,22 @@ class SynthDef():
                 warnings.warn(msg.format(self.name))
 
     def as_bytes(self):
-        stream = io.BytesIO() #(b' ' * 256) # tamaño prealocado pero en sclang este no es un tamaño fijo de retorno sino una optimización para el llenado, luego descarta lo que no se usó.
-        write_def([self], stream) # Es Array-writeDef, hace asArray que devuelve [ a SynthDef ] porque Array-writeDef puede escribir varias synthdef en un def file. Tiene que ser una función para list abajo.
-        return stream.getbuffer() # TODO: ver si hay conversiones posteriores. Arriba en as_synthdesc lo vuevle a convertir en CollStream...
-                                             # el método asBytes se usa para enviar la data en NRT también, como array.
-                                             # En _do_send, arriba, está la llamada server.send_msg('/d_recv', self.as_bytes()), en sclang tiene que ser un array, ver implementación.
-                                             # En sclang retorna un array de bytes (Int8Array)
-                                             # En liblo, es un blob (osc 'b') que se mapea a una lista de int(s) (python2.x) o bytes (python3.x)
-                                             # stream = bytearray(stream.getbuffer())
-                                             # return [bytes(x) for x in stream] ?? pero esto no funciona con io.BytesIO(stream)
+        stream = io.BytesIO()
+        self.write_def_list([self], stream)
+        return stream.getbuffer()
 
     def _write_def_file(self, dir, overwrite=True, md_plugin=None):
         if ('shouldNotSend' not in self.metadata)\
         or ('shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']): # BUG: ver condición, sclang usa metadata.tryPerform(\at, \shouldNotSend) y tryPerform devuelve nil si el método no existe. Supongo que synthdef.metadata *siempre* tiene que ser un diccionario y lo único que hay que comprobar es que la llave exista y -> # si shouldNotSend no existe TRUE # si shouldNotSend existe y es falso TRUE # si shouldNotSend existe y es verdadero FALSO
-            dir = dir or SynthDef.synthdef_dir # TODO: ver indentación, parece que se puede pero tal vez no sea muy PEP8
-            dir = pathlib.Path(dir) # dir puede ser str
+            dir = dir or SynthDef.synthdef_dir
+            dir = pathlib.Path(dir)
             file_existed_before = pathlib.Path(dir / (self.name + '.scsyndef')).exists()
             self._write_def_after_startup(self.name, dir, overwrite)
             if overwrite or not file_existed_before:
                 desc = self.as_synthdesc()
                 desc.metadata = self.metadata
-                sdc.SynthDesc.populate_metadata_func(desc) # BUG: (populate_metadata_func) aún no sé quién asigna la función a esta propiedad
-                desc.write_metadata(dir / self.name, md_plugin) # BUG: No está implementada del todo, faltan dependencias.
+                sdc.SynthDesc.populate_metadata_func(desc)
+                desc.write_metadata(dir / self.name, md_plugin)
 
     def _write_def_after_startup(self, name, dir, overwrite=True): # TODO/BUG/WHATDA, este método es sclang Object:writeDefFile
         def defer_func():
@@ -507,9 +501,19 @@ class SynthDef():
                 if overwrite or not name.exists():
                     with open(name, 'wb') as file:
                         sdc.AbstractMDPlugin.clear_metadata(name) # BUG: No está implementado
-                        write_def([self], file)
+                        self.write_def_list([self], file)
         # // make sure the synth defs are written to the right path
         sac.StartUp.defer(defer_func) # BUG: No está implementada
+
+    @staticmethod
+    def write_def_list(lst, file):
+        # This method is Collection-writeDef in sclang, is the only one
+        # that creates the header. Called from as_bytes.
+        file.write(b'SCgf')  # putString 'a null terminated String'
+        file.write(struct.pack('>i', 2))  # putInt32(2); // file version
+        file.write(struct.pack('>h', len(lst)))  # putInt16(this.size); // number of defs in file.
+        for synthdef in lst:
+            synthdef.write_def(file)
 
     def write_def(self, file):
         try:
@@ -655,7 +659,7 @@ class SynthDef():
         #if ('shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']): # BUG, y confuso en sclang. falseAt devuevle true si la llave no existe, trueAt es equivalente a comprobar 'in' porque si no está la llave es false, pero falseAt no es lo mismo porque si la llave no existe sería lo mismo que ubiese false.
         if 'shouldNotSend' not in self.metadata or not self.metadata['shouldNotSend']: # BUG: esto es equivalente a falseAt solo si funciona en corto circuito.
             with open(path, 'wb') as file:
-                write_def([self], file)
+                self.write_def_list([self], file)
             lib.read(path)
             for server in lib.servers:
                 self._do_send(server) # BUG: server.value y completion_msg
@@ -736,16 +740,3 @@ class synthdef():
             sdef.add(libname, completion_msg, keep_def)
             return sdef
         return make_def
-
-
-# Collection SynthDef support.
-
-def write_def(lst, file):
-    '''Escribe las SynthDefs contenidas en la lista lst en el archivo file.
-    file es un stream en el que se puede escribir.'''
-
-    file.write(b'SCgf') # BUG: es putString y dice: 'a null terminated String', parece estar correcto porque muestra los nombres bien. # 'all data is stored big endian' Synth Definition File Format. En este caso no afecta porque son bytes. Todos los enteros son con signo.
-    file.write(struct.pack('>i', 2)) # file.putInt32(2); // file version
-    file.write(struct.pack('>h', len(lst))) # file.putInt16(this.size); // number of defs in file.
-    for synthdef in lst:
-        synthdef.write_def(file)

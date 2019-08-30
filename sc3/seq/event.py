@@ -14,7 +14,7 @@ from ..base import main as _libsc3
 from ..base import utils as utl
 from ..synth import synthdef as sdf
 from ..synth import synthdesc as sdc
-from ..synth import graphparam as gpp
+from ..synth import _graphparam as gpp
 from ..synth import server as srv
 from ..synth import node as nod
 from ..seq import clock as clk

@@ -8,7 +8,7 @@ import random
 from ..synth import server as srv
 from ..seq import stream as stm
 from ..seq import clock as clk
-from . import oscinterface as osc
+from . import _oscinterface as osci
 from . import responsedefs as rdf
 from . import utils as utl
 
@@ -37,7 +37,7 @@ class Process(type):
     def _init_rt(cls):
         cls._rt_time_of_initialization = time.time()
         cls._create_main_thread('rt')
-        cls.osc_server = osc.LOInterface()
+        cls.osc_server = osci.LOInterface()
         cls.osc_server.start()
 
     def _init_nrt(cls):

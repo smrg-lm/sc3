@@ -15,12 +15,12 @@ from ..base import responsedefs as rdf
 from ..base import systemactions as sac
 from ..seq import stream as stm
 from ..seq import clock as clk
-from . import engine as eng
+from . import _engine as eng
 from . import synthdef as sdf
-from . import serverstatus as sst
+from . import _serverstatus as sst
 from . import node as nod
 from . import bus
-from . import graphparam as gpp
+from . import _graphparam as gpp
 from . import buffer as bff
 
 

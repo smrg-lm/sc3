@@ -4,7 +4,7 @@ import math
 import copy
 import operator
 
-from . import graphparam as gpp
+from . import _graphparam as gpp
 from . import _global as _gl
 from ..base import utils as utl
 from ..base import builtins as bi

@@ -2,7 +2,7 @@
 
 import logging
 
-from . import graphparam as gpp
+from . import _graphparam as gpp
 from . import server as srv
 from ..base import utils as utl
 from ..base import responsedefs as rdf

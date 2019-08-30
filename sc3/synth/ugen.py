@@ -9,7 +9,7 @@ from ..base import builtins as bi
 from ..base import functions as fn
 from . import _global as _gl
 from . import _specialindex as _si
-from . import graphparam as gpp
+from . import _graphparam as gpp
 # from .ugens import line as lne
 
 
@@ -20,7 +20,7 @@ def late_imports():  # *** HACK
     import sc3.synth.ugens.pan
     import sc3.synth.ugens.infougens
     import sc3.synth.ugens.filter
-    import sc3.synth.ugens.osc
+    import sc3.synth.ugens.oscillators
     import sc3.synth.ugens.testugens
     import sc3.synth.ugens.line
     import sc3.synth.ugens.demand
@@ -29,7 +29,7 @@ def late_imports():  # *** HACK
     sys.modules[__name__].__dict__.update({'pan': sc3.synth.ugens.pan})
     sys.modules[__name__].__dict__.update({'ifu': sc3.synth.ugens.infougens})
     sys.modules[__name__].__dict__.update({'flr': sc3.synth.ugens.filter})
-    sys.modules[__name__].__dict__.update({'osc': sc3.synth.ugens.osc})
+    sys.modules[__name__].__dict__.update({'osc': sc3.synth.ugens.oscillators})
     sys.modules[__name__].__dict__.update({'tsu': sc3.synth.ugens.testugens})
     sys.modules[__name__].__dict__.update({'lne': sc3.synth.ugens.line})
     sys.modules[__name__].__dict__.update({'dmd': sc3.synth.ugens.demand})

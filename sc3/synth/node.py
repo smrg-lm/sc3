@@ -8,7 +8,7 @@ from ..base import utils as utl
 from . import ugen as ugn
 from . import server as srv
 from . import synthdesc as sdc
-from . import graphparam as gpp
+from . import _graphparam as gpp
 
 
 class Node(gpp.NodeParameter):

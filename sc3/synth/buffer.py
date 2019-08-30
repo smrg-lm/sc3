@@ -1,6 +1,6 @@
 """Buffer.sc"""
 
-from . import graphparam as gpp
+from . import _graphparam as gpp
 from . import server as srv
 from ..base import responsedefs as rdf
 from ..base import model as mdl

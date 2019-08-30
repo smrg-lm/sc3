@@ -2,7 +2,7 @@
 
 from ...base import builtins as bi
 from .. import ugen as ugn
-from .. import graphparam as gpp
+from .. import _graphparam as gpp
 
 
 class Line(ugn.UGen):

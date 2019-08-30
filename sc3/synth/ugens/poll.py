@@ -2,8 +2,8 @@
 
 from ...base import utils as utl
 from .. import ugen as ugn
-from .. import graphparam as gpp
-from . import osc
+from .. import _graphparam as gpp
+from . import oscillators as ocl
 
 
 class Poll(ugn.UGen):
@@ -32,8 +32,8 @@ class Poll(ugn.UGen):
         if rate == 'scalar':
             rate = 'control'
         if isinstance(trig, (int, float)):
-            selector = osc.Impulse._method_selector_for_rate(rate)
-            trig = getattr(osc.Impulse, selector)(trig, 0)
+            selector = ocl.Impulse._method_selector_for_rate(rate)
+            trig = getattr(ocl.Impulse, selector)(trig, 0)
         obj = cls()
         obj._rate = rate
         obj._add_to_synth()

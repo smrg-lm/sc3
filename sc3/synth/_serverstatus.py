@@ -200,7 +200,7 @@ class ServerStatusWatcher():
                 #self.has_booted = value # BUG: vuelve a asignar has_booted si running es false, no tiene sentido, es un error.
                 sac.ServerQuit.run(self.server)
                 self.server.disconnect_shared_memory()
-                print('serverstatus.py: implementar server.recording() L196')
+                print('_serverstatus.py: implementar server.recording() L196')
                 # if self.server.recording(): # BUG: original es is_recording, así es más pitónico
                 #     self.server.stop_recording()
                 clk.defer(lambda: mdl.NotificationCenter.notify(self.server, 'did_quit')) # BUG: ver comentario en sclang

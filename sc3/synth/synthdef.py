@@ -1,7 +1,7 @@
 """SynthDef.sc"""
 
 import inspect
-import warnings
+import logging
 import io
 import struct
 import pathlib
@@ -14,6 +14,9 @@ from . import ugen as ugn
 from . import server as srv
 from . import synthdesc as sdc
 from .ugens import inout as scio
+
+
+_logger = logging.getLogger(__name__)
 
 
 class SynthDef():
@@ -101,8 +104,8 @@ class SynthDef():
             return _gl.current_synthdef._build_ugen_graph(
                 func, rates or [], prepend_args or [])
         else:
-            msg = 'SynthDef wrap should be called inside a SynthDef graph function'
-            raise Exception(msg)
+            raise Exception('SynthDef wrap should be called inside '
+                            'a SynthDef graph function')
 
     # L69
     def _init_build(self):
@@ -158,15 +161,15 @@ class SynthDef():
 
             if (lag == 'ir') or (note == 'ir'):
                 if isinstance(lag, (int, float)) and lag != 0:
-                    warnings.warn(msg.format(lag, 'i-rate', name))
+                    _logger.warning(msg.format(lag, 'i-rate', name))
                 self._add_ir(name, value)
             elif (lag == 'tr') or (note == 'tr'):
                 if isinstance(lag, (int, float)) and lag != 0:
-                    warnings.warn(msg.format(lag, 'trigger', name))
+                    _logger.warning(msg.format(lag, 'trigger', name))
                 self._add_tr(name, value)
             elif (lag == 'ar') or (note == 'ar'):
                 if isinstance(lag, (int, float)) and lag != 0:
-                    warnings.warn(msg.format(lag, 'audio', name))
+                    _logger.warning(msg.format(lag, 'audio', name))
                 self._add_ar(name, value)
             else:
                 if lag == 'kr': lag = 0.0
@@ -465,13 +468,12 @@ class SynthDef():
             server.send_msg('/d_recv', buffer) # BUG: completion_msg) ninunga función send especifica ni documenta parece tener un completionMsg, tampoco tiene efecto o sentido en las pruebas que hice
         else:
             if server.is_local:
-                msg = 'SynthDef {} too big for sending. Retrying via synthdef file'
-                warnings.warn(msg.format(self.name))
+                _logger.warning(f'SynthDef {self.name} too big for sending. '
+                                'Retrying via synthdef file')
                 self._write_def_file(SynthDef.synthdef_dir)
                 server.send_msg('/d_load', str(SynthDef.synthdef_dir / (self.name + '.scsyndef'))) # BUG: , completionMsg)
             else:
-                msg = 'SynthDef {} too big for sending'
-                warnings.warn(msg.format(self.name))
+                _logger.warning(f'SynthDef {self.name} too big for sending')
 
     def as_bytes(self):
         stream = io.BytesIO()
@@ -554,22 +556,24 @@ class SynthDef():
                 for varname, pairs in self.variants.items():
                     varname = self.name + '.' + varname
                     if len(varname) > 32:
-                        msg = "variant '{}' name too log, not writing more variants"
-                        warnings.warn(msg.format(varname))
+                        _logger.warning(f"variant '{varname}' name too log, "
+                                        "not writing more variants")
                         return False
 
                     varcontrols = self._controls[:]
                     for cname, values in pairs.items():
                         if allcns_map.keys().isdisjoint([cname]):
-                            msg = "control '{}' of variant '{}' not found, not writing more variants"
-                            warnings.warn(msg.format(cname, varname))
+                            _logger.warning(f"control '{cname}' of variant "
+                                            f"'{varname}' not found, not "
+                                            "writing more variants")
                             return False
 
                         cn = allcns_map[cname]
                         values = utl.as_list(values)
                         if len(values) > len(utl.as_list(cn.default_value)):
-                            msg = "control: '{}' of variant: '{}' size mismatch, not writing more variants"
-                            warnings.warn(msg.format(cname, varname))
+                            _logger.warning(f"control: '{cname}' of variant: "
+                                            f"'{varname}' size mismatch, not  "
+                                            "writing more variants")
                             return False
 
                         index = cn.index
@@ -612,10 +616,11 @@ class SynthDef():
     def send(self, server=None): # BUG: completion_msg) ninunga función send especifica ni documenta parece tener un completionMsg, tampoco tiene efecto o sentido en las pruebas que hice
         servers = utl.as_list(server or srv.Server.all_booted_servers()) # BUG: no está probado o implementado
         for each in servers:
-            if not each.has_booted(): # BUG: no está implementada, creo.
-                msg = "Server '{}' not running, could not send SynthDef"
-                warnings.warn(msg.format(each.name)) # *** BUG in sclang: prints server.name instead of each.name
-            if 'shouldNotSend' in self.metadata and self.metadata['shouldNotSend']:
+            if not each.has_booted():
+                _logger.warning(f"Server '{each.name}' not running, "  # *** BUG in sclang: prints server.name instead of each.name
+                                "could not send SynthDef")
+            if 'shouldNotSend' in self.metadata\
+            and self.metadata['shouldNotSend']:
                 self._load_reconstructed(each) # BUG: completion_msg)
             else:
                 self._do_send(each) # BUG: completion_msg)
@@ -625,17 +630,16 @@ class SynthDef():
     # // loading existing def from disk is a viable
     # // alternative to get the synthdef to the server.
     def _load_reconstructed(self, server): # *** BUG: completion_msg) ninunga función send especifica ni documenta parece tener un completionMsg, tampoco tiene efecto o sentido en las pruebas que hice
-        msg = "SynthDef '{}' was reconstructed from a .scsyndef file, "
-        msg += "it does not contain all the required structure to send back to the server"
-        warnings.warn(msg.format(self.name))
+        _logger.warning(f"SynthDef '{self.name}' was reconstructed from a "
+                        ".scsyndef file, it does not contain all the required "
+                        "structure to send back to the server")
         if server.is_local:
-            msg = "loading from disk instead for Server '{}'"
-            warnings.warn(msg.format(server))
+            _logger.warning(f"loading from disk instead for Server '{server}'")
             bundle = ['/d_load', self.metadata['loadPath']] # BUG: completion_msg] # BUG: completion_msg) *** ACÁ SE USA COMPLETION_MSG ***
             server.send_bundle(None, bundle)
         else:
-            msg = "Server '{}' is remote, cannot load from disk"
-            raise Exception(msg.format(server))
+            raise Exception(f"Server '{server}' is remote, "
+                            "cannot load from disk")
 
     # // Send to server and write file.
     def load(self, server, completion_msg, dir=None): # *** BUG: completion_msg, parámetro intermedio

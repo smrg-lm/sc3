@@ -181,7 +181,7 @@ def list_binop(op, a, b, t=None):
                         t2 = list
                 a2 = a2 or a[i]
                 b2 = b2 or b[i]
-                t2 = t2 or type(...)  # if neither is t_seq type don't matters but can't be None.
+                t2 = t2 or type(...)  # if neither is t_seq type doesn't matter but can't be None.
                 ret.append(list_binop(op, a2, b2, t2))
                 a2 = b2 = t2 = None
             return t(ret)

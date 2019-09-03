@@ -94,20 +94,20 @@ _binops_list = [
     #'!==', # Python is not
     ('min',),
     ('max',),
-    ('bitAnd', '__and__', '__rand__', 'and'),
-    ('bitOr', '__or__', '__ror__', 'or'),
-    ('bitXor', '__xor__', '__rxor__', 'xor'),
+    ('bitAnd', 'bitand', '__and__', '__rand__', 'and'),
+    ('bitOr', 'bitor', '__or__', '__ror__', 'or'),
+    ('bitXor', 'bitxor', '__xor__', '__rxor__', 'xor'),
     ('lcm',),
     ('gcd',),
     ('round',), # Es trunc(x, quant) En Python __round__ es Unario con argumento
-    ('roundUp',),
+    ('roundUp', 'roundup'),
     ('trunc',), # BUG: Es trunc(x, quant) # En Python __truc__ es Unario, es la operación por defecto para int(x)
     ('atan2',),
     ('hypot',),
     ('hypotApx',), # BUG: está en AbstractFunction, no encontré una implementación con el mismo nombre.
     ('pow', '__pow__', '__rpow__'),
-    ('leftShift', '__lshift__', '__rlshift__', 'lshift'),
-    ('rightShift', '__rshift__', '__rrshift__', 'rshift'),
+    ('leftShift', 'leftshift', '__lshift__', '__rlshift__', 'lshift'),
+    ('rightShift', 'rightshift', '__rshift__', '__rrshift__', 'rshift'),
     ('unsignedRightShift',),
     ('fill',),
     ('ring1',), # a * (b + 1) == a * b + a

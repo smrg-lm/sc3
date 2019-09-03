@@ -2,6 +2,8 @@
 
 from ...base import builtins as bi
 from .. import ugen as ugn
+from .. import _graphparam as gpp
+from . import noise as nse
 
 
 class Osc(ugn.PureUGen):
@@ -202,32 +204,120 @@ class IndexL(Index):
 
 
 class DegreeToKey(ugn.PureUGen):
-    ...
+    @classmethod
+    def ar(cls, bufnum, input=0.0, octave=12.0, mul=1.0, add=0.0):
+        return cls._multi_new('audio', bufnum, input, octave).madd(mul, add)
+
+    @classmethod
+    def kr(cls, bufnum, input=0.0, octave=12.0, mul=1.0, add=0.0):
+        return cls._multi_new('control', bufnum, input, octave).madd(mul, add)
 
 
 class Select(ugn.PureUGen):
-    ...
+    @classmethod
+    def ar(cls, which, lst):
+        cls._multi_new('audio', which, *lst)
 
+    @classmethod
+    def kr(cls, which, lst):
+        cls._multi_new('control', which, *lst)
+
+    def _check_inputs(self):
+        if self.rate == 'audio':
+            for i in range(1, len(self.inputs)):
+                if gpp.ugen_param(self.inputs[i])._as_ugen_rate() != 'audio':
+                    return f'input was not audio rate: {self.inputs[i]}'
+        return self._check_valid_inputs()
+
+
+# Pseudo UGens don't return instances of itself but of another class subclass
+# of UGen, ChannelList or (maybe) optimizations (UGenParameter scalar types).
 
 class SelectX():  # Pseudo UGen.
-    ...
+    @classmethod
+    def _new1(cls, rate, which, lst):
+        selector = ugn.UGen._method_selector_for_rate(rate)
+        return getattr(cls._crossfade_class(), selector)(
+            getattr(Select, selector)(bi.round(which, 2), lst),
+            getattr(Select, selector)(bi.trunc(which, 2), lst),
+            bi.fold2(which * 2 - 1, 1)
+        )
+
+    @classmethod
+    def ar(cls, which, lst, wrap=1):
+        return cls._new1('audio', which, lst, wrap)  # wrap was never implemented (needs to be a proper UGen)
+
+    @classmethod
+    def kr(cls, which, lst, wrap=1):
+        return cls._new1('control', which, lst, wrap)
+
+    @classmethod
+    def _crossfade_class(cls):
+        return xxx.XFade2
 
 
-class LinSelectX(SelectX):
-    ...
+class LinSelectX(SelectX):  # Pseudo UGen.
+    @classmethod
+    def _crossfade_class(cls):
+        return xxx.LinXFade2
 
 
 class SelectXFocus():  # Pseudo UGen.
-    ...
+    @classmethod
+    def new(cls, which, lst, focus=1, wrap=False):
+        if wrap:
+            return xxx.Mix.new(
+                [bi.max(1 - (bi.moddif(which, i, len(lst)) * focus), 0) * input
+                 for i, input in enumerate(lst)])
+        else:
+            return xxx.Mix.new(
+                [bi.max(1 - (bi.absdif(which, i) * focus), 0) * input
+                 for i, input in enumerate(lst)])
+
+    @classmethod
+    def ar(cls, which, lst, focus=1, wrap=False):
+        return self.new(which, array, focus, wrap)  # ar/kr are fake rate constructors.
+
+    @classmethod
+    def kr(cls, which, lst, focus=1, wrap=False):
+        return self.new(which, array, focus, wrap)
 
 
 class Vibrato(ugn.PureUGen):
-    ...
+    @classmethod
+    def ar(cls, freq=440.0, rate=6, depth=0.02, delay=0.0, onset=0.0,
+		   rate_variation=0.04, depth_variation=0.1, iphase=0.0, trig=0.0):
+        return cls._multi_new('audio', freq, rate, depth, delay, onset,
+                              rate_variation, depth_variation, iphase, trig)
+
+    @classmethod
+    def kr(cls, freq=440.0, rate=6, depth=0.02, delay=0.0, onset=0.0,
+		   rate_variation=0.04, depth_variation=0.1, iphase=0.0, trig=0.0):
+        return cls._multi_new('control', freq, rate, depth, delay, onset,
+                              rate_variation, depth_variation, iphase, trig)
 
 
 class TChoose(): # Pseudo UGen.
-    ...
+    @classmethod
+    def ar(cls, trig, lst):
+        self._check_empty_list(lst)
+        return Select.ar(nse.TIRand.ar(0, len(lst) - 1, trig), lst)
+
+    @classmethod
+    def kr(cls, trig, lst):
+        self._check_empty_list(lst)
+        return Select.kr(nse.TIRand.kr(0, len(lst) - 1, trig), lst)
+
+    def _check_empty_list(self, lst):
+        if len(lst) == 0:
+            raise ValueError("TChoose: lst can't be empty")
 
 
 class TWChoose(): # Pseudo UGen.
-    ...
+    @classmethod
+    def ar(cls, trig, lst, weights, normalize=0):
+        return Select.ar(nse.TWindex.ar(trig, weights, normalize), lst)
+
+    @classmethod
+    def kr(cls, trig, lst, weights, normalize=0):
+        return Select.kr(nse.TWindex.kr(trig, weights, normalize), lst)

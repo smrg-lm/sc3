@@ -104,11 +104,11 @@ _binops_list = [
     ('trunc',), # BUG: Es trunc(x, quant) # En Python __truc__ es Unario, es la operación por defecto para int(x)
     ('atan2',),
     ('hypot',),
-    ('hypotApx',), # BUG: está en AbstractFunction, no encontré una implementación con el mismo nombre.
+    ('hypotApx', 'hypotx'),
     ('pow', '__pow__', '__rpow__'),
     ('leftShift', 'leftshift', '__lshift__', '__rlshift__', 'lshift'),
     ('rightShift', 'rightshift', '__rshift__', '__rrshift__', 'rshift'),
-    ('unsignedRightShift',),
+    ('unsignedRightShift', 'urightshift'),
     ('fill',),
     ('ring1',), # a * (b + 1) == a * b + a
     ('ring2',), # a * b + a + b

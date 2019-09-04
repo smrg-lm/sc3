@@ -45,35 +45,41 @@ class AbstractFunction():
         return self._compose_unop(operator.invert)  # ~ (bitwise inverse)
 
 
-    # Python's numeric type conversion
+    # # Python's numeric type conversion
+    #
+    # def __complex__(self):
+    #     raise NotImplementedError()
+    #
+    # def __int__(self):
+    #     raise NotImplementedError()
+    #
+    # def __float__(self):  # used by math.floor
+    #     raise NotImplementedError()
 
-    def __complex__(self):
-        raise NotImplementedError()
 
-    def __int__(self):
-        raise NotImplementedError()
-
-    def __float__(self):
-        raise NotImplementedError()
-
-
-    # Python's builtin round and math trunc/floor/ceil.
-
-    def __round__(self, ndigits=0):
-        return self._compose_binop(round, ndigits)
-
-    def __trunc__(self):
-        return self._compose_unop(math.trunc)  # *** BUG: sclang binary, possible si problem
-
-    def __floor__(self):
-        return self._compose_unop(math.floor)
-
-    def __ceil__(self):
-        return self._compose_unop(math.ceil)
+    # # Python's builtin round and math trunc/floor/ceil.
+    #
+    # def __round__(self, ndigits=0):
+    #     return self._compose_binop(round, ndigits)
+    #
+    # def __trunc__(self):
+    #     return self._compose_unop(math.trunc)  # binary in sclang, possible si problem
+    #
+    # def __ceil__(self):
+    #     return self._compose_unop(math.ceil)
+    #
+    # def __floor__(self):
+    #     return self._compose_unop(math.floor)
 
 
     def reciprocal(self):
         return self._compose_unop(bi.reciprocal)
+
+    def ceil(self):
+        return self._compose_unop(bi.ceil)
+
+    def floor(self):
+        return self._compose_unop(bi.floor)
 
     def frac(self):
         return self._compose_unop(bi.frac)
@@ -165,11 +171,23 @@ class AbstractFunction():
     def sqrt(self):
         return self._compose_unop(bi.sqrt)
 
-    # rand
-    # rand2
-    # linrand
-    # bilinrand
-    # sum3rand
+    def rand(self):
+        return self._compose_unop(bi.rand)
+
+    def rand2(self):
+        return self._compose_unop(bi.rand2)
+
+    def linrand(self):
+        return self._compose_unop(bi.linrand)
+
+    def bilinrand(self):
+        return self._compose_unop(bi.bilinrand)
+
+    def sum3rand(self):
+        return self._compose_unop(bi.sum3rand)
+
+    def coin(self):
+        return self._compose_unop(bi.coin)
 
     def distort(self):
         return self._compose_unop(bi.distort)
@@ -177,7 +195,6 @@ class AbstractFunction():
     def softclip(self):
         return self._compose_unop(bi.softclip)
 
-    # coin
     # even
     # odd
 
@@ -199,10 +216,17 @@ class AbstractFunction():
     def ramp(self):
         return self._compose_unop(bi.ramp)
 
+    def degrad(self):
+        return self._compose_unop(bi.degrad)
+
+    def raddeg(self):
+        return self._compose_unop(bi.raddeg)
+
     # isPositive
     # isNegative
     # isStrictlyPositive
 
+    # complex and cartesian
     # rho
     # theta
     # rotate
@@ -319,7 +343,7 @@ class AbstractFunction():
     def min(self, other):
         return self._compose_binop(bi.min, other)
 
-    def max(self, other):
+    def max(self, other=0):
         return self._compose_binop(bi.max, other)
 
     def lcm(self, other):
@@ -328,14 +352,32 @@ class AbstractFunction():
     def gcd(self, other):
         return self._compose_binop(bi.gcd, other)
 
+    def round(self, other=1):
+        return self._compose_binop(bi.round, other)
+
+    def roundup(self, other=1):
+        return self._compose_binop(bi.roundup, other)
+
+    def trunc(self, other=1):
+        return self._compose_binop(bi.trunc, other)
+
     def atan2(self, other):
         return self._compose_binop(bi.atan2, other)
 
     def hypot(self, other):
-        return self._compose_binop(math.hypot, other)
+        return self._compose_binop(bi.hypot, other)
 
     def hypotx(self, other):
         return self._compose_binop(bi.hypotx, other)
+
+    # def leftshift(self, other):
+    #     return self._compose_binop(bi.leftshift, other)
+    #
+    # def rightshift(self, other):
+    #     return self._compose_binop(bi.rightshift, other)
+    #
+    # def urightshift(self, other):
+    #     return self._compose_binop(bi.urightshift, other)
 
     def ring1(self, other):
         return self._compose_binop(bi.ring1, other)
@@ -386,9 +428,12 @@ class AbstractFunction():
         return self._compose_binop(bi.excess, other)
 
     # firstArg -> _FirstArg -> SetRaw(a, slotRawObject(a));
-    # rrand (needs scrandom)
-    # exprand
-    # boolean operations
+
+    def rrand(self, other):
+        return self._compose_binop(bi.rrand, other)
+
+    def exprand(self, other):
+        return self._compose_binop(bi.exprand, other)
 
 
     ### Nary operators ###
@@ -435,15 +480,29 @@ class AbstractFunction():
         return self._compose_narop(bi.biexp, incenter, inmin, inmax,
                                   outcenter, outmin, outmax, clip)
 
-    # moddif (circle distance)
-    # degreeToKey
-    # degrad (unary)
-    # raddeg (unary)
+    def moddif(self, other, mod=1.0):
+        return self._compose_narop(bi.moddif, other, mod)
 
+    # degreeToKey
     # applyTo
     # <> function composition
-    # sampled
 
+    def sampled(self, n=80, from_=0.0, to=1.0):
+        range_ = to - from_
+        step = range_ / (n - 1)
+        end = range_ / step + 1
+        start = int(from_)
+        offset = from_ - start
+        values = []
+        for i in range(start, int(end)):
+            values.append(self(i * step + offset))
+
+        def sampled_func(x):
+            pos = (bi.clip(x, from_, to) - from_) / (to - from_) * (n - 1)
+            i = bi.ceil(pos) - 1  # i = int(bi.roundup(pos)) - 1  # ceil(x) -> int
+            return bi.blend(values[i], values[i + 1], bi.absdif(pos, i))  # uses blendAt from Object.
+
+        return sampled_func
 
     # ### UGen graph parameter interface ###
     # # Is a mistake to make AbstractFunction an UGenParameter because some
@@ -501,10 +560,6 @@ class NAryOpFunction(AbstractFunction):
 
 # class FunctionList(AbstractFunction):
 #     pass
-
-
-# *** TODO: completar las operaciones que faltan e ir haciendo los test con
-# *** TODO: Function teniendo en cuenta la próxima cythonización.
 
 
 ### Function.sc ###

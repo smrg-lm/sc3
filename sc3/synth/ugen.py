@@ -410,11 +410,11 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
             selector = trg.Wrap._method_selector_for_rate(self.rate)
             return getattr(trg.Wrap, selector)(self, lo, hi)
 
-    def degrad(self):
-        return self * (bi.pi / 180)
+    def degrad(self):  # override (not to call bi.degrad)
+        return self * (bi.pi / 180.)
 
-    def raddeg(self):
-        return self * (180 / bi.pi)
+    def raddeg(self):  # override (not to call bi.raddeg)
+        return self * (180. / bi.pi)
 
     def blend(self, other, frac=0.5):
         if self.range == 'demand' or gpp.ugen_param(other).rate == 'demand':

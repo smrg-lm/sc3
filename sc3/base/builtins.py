@@ -132,6 +132,10 @@ def coin(x):
 def rrand(a, b):
     ...
 
+@scbuiltin.binop
+def exprand(a, b):
+    ...
+
 # Don't have special index.
 # list choose/wchoose
 
@@ -715,7 +719,11 @@ def clip(x, lo, hi):
     return max(min(x, T(hi)), T(lo))
 
 @scbuiltin.binop
-def hypotx(x, y):
+def hypot(x, y):
+    return math.hypot(x, y)
+
+@scbuiltin.binop
+def hypotx(x, y):  # hypotenuse aproximation C name, hypotApx in sclang.
 	# double minxy;
 	# x = std::abs(x);
 	# y = std::abs(y);
@@ -801,31 +809,30 @@ def lcm(a, b):
     else:
         return (a * b) // gcd(a, b)
 
-@scbuiltin.binop
-def bitand(a, b):
-    return a & b
+# @scbuiltin.binop
+# def bitand(a, b):  # has special index
+#     return a & b
+#
+# @scbuiltin.binop
+# def bitor(a, b):  # has special index
+#     return a | b
 
-@scbuiltin.binop
-def bitor(a, b):
-    return a | b
+# bitxor  # missing
+# bitHammingDistance  # missing
 
-# bitxor # FALTA
-# bitHammingDistance # FALTA
+# @scbuiltin.binop
+# def leftshift(a, b):  # has special index
+#     return a << b
+#
+# @scbuiltin.binop
+# def rightshift(a, b):  # has special index
+#     return a >> b
+#
+# @scbuiltin.binop
+# def urightshift(a, b):  # has special index
+#     return (uint32)a >> b;
 
-@scbuiltin.binop
-def leftshift(a, b):
-    return a << b
-
-@scbuiltin.binop
-def rightshift(a, b):
-    return a >> b
-
-# @scbuiltin.binop # TODO: VER
-# def unsignedRightShift(a, b):
-    # return (uint32)a >> b;
-
-# @scbuiltin.binop # *** BUG: VER: se usa solo en /server/plugins/LFUGens.cpp y hay un ejemplo en ServerPluginAPI.schelp
-                   # TODO: pero no creo que se use para nada más en ninguna otra parte.
+# @scbuiltin.binop # only used in /server/plugins/LFUGens.cpp and example in ServerPluginAPI.schelp
 # def powi(x, n):
 #     # F z = 1;
 #     # while (n != 0)

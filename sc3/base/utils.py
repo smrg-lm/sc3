@@ -268,6 +268,10 @@ def list_max(lst):
 #    return (l[i:i + n] for i in range(0, len(l), n))
 
 
+def clump(lst, n):
+    return [lst[i:i + n] for i in range(0, len(lst), n)]
+
+
 # para pairsDo:
 def gen_cclumps(l, n=1):
     '''return n items as pairsDo does (with n=2) for iteration, cclump stands

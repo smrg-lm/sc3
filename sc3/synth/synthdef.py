@@ -373,7 +373,7 @@ class SynthDef():
                 if first_err is None: first_err = err
         if first_err:
             #"SynthDef % build failed".format(this.name).postln;
-            raise Exception(first_err)
+            raise ValueError(first_err)
         return True # porque ugen._check_inputs() retorna nil y acá true
 
     def _topological_sort(self):

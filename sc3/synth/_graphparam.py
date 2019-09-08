@@ -130,6 +130,107 @@ class UGenScalar(UGenParameter):
                 f'{float(self._param_value)}') from e
 
 
+    ### UGen convenience methods (keep in sync) ###
+    # These methods are only for ChannelList _multichannel_perform (multichannel
+    # expansion UGen compatibility). Some of them could be used in different
+    # places within ugens however I prefer to avoid its used. For them to work
+    # consistently ugens inputs should be stored as UGenParameter instances and
+    # I'm reluctant to do that at least by now, mostly because UGenScalar is
+    # the only type compatible with signal operations and graph parameters are
+    # being used as input translators so far.
+
+    # def dup(self, n=2):  # Function and Object.
+    # def madd(self, mul=1.0, add=0.0):  # Array, SimpleNumber and UGen.
+    # def range(self, lo=0.0, hi=1.0):  # SimpleNumber (wslib!) and UGen. # *** BUG: two signatures in builtins
+    # def exprange(self, lo=0.01, hi=1.0):  # SequenceableCollection and UGen (and Env).
+    # def curverange(self, lo=0.0, hi=1.0, curve=-4):  # SequenceableCollection and UGen (and Env).
+    # def unipolar(self, mul=1):  # SequenceableCollection and UGen.
+    # def bipolar(self, mul=1):  # SequenceableCollection and UGen.
+
+    def clip(self, lo=0.0, hi=1.0):
+        return bi.clip(self._param_value, lo, hi)
+
+    def fold(self, lo=0.0, hi=1.0):  # *** BUG: two signatures in builtins
+        return bi.fold(self._param_value, lo, hi)
+
+    def wrap(self, lo=0.0, hi=1.0):  # *** BUG: two signatures in builtins
+        return bi.wrap(self._param_value, lo, hi)
+
+    # def min_nyquist(self):  # SequenceableCollection and UGen.
+
+    def degrad(self):
+        return bi.degrad(self._param_value)
+
+    def raddeg(self):
+        return bi.raddeg(self._param_value)
+
+    def blend(self, other, frac=0.5):
+        return bi.blend(self._param_value, other, frac)
+
+    def lag(self, time=0.1):  # SimpleNumber (^this) SequenceableCollection and UGen, idem until prune.
+        return self._param_value
+
+    def lag2(self, time=0.1):
+        return self._param_value
+
+    def lag3(self, time=0.1):
+        return self._param_value
+
+    def lagud(self, utime=0.1, dtime=0.1):
+        return self._param_value
+
+    def lag2ud(self, utime=0.1, dtime=0.1):
+        return self._param_value
+
+    def lag3ud(self, utime=0.1, dtime=0.1):
+        return self._param_value
+
+    def varlag(self, time=0.1, curvature=0, wrap=5, start=None):
+        return self._param_value
+
+    def slew(self, up=1, down=1):
+        return self._param_value
+
+    def prune(self, min, max, type='minmax'):
+        return self._param_value
+
+    # snap is not implemented
+    # softround is not implemented
+
+    def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return bi.linlin(self._param_value, inmin, inmax, outmin, outmax, clip)
+
+    def linexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return bi.linexp(self._param_value, inmin, inmax, outmin, outmax, clip)
+
+    def explin(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return bi.explin(self._param_value, inmin, inmax, outmin, outmax, clip)
+
+    def expexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return bi.expexp(self._param_value, inmin, inmax, outmin, outmax, clip)
+
+    def lincurve(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
+        return bi.lincurve(self._param_value, inmin, inmax, outmin, outmax,
+                           curve, clip)
+
+    def curvelin(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
+        return bi.curvelin(self._param_value, inmin, inmax, outmin, outmax,
+                           curve, clip)
+
+    def bilin(self, incenter, inmin, inmax, outcenter, outmin, outmax,
+              clip='minmax'):
+        return bi.bilin(self._param_value, incenter, inmin, inmax,
+                        outcenter, outmin, outmax, clip)
+
+    def biexp(self, incenter, inmin, inmax, outcenter, outmin, outmax,
+              clip='minmax'):
+        return bi.biexp(self._param_value, incenter, inmin, inmax,
+                        outcenter, outmin, outmax, clip)
+
+    def moddif(self, that=0.0, mod=1.0):
+        return bi.moddif(self._param_value, that, mod)
+
+
 class UGenSequence(UGenParameter):
     @classmethod
     def _param_type(cls):

@@ -14,10 +14,15 @@ with its own interface.
 from math import isnan
 import struct
 
-from . import server as srv
 from . import _specialindex as _si
 from ..base import utils as utl
-# from .ugens import line as lne
+
+
+utl.ClassLibrary.late_imports(__name__,
+    ('sc3.synth.server', 'srv'),
+    ('sc3.synth.node', 'nod'),
+    ('sc3.synth.ugens.line', 'lne')
+)
 
 
 ### Graphs Parameter Base Class ###
@@ -312,7 +317,6 @@ class NodeScalar(NodeParameter):
         return (int, float)
 
     def _as_target(self):
-        from . import node as nod
         return nod.Group.basic_new(srv.Server.default, obj)
 
 

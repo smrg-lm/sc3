@@ -11,33 +11,22 @@ from ..base import functions as fn
 from . import _global as _gl
 from . import _specialindex as _si
 from . import _graphparam as gpp
-# from .ugens import line as lne
+
+
+utl.ClassLibrary.late_imports(__name__,
+    ('sc3.synth.ugens.trig', 'trg'),
+    ('sc3.synth.ugens.pan', 'pan'),
+    ('sc3.synth.ugens.infougens', 'ifu'),
+    ('sc3.synth.ugens.filter', 'flr'),
+    ('sc3.synth.ugens.oscillators', 'ocl'),
+    ('sc3.synth.ugens.testugens', 'tsu'),
+    ('sc3.synth.ugens.line', 'lne'),
+    ('sc3.synth.ugens.demand', 'dmd'),
+    ('sc3.synth.ugens.poll', 'pll'),
+)
 
 
 _logger = logging.getLogger(__name__)
-
-
-def late_imports():  # *** HACK
-    '''Imports in cyclic conflict used only at runtime, hack test.'''
-    import sys
-    import sc3.synth.ugens.trig  # BUG: general, how to avoid runnig ugens __init__.py or do the import * in ugens as ugs.
-    import sc3.synth.ugens.pan
-    import sc3.synth.ugens.infougens
-    import sc3.synth.ugens.filter
-    import sc3.synth.ugens.oscillators
-    import sc3.synth.ugens.testugens
-    import sc3.synth.ugens.line
-    import sc3.synth.ugens.demand
-    import sc3.synth.ugens.poll
-    sys.modules[__name__].__dict__.update({'trg': sc3.synth.ugens.trig})
-    sys.modules[__name__].__dict__.update({'pan': sc3.synth.ugens.pan})
-    sys.modules[__name__].__dict__.update({'ifu': sc3.synth.ugens.infougens})
-    sys.modules[__name__].__dict__.update({'flr': sc3.synth.ugens.filter})
-    sys.modules[__name__].__dict__.update({'osc': sc3.synth.ugens.oscillators})
-    sys.modules[__name__].__dict__.update({'tsu': sc3.synth.ugens.testugens})
-    sys.modules[__name__].__dict__.update({'lne': sc3.synth.ugens.line})
-    sys.modules[__name__].__dict__.update({'dmd': sc3.synth.ugens.demand})
-    sys.modules[__name__].__dict__.update({'pll': sc3.synth.ugens.poll})
 
 
 class ChannelList(list, gpp.UGenSequence, fn.AbstractFunction):
@@ -478,15 +467,15 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
         return self
 
     def snap(self, resolution=1.0, margin=0.05, strengh=1.0):  # NOTE: UGen/SimpleNumber, not in AbstractFunction
-        selector = osc.Select._method_selector_for_rate(self.rate)
+        selector = ocl.Select._method_selector_for_rate(self.rate)
         diff = round(self, resolution) - self
-        return getattr(osc.Select, selector)(abs(diff) < margin,
+        return getattr(ocl.Select, selector)(abs(diff) < margin,
                                              [self, self + strengh * diff])
 
     def softround(self, resolution=1.0, margin=0.05, strengh=1.0):  # NOTE: UGen/SimpleNumber, not in AbstractFunction
-        selector = osc.Select._method_selector_for_rate(self.rate)
+        selector = ocl.Select._method_selector_for_rate(self.rate)
         diff = round(self, resolution) - self
-        return getattr(osc.Select, selector)(abs(diff) > margin,
+        return getattr(ocl.Select, selector)(abs(diff) > margin,
                                              [self, self + strengh * diff])
 
     def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
@@ -519,8 +508,8 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
         if gpp.ugen_param(curve).rate == 'scalar':
             return curved_res
         else:
-            selector = osc.Select._method_selector_for_rate(self.rate)
-            return getattr(osc.Select, selector)(abs(curve) >= 0.125, [
+            selector = ocl.Select._method_selector_for_rate(self.rate)
+            return getattr(ocl.Select, selector)(abs(curve) >= 0.125, [
                 self.linlin(inmin, inmax, outmin, outmax, clip),
                 curved_res])
 
@@ -535,15 +524,15 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
         if gpp.ugen_param(curve).rate == 'scalar':
             return lin_res
         else:
-            selector = osc.Select._method_selector_for_rate(self.rate)
-            return getattr(osc.Select, selector)(abs(curve) >= 0.125, [
+            selector = ocl.Select._method_selector_for_rate(self.rate)
+            return getattr(ocl.Select, selector)(abs(curve) >= 0.125, [
                 self.linlin(inmin, inmax, outmin, outmax, clip),
                 lin_res])
 
     def bilin(self, incenter, inmin, inmax, outcenter, outmin, outmax,
               clip='minmax'):
-        selector = osc.Select._method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class and doesn't uses _multi_new as above.
-        return getattr(osc.Select, selector)(self < incenter, [
+        selector = ocl.Select._method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class and doesn't uses _multi_new as above.
+        return getattr(ocl.Select, selector)(self < incenter, [
             self.linlin(incenter, inmax, outcenter, outmax, clip),
             self.linlin(inmin, incenter, outmin, outcenter, clip)])
 

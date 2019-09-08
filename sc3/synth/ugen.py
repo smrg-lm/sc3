@@ -73,7 +73,6 @@ class ChannelList(list, gpp.UGenSequence, fn.AbstractFunction):
     ### UGen convenience methods (keep in sync) ###
 
     def _multichannel_perform(self, selector, *args):
-        # BUG: Only one level, only for sc builints?
         return type(self)(
             getattr(item, selector)(*args) if isinstance(item, UGen)\
             else getattr(bi, selector)(item, *args) for item in self)
@@ -662,7 +661,7 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
             if hasattr(cls, 'dr'):
                 return 'dr'
         # return None  # original behaviour
-        raise AttributeError(f'{cls.__name__} as not {rate} rate constructor')
+        raise AttributeError(f'{cls.__name__} has no {rate} rate constructor')
 
     def _dump_args(self):
         '''Used for error messages.'''

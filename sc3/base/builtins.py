@@ -1112,3 +1112,42 @@ def gauss_curve(x, a=1.0, b=0.0, c=1.0):
 # theta
 # rotate
 # dist
+
+### UGen convenience methods (keep in sync) ###
+# These method are only for ChannelList _multichannel_perform (multichannel
+# expansion compatibility with UGen).
+
+def lag(x, time=0.1):  # SimpleNumber (^this) SequenceableCollection and UGen, idem until prune.
+    return x
+
+def lag2(x, time=0.1):
+    return x
+
+def lag3(x, time=0.1):
+    return x
+
+def lagud(x, utime=0.1, dtime=0.1):
+    return x
+
+def lag2ud(x, utime=0.1, dtime=0.1):
+    return x
+
+def lag3ud(x, utime=0.1, dtime=0.1):
+    return x
+
+def varlag(x, time=0.1, curvature=0, wrap=5, start=None):
+    return x
+
+def slew(x, up=1, down=1):
+    return x
+
+def prune(x, min, max, type='minmax'):
+    return x
+
+# def dup(x, n=2):  # Function and Object.
+# def madd(x, mul=1.0, add=0.0):  # Array, SimpleNumber and UGen.
+# def range(x, lo=0.0, hi=1.0):  # SimpleNumber (wslib!) and UGen, two signatures.
+# def exprange(x, lo=0.01, hi=1.0):  # SequenceableCollection and UGen (and Env).
+# def curverange(x, lo=0.0, hi=1.0, curve=-4):  # SequenceableCollection and UGen (and Env).
+# def unipolar(x, mul=1):  # SequenceableCollection and UGen.
+# def bipolar(x, mul=1):  # SequenceableCollection and UGen.

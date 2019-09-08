@@ -51,6 +51,15 @@ class LinLin():  # Pseudo UGen.
         offset = dstlo - (scale * srclo)
         return input * scale + offset
 
+    @classmethod
+    def _method_selector_for_rate(cls, rate):
+        if rate == 'audio':
+            return 'ar'
+        elif rate == 'control':
+            return 'kr'
+        # return None  # original behaviour
+        raise AttributeError(f'{cls.__name__} has no {rate} rate constructor')
+
 
 class AmpComp(ugn.PureUGen):
     @classmethod

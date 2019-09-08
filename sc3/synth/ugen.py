@@ -955,8 +955,18 @@ class OutputProxy(UGen):
         self.__name = value
 
 
-### BasicOpUGens.sc ###
+class WidthFirstUGen(UGen):  # Was in fft.py
+    def _add_to_synth(self):
+        self._synthdef = _gl.current_synthdef
+        if self._synthdef is not None:
+            self._synthdef._add_ugen(self)
+            self._synthdef._width_first_ugens.append(self)
 
+    def _add_copies_if_needed(self):
+        pass
+
+
+### BasicOpUGens.sc ###
 
 class BasicOpUGen(UGen):
     def __init__(self):

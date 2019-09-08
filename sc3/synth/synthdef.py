@@ -70,7 +70,7 @@ class SynthDef():
 
         # topo sort
         self._available = []  # inited by ugens through .makeAvailable()
-        self._width_first_ugens = [] # se puebla desde nil con WidthFirstUGen.addToSynth (solo para IFFT)
+        self._width_first_ugens = []  # se puebla desde nil con WidthFirstUGen.addToSynth (solo para IFFT, RandSeed y RandID)
         self._rewrite_in_progress = False # = la inicializa a True en optimizeGraph L472 y luego la vuelve a nil, pero es mejor que sea false por los 'if'
 
         self._build(graph_func, rates or [], prepend_args or [])

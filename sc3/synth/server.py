@@ -3,7 +3,7 @@
 import subprocess as _subprocess
 import threading as _threading
 import atexit as _atexit
-import warnings as _warnings
+import logging as _logging
 import os as _os
 import pathlib as _pathlib
 
@@ -22,6 +22,9 @@ from . import node as nod
 from . import bus
 from . import _graphparam as gpp
 from . import buffer as bff
+
+
+_logger = _logging.getLogger(__name__)
 
 
 # BUG: revisar porque hay un patch que cambió esto y otros que cambiaron un par
@@ -110,6 +113,7 @@ class ServerOptions():
             return self.in_device
         else:
             return (self.in_device, self.out_device)
+
     @device.setter
     def device(self, value):
         self.in_device = self.out_device = value
@@ -222,6 +226,7 @@ class ServerOptions():
     @property
     def num_private_audio_bus_channels(self):
         return self._num_private_audio_bus_channels
+
     @num_private_audio_bus_channels.setter
     def num_private_audio_bus_channels(self, value=112): # TODO: no sé por qué 112
         self._num_private_audio_bus_channels = value
@@ -230,6 +235,7 @@ class ServerOptions():
     @property
     def num_audio_bus_channels(self):
         return self._num_audio_bus_channels
+
     @num_audio_bus_channels.setter
     def num_audio_bus_channels(self, value): #=1024): es un setter, no puede tener valor por defecto
         self._num_audio_bus_channels = value
@@ -239,6 +245,7 @@ class ServerOptions():
     @property
     def num_input_bus_channels(self):
         return self._num_input_bus_channels
+
     @num_input_bus_channels.setter
     def num_input_bus_channels(self, value=8):
         self._num_input_bus_channels = value
@@ -247,6 +254,7 @@ class ServerOptions():
     @property
     def num_output_bus_channels(self):
         return self._num_output_bus_channels
+
     @num_output_bus_channels.setter
     def num_output_bus_channels(self, value=8):
         self._num_output_bus_channels = value
@@ -408,8 +416,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def name(self, value):
         self._name = value
         if value in type(self).named:
-            msg = "Server name '{}' already exists. Please use a unique name"
-            _warnings.warn(msg.format(value)) # BUG: en sclang, pasa dos parámetros a format # TODO: por qué no es una excepción?
+            _logger.warning(f"server name '{value}' already "  # BUG: in sclang, two params to format
+                            "exists, please use a unique name")  # TODO: why not an exception?
         else:
             type(self).named[value] = self
 
@@ -433,24 +441,25 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @client_id.setter
     def client_id(self, value):
-        msg = "Server {} couldn't set client_id to {} - {}. clientID is still {}"
+        msg = "server '%s' couldn't set client_id "\
+              "to %s - %s, client_id is still %s"
         if self.status_watcher.server_running:
-            _warnings.warn(msg.format(self.name, value,
-                                      'server is running', self.client_id))
-            return # BUG: los setters de la propiedades retornan el valor? qué pasa cuando falla un setter?
+            args = (self.name, value, 'server is running', self.client_id)
+            _logger.warning(msg, *args)
+            return
         if not isinstance(value, int):
-            _warnings.warn(msg.format(self.name, value,
-                                      'not an int', self.client_id))
-            return # BUG: idem
+            args = (self.name, value, 'not an int', self.client_id)
+            _logger.warning(msg, *args)
+            return
         if value < 0 or value >= self.max_num_clients:
-            msg2 = '"outside max_num_clients range of 0 - {}"'
-            msg2 = msg2.format(self.max_num_clients - 1)
-            _warnings.warn(msg.format(self.name, value, msg2, self.client_id))
-            return # BUG: idem
+            msg2 = 'outside max_num_clients range of '\
+                   f'0 - {self.max_num_clients - 1}'
+            _logger.warning(msg, (self.name, value, msg2, self.client_id))
+            return
         if self._client_id != value:
-            print("{} : setting clientID to {}".format(self.name, value)) # TODO: es un LOG, probablemente hayan funciones para hacer logs!
+            _logger.info(f"server '{self.name}' setting client_id to {value}")
         self._client_id = value
-        self.new_allocators() # TODO: parece un método privado pero lo usan en UnitTest-bootServer
+        self.new_allocators() # *** BUG: parece un método privado pero lo usan en UnitTest-bootServer
 
     # L414
     # /* clientID-based id allocators */
@@ -474,10 +483,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def new_bus_allocators(self):
         audio_bus_io_offset = self.options.first_private_bus()
-        num_ctrl_per_client = (self.options.num_control_bus_channels
-                               // self.max_num_clients)
-        num_audio_per_client = (self.options.num_audio_bus_channels
-                                - audio_bus_io_offset) // self.max_num_clients
+        num_ctrl_per_client = (self.options.num_control_bus_channels //
+                               self.max_num_clients)
+        num_audio_per_client = (self.options.num_audio_bus_channels -
+                                audio_bus_io_offset) // self.max_num_clients
         ctrl_reserved_offset = self.options.reserved_num_control_bus_channels
         ctrl_bus_client_offset = num_ctrl_per_client * self.client_id
         audio_reserved_offset = self.options.reserved_num_audio_bus_channels
@@ -513,11 +522,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         bufnum = self.buffer_allocator.alloc(n)
         if bufnum is None:
             if n > 1:
-                msg = 'No block of {} consecutive buffer numbers is available'
-                raise Exception(msg.format(n))
+                raise Exception(f'No block of {n} consecutive '
+                                'buffer numbers is available')
             else:
-                msg = 'No more buffer numbers, free some buffers before allocating'
-                raise Exception(msg)
+                raise Exception('No more buffer numbers, free '
+                                'some buffers before allocating')
         return bufnum
 
     def free_all_buffers(self):
@@ -537,53 +546,53 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def free_perm_node_id(self, id):
         return self.node_allocator.free_perm(id)
 
-    # BUG: VER: esta función y la siguiente no parecen usarde desde sclang
     def _handle_client_login_info_from_server(self, new_client_id=None,
                                               new_max_logins=None): # BUG: name!
         # // only set maxLogins if not internal server
         if not self.in_process:
             if new_max_logins is not None:
                 if new_max_logins != self.options.max_logins:
-                    msg = "{}: server process has max_logins {} - adjusting options accordingly"
-                    print(msg.format(self.name, new_max_logins)) # BUG: es log
+                    _logger.info(f"'{self.name}' server process has "
+                                 f"max_logins {new_max_logins} - adjusting "
+                                 "options accordingly")
                 else:
-                    msg = "{}: server process's max_logins ({}) matches current options"
-                    print(msg.format(self.name, new_max_logins)) # BUG: ídem
+                    _logger.info(f"'{self.name}' server process's max_logins "
+                                 f"({new_max_logins}) matches current options")
                 self.options.max_logins = self._max_num_clients = new_max_logins
             else:
-                msg = "{}: no max_logins info from server process" # BUG: no entiendo por qué dice from si es un parámetro que se le pasa a esta función
-                print(msg.format(self.name, new_max_logins)) # BUG: ídem
+                _logger.info(f"'{self.name}' no max_logins "  # *** BUG: in sclang, passes two arguments.
+                             "info from server process")  # BUG: why 'from' if data is a parameter to this method.
         if new_client_id is not None:
             if new_client_id == self.client_id:
-                msg = "{}: keeping client_id ({}) as confirmed by server process"
-                print(msg.format(self.name, new_client_id)) # BUG: ídem
+                _logger.info(f"'{self.name}' keeping client_id  "
+                             f"({new_client_id}) as confirmed "
+                             "by server process")
             else:
-                msg = "{}: setting client_id to {}, as obtained from server process" # BUG: ídem no entiendo, no sé quién llama a esta función
-                print(msg.format(self.name, new_client_id))
-            self.client_id = new_client_id # usa el setter de @property
+                _logger.info(f"'{self.name}' setting client_id to "
+                             f"{new_client_id}, as obtained "
+                             "from server process")
+            self.client_id = new_client_id
 
-    def _handle_notify_fail_string(self, fail_string, msg): # TODO: yo usé msg en vez de failstr arriba.
+    def _handle_notify_fail_string(self, fail_string, msg): # *** BUG: yo usé msg en vez de failstr arriba.
         # // post info on some known error cases
         if 'already registered' in fail_string: # TODO: es un poco cruda la comparación con el mensaje... y tiene que coincidir, no sé dónde se genera.
             # // when already registered, msg[3] is the clientID by which
             # // the requesting client was registered previously
-            log_msg = "{} - already registered with client_id {}"
-            print(log_msg.format(self.name, msg[3])) # BUG: log
-            self.status_watcher._handle_login_when_already_registered(msg[3]) # BUG: falta implmementar, cuidado con el nombre
+            _logger.info(f"'{self.name}' - already registered "
+                         f"with client_id {msg[3]}")
+            self.status_watcher._handle_login_when_already_registered(msg[3])  # *** BUG: falta implmementar, cuidado con el nombre
         elif 'not registered' in fail_string:
             # // unregister when already not registered:
-            log_msg = "{} - not registered"
-            print(log_msg.format(self.name)) # BUG: log
+            _logger.info(f"'{self.name}' - not registered")
             self.status_watcher.notified = False
         elif 'too many users' in fail_string:
-            log_msg = "{} - could not register, too many users"
-            print(log_msg.format(self.name)) # BUG: log
+            _logger.info(f"'{self.name}' - could not register, too many users")
             self.status_watcher.notified = False
         else:
             # // throw error if unknown failure
-            e_msg = "Failed to register with server '{}' for notifications: {}\n"
-            e_msg += "To recover, please reboot the server"
-            raise Exception(e_msg.format(self.name, msg)) # BUG: el formato de msg y la nueva línea de e_msg
+            raise Exception(f"Failed to register with server '{self.name}' "
+                            f"for notifications: {msg}. To recover, please "
+                            "reboot the server")
 
     # L634
     ### network messages ###
@@ -655,8 +664,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 buffer = file.read()
                 self.send_msg('/d_recv', buffer)
         except FileNotFoundError:
-            msg = "Server: send_synthdef FileNotFoundError: {}"
-            _warnings.warn(msg.format(full_path))
+            _logger.warning(f'send_synthdef FileNotFoundError: {full_path}')
 
     # // tell server to load from disk
     def load_synthdef(self, name, completion_msg=None, dir=None): # BUG: creo que completion_msg no tiene efecto, nota listSendMsg no hace nada.
@@ -701,12 +709,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def if_running(self, func, fail_func=lambda s: None): # TODO: no se usa, pero como llama a statusWatcher puede ser útil
         if self.status_watcher.unresponsive:
-            print("server '{}' not responsive".fromat(self.name)) # BUG: log
+            _logger.info(f"server '{self.name}' not responsive")
             fail_func(self)
         elif self.status_watcher.server_running:
             func(self)
         else:
-            print("server '{}' no running".fromat(self.name)) # BUG: log
+            _logger.info(f"server '{self.name}' no running")
             fail_func(self)
         # NOTE: no retorna nada a diferencia de sclang, se podría comprobar el
         # valor de retorno en vez de postear, esta función no está documentada.
@@ -728,7 +736,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def ping(self, n=1, wait=0.1, func=None):
         if not self.status_watcher.server_running:
-            print('server not running')
+            _logger.info(f"server '{self.name}' not running")
             return
         result = 0
 
@@ -736,14 +744,14 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             t = _libsc3.main.elapsed_time()
             self.sync()
             dt = _libsc3.main.elapsed_time() - t
-            print('measured latency: {}s'.format(dt))
+            _logger.info(f'measured latency: {dt}s')
             result = max(result, dt)
             n -= 1
             if n > 0:
                 clk.SystemClock.sched(wait, lambda: ping_func())
             else:
-                msg = 'maximum determined latency of {}: {}s'
-                print(msg.format(self.name, result))
+                _logger.info(f"maximum determined latency of "
+                             f"server '{self.name}': {result}s")
 
         def ping_func():
             stm.Routine.run(task, clk.SystemClock) # NOTE: Routine.run usa SystemClock por defecto (con un checkeo puesto demás en sclang, y acá, porque es lo que pasa a bajo nivel)
@@ -858,13 +866,13 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     # shm
     def disconnect_shared_memory(self):
-        pass
+        ...
 
     def connect_shared_memory(self):
-        pass
+        ...
 
     def has_shm_interface(self):
-        pass
+        ...
 
     @classmethod
     def resume_threads(cls):
@@ -874,13 +882,13 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     # L931
     def boot(self, start_alive=True, recover=False, on_failure=None):
         if self.status_watcher.unresponsive:
-            print("server '{}' unresponsive, rebooting...".format(self.name)) # BUG: log
+            _logger.info(f"server '{self.name}' unresponsive, rebooting...")
             self.quit(watch_shutdown=False)
         if self.status_watcher.server_running:
-            print("server '{}' already running".format(self.name))
+            _logger.info(f"server '{self.name}' already running")
             return
         if self.status_watcher.server_booting:
-            print("server '{}' already booting".format(self.name))
+            _logger.info(f"server '{self.name}' already booting")
             return
         self.status_watcher.server_booting = True
 
@@ -890,7 +898,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.status_watcher.do_when_booted(on_complete, on_failure) # BUG: en sclang, esta llamada pasa false si on_failure es nil y do_when_booted checkea por notNil (false es true)
 
         if self.remote_controlled:
-            print("remote server '{}' needs manual boot".format(self.name)) # BUG: log
+            _logger.info(f"remote server '{self.name}' needs manual boot")
         else:
             def ping_func():
                 self.quit()
@@ -964,9 +972,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         stm.Routine.run(task, clk.AppClock)
 
     def boot_server_app(self, on_complete):
-        print('* boot_server_app: falta implementar todo lo relacionado con popen y options')
+        print('*** boot_server_app: falta implementar todo lo relacionado con popen y options')
         if self.in_process:
-            print('booting internal server')
+            _logger.info('booting internal server')
             self.boot_in_process() # BUG: no está implementado
             self.pid = _libsc3.main.pid # BUG: no está implementado
             on_complete()
@@ -976,20 +984,20 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             self.server_process.run()
             # this.prOnServerProcessExit(exitCode) BUG: falta implementar en _ServerProcess
             self.pid = self.server_process.proc.pid # BUG: con Popen la implementación de algunas cosas puede cambiar
-            msg = "booting server '{}' on address {}:{}."
-            print(msg.format(self.name, self.addr.hostname, self.addr.port)) # BUG: log
+            _logger.info(f"booting server '{self.name}' on address "
+                         f"{self.addr.hostname}:{self.addr.port}")
             if self.options.protocol == 'tcp':
-                print('implementar conexión tcp')
+                print('*** implementar conexión tcp')
                 # self.addr.try_connect_tcp(on_complete)
             else:
                 on_complete()
 
     def _on_server_process_exit(self, exit_code): # BUG: este método sería distinto porque process es distinto acá, se usaba en boot_server_app
-        pass
+        ...
 
     def reboot(self, func=None, on_failure=None): # // func is evaluated when server is off
         if not self.is_local:
-            print("can't reboot a remote server") # BUG: log
+            _logger.info("can't reboot a remote server")
             return
         if self.server_status.server_running\
         and not self.status_watcher.unresponsive:
@@ -1037,8 +1045,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.addr.send_msg('/quit')
 
         if watch_shutdown and self.status_watcher.unresponsive:
-            msg = "Server '{}' was unresponsive, quitting anyway"
-            print(msg.format(self.name)) # BUG: log
+            _logger.info(f"server '{self.name}' was "
+                         "unresponsive, quitting anyway")
             watch_shutdown = False
 
         if self.options.protocol == 'tcp':
@@ -1051,18 +1059,17 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         if self.in_process:
             self.quit_in_process()
-            print('internal server has quit') # BUG: log
+            _logger.info('internal server has quit')
         else:
-            print("'/quit' message sent to server '{}'".format(self.name))
+            _logger.info(f"'/quit' message sent to server '{self.name}'")
 
         self.server_process.finish()
         self.pid = None
         self.send_quit = None
         self._max_num_clients = None
 
-        # TODO:
-        print('server.py: implementar scope_window (tal vez no) y volume')
-        # if(scopeWindow.notNil) { scopeWindow.quit }
+        # *** TODO:
+        # if(scopeWindow.notNil) { scopeWindow.quit }  # No.
         # self.volume.free_synth
         nod.RootNode(self).free_all() # BUG: no entiendo por qué crea una instancia
         self.new_allocators()
@@ -1189,10 +1196,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             def timeout_func():
                 if not done:
                     resp.free()
-                    _warnings.warn(
-                        f"remote server '{self.name}' failed to respond "
-                        f"to '/g_queryTree' after {timeout} seconds"
-                    )
+                    _logger.warning(f"remote server '{self.name}' failed "
+                                    "to respond to '/g_queryTree' after "
+                                    f"{timeout} seconds")
 
             self.send_msg('/g_queryTree', 0, int(query_controls))
             clk.SystemClock.sched(timeout, timeout_func)

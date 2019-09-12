@@ -999,7 +999,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         if not self.is_local:
             _logger.info("can't reboot a remote server")
             return
-        if self.server_status.server_running\
+        if self.status_watcher.server_running\
         and not self.status_watcher.unresponsive:
             def _():
                 if func is not None:

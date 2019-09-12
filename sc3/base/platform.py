@@ -11,6 +11,9 @@ from ..synth import server as srv
 # from ..synth import score as sco
 
 
+__all__ = ['Platform']
+
+
 class MetaPlatform(type):
     @property
     def name(cls):

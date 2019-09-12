@@ -293,7 +293,7 @@ class MetaServer(type):
     def __init__(cls, *_):
         cls.named = dict()
         cls.all = set()
-        cls.program = 'scsynth' # *** BUG: setea en Platform OSX/Linux startup
+        cls.program = None  # Initialized with Platform.
         cls.sync_s = True
 
         cls.node_alloc_class = eng.NodeIDAllocator

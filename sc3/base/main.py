@@ -4,6 +4,7 @@ import threading
 import atexit
 import time
 import random
+import sys
 
 from ..synth import server as srv
 from ..seq import stream as stm
@@ -11,6 +12,7 @@ from ..seq import clock as clk
 from . import _oscinterface as osci
 from . import responsedefs as rdf
 from . import utils as utl
+from . import platform as plf
 
 
 class TimeException(ValueError):
@@ -32,7 +34,21 @@ class Process(type):
         cls._switch_cond = threading.Condition(cls._main_lock)
         cls._mode = None
         cls._rgen = random.Random()
+        cls._init_platform()
         atexit.register(cls.shutdown)
+
+    def _init_platform(cls):
+        if sys.platform.startswith('linux'):
+            cls._platform = plf.LinuxPlatform()
+        elif sys.platform.startswith('darwin'):
+            cls._platform = plf.DarwinPlatform()
+        elif sys.platform.startswith('win32'):
+            cls._platform = plf.Win32Platform()
+        elif sys.platform.startswith('cygwin'):
+            cls._platform = plf.CygwinPlatform()
+        else:
+            raise RuntimeError('platform not defined')
+        cls._platform._startup()
 
     def _init_rt(cls):
         cls._rt_time_of_initialization = time.time()
@@ -94,15 +110,22 @@ class Process(type):
     def rgen(cls):
         return cls.current_tt.rgen
 
+    @property
+    def platform(cls):
+        return cls._platform
+
     # TODO: ver y agregar los comentarios en el código original
     def startup(cls):
         pass
+
     def run(cls):
         pass
+
     def stop(cls):
         pass
+
     def shutdown(cls):
-        pass
+        cls.platform._shutdown()
         # TODO: VER: PyrLexer shutdownLibrary, ahí llama sched_stop de SystemClock (acá) y TempoClock stop all entre otras cosas.
         # TODO: sched_stop tiene join, no se puede usasr con atexit?
         #cls._run_thread = False
@@ -111,6 +134,7 @@ class Process(type):
         #     cls._main_lock.notify_all()
         #cls._thread.join()
         # BUG: probablemente tenga que hacer lo mismo con todos los relojes.
+
     def tick(cls): # BUG: este tick? Creo que es algo que no se usa más y quedó de la vieja implementación en sclang.
         pass
 

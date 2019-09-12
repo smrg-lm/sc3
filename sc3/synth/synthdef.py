@@ -19,10 +19,17 @@ from .ugens import inout as scio
 _logger = logging.getLogger(__name__)
 
 
-class SynthDef():
-    synthdef_dir = plf.Platform.user_app_support_dir() / 'synthdefs'
-    synthdef_dir.mkdir(exist_ok=True) # // Ensure exists
+class MetaSynthDef(type):
+    def __init__(cls, *_):
 
+        def init_func(cls):
+            cls.synthdef_dir = plf.Platform.synthdef_dir
+            cls.synthdef_dir.mkdir(exist_ok=True) # // Ensure exists
+
+        utl.ClassLibrary.add(cls, init_func)
+
+
+class SynthDef(metaclass=MetaSynthDef):
     @classmethod
     def dummy(cls, name):
         obj = cls.__new__(cls)

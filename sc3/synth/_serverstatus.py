@@ -1,12 +1,15 @@
 """ServerStatus.sc"""
 
-import warnings
+import logging
 
 from ..seq import clock as clk
 from ..seq import stream as stm
 from ..base import model as mdl
 from ..base import systemactions as sac
 from ..base import responsedefs as rdf
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ServerStatusWatcher():
@@ -87,9 +90,8 @@ class ServerStatusWatcher():
                 if on_failure is not None:
                     post_err = on_failure(self.server) is False
                 if post_err:
-                    msg = "Server '{}' on failed to start. You may need to kill all servers"
-                    #warnings.warn(msg.format(self.server.name))
-                    print(msg.format(self.server.name))
+                    _logger.warning(f"Server '{self.server.name}' on failed to "
+                                    "start. You may need to kill all servers")
                 self.server_booting = False
                 mdl.NotificationCenter.notify(self.server, 'server_running')
             else:
@@ -120,11 +122,11 @@ class ServerStatusWatcher():
                 def sched_func():
                     if not server_really_quit:
                         if self.unresponsive:
-                            msg = "Server '{}' remained unresponsive during quit"
+                            _logger.warning(f"Server '{self.server.name}' "
+                                            "remained unresponsive during quit")
                         else:
-                            msg = "Server '{}' failed to quit after 3.0 seconds"
-                        #warnings.warn(msg.format(self.server.name))
-                        print(msg.format(self.server.name))
+                            _logger.warning(f"Server '{self.server.name}' "
+                                            "failed to quit after 3.0 seconds")
                         # // don't accumulate quit-watchers if /done doesn't come back
                         really_quit_watcher.free()
                         if self._status_watcher is not None:
@@ -245,7 +247,35 @@ class ServerStatusWatcher():
     # // which is a serious emergency in live shows. So it posts a lot of info
     # // on the recovered state, and possibly helpful next user actions.
     def _handle_login_when_already_registered(self, client_id_from_process):
-        pass # TODO: Luego, no se usa en la librería estándar
+        _logger.info(f'{self.server} - handling login request '
+                     'though already registered -')
+        if client_id_from_process is None:
+            _logger.info(f'{self.server} - notify response did not contain '
+                         'already-registered clientID from server process.\n'
+                         'Assuming all is well.')
+        elif client_id_from_process != self.server.client_id:
+            # // By default, only reset clientID if changed,
+            # // to leave allocators untouched.
+            # // Make sure we can set the clientID, and set it.
+            self.notified = False
+            self.server.client_id = client_id_from_process
+            _logger.info(  # We need to talk about these messages.
+                'This seems to be a login after a crash, or from a new server '
+                'object, so you may want to release currently running synths '
+                'by hand with: server.default_group.release()\n'
+                'And you may want to redo server boot finalization by hand:'
+                'server.status_watcher._finalize_boot()')
+        else:
+            # // Same clientID, so leave all server
+            # // resources in the state they were in!
+            _logger.info(
+                'This seems to be a login after a loss of network contact.\n'
+                'Reconnected with the same clientID as before, so probably all '
+                'is well.')
+        # // Ensure that statuswatcher is in the correct state immediately.
+        self.notified = True
+        self.unresponsive = False
+        mdl.NotificationCenter.notify(self.server, 'server_running')
 
     def _send_notify_request(self, flag=True, adding_status_watcher=False): # BUG: ver este segundo valor por defecto agregado por mi.
         if not self.has_booted:

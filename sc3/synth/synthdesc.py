@@ -502,11 +502,12 @@ class SynthDescLib(metaclass=MetaSynthDescLib):
         server_list = utl.as_list(server) or self.servers
         for s in server_list:
             # BUG: aún no entiendo por qué hace server = server.value, usa el método de Object que retorna this.
-            for desc in self.synth_descs:
-                if 'shouldNotSend' in desc.sdef.metadata and not desc.sdef.metadata['shouldNotSend']: # BUG: la notación camello.
+            for desc in self.synth_descs.values():
+                if 'shouldNotSend' in desc.sdef.metadata\
+                and not desc.sdef.metadata['shouldNotSend']:  # BUG: camelCase
                     desc.send(s)
                 elif try_reconstructed:
-                    desc.sdef.load_reconstructed(s) # BUG: falta implementar en SynthDef
+                    desc.sdef._load_reconstructed(s)
 
     def read(self, path=None, keep_defs=True):
         if path is None:

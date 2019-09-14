@@ -492,11 +492,11 @@ class SynthDef(metaclass=MetaSynthDef):
         return stream.getbuffer()
 
     def _write_def_file(self, dir, overwrite=True, md_plugin=None):
-        if ('shouldNotSend' not in self.metadata)\
-        or ('shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']): # BUG: ver condición, sclang usa metadata.tryPerform(\at, \shouldNotSend) y tryPerform devuelve nil si el método no existe. Supongo que synthdef.metadata *siempre* tiene que ser un diccionario y lo único que hay que comprobar es que la llave exista y -> # si shouldNotSend no existe TRUE # si shouldNotSend existe y es falso TRUE # si shouldNotSend existe y es verdadero FALSO
+        if not self.metadata.get('shouldNotSend', False):
             dir = dir or SynthDef.synthdef_dir
             dir = pathlib.Path(dir)
-            file_existed_before = pathlib.Path(dir / (self.name + '.scsyndef')).exists()
+            file_existed_before = pathlib.Path(
+                dir / (self.name + '.scsyndef')).exists()
             self._write_def_after_startup(self.name, dir, overwrite)
             if overwrite or not file_existed_before:
                 desc = self.as_synthdesc()
@@ -630,8 +630,7 @@ class SynthDef(metaclass=MetaSynthDef):
             if not server.has_booted():
                 _logger.warning(f"Server '{server.name}' not running, "  # *** BUG in sclang: prints server.name instead of each.name
                                 "could not send SynthDef")
-            if 'shouldNotSend' in self.metadata\
-            and self.metadata['shouldNotSend']:
+            if self.metadata.get('shouldNotSend', False):
                 self._load_reconstructed(
                     server, fn.value(completion_msg, server))
             else:
@@ -656,7 +655,7 @@ class SynthDef(metaclass=MetaSynthDef):
     def load(self, server, completion_msg=None, dir=None):
         server = server or srv.Server.default
         completion_msg = fn.value(completion_msg, server)
-        if 'shouldNotSend' in self.metadata and self.metadata['shouldNotSend']:
+        if self.metadata.get('shouldNotSend', False):
             self._load_reconstructed(server, completion_msg)
         else:
             # // should remember what dir synthDef was written to
@@ -674,8 +673,7 @@ class SynthDef(metaclass=MetaSynthDef):
         dir = dir or SynthDef.synthdef_dir
         dir = pathlib.Path(dir)
         path = dir / (self.name + '.scsyndef')
-        #if ('shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']):  # BUG, y confuso en sclang. falseAt devuelve true si la llave no existe, trueAt es equivalente a comprobar 'in' porque si no está la llave es false, pero falseAt no es lo mismo porque si la llave no existe sería lo mismo que hubiese false.
-        if 'shouldNotSend' not in self.metadata or not self.metadata['shouldNotSend']: # BUG: esto es equivalente a falseAt solo si funciona en corto circuito.
+        if not self.metadata.get('shouldNotSend', False):
             with open(path, 'wb') as file:
                 self.write_def_list([self], file)
             lib.read(path)

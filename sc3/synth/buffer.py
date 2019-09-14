@@ -1,9 +1,10 @@
 """Buffer.sc"""
 
-from . import _graphparam as gpp
-from . import server as srv
 from ..base import responsedefs as rdf
 from ..base import model as mdl
+from ..base import functions as fn
+from . import _graphparam as gpp
+from . import server as srv
 
 
 class Buffer(gpp.UGenParameter, gpp.NodeParameter):
@@ -72,10 +73,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         buf_list = []
         for i in range(num_bufs):
             new_buf = cls(server, num_frames, num_channels, buf_base + i)
-            if completion_msg:
-                completion_msg = completion_msg(new_buf, i)
             server.send_msg('/b_alloc', buf_base + i, num_frames,
-                            num_channels, completion_msg)
+                            num_channels, fn.value(completion_msg, new_buf, i))
             # new_buf._cache() # NOTE: __init__ llama a _cache
             buf_list.append(new_buf)
         return buf_list
@@ -128,10 +127,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     def alloc_msg(self, completion_msg=None):
         # self._cache() # NOTE: __init__ llama a _cache
-        if completion_msg:
-            completion_msg = completion_msg(self)
         return ['/b_alloc', self._bufnum, self._num_frames,
-                self._num_channels, completion_msg] # NOTE: no veo por qué solo startFrame.asInteger en sclang.
+                self._num_channels, fn.value(completion_msg, self)]  # NOTE: no veo por qué solo startFrame.asInteger en sclang.
 
     def alloc_read(self, path, start_frame=0, num_frames=-1,
                    completion_msg=None):
@@ -145,10 +142,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         # self._cache() # NOTE: __init__ llama a _cache
         self._path = path
         self._start_frame = start_frame
-        if completion_msg:
-            completion_msg = completion_msg(self)
         return ['/b_allocRead', self._bufnum, path,
-                start_frame, num_frames, completion_msg] # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
+                start_frame, num_frames, fn.value(completion_msg, self)]  # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
 
     def alloc_read_channel(self, path, start_frame=0, num_frames=-1,
                            channels=None, completion_msg=None):
@@ -162,10 +157,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         # self._cache() # NOTE: __init__ llama a _cache
         self._path = path
         self._start_frame = start_frame
-        if completion_msg:
-            completion_msg = completion_msg(self)
         return ['/b_allocReadChannel', self._bufnum, path, start_frame,
-                num_frames, *channels, completion_msg] # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
+                num_frames, *channels, fn.value(completion_msg, self)] # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
 
     def read(self, path, file_start_frame=0, num_frames=-1,
              buf_start_frame=0, leave_open=False, action=None):
@@ -185,10 +178,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def read_msg(self, path, file_start_frame=0, num_frames=-1,
                  buf_start_frame=0, leave_open=False, completion_msg=None):
         self._path = path
-        if completion_msg:
-            completion_msg = completion_msg(self)
         return ['/b_read', self._bufnum, path, file_start_frame, num_frames,
-                buf_start_frame, leave_open, completion_msg] # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
+                buf_start_frame, leave_open, fn.value(completion_msg, self)]  # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
 
     def read_channel(self, path, file_start_frame=0, num_frames=-1,
                      buf_start_frame=0, leave_open=False,
@@ -204,11 +195,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                          completion_msg=None):
         # // doesn't set my numChannels etc.
         self._path = path
-        if completion_msg:
-            completion_msg = completion_msg(self)
         return ['/b_readChannel', self._bufnum, path, file_start_frame,
                 num_frames, buf_start_frame, leave_open, *channels,
-                completion_msg] # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
+                fn.value(completion_msg, self)]  # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
 
     def cue(self, path, start_frame=0, completion_msg=None):
         self._path = path
@@ -216,10 +205,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         # NOTE: no llama a cache()
 
     def cue_msg(self, path, start_frame=0, completion_msg=None):
-        if completion_msg:
-            completion_msg = completion_msg(self)
-        return ['/b_read', self._bufnum, path, start_frame, # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
-                0, 1, self._num_frames, completion_msg] # *** BUG: pone 1 en vez de True, porque es el mensaje, corregir los métodos anteriores con int(booleanvar).
+        return ['/b_read', self._bufnum, path, start_frame, 0, 1,  # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
+                self._num_frames, fn.value(completion_msg, self)]  # *** BUG: pone 1 en vez de True, porque es el mensaje, pero no lo hace siempre.
 
     # TODO: sigue
 

@@ -9,6 +9,7 @@ import pathlib
 from ..base import utils as utl
 from ..base import platform as plf
 from ..base import systemactions as sac
+from ..base import functions as fn
 from . import _global as _gl
 from . import ugen as ugn
 from . import server as srv
@@ -452,33 +453,36 @@ class SynthDef(metaclass=MetaSynthDef):
     # L549
     # // Make SynthDef available to all servers.
     def add(self, libname=None, completion_msg=None, keep_def=True):
-        self.as_synthdesc(libname or 'default', keep_def) # BUG: puede que sea self.desc que parece que no se usa? en sclang declara y no usa la variable local desc. La cuestión es que este método hay que llamarlo para agregar la desc a la librería. Otra cosa confusa.
+        self.as_synthdesc(libname or 'default', keep_def)  # This call adds synthdesc to the lib as side effect which is the intended effect here.
         if libname is None:
-            servers = srv.Server.all_booted_servers() # BUG: no está probado o implementado
+            servers = srv.Server.all_booted_servers()
         else:
             servers = sdc.SynthDescLib.get_lib(libname).servers
         for server in servers:
-            self._do_send(server) # , completion_msg(server)) # BUG: completion_msg no se usa/recibe en _do_send # BUG: no sé por qué usa server.value() en sclang
+            self._do_send(server, fn.value(completion_msg, server))  # BUG: Why each(server).value in sclang?
 
     # L645
-    def as_synthdesc(self, libname='default', keep_def=True): # Subido, estaba abajo, lo usa add.
-        stream = io.BytesIO(self.as_bytes()) # TODO: El problema es que esto depende de server.send_msg (interfaz osc)
+    def as_synthdesc(self, libname='default', keep_def=True):
+        stream = io.BytesIO(self.as_bytes())
         libname = libname or 'default'
-        lib = sdc.SynthDescLib.get_lib(libname) # BUG: no está probado
-        desc = lib.read_desc_from_def(stream, keep_def, self, self.metadata) # BUG: no está probado
+        lib = sdc.SynthDescLib.get_lib(libname)
+        desc = lib.read_desc_from_def(stream, keep_def, self, self.metadata)
         return desc
 
     # L587
-    def _do_send(self, server): #, completion_msg): # BUG: parece que no existe un argumento que reciba completionMsg
+    def _do_send(self, server, completion_msg):
         buffer = self.as_bytes()
-        if len(buffer) < (65535 // 4): # BUG: acá hace dividido 4, en clumpBundles hace > 20000, en bytes se puede mandar más, ver que hace scsynth.
-            server.send_msg('/d_recv', buffer) # BUG: completion_msg) ninunga función send especifica ni documenta parece tener un completionMsg, tampoco tiene efecto o sentido en las pruebas que hice
+        if len(buffer) < (65535 // 4):  # BUG: size limitation for rt safety, compare with ArrayedCollection:clumpBundles.
+            server.send_msg('/d_recv', buffer, completion_msg)
         else:
             if server.is_local:
                 _logger.warning(f'SynthDef {self.name} too big for sending. '
                                 'Retrying via synthdef file')
                 self._write_def_file(SynthDef.synthdef_dir)
-                server.send_msg('/d_load', str(SynthDef.synthdef_dir / (self.name + '.scsyndef'))) # BUG: , completionMsg)
+                server.send_msg(
+                    '/d_load',
+                    str(SynthDef.synthdef_dir / (self.name + '.scsyndef')),
+                    completion_msg)
             else:
                 _logger.warning(f'SynthDef {self.name} too big for sending')
 
@@ -620,72 +624,77 @@ class SynthDef(metaclass=MetaSynthDef):
     # // Methods for special optimizations
 
     # // Only send to servers.
-    def send(self, server=None): # BUG: completion_msg) ninunga función send especifica ni documenta parece tener un completionMsg, tampoco tiene efecto o sentido en las pruebas que hice
-        servers = utl.as_list(server or srv.Server.all_booted_servers()) # BUG: no está probado o implementado
-        for each in servers:
-            if not each.has_booted():
-                _logger.warning(f"Server '{each.name}' not running, "  # *** BUG in sclang: prints server.name instead of each.name
+    def send(self, server=None, completion_msg=None):
+        servers = utl.as_list(server or srv.Server.all_booted_servers())
+        for server in servers:
+            if not server.has_booted():
+                _logger.warning(f"Server '{server.name}' not running, "  # *** BUG in sclang: prints server.name instead of each.name
                                 "could not send SynthDef")
             if 'shouldNotSend' in self.metadata\
             and self.metadata['shouldNotSend']:
-                self._load_reconstructed(each) # BUG: completion_msg)
+                self._load_reconstructed(
+                    server, fn.value(completion_msg, server))
             else:
-                self._do_send(each) # BUG: completion_msg)
+                self._do_send(server, fn.value(completion_msg, server))
 
     # L653
-    # // This method warns and does not halt because
-    # // loading existing def from disk is a viable
-    # // alternative to get the synthdef to the server.
-    def _load_reconstructed(self, server): # *** BUG: completion_msg) ninunga función send especifica ni documenta parece tener un completionMsg, tampoco tiene efecto o sentido en las pruebas que hice
+    # // This method warns and does not halt because loading existing def from
+    # // disk is a viable alternative to get the synthdef to the server.
+    def _load_reconstructed(self, server, completion_msg):
         _logger.warning(f"SynthDef '{self.name}' was reconstructed from a "
                         ".scsyndef file, it does not contain all the required "
                         "structure to send back to the server")
         if server.is_local:
             _logger.warning(f"loading from disk instead for Server '{server}'")
-            bundle = ['/d_load', self.metadata['loadPath']] # BUG: completion_msg] # BUG: completion_msg) *** ACÁ SE USA COMPLETION_MSG ***
+            bundle = ['/d_load', self.metadata['loadPath'], completion_msg]  # *** BUG: KeyError si no existe en sclang es nil, PERO NO DEBERÍA PODER SER NIL.
             server.send_bundle(None, bundle)
         else:
             raise Exception(f"Server '{server}' is remote, "
                             "cannot load from disk")
 
     # // Send to server and write file.
-    def load(self, server, completion_msg, dir=None): # *** BUG: completion_msg, parámetro intermedio
+    def load(self, server, completion_msg=None, dir=None):
         server = server or srv.Server.default
+        completion_msg = fn.value(completion_msg, server)
         if 'shouldNotSend' in self.metadata and self.metadata['shouldNotSend']:
-            self._load_reconstructed(server) # BUG: completion_msg)
+            self._load_reconstructed(server, completion_msg)
         else:
             # // should remember what dir synthDef was written to
             dir = dir or SynthDef.synthdef_dir
             dir = pathlib.Path(dir)
             self._write_def_file(dir)
-            server.send_msg('/d_load', str(dir / (self.name + '.scsyndef'))) # BUG: completion_msg) tendría que ver cómo es que se usa acá, no parece funcionar en sclang pero es un msj osc... (?)
+            server.send_msg(
+                '/d_load', str(dir / (self.name + '.scsyndef')), completion_msg)
 
     # L615
     # // Write to file and make synth description.
-    def store(self, libname='default', dir=None, completion_msg=None, md_plugin=None): # *** BUG: completion_msg, parámetro intermedio
+    def store(self, libname='default', dir=None, completion_msg=None,
+              md_plugin=None):
         lib = sdc.SynthDescLib.get_lib(libname)
         dir = dir or SynthDef.synthdef_dir
         dir = pathlib.Path(dir)
         path = dir / (self.name + '.scsyndef')
-        #if ('shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']): # BUG, y confuso en sclang. falseAt devuevle true si la llave no existe, trueAt es equivalente a comprobar 'in' porque si no está la llave es false, pero falseAt no es lo mismo porque si la llave no existe sería lo mismo que ubiese false.
+        #if ('shouldNotSend' in self.metadata and not self.metadata['shouldNotSend']):  # BUG, y confuso en sclang. falseAt devuelve true si la llave no existe, trueAt es equivalente a comprobar 'in' porque si no está la llave es false, pero falseAt no es lo mismo porque si la llave no existe sería lo mismo que hubiese false.
         if 'shouldNotSend' not in self.metadata or not self.metadata['shouldNotSend']: # BUG: esto es equivalente a falseAt solo si funciona en corto circuito.
             with open(path, 'wb') as file:
                 self.write_def_list([self], file)
             lib.read(path)
             for server in lib.servers:
-                self._do_send(server) # BUG: server.value y completion_msg
+                self._do_send(server, fn.value(completion_msg, server))  # BUG: Why server.value
             desc = lib.at(self.name)
             desc.metadata = self.metadata
-            sdc.SynthDesc.populate_metadata_func(desc) # BUG: (populate_metadata_func) aún no sé quién asigna la función a esta propiedad
+            sdc.SynthDesc.populate_metadata_func(desc)
             desc.write_metadata(path, md_plugin)
         else:
             lib.read(path)
             for server in lib.servers:
-                self._load_reconstructed(server) # BUG: completion_msg)
+                self._load_reconstructed(
+                    server, fn.value(completion_msg, server))
 
     # L670
     # // This method needs a reconsideration
-    def store_once(self, libname='default', dir=None, completion_msg=None, md_plugin=None): # *** BUG: completion_msg, parámetro intermedio
+    def store_once(self, libname='default', dir=None, completion_msg=None,
+                   md_plugin=None):
         dir = dir or SynthDef.synthdef_dir
         dir = pathlib.Path(dir)
         path = dir / (self.name + '.scsyndef')

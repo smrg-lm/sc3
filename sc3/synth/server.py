@@ -13,6 +13,7 @@ from ..base import netaddr as nad
 from ..base import model as mdl
 from ..base import responsedefs as rdf
 from ..base import systemactions as sac
+from ..base import functions as fn
 from ..seq import stream as stm
 from ..seq import clock as clk
 from . import _engine as eng
@@ -667,15 +668,15 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _logger.warning(f'send_synthdef FileNotFoundError: {full_path}')
 
     # // tell server to load from disk
-    def load_synthdef(self, name, completion_msg=None, dir=None): # BUG: creo que completion_msg no tiene efecto, nota listSendMsg no hace nada.
+    def load_synthdef(self, name, completion_msg=None, dir=None):
         dir = dir or sdf.SynthDef.synthdef_dir
         dir = _pathlib.Path(dir)
         path = str(dir / (name + '.scsyndef'))
-        self.send_msg('/d_load', path) # BUG: completion_msg BUG: puede ser que se invoque a bajo nivel en sclang?
+        self.send_msg('/d_load', path, fn.value(completion_msg, self))
 
     # // /d_loadDir
-    def load_directory(self, dir, completion_msg=None): # BUG: completion_msg
-        self.send_msg('/d_loadDir', dir) # BUG: completion_msg
+    def load_directory(self, dir, completion_msg=None):
+        self.send_msg('/d_loadDir', dir, fn.value(completion_msg, self))
 
     # L722
     ### network message bundling ###

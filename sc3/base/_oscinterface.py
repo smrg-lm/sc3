@@ -224,9 +224,13 @@ class LOInterface(AbstractOSCInteface):
         self._running = False
         atexit.unregister(self.stop)
 
+    # *** BUG: sclang convierte nil y [] en cero, "" lo deja como "", True en 1
+    # *** BUG: False en 0, los array dentro de los mensajes los convierte en
+    # *** BUG: blobs que contienen un mensaje o atado osc. También falta la
+    # *** BUG: conversión tuplas como arrays.
     def send_msg(self, target, *args):
         """args es la lista de valores para crear un mensaje"""
-        msg = _lo.Message(*args) # BUG: falta la conversión de tipos con tupla
+        msg = _lo.Message(*args)
         self._osc_server_thread.send(target, msg) # BUG: AttributeError: 'Client' object has no attribute '_osc_server_thread'. Este error no es informativo de que el cliente no está en ejecución (la variable de instsancia no existe)
 
     def send_bundle(self, target, time, *args): # // sclang warning: this primitive will fail to send if the bundle size is too large # // but it will not throw an error.  this needs to be fixed

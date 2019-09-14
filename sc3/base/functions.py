@@ -7,6 +7,22 @@ import math
 from . import builtins as bi
 
 
+def value(obj, *args, **kwargs):
+    '''
+    Utility function for optional value/function parameters like completion_msg.
+    If obj is function it gets evaluated with *args and **kwargs and the result
+    is returned, else obj is returned as is. Spare parameters are discarded.
+    '''
+    if inspect.isfunction(obj):
+        parameters = inspect.signature(obj).parameters
+        nargs = len(parameters)
+        kwords = parameters.keys()
+        kwargs = {k: kwargs[k] for k in kwargs.keys() & kwords}
+        return obj(*args[:nargs], **kwargs)
+    else:
+        return obj
+
+
 class AbstractFunction():
     def __call__(self, *args):
         raise NotImplementedError(

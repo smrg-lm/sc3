@@ -90,8 +90,8 @@ class SynthDesc():
     def new_from(cls, synthdef): # TODO: ver estos métodos constructores en general, posiblemente sea mejor llamar a __new__ con argumentos.
         return synthdef.as_synth_dec()
 
-    def send(self, server): #, completion_msg): # BUG: ver completion_msg que no se usa o recibe. Tal vez tenga que mirar a más bajo nivel, pero las funciones send_msg/bundle osc no tienen esa lógica.
-        self.sdef.send(server) #, completion_msg) # parece ser una instancia de SynthDef
+    def send(self, server, completion_msg):
+        self.sdef.send(server, completion_msg)
 
     #def print_on(self, stream: io.StringIO):
     def __str__(self):

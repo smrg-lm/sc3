@@ -67,31 +67,22 @@ class SynthDef(metaclass=MetaSynthDef):
         self.desc = None
 
         # self._controls = None  # init_build, is set by ugens using _gl.current_synthdef
-        self._control_names = [] # en sclang se inicializan desde nil en addControlNames, en Python tienen que estar acá porque se pueden llamar desde wrap
-        self._all_control_names = [] # en sclang se inicializan desde nil en addControlNames
-        self._control_index = 0 # lo inicializa cuando declara la propiedad y lo reinicializa al mismo valor en initBuild
-        self._children = [] # Array.new(64) # esta probablemente sea privada pero se usa para ping pong
+        self._control_names = []
+        self._all_control_names = []
+        self._control_index = 0
+        self._children = []
 
         # self._constants = dict()  # init_build
         # self._constant_set = set()  # init_build
         # self._max_local_bufs = None  # init_build, used by LocalBus*new1 check for nil.
 
         # topo sort
-        self._available = []  # inited by ugens through .makeAvailable()
-        self._width_first_ugens = []  # se puebla desde nil con WidthFirstUGen.addToSynth (solo para IFFT, RandSeed y RandID)
+        self._available = []
+        self._width_first_ugens = []
         self._rewrite_in_progress = False # = la inicializa a True en optimizeGraph L472 y luego la vuelve a nil, pero es mejor que sea false por los 'if'
 
         self._build(graph_func, rates or [], prepend_args or [])
 
-    # BUG: este es un método especial en varios tipos de clases tengo
-    # que ver cuál es el alcance global dentro de la librería,
-    # tal vez sea para serialización, no se usa en SynthDef/UGen.
-    #def store_args(self):
-    #    return (self.name, self.func) # una tupla en vez de una lista (array en sclang)
-
-    # construye el grafo en varios pasos, init, build, finish y va
-    # inicializando las restantes variables de instancia según el paso.
-    # Tal vez debería ponerlas todas a None en __init__
     def _build(self, graph_func, rates, prepend_args):
         with _gl.def_build_lock:
             try:
@@ -99,7 +90,7 @@ class SynthDef(metaclass=MetaSynthDef):
                 self._init_build()
                 self._build_ugen_graph(graph_func, rates, prepend_args)
                 self._finish_build()
-                self.func = graph_func # inicializa func que junto con name son las primeras propiedades.
+                self.func = graph_func
                 _gl.current_synthdef = None
             except Exception as e:
                 _gl.current_synthdef = None
@@ -232,7 +223,7 @@ class SynthDef(metaclass=MetaSynthDef):
         self._all_control_names.append(cn)
 
     # L178
-    def _build_controls(self): # llama solo desde _build_ugen_graph, retorna una lista
+    def _build_controls(self):
         nn_cns = [x for x in self._control_names if x.rate == 'noncontrol']
         ir_cns = [x for x in self._control_names if x.rate == 'scalar']
         tr_cns = [x for x in self._control_names if x.rate == 'trigger']
@@ -256,14 +247,15 @@ class SynthDef(metaclass=MetaSynthDef):
                 for cn in ita_cns:
                     values.append(cn.default_value)
                 index = self._control_index
-                ctrl_ugens = getattr(ctrl_class, method)(utl.flat(values)) # XControl.xr(values.flat)
-                ctrl_ugens = utl.as_list(ctrl_ugens) # .asArray
+                ctrl_ugens = getattr(ctrl_class, method)(utl.flat(values))
+                ctrl_ugens = utl.as_list(ctrl_ugens)
                 ctrl_ugens = utl.reshape_like(ctrl_ugens, values) # .reshapeLike(values);
                 for i, cn in enumerate(ita_cns):
                     cn.index = index
                     index += len(utl.as_list(cn.default_value))
                     arguments[cn.arg_num] = ctrl_ugens[i]
                     self._set_control_names(ctrl_ugens[i], cn)
+
         build_ita_controls(ir_cns, scio.Control, 'ir')
         build_ita_controls(tr_cns, scio.TrigControl, 'kr')
         build_ita_controls(ar_cns, scio.AudioControl, 'ar')
@@ -308,22 +300,20 @@ class SynthDef(metaclass=MetaSynthDef):
 
     # L273
     def _finish_build(self):
-        # estos métodos delegan en el homónimo de UGen (el ping pong)
-        self._add_copies_if_needed() # ping, solo se usa para PV_Chain ugens, es un caso muy particular.
-        self._optimize_graph() # llama a _init_topo_sort, _topological_sort hace lo mismo acá abajo, hace todo dos veces, parece. Y llama a self._index_ugens()
-        self._collect_constants() # este método está en L489 pegado a optimizeGraph dentro de la lógica de topo sort, cambiado a orden de lectura
-        self._check_inputs() # OC: Will die on error.
-
-        # OC: re-sort graph. reindex.
-        self._topological_sort() # llama a _init_topo_sort()
+        self._add_copies_if_needed()  # ping, only for PV_Chain ugens.
+        self._optimize_graph()
+        self._collect_constants()
+        self._check_inputs()  # // Will die on error.
+        # // re-sort graph. reindex.
+        self._topological_sort()
         self._index_ugens()
-        # UGen.buildSynthDef = nil; esto lo pasé a SynthDef, está en try/except de _build
+        # UGen.buildSynthDef = nil; moved to SynthDef in _build try/except
 
     def _add_copies_if_needed(self):
-        # OC: could also have PV_UGens store themselves in a separate collection
-        for child in self._width_first_ugens: # _width_first_ugens aún no lo inicializó porque lo hace en WithFirstUGen.addToSynth (solo para IFFT) en este caso, es una lista que agrego en __init__.
-            if isinstance(child, xxx.PV_ChainUGen):
-                child._add_copies_if_needed() # pong
+        # // Could also have PV_UGens store themselves in a separate collection.
+        for child in self._width_first_ugens:
+            if isinstance(child, xxx.PV_ChainUGen):  # *** BUG: missing yet.
+                child._add_copies_if_needed()  # pong
 
     # L468
     # OC: Multi channel expansion causes a non optimal breadth-wise
@@ -433,10 +423,7 @@ class SynthDef(metaclass=MetaSynthDef):
     def _add_constant(self, value):
         if value not in self._constant_set:
             self._constant_set.add(value)
-            self._constants[value] = len(self._constants) # value lo setea UGen.collectConstants, el único método que llama a este y agrega las input de las ugens que son números (value es float)
-                                                        # value (float) es la llave, el valor de la llave es el índice de la constante almacenada en la synthdef en el momento de la inserción.
-                                                        # collect_constants es un método ping/pong (synthdef/ugen), se llama desde SynthDef._finish_build, antes de _check_inputs y re-sort
-                                                        # es simplemente un conjunto de constantes que almacena como datos reusables de las synthdef cuyo valor se accede por el índice aquí generado con len.
+            self._constants[value] = len(self._constants)
 
     # L535
     def dump_ugens(self):
@@ -706,6 +693,8 @@ class SynthDef(metaclass=MetaSynthDef):
     # L683
     def play(self, target, args, add_action='addToHead'):
         raise Exception('SynthDef.play no está implementada') # BUG: esta función de deprecated y des-deprecated
+
+    # def store_args(self):
 
     # canFreeSynth.sc Is an added interface used at least by JITlib and wslib.
     # It adds too much to core, better to find another non instrusive way.

@@ -335,14 +335,14 @@ class SynthDef(metaclass=MetaSynthDef):
     def _optimize_graph(self):  # ping
         self._init_topo_sort()
 
-        self._rewrite_in_progress = True  # Comprueba en SynthDef:_add_ugen que se llama desde las ugen, la variable es privada de SynthDef. No me cierra en que caso se produce porque si ugen._optimize_graph quiere agregar una ugen no fallaría?
+        self._rewrite_in_progress = True
         for ugen in self._children[:]:  # ***** Hace _children.copy.do porque modifica los valores de la lista sobre la que itera. VER RECURSIVIDAD: SI MODIFICA UN VALOR ACCEDIDO POSTERIORMENTE None._optimize_graph FALLA??
-            ugen._optimize_graph()  # pong, las ugens optimizadas se deben convertir en None dentro de la lista self._children, pasa en UGen.performDeadCodeElimination y en las opugens.
+            ugen._optimize_graph()  # pong
         self._rewrite_in_progress = False
 
-        # OC: Fixup removed ugens.
+        # // Fixup removed ugens.
         old_size = len(self._children)
-        self._children = [x for x in self._children if x is not None] # _children.removeEvery(#[nil]);  *** por qué no es un reject?
+        self._children = [x for x in self._children if x is not None]
         if old_size != len(self._children):
             self._index_ugens()
 
@@ -355,8 +355,8 @@ class SynthDef(metaclass=MetaSynthDef):
             # // This populates the _descendants and _antecedents.
             ugen._init_topo_sort()  # pong
         for ugen in reversed(self._children):
-            ugen._descendants = list(ugen._descendants) # VER: lo convierte en lista (asArray en el original) para ordenarlo y lo deja como lista. ugen._init_topo_sort() es la función que puebla el conjunto.
-            ugen._descendants.sort(key=lambda x: x._synth_index) # VER: pero que pasa con _antecedents? tal vez no se usa para hacer recorridos?
+            ugen._descendants = list(ugen._descendants)
+            ugen._descendants.sort(key=lambda x: x._synth_index)
             # // All ugens with no antecedents are made available.
             ugen._make_available()
 
@@ -372,7 +372,7 @@ class SynthDef(metaclass=MetaSynthDef):
     # L409
     def _check_inputs(self): # ping
         first_err = None
-        for ugen in self._children: # *** Itera sobre self._children por enésima vez.
+        for ugen in self._children:
             err = ugen._check_inputs() # pong, en sclang devuelve nil o un string, creo que esos serían todos los casos según la lógica de este bloque.
             if err: # *** TODO EN SCLANG ES ASIGNA A err Y COMPRUEBA notNil, acá puede ser none, pero ver qué retornan de manera sistemática, ver return acá abajo.
                 # err = ugen.class.asString + err;
@@ -390,7 +390,7 @@ class SynthDef(metaclass=MetaSynthDef):
         out_stack = []
         while len(self._available) > 0:
             ugen = self._available.pop()
-            ugen._arrange(out_stack)  # puebla out_stack. ugen._arrange() se remueve de los antecedentes, se agrega a out_stack y devuelve out_stack. Acá no es necesaria la reasignación.
+            ugen._arrange(out_stack)
         self._children = out_stack
         self._cleanup_topo_sort()
 
@@ -398,15 +398,15 @@ class SynthDef(metaclass=MetaSynthDef):
         for ugen in self._children:
             ugen._antecedents = set()
             ugen._descendants = set()
-            ugen._width_first_antecedents = [] # *** ÍDEM, OJO: no es SynthDef:_width_first_ugens, los nombres son confusos.
+            ugen._width_first_antecedents = []
 
     # L428
-    # OC: UGens do these.
-    # Métodos para ping pong
-    def _add_ugen(self, ugen): # lo usan UGen y WithFirstUGen implementando el método de instancia addToSynth
+    # // UGens do these. (ping pong methods)
+
+    def _add_ugen(self, ugen):
         if not self._rewrite_in_progress:
             ugen._synth_index = len(self._children)
-            ugen._width_first_antecedents = self._width_first_ugens[:] # with1sth antec/ugens refieren a lo mismo en distintos momentos, la lista es parcial para la ugen agregada.
+            ugen._width_first_antecedents = self._width_first_ugens[:]
             self._children.append(ugen)
 
     def _remove_ugen(self, ugen):
@@ -422,32 +422,31 @@ class SynthDef(metaclass=MetaSynthDef):
         b._synth_index = a._synth_index
         self._children[a._synth_index] = b
 
-        for item in self._children: # tampoco usa el contador, debe ser una desprolijidad después de una refacción, uso la i para el loop interno
+        for item in self._children:  # counter not used in sclang
             if item is not None:
                 for i, input in enumerate(item.inputs):
                     if input is a:
-                        aux = list(item.inputs) # TODO: hasta ahora es el único lugar donde se modifica ugen.inputs
+                        aux = list(item.inputs)
                         aux[i] = b
                         item._inputs = tuple(aux)
 
     def _add_constant(self, value):
         if value not in self._constant_set:
-            self._constant_set.add(value) # es un set, como su nombre lo indica, veo que se usa por primera vez
+            self._constant_set.add(value)
             self._constants[value] = len(self._constants) # value lo setea UGen.collectConstants, el único método que llama a este y agrega las input de las ugens que son números (value es float)
                                                         # value (float) es la llave, el valor de la llave es el índice de la constante almacenada en la synthdef en el momento de la inserción.
                                                         # collect_constants es un método ping/pong (synthdef/ugen), se llama desde SynthDef._finish_build, antes de _check_inputs y re-sort
                                                         # es simplemente un conjunto de constantes que almacena como datos reusables de las synthdef cuyo valor se accede por el índice aquí generado con len.
 
     # L535
-    # Método utilitario de SynthDef, debe ser original para debuguing.
-    def dump_ugens(self): # no se usa, no está documentado, pero es ÚTIL! se puede hacer hasta acá y pasar a las ugens (pero hay que hacer addUGen, etc., acá)
-        #ugen_name = None # esta no la usa, es un descuido del programador
+    def dump_ugens(self):
+        # BUG: in sclang, some variables are not used.
         print(self.name)
-        for ugen in self._children: # tampoco terminó usando el índice
+        for ugen in self._children:
             inputs = None
             if ugen.inputs is not None:
                 inputs = [x._dump_name() if isinstance(x, ugn.UGen)
-                          else x for x in ugen.inputs] # ugen.inputs.collect {|in| if (in.respondsTo(\dumpName)) { in.dumpName }{ in }; }; # Las únicas clases que implementan dumpName son UGen, BasicOpUGen y OutputProxy, sería interfaz de UGen, sería if is UGen
+                          else x for x in ugen.inputs]
             print([ugen._dump_name(), ugen.rate, inputs])
 
     # L549
@@ -645,7 +644,7 @@ class SynthDef(metaclass=MetaSynthDef):
                         "structure to send back to the server")
         if server.is_local:
             _logger.warning(f"loading from disk instead for Server '{server}'")
-            bundle = ['/d_load', self.metadata['loadPath'], completion_msg]  # *** BUG: KeyError si no existe en sclang es nil, PERO NO DEBERÍA PODER SER NIL.
+            bundle = ['/d_load', self.metadata['loadPath'], completion_msg]
             server.send_bundle(None, bundle)
         else:
             raise Exception(f"Server '{server}' is remote, "

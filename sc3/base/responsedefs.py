@@ -52,6 +52,7 @@ class AbstractResponderFunc(ABC):
         def one_shot_func(*args):
             self.free()
             wrapped_func(*args)
+
         self.func = one_shot_func
 
     @property

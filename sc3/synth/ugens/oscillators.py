@@ -6,6 +6,10 @@ from .. import _graphparam as gpp
 from . import noise as nse
 
 
+# *** TODO: Break it all now that is possible:
+# https://github.com/supercollider/supercollider/issues/4382#issuecomment-482380391
+
+
 class Osc(ugn.PureUGen):
     @classmethod
     def ar(cls, bufnum, freq=440.0, phase=0.0, mul=1.0, add=0.0):

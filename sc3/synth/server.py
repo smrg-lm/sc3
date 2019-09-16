@@ -381,7 +381,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # var <volume, <recorder, <statusWatcher;
 
         self.pid = None # iniicaliza al bootear, solo tiene getter en la declaración
-        self._server_interface = None
+        self._server_interface = None  # shm
+        self._server_process = None  # _ServerProcess(self.options) en boot_server_app
         self._pid_release_condition = stm.Condition(lambda: self.pid is None)
         mdl.NotificationCenter.notify(type(self), 'server_added', self)
 
@@ -961,11 +962,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         waiting = True
         clk.AppClock.sched( # usa SystemClock pero no me parece que bootear el servidor sea time critical, y dice que es un hack
             timeout,
-            lambda: self.pid_release_condition.unhang() if waiting else None # BUG: la condición no está definida
+            lambda: self._pid_release_condition.unhang() if waiting else None
         )
         def task():
-            self.pid_release_condition.hang() # BUG: revisar
-            if self.pid_release_condition.test(): # BUG: revisar
+            self._pid_release_condition.hang() # BUG: revisar
+            if self._pid_release_condition.test(): # BUG: revisar
                 waiting = False
                 on_complete()
             else:
@@ -981,10 +982,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             on_complete()
         else:
             self.disconnect_shared_memory() # BUG: no está implementado
-            self.server_process = _ServerProcess(self.options)
-            self.server_process.run()
+            self._server_process = _ServerProcess(self.options)
+            self._server_process.run()
             # this.prOnServerProcessExit(exitCode) BUG: falta implementar en _ServerProcess
-            self.pid = self.server_process.proc.pid # BUG: con Popen la implementación de algunas cosas puede cambiar
+            self.pid = self._server_process.proc.pid # BUG: con Popen la implementación de algunas cosas puede cambiar
             _logger.info(f"booting server '{self.name}' on address "
                          f"{self.addr.hostname}:{self.addr.port}")
             if self.options.protocol == 'tcp':
@@ -1012,8 +1013,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 func()
             self.boot(on_failure=on_failure)
 
-    def application_running(self): # TODO: este método se relaciona con server_running que es propiedad, ver
-        return self.server_process.proc.poll() is None
+    def application_running(self):  # *** TODO: este método se relaciona con server_running que es propiedad, ver
+        return self._server_process.running()
 
     def status(self):
         self.addr.send_status_msg() # // backward compatibility
@@ -1064,7 +1065,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         else:
             _logger.info(f"'/quit' message sent to server '{self.name}'")
 
-        self.server_process.finish()
+        self._server_process.finish()
         self.pid = None
         self.send_quit = None
         self._max_num_clients = None
@@ -1246,9 +1247,12 @@ class _ServerProcess():
         self._redirect_outerr()
         _atexit.register(self._terminate_proc) # BUG: no compruebo que no se agreguen más si se reinicia el cliente.
 
+    def running(self):
+        return self.proc.poll() is None
+
     def _terminate_proc(self):
         try:
-            if self.proc.poll() is None:
+            if self.running():
                 self.proc.terminate()
                 self.proc.wait(timeout=self.timeout)
         except _subprocess.TimeoutExpired:
@@ -1264,7 +1268,7 @@ class _ServerProcess():
 
     def _redirect_outerr(self):
         def read(out, flag):
-            while not flag.is_set():
+            while not flag.is_set() and self.running():  # BUG: is still a different thread.
                 line = out.readline()
                 if line:
                     print(line, end='')

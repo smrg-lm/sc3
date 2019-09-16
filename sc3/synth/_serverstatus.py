@@ -148,6 +148,7 @@ class ServerStatusWatcher():
                 def defer_func():
                     self.update_running_state(True)
                     mdl.NotificationCenter.notify(self.server, 'counts')
+
                 clk.defer(defer_func)
 
             resp = rdf.OSCFunc(osc_func, '/status.reply', self.server.addr)
@@ -287,40 +288,41 @@ class ServerStatusWatcher():
             new_max_logins = msg[3]
             fail_osc_func.free()
             if new_client_id is not None:
-                # // notify on:
-                # // On registering scsynth sends back a free clientID and maxLogins
-                # // this method doesn't fork/wait so we're still in the clear.
-                # // Turn notified off (if it was on) to allow setting clientID
+                # // notify on: On registering scsynth sends back a free
+                # // clientID and maxLogins this method doesn't fork/wait so
+                # // we're still in the clear. Turn notified off (if it was on)
+                # // to allow setting clientID.
                 self.notified = False
                 self.server._handle_client_login_info_from_server(
                     new_client_id, new_max_logins)
-                # // XXX: this is a workaround because using `serverBooting` is not reliable
-                # // when server is rebooted quickly.
+                # // XXX: this is a workaround because using `serverBooting`
+                # // is not reliable when server is rebooted quickly.
                 if adding_status_watcher:
                     self._finalize_boot()
                 else:
                     self.notified = True
             else:
                 self.notified = False
+
         done_osc_func = rdf.OSCFunc(
             _done, '/done', self.server.addr,
-            arg_template=['/notify', None]
-        )
+            arg_template=['/notify', None])
         done_osc_func.one_shot()
 
         def _fail(msg, *args):
             done_osc_func.free()
             self.server._handle_notify_fail_string(msg[2], msg)
+
         fail_osc_func = rdf.OSCFunc(
             _fail, '/fail', self.server.addr,
-            arg_template=['/notify', None, None]
-        )
+            arg_template=['/notify', None, None])
         fail_osc_func.one_shot()
 
         self.server.send_msg('/notify', int(flag), self.server.client_id)
+
         if flag:
-            msg = "requested notification messages from server '{}'"
-            print(msg.format(self.server.name)) # BUG: es log
+            _logger.info("requested notification messages "
+                         f"from server '{self.server.name}'")
         else:
-            msg = "switched off notification messages from server '{}'"
-            print(msg.format(self.server.name)) # BUG: es log
+            _logger.info("switched off notification messages "
+                         f"from server '{self.server.name}'")

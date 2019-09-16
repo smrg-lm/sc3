@@ -19,6 +19,7 @@ log1 = math.log(0.1)
 rlog2 = 1. / math.log(2.)
 sqrt2 = math.sqrt(2.)
 rsqrt2 = 1. / sqrt2
+inf = math.inf
 
 
 # There is a thing, some operators are unary or binary with argument, some are

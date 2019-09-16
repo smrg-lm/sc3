@@ -1,6 +1,5 @@
 """Env.sc"""
 
-import math
 import copy
 import operator
 
@@ -162,7 +161,7 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
             self.curves = ult.wrap_extend(utl.as_list(self.curves),
                                           len(self.times))
             self.curves = [last_curve] + self.curves + ['lin']
-            self.times = [first_0_then_1 * last_time] + self.times + [math.inf]
+            self.times = [first_0_then_1 * last_time] + self.times + [bi.inf]
             self.release_node = len(self.levels) - 2
         else:
             self.levels = [0.0] + self.levels

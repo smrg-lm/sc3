@@ -94,6 +94,7 @@ def unbubble(obj): # only one level
     else:
         return obj
 
+# TODO: replace all inlist by lst for convention.
 
 def flat(inlist):
     def _(inlist, outlist):
@@ -156,12 +157,22 @@ def deep_collect(inlist, depth, func, index=0, rank=0):
         return func(inlist, index, rank)
 
 
-def wrap_extend(inlist, n):
-    '''Create a new list by extending inlist with its own elements cyclically.
-    n >= 0.'''
-    l = len(inlist)
-    if l == 0: return inlist[:]
-    return inlist * (n // l) + inlist[:n % l]
+def extend(lst, n, item):
+    '''
+    Create a new list by extending lst with item.
+    '''
+    l = len(lst)
+    if l == 0 or n <= 0: return []
+    return (lst + [item] * (n - l))[:n]
+
+
+def wrap_extend(lst, n):
+    '''
+    Create a new list by extending lst with its own elements cyclically.
+    '''
+    l = len(lst)
+    if l == 0 or n <= 0: return []
+    return lst * (n // l) + lst[:n % l]
 
 
 def list_unop(op, a, t=None):

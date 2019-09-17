@@ -382,7 +382,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         self.pid = None # iniicaliza al bootear, solo tiene getter en la declaración
         self._server_interface = None  # shm
-        self._server_process = None  # _ServerProcess(self.options) en boot_server_app
+        self._server_process = None  # _ServerProcess
         self._pid_release_condition = stm.Condition(lambda: self.pid is None)
         mdl.NotificationCenter.notify(type(self), 'server_added', self)
 
@@ -586,10 +586,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         elif 'not registered' in fail_string:
             # // unregister when already not registered:
             _logger.info(f"'{self.name}' - not registered")
-            self.status_watcher.notified = False
+            self.status_watcher.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_status_watcher y vuelve a crear los responders de booteo al llamar a _send_notify_request
         elif 'too many users' in fail_string:
             _logger.info(f"'{self.name}' - could not register, too many users")
-            self.status_watcher.notified = False
+            self.status_watcher.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_status_watcher y vuelve a crear los responders de booteo al llamar a _send_notify_request
         else:
             # // throw error if unknown failure
             raise Exception(f"Failed to register with server '{self.name}' "
@@ -831,15 +831,15 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         return self.status_watcher.actual_sample_rate
 
     @property
-    def has_booted(self):
+    def has_booted(self):  # TODO: rename to booted?
         return self.status_watcher.has_booted
 
     @property
-    def server_running(self):
+    def server_running(self):  # TODO: rename to running?
         return self.status_watcher.server_running
 
     @property
-    def server_booting(self):
+    def server_booting(self):  # TODO: rename to booting?
         return self.status_watcher.server_booting
 
     @property
@@ -897,7 +897,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         def on_complete():
             self.status_watcher.server_booting = False
             self.boot_init(recover)
-        self.status_watcher.do_when_booted(on_complete, on_failure) # BUG: en sclang, esta llamada pasa false si on_failure es nil y do_when_booted checkea por notNil (false es true)
+
+        self.status_watcher.do_when_booted(
+            on_complete, on_failure=on_failure or False)
 
         if self.remote_controlled:
             _logger.info(f"remote server '{self.name}' needs manual boot")
@@ -913,6 +915,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                         if start_alive else None\
                     ) # TODO: lambda siempre retorna un valor, no afecta pero no se puede usar como en sclang es rebuscado acá
                 )
+
             self._ping_app(ping_func, on_failure, 0.25)
 
     # // FIXME: recover should happen later, after we have a valid clientID!
@@ -962,8 +965,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         waiting = True
         clk.AppClock.sched( # usa SystemClock pero no me parece que bootear el servidor sea time critical, y dice que es un hack
             timeout,
-            lambda: self._pid_release_condition.unhang() if waiting else None
-        )
+            lambda: self._pid_release_condition.unhang() if waiting else None)
+
         def task():
             self._pid_release_condition.hang() # BUG: revisar
             if self._pid_release_condition.test(): # BUG: revisar
@@ -971,31 +974,34 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 on_complete()
             else:
                 on_failure()
+
         stm.Routine.run(task, clk.AppClock)
 
     def boot_server_app(self, on_complete):
-        print('*** boot_server_app: falta implementar todo lo relacionado con popen y options')
         if self.in_process:
             _logger.info('booting internal server')
-            self.boot_in_process() # BUG: no está implementado
-            self.pid = _libsc3.main.pid # BUG: no está implementado
+            self.boot_in_process()  # BUG: not implemented yet
+            self.pid = _libsc3.main.pid  # BUG: not implemented yet
             on_complete()
         else:
-            self.disconnect_shared_memory() # BUG: no está implementado
-            self._server_process = _ServerProcess(self.options)
+            self.disconnect_shared_memory()  # BUG: not implemented yet
+            self._server_process = _ServerProcess(
+                self.options, self._on_server_process_exit)
             self._server_process.run()
-            # this.prOnServerProcessExit(exitCode) BUG: falta implementar en _ServerProcess
-            self.pid = self._server_process.proc.pid # BUG: con Popen la implementación de algunas cosas puede cambiar
+            self.pid = self._server_process.proc.pid
             _logger.info(f"booting server '{self.name}' on address "
                          f"{self.addr.hostname}:{self.addr.port}")
             if self.options.protocol == 'tcp':
-                print('*** implementar conexión tcp')
-                # self.addr.try_connect_tcp(on_complete)
+                print('*** implement tcp connections')
+                # self.addr.try_connect_tcp(on_complete)  # BUG: not implemented yet
             else:
                 on_complete()
 
-    def _on_server_process_exit(self, exit_code): # BUG: este método sería distinto porque process es distinto acá, se usaba en boot_server_app
-        ...
+    def _on_server_process_exit(self, exit_code):
+        self.pid = None
+        self._pid_release_condition.signal()
+        _logger.info(f"Server '{self.name}' exited with exit code {exit_code}.")
+        self.status_watcher.quit(watch_shutdown=False)
 
     def reboot(self, func=None, on_failure=None): # // func is evaluated when server is off
         if not self.is_local:
@@ -1065,15 +1071,13 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         else:
             _logger.info(f"'/quit' message sent to server '{self.name}'")
 
-        self._server_process.finish()
-        self.pid = None
         self.send_quit = None
         self._max_num_clients = None
 
         # *** TODO:
         # if(scopeWindow.notNil) { scopeWindow.quit }  # No.
         # self.volume.free_synth
-        nod.RootNode(self).free_all() # BUG: no entiendo por qué crea una instancia
+        nod.RootNode(self).free_all()
         self.new_allocators()
 
     @classmethod
@@ -1228,43 +1232,56 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
 
 class _ServerProcess():
-    def __init__(self, options):
+    def __init__(self, options, on_exit=None):
         self.options = options
+        self.on_exit = on_exit or (lambda pid: None)
         self.proc = None
         self.timeout = 0.1
 
     def run(self):
-        # TEST HACK
         cmd = [Server.program]
         cmd.extend(self.options.as_options_string())
-        # END OF TEST HACK
+
         self.proc = _subprocess.Popen(
-            cmd, # self.options.cmd(), # BUG: ver cómo defino cmd, podría ser una función que lo genere a partir de server options, server y platform.
+            cmd,  # TODO: maybe a method popen_cmd regarding server, options and platform.
             stdout=_subprocess.PIPE,
             stderr=_subprocess.PIPE,
             bufsize=1,
             universal_newlines=True)
         self._redirect_outerr()
-        _atexit.register(self._terminate_proc) # BUG: no compruebo que no se agreguen más si se reinicia el cliente.
+
+        def popen_wait_thread():
+            self.proc.wait()
+            self._tflag.set()
+            # self._tout.join()
+            # self._terr.join()
+            _atexit.unregister(self._terminate_proc)
+            self.on_exit(self.proc.poll())
+
+        t = _threading.Thread(target=popen_wait_thread)
+        t.daemon = True
+        t.start()
+        _atexit.register(self._terminate_proc)
 
     def running(self):
         return self.proc.poll() is None
 
-    def _terminate_proc(self):
-        try:
-            if self.running():
-                self.proc.terminate()
-                self.proc.wait(timeout=self.timeout)
-        except _subprocess.TimeoutExpired:
-            self.proc.kill()
-            self.proc.communicate() # just to be polite
-
     def finish(self):
-        self._tflag.set()
-        self._tout.join()
-        self._terr.join()
-        self.proc.wait(timeout=self.timeout) # async must be
-        self._terminate_proc() # same
+        self._terminate_proc()
+
+    def _terminate_proc(self):
+        def terminate_proc_thread():
+            try:
+                if self.running():
+                    self.proc.terminate()
+                    self.proc.wait(timeout=self.timeout)  # TODO: ver, llama a wait de nuevo desde otro hilo, popen_thread están en wait.
+            except _subprocess.TimeoutExpired:
+                self.proc.kill()
+                self.proc.communicate() # just to be polite
+
+        t = _threading.Thread(target=terminate_proc_thread)
+        t.daemon = True
+        t.start()
 
     def _redirect_outerr(self):
         def read(out, flag):

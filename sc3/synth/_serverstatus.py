@@ -7,6 +7,7 @@ from ..seq import stream as stm
 from ..base import model as mdl
 from ..base import systemactions as sac
 from ..base import responsedefs as rdf
+from ..base import functions as fn
 
 
 _logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ class ServerStatusWatcher():
             if not self.server_running: # BUG: ídem? NOTE: otra cosa, esto debe ser así por el comentario original de arriba
                 post_err = True
                 if on_failure is not None:
-                    post_err = on_failure(self.server) is False
+                    post_err = fn.value(on_failure, self.server) is False
                 if post_err:
                     _logger.warning(f"Server '{self.server.name}' on failed to "
                                     "start. You may need to kill all servers")
@@ -100,6 +101,7 @@ class ServerStatusWatcher():
                 self.server.sync()
                 if on_complete is not None:
                     on_complete()
+
         stm.Routine.run(rtn_func, clk.AppClock)
 
     def watch_quit(self, on_complete=None, on_failure=None):
@@ -117,7 +119,9 @@ class ServerStatusWatcher():
                         really_quit_watcher.free()
                         if on_complete is not None:
                             on_complete()
-                really_quit_watcher = rdf.OSCFunc(osc_func, '/done', self.server.addr)
+
+                really_quit_watcher = rdf.OSCFunc(
+                    osc_func, '/done', self.server.addr)
 
                 def sched_func():
                     if not server_really_quit:
@@ -133,6 +137,7 @@ class ServerStatusWatcher():
                             self._status_watcher.disable()
                         if on_failure is not None:
                             on_failure(self.server)
+
                 clk.AppClock.sched(3.0, sched_func)
 
     def add_status_watcher(self):

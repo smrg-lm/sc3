@@ -405,7 +405,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @addr.setter
     def addr(self, value):
-        self._addr = value or nad.NetAddr("127.0.0.1", 57110) # TODO: podría hacer que se pueda pasar también una tupla como en liblo
+        self._addr = value or nad.NetAddr("127.0.0.1", 57110)
         self.in_process = self._addr.addr == 0
         self.is_local = self.in_process or self._addr.is_local()
         self.remote_controlled = not self.is_local
@@ -577,12 +577,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def _handle_notify_fail_string(self, fail_string, msg): # *** BUG: yo usé msg en vez de failstr arriba.
         # // post info on some known error cases
-        if 'already registered' in fail_string: # TODO: es un poco cruda la comparación con el mensaje... y tiene que coincidir, no sé dónde se genera.
+        if 'already registered' in fail_string:
             # // when already registered, msg[3] is the clientID by which
             # // the requesting client was registered previously
             _logger.info(f"'{self.name}' - already registered "
                          f"with client_id {msg[3]}")
-            self.status_watcher._handle_login_when_already_registered(msg[3])  # *** BUG: falta implmementar, cuidado con el nombre
+            self.status_watcher._handle_login_when_already_registered(msg[3])
         elif 'not registered' in fail_string:
             # // unregister when already not registered:
             _logger.info(f"'{self.name}' - not registered")
@@ -1297,5 +1297,5 @@ class _ServerProcess():
             return t
 
         self._tflag = _threading.Event()
-        self._tout = make_thread(self.proc.stdout, self._tflag) # 'SCOUT:'
-        self._terr = make_thread(self.proc.stdout, self._tflag) # 'SCERR:'
+        self._tout = make_thread(self.proc.stdout, self._tflag)
+        self._terr = make_thread(self.proc.stdout, self._tflag)

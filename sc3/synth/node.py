@@ -29,7 +29,7 @@ class Node(gpp.NodeParameter):
 
     @classmethod
     def basic_new(cls, server=None, node_id=None):
-        obj = cls.__new__(cls)
+        obj = cls.__new__(cls)  # basic_new doesn't send therefore can't call __init__
         super(gpp.NodeParameter, obj).__init__(obj)
         obj.server = server or srv.Server.default
         obj.node_id = node_id or obj.server.next_node_id()
@@ -161,10 +161,13 @@ class Node(gpp.NodeParameter):
 
     def query(self, action):
         raise Exception('implementar Node:query con OSCFunc') # BUG
+
     def register(self):
         raise Exception('implementar Node:register con NodeWatcher') # BUG
+
     def unregister(self):
         raise Exception('implementar Node:unregister con NodeWatcher') # BUG
+
     def on_free(self, func):
         raise Exception('implementar Node:on_free con NodeWatcher y NotificationCenter') # BUG
 
@@ -239,10 +242,6 @@ class AbstractGroup(Node):
     def __init__(self, target=None, add_action='addToHead'):
         super().__init__()
         target = gpp.node_param(target)._as_target()
-        # BUG: revisar, estoy reemplazando la llamada a basic_new, que estaba mal...
-        # BUG: basic_new lo único que hace se setear self -> server, node_id, group is_playing e is_running
-        #server = target.server
-        #group = cls.basic_new(server) # group es self, obj allá es self acá
         self.server = target.server
         self.node_id = self.server.next_node_id()
         add_action_id = type(self).add_actions[add_action]
@@ -250,8 +249,8 @@ class AbstractGroup(Node):
             self.group = target
         else:
             self.group = target.group
-        self.is_playing = False # BUG: me resulta raro, esto es así en basic_new, acá no sobreescribe, en rootnode setea a true
-        self.is_running = False # BUG: me resulta raro, esto es así en basic_new, acá no sobreescribe, en rootnode setea a true
+        self.is_playing = False
+        self.is_running = False
         self.server.send_msg(
             self.creation_cmd(), self.node_id,
             add_action_id, target.node_id
@@ -371,19 +370,22 @@ class ParGroup(AbstractGroup):
 class RootNode(Group):
     roots = dict()
 
-    def __init__(self, server=None):
-        super().__init__()
-        if server.name in type(self).roots:
-            type(self).roots[server.name]
+    def __new__(cls, server=None):
+        server = server or srv.Server.default
+        if server.name in cls.roots:
+            return cls.roots[server.name]
         else:
-            # BUG: revisar, solo estoy reemplazando la llamada a basic_new, e integrando rinit
-            #cls.basic_new(server, 0).rninit() # BUG: no entiendo por qué sclang llama con super, creo que es lo mismo, en Python es lo mismo
-            self.server = server or srv.Server.default
-            self.node_id = self.server.next_node_id()
-            self.group = self
-            self.is_playing = True # NOTE: a diferencia de los grupos comunes acá playling/running es true
-            self.is_running = True
-            type(self).roots[self.server.name] = self
+            obj = super(gpp.NodeParameter, cls).__new__(cls)
+            obj.server = server
+            obj.node_id = 0
+            obj.is_playing = True
+            obj.is_running = True
+            obj.group = obj
+            cls.roots[obj.server.name] = obj
+            return obj
+
+    def __init__(self, _=None):
+        super(gpp.NodeParameter, self).__init__(self)
 
     def run(self):
         _warnings.warn('run has no effect on RootNode')
@@ -404,9 +406,9 @@ class RootNode(Group):
         _warnings.warn('move_to_tail has no effect on RootNode')
 
     @classmethod
-    def free_all(cls):
+    def free_all_roots(cls):  # renamed because collision with instance method
         for rn in cls.roots.values():
-            super(cls, rn).free_all() # NOTE: esto es un tanto complicado, llama al método de instancia definido en la superclass
+            rn.free_all()
 
 
 class Synth(Node):
@@ -414,9 +416,6 @@ class Synth(Node):
     def __init__(self, def_name, args=None, target=None, add_action='addToHead'):
         super().__init__()
         target = gpp.node_param(target)._as_target()
-        # BUG: revisar, estoy reemplazando la llamada a basic_new (que acá reimplementa además)
-        # server = target.server
-        # synth = cls.basic_new(def_name, server) # synth es self
         self.server = target.server
         self.node_id = self.server.next_node_id()
         add_action_id = type(self).add_actions[add_action]
@@ -424,8 +423,8 @@ class Synth(Node):
             self.group = target
         else:
             self.group = target.group
-        self.is_playing = False # BUG: me resulta raro, esto es así en basic_new, acá no sobreescribe, en rootnode setea a true
-        self.is_running = False # BUG: me resulta raro, esto es así en basic_new, acá no sobreescribe, en rootnode setea a true
+        self.is_playing = False
+        self.is_running = False
         self.def_name = def_name
         self.server.send_msg(
             '/s_new', # 9

@@ -5,10 +5,13 @@ import warnings as _warnings
 from functools import singledispatch
 
 from ..base import utils as utl
+from ..base import responsedefs as rdf
+from ..seq import stream as stm
 from . import ugen as ugn
 from . import server as srv
 from . import synthdesc as sdc
 from . import _graphparam as gpp
+from . import nodewatcher as ndw
 
 
 class Node(gpp.NodeParameter):
@@ -159,28 +162,44 @@ class Node(gpp.NodeParameter):
     def trace(self):
         self.server.send_msg('/n_trace', self.node_id) # 10
 
-    def query(self, action):
-        raise Exception('implementar Node:query con OSCFunc') # BUG
+    def query(self, action=None):
+        if action is None:
+            def action(cmd, node_id, parent, prev, next, is_group, head, tail):
+                group = is_group == 1
+                node_type = 'Group' if group else 'Synth'
+                msg = (f'{node_type}: {node_id}'
+                       f'\n   parent: {parent}'
+                       f'\n   prev: {prev}'
+                       f'\n   next: {next}')
+                if group:
+                    msg += (f'\n   head: {head}'
+                            f'\n   tail: {tail}')
+                print(msg)
 
-    def register(self):
-        raise Exception('implementar Node:register con NodeWatcher') # BUG
+        rdf.OSCFunc(lambda *args: action(*args[0]),
+                    '/n_info', self.server.addr,
+                    None, self.node_id).one_shot()
+        self.server.send_msg('/n_query', self.node_id)
+
+    def register(self, assume_playing=False):
+        ndw.NodeWatcher.register(self, assume_playing)
 
     def unregister(self):
-        raise Exception('implementar Node:unregister con NodeWatcher') # BUG
+        ndw.NodeWatcher.unregister(self)
 
-    def on_free(self, func):
-        raise Exception('implementar Node:on_free con NodeWatcher y NotificationCenter') # BUG
+    def on_free(self, action):
+        def action_wrapper(): # (n, m):  # *** BUG: revisar después, es distinto porque sclang usa dependancy.
+            # if m == '/n_end':
+            action(self) # , m)
+            mdl.NotificationCenter.unregister(self, '/n_end', self)
+
+        self.register()
+        mdl.NotificationCenter.register(self, '/n_end', self, action_wrapper)
 
     def wait_for_free(self):
-        condition = _threading.Condition()
-
-        def unhang():
-            with condition:
-                condition.notify()
-        self.on_free(unhang)
-
-        with condition:
-            condition.wait()
+        condition = stm.Condition()
+        self.on_free(lambda: condition.unhang())
+        condition.hang()
 
     def move_before(self, node):
         self.group = node.group

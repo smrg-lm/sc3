@@ -1,17 +1,17 @@
 """Node.sc"""
 
-import threading as _threading
-import warnings as _warnings
-from functools import singledispatch
+import logging
 
 from ..base import utils as utl
 from ..base import responsedefs as rdf
 from ..seq import stream as stm
-from . import ugen as ugn
 from . import server as srv
 from . import synthdesc as sdc
 from . import _graphparam as gpp
 from . import nodewatcher as ndw
+
+
+_logger = logging.getLogger(__name__)
 
 
 class Node(gpp.NodeParameter):
@@ -407,22 +407,22 @@ class RootNode(Group):
         super(gpp.NodeParameter, self).__init__(self)
 
     def run(self):
-        _warnings.warn('run has no effect on RootNode')
+        _logger.warning('run has no effect on RootNode')
 
     def free(self):
-        _warnings.warn('free has no effect on RootNode')
+        _logger.warning('free has no effect on RootNode')
 
     def move_before(self):
-        _warnings.warn('moveBefore has no effect on RootNode')
+        _logger.warning('moveBefore has no effect on RootNode')
 
     def move_after(self):
-        _warnings.warn('move_after has no effect on RootNode')
+        _logger.warning('move_after has no effect on RootNode')
 
     def move_to_head(self):
-        _warnings.warn('move_to_head has no effect on RootNode')
+        _logger.warning('move_to_head has no effect on RootNode')
 
     def move_to_tail(self):
-        _warnings.warn('move_to_tail has no effect on RootNode')
+        _logger.warning('move_to_tail has no effect on RootNode')
 
     @classmethod
     def free_all_roots(cls):  # renamed because collision with instance method
@@ -592,7 +592,7 @@ class Synth(Node):
         synth_desc = sdc.SynthDescLib.at(self.def_name)
         if synth_desc is None:
             msg = 'message seti failed, because SynthDef {} was not added'
-            _warnings.warn(msg.format(self.def_name))
+            _logger.warning(msg.format(self.def_name))
             return
         for key, offset, value in utl.gen_cclumps(args, 3):
             if key in synth_desc.control_dict:

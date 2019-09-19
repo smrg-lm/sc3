@@ -1258,7 +1258,9 @@ class _ServerProcess():
             _atexit.unregister(self._terminate_proc)
             self.on_exit(self.proc.poll())
 
-        t = _threading.Thread(target=popen_wait_thread)
+        t = _threading.Thread(
+            target=popen_wait_thread,
+            name=f'{type(self).__name__}.popen_wait id: {id(self)}')
         t.daemon = True
         t.start()
         _atexit.register(self._terminate_proc)
@@ -1279,7 +1281,9 @@ class _ServerProcess():
                 self.proc.kill()
                 self.proc.communicate() # just to be polite
 
-        t = _threading.Thread(target=terminate_proc_thread)
+        t = _threading.Thread(
+            target=terminate_proc_thread,
+            name=f'{type(self).__name__}.terminate id: {id(self)}')
         t.daemon = True
         t.start()
 
@@ -1293,7 +1297,10 @@ class _ServerProcess():
 
         def make_thread(out, flag, out_name):
             logger = _logging.getLogger(f'SERVER.{out_name}')
-            t = _threading.Thread(target=read, args=(out, flag, logger))
+            t = _threading.Thread(
+                target=read,
+                name=f'{type(self).__name__}.{out_name} id: {id(self)}',
+                args=(out, flag, logger))
             t.daemon = True
             t.start()
             return t

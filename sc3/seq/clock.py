@@ -135,7 +135,10 @@ class MetaSystemClock(type):
         def init_func(cls):
             cls._task_queue = TaskQueue()
             cls._sched_cond = _threading.Condition(_libsc3.main._main_lock)
-            cls._thread = _threading.Thread(target=cls._run, daemon=True)
+            cls._thread = _threading.Thread(
+                target=cls._run,
+                name=cls.__name__,
+                daemon=True)
             cls._thread.start()
             cls._sched_init()
 
@@ -164,7 +167,9 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
         # same every 20 secs
         cls._resync_cond = _threading.Condition()
-        cls._resync_thread = _threading.Thread(target=cls._resync_thread_func)
+        cls._resync_thread = _threading.Thread(
+            target=cls._resync_thread_func,
+            name=f'{cls.__name__}.resync')
         cls._resync_thread.daemon = True
         cls._resync_thread.start()
 
@@ -463,7 +468,10 @@ class MetaAppClock(type):
             cls._sched_cond = _threading.Condition(_libsc3.main._main_lock)
             cls._tick_cond = _threading.Condition()
             cls._scheduler = Scheduler(cls, drift=True, recursive=False)
-            cls._thread = _threading.Thread(target=cls._run, daemon=True)
+            cls._thread = _threading.Thread(
+                target=cls._run,
+                name=cls.__name__,
+                daemon=True)
             cls._thread.start()
 
         utl.ClassLibrary.add(cls, init_func)
@@ -743,7 +751,10 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             self._clock_task = None
         self._sched_cond = _threading.Condition(_libsc3.main._main_lock)
 
-        self._thread = _threading.Thread(target=self._run, daemon=True)
+        self._thread = _threading.Thread(
+            target=self._run,
+            name=f'{type(self).__name__} id: {id(self)}',
+            daemon=True)
         self._thread.start()
 
     def _run(self):
@@ -837,7 +848,10 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
         # StopReq
         stop_thread = _threading.Thread(
-            target=stop_func, args=(self,), daemon=True)
+            target=stop_func,
+            args=(self,),
+            name=f'{type(self).__name__}.stop_thread id: {id(self)}',
+            daemon=True)
         stop_thread.start()
 
     def __del__(self):

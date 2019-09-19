@@ -1284,18 +1284,20 @@ class _ServerProcess():
         t.start()
 
     def _redirect_outerr(self):
-        def read(out, flag):
+        def read(out, flag, logger):
             while not flag.is_set() and self.running():  # BUG: is still a different thread.
                 line = out.readline()
                 if line:
-                    print(line, end='')
+                    # print(line, end='')
+                    logger.info(line.rstrip())
 
-        def make_thread(out, flag):
-            t = _threading.Thread(target=read, args=(out, flag))
+        def make_thread(out, flag, out_name):
+            logger = _logging.getLogger(f'SERVER.{out_name}')
+            t = _threading.Thread(target=read, args=(out, flag, logger))
             t.daemon = True
             t.start()
             return t
 
         self._tflag = _threading.Event()
-        self._tout = make_thread(self.proc.stdout, self._tflag)
-        self._terr = make_thread(self.proc.stdout, self._tflag)
+        self._tout = make_thread(self.proc.stdout, self._tflag, 'stdout')
+        self._terr = make_thread(self.proc.stderr, self._tflag, 'stderr')

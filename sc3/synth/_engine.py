@@ -2,9 +2,12 @@
 
 import math
 import random
-import warnings
+import logging
 
 from ..base import builtins as bi
+
+
+_logger = logging.getLogger(__name__)
 
 
 class NodeIDAllocator():
@@ -231,16 +234,16 @@ class ContiguousBlockAllocator():
         block = self._array[addr] or self._find_next(addr)
         if block is not None and block.used and addr + size > block.start:
             if warn:
-                msg = 'The block at ({}, {}) is already in use and cannot be reserved.'
-                warnings.warn(msg.format(addr, size))
+                _logger.warning(f'The block at ({addr}, {size}) is '
+                                'already in use and cannot be reserved.')
         elif block.start == addr:
             return self._reserve(addr, size, block)
 
         block = self._find_previous(addr)
         if block is not None and block.used and block.start + block.size > addr:
             if warn:
-                msg = 'The block at ({}, {}) is already in use and cannot be reserved'
-                warnings.warn(msg.format(addr, size))
+                _logger.warning(f'The block at ({addr}, {size}) is '
+                                'already in use and cannot be reserved')
         else:
             return self._reserve(addr, size, None, block)
 

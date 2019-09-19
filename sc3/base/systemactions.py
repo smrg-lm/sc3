@@ -1,7 +1,6 @@
 """SystemActions.sc"""
 
 from abc import ABC, abstractclassmethod
-import warnings
 
 from ..synth import server as srv
 from ..seq import clock as clk

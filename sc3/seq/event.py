@@ -2,7 +2,7 @@
 
 import types
 import math
-import warnings
+import logging
 import functools as ft
 import itertools as it
 import operator as op
@@ -18,6 +18,9 @@ from ..synth import _graphparam as gpp
 from ..synth import server as srv
 from ..synth import node as nod
 from ..seq import clock as clk
+
+
+_logger = logging.getLogger(__name__)
 
 
 # NOTE: para putAll -> Event({**a, **b, **c, ...}) en vez de updates... (>= Python 3.5)
@@ -865,8 +868,8 @@ def _make_parent_events():
             else:
                 instrument_desc = event.synth_lib.at(event.instrument)
         except KeyError: # ***** BUG: ver synthdesc.py L467 método match de SynthDescLib, es otro caso relacionado, no se si conviene agarrar el error o que SynthDescLib.at() devuelva None si no existe la llave.
-            msg = "Event: instrument '{}' not found in SynthDescLib"
-            warnings.warn(msg.format(event.instrument))
+            _logger.warning(f"Event: instrument '{event.instrument}' "
+                            "not found in SynthDescLib")
             return # BUG: en sclang retorno this, que es el intérprete, pero no tiene sentido porque se llama desde playerEvent['play'] y no hace nada con el valor de retorno, debería retornar nil?
         msg_func = instrument_desc.msg_func
         instrument_name = event.synthdef_name()

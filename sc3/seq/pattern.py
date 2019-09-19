@@ -1,7 +1,12 @@
 """Patterns.sc"""
 
+import logging
+
 from ..base import functions as fn
 from . import stream as stm
+
+
+_logger = logging.getLogger(__name__)
 
 
 class Pattern(fn.AbstractFunction):
@@ -208,10 +213,9 @@ class Pbind(Pattern):
                     if isinstance(stream_out, (list, tuple))\
                     and len(name) > len(stream_out)\
                     or not isinstance(stream_out, (list, tuple)):
-                        warnings.warn(
-                            "the pattern is not providing enough "
-                            f"values to assign to the key set: {name}"
-                        )
+                        _logger.warning(
+                            'the pattern is not providing enough '
+                            f'values to assign to the key set: {name}')
                         return in_event
                     for i, key in enumerate(name):
                         event[key] = stream_out[i]

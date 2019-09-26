@@ -239,5 +239,11 @@ class LOInterface(AbstractOSCInteface):
                                                    # BUG: ver si los bundles en sc pueden ser recursivos!!!
         if time is None: # BUG: qué pasaba con valores negativos y nrt?
             time = 0.0
+        # *** BUG: No está hecho porque falta definir la interfaz osc:
+        # *** BUG: la estampa temporal de bundle tiene que ser el tiempo lógico
+        # *** BUG: de current_tt + latency. esto aún no lo hice. según entiendo
+        # *** BUG: de esa manera el servidor debería ejecutar los mensajes con
+        # *** BUG: precisión, pero no parece ser el caso en sclang. ver si no es
+        # *** BUG: un bug allá.
         bundle = _lo.Bundle(_lo.time() + float(time), *messages) # BUG: estoy usando el tiempo de liblo en vez del de SystemClock, que está mal y tengo que revisar, pero luego ver qué tanta diferencia puede haber entre la implementaciones.
         self._osc_server_thread.send(target, bundle)

@@ -51,7 +51,14 @@ class Process(type):
         cls._platform._startup()
 
     def _init_rt(cls):
-        cls._rt_time_of_initialization = time.time()
+        # NOTE: In sclang these two are the same clock, it obtains
+        # time_since_epoch for gHostStartNanos =
+        # duration_cast<nanoseconds>(hrTimeOfInitialization.time_since_epoch()).count()
+        # I think is not important for these reference points to be sampled at
+        # the same time because main.elapsed_time() == 0 is in logic relation
+        # to main._rt_time_of_initialization. Comment to be removed later if true.
+        cls._rt_time_of_initialization = time.time()  # time_since_epoch
+        cls._rt_perf_counter_time_of_initialization = time.perf_counter()  # monotonic clock.
         cls._create_main_thread('rt')
         cls.osc_server = osci.LOInterface()
         cls.osc_server.start()
@@ -158,7 +165,7 @@ class Process(type):
     # *elapsedTime _ElapsedTime
     def _rt_elapsed_time(cls) -> float: # devuelve el tiempo del reloj de mayor precisión menos _time_of_initialization
         '''Physical time since library initialization.'''
-        return time.time() - cls._time_of_initialization
+        return time.perf_counter() - cls._rt_perf_counter_time_of_initialization
 
     def _nrt_elapsed_time(cls) -> float:
         '''Physical time is main_Thread.seconds in nrt.'''

@@ -158,6 +158,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
     @classmethod
     def _sched_init(cls):
+        # _time_of_initialization was moved to main because rt/nrt clock switch.
         cls._host_osc_offset = 0 # int64
         cls._sync_osc_offset_with_tod()
         cls._host_start_nanos = int(_libsc3.main._time_of_initialization / 1e-9) # to nanos
@@ -291,20 +292,29 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                 # // wait until an event is ready
                 now = 0
                 while not cls._task_queue.empty():
-                    now = _time.time()
+                    # NOTE: I think there is no need for this clock to be
+                    # monotonic and sclang may or may not be working this way,
+                    # is less complicated here to use just elapsed_time.
+                    # I leave previous code commented for now (this should be the same).
+                    # now = _time.time()
+                    now = _libsc3.main.elapsed_time()
                     sched_secs = cls._task_queue.peek()[0]
-                    sched_point = (_libsc3.main._time_of_initialization
-                                   + sched_secs)
-                    if now >= sched_point:
+                    # sched_point = (_libsc3.main._time_of_initialization
+                    #                + sched_secs)
+                    # if now >= sched_point:
+                    if now >= sched_secs:
                         break
-                    cls._sched_cond.wait(sched_point - now)
+                    # cls._sched_cond.wait(sched_point - now)
+                    cls._sched_cond.wait(sched_secs - now)
                     if not cls._run_sched:
                         return
 
                 # // perform all events that are ready
+                # while not cls._task_queue.empty()\
+                # and now >= (_libsc3.main._time_of_initialization
+                #             + cls._task_queue.peek()[0]):
                 while not cls._task_queue.empty()\
-                and now >= (_libsc3.main._time_of_initialization
-                            + cls._task_queue.peek()[0]):
+                and now >= cls._task_queue.peek()[0]:
                     item = cls._task_queue.pop()
                     sched_time = item[0]
                     task = item[1]
@@ -796,8 +806,13 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 if elapsed_beats >= qpeek[0]:
                     break
                 sched_secs = self.beats2secs(qpeek[0])
-                sched_point = _libsc3.main._time_of_initialization + sched_secs
-                self._sched_cond.wait(sched_point - _time.time())
+                # NOTE: I think there is no need for this clock to be
+                # monotonic and sclang may or may not be working this way,
+                # is less complicated here to use just elapsed_time.
+                # I leave previous code commented for now (this should be the same).
+                # sched_point = _libsc3.main._time_of_initialization + sched_secs
+                # self._sched_cond.wait(sched_point - _time.time())
+                self._sched_cond.wait(sched_secs - _libsc3.main.elapsed_time())
                 if not self._run_sched:
                     return
 

@@ -1,25 +1,25 @@
 
-from abc import ABC, abstractmethod
 import threading
 import atexit
-
-import liblo as _lo
 
 from . import main as _libsc3
 from . import utils as utl
 from . import netaddr as nad
 from . import responsedefs as rdf
+from . import _osclib as oli
 from ..seq import clock as clk
 from ..seq import stream as stm
 
 
-class AbstractOSCInteface(ABC):
+class OscInteface():
     def __init__(self, client_port=57120, protocol='udp', port_range=10):
         '''proto es 'udp' o 'tcp', algunos servidores pueden usar abmos.'''
         self._port = client_port
         self._protocol = protocol
         self._port_range = port_range
         self._recv_functions = set()
+        self._server = None
+        self._client = None  # *** BUG: TODO: para send.
         self._running = False
 
     @property
@@ -38,8 +38,32 @@ class AbstractOSCInteface(ABC):
     def recv_functions(self):
         return self._recv_functions
 
+    def recv(self, addr, time, *msg):
+        '''
+        This method is the handler of all incoming OSC messages or bundles
+        to be registered once for each OSC server interface in subclasses.
+
+        Args:
+            addr: A tuple (sender_ip:str, sender_port:int).
+            time: OSC timetag as 64bits unsigned integer.
+            *msg: OSC message as address followed by values.
+        '''
+        _libsc3.main.update_logical_time()
+        addr = nad.NetAddr(addr[0], addr[1])
+
+        if time is None:
+            time = _libsc3.main.elapsed_time()
+        else:
+            time = clk.SystemClock.osc_to_elapsed_time(time)
+
+        def sched_func():
+            for func in self.recv_functions:  # *** BUG: no optimal, responsedefs is sitll incomplete.
+                func(list(msg), time, addr, self.port)
+
+        clk.AppClock.sched(0, sched_func)  # *** BUG: SystemClock?
+
     def add_recv_func(self, func):
-        self._recv_functions.add(func)  # functions are/should be evaluated in AppClock.
+        self._recv_functions.add(func)
 
     def remove_recv_func(self, func):
         self._recv_functions.remove(func)
@@ -47,23 +71,69 @@ class AbstractOSCInteface(ABC):
     def running(self):
         return self._running
 
-    @abstractmethod
     def start(self):
-        pass
+        if self._running:
+            return
+        # if self.protocol == 'udp':  # *** BUG: ver TCP.
+        for i in range(self.port_range):
+            try:
+                self._port += i
+                self._server = oli.ThreadingOSCUDPServer(
+                    ('127.0.0.1', self._port), oli.UDPHandler)
+                break
+            except OSError as e:
+                if e.errno == 98 and i < self.port_range:  # Address already in use.
+                    pass
+                elif e.errno == 98 and i == self.port_range - 1:
+                    err = OSError(
+                        '[Errno 98] Port range already in use: '
+                        f'{self.port}-{self.port_range - 1}')
+                    err.errno = 98
+                    raise err
+                else:
+                    raise e
+        self._server_thread = threading.Thread(
+            target=self._server.serve_forever,
+            name=f'{type(self).__name__} port {self._port}')
+        self._server_thread.daemon = True
+        self._server_thread.start()
+        self._running = True
+        atexit.register(self.stop)
 
-    @abstractmethod
     def stop(self):
-        pass
+        if not self._running:
+            return
+        self._server.shutdown()
+        self._running = False
+        atexit.unregister(self.stop)
 
-    @abstractmethod
+    def build_msg(self, arg_list):  # ['/path', arg1, arg2, ..., argN]
+        ...
+
     def send_msg(self, target, *args):
-        '''args es la lista de valores para crear un mensaje'''
-        pass
+        '''
+        args are values to create one message.
+        target is a tuple (hostname, port).
+        sclang converts True to 1, False to 0, None and empsty lists to 0.
+        Non empty lists are converted to blobs containing osc messages or
+        bundles. Empty strings are sent unchanged.
+        '''
+        pass  # *** BUG: se necesita hacer la lógica de conversión de acá arriba.
 
-    @abstractmethod
+    def build_bundle(self, arg_list):  # [time, ['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
+        ...
+
     def send_bundle(self, target, time, *args):
-        '''args son listas de valores para crear varios mensajes'''
-        pass
+        '''
+        args are lists of values to creae a message or bundle each.
+        target is a tuple (hostname, port).
+        If time is None the OSC library must send 1 (immediate) as timetag.
+        If time is negative it will be substracted from elapsed time and be
+        an already late timetag (no check for sign).
+        '''
+        # *** BUG: la estampa temporal se setean en NetAddr como tiempo lógico de current_tt + latency.
+        # *** BUG: acá si time es None quiere decir IMMEDIATELY (1).
+        ...
 
     def sync(self, target, condition=None, bundle=None, latency=0): # BUG: dice array of bundles, los métodos bundle_size y send_bundle solo pueden enviar uno. No me cierra/me confunde en sclang porque usa send bundle agregándole latencia.
         condition = condition or stm.Condition()
@@ -74,7 +144,7 @@ class AbstractOSCInteface(ABC):
         else:
             # BUG: esto no está bien testeado, y acarreo el problema del tamaño exacto de los mensajes.
             sync_size = self.msg_size(['/sync', utl.UniqueID.next()])
-            max_size = 65500 - sync_size # BUG: 65500 es un límite práctico que puede estar mal si las cuentas de abajo están mal.
+            max_size = 65500 - sync_size # *** BUG: is max dgram size? TODO: CHECK.
             if self.bundle_size(bundle) > max_size:
                 clumped_bundles = self.clump_bundle(bundle, max_size)
                 for item in clumped_bundles:
@@ -124,126 +194,10 @@ class AbstractOSCInteface(ABC):
         if len(ret[0]) == 0: ret.pop(0)
         return ret
 
-    def msg_size(self, arg_list): # arg_list siempre es ['/path', arg1, arg2, ..., argN]
-        size = 0 # bytes
-        typetags = -1 # path no cuenta
-        aux = 0 # solo inicializo porque se usa dentro del loop
-        for item in arg_list:
-            t = type(item)
-            if t is str:
-                aux = len(item)
-                mod4 = aux & 3 # aux % 4
-                size += aux
-                if mod4:
-                    size += 4 - mod4 # alineamiento
-                else:
-                    size += 4 # null y alineamiento
-            elif t is bytes:
-                aux = 4 # size count
-                aux += len(item)
-                mod4 = aux & 3 # aux % 4
-                size += aux
-                if mod4:
-                    size += 4 - mod4 # alineamiento
-            elif t is int or t is float or t is tuple:
-                size += 4 # BUG: 8 si se usan doubles
-            else:
-                raise TypeError('invalid type ({}) for OSC message'.format(t)) # BUG: pueden haber tipos de datos que son válidos porque liblo traduce después?
-            typetags += 1
-        size += 1 # 1 byte para la ',' del type tag
-        size += typetags # type tag por cada argumento osc
-        mod4 = (1 + typetags) & 3 # (1 + typetags) % 4
-        if mod4:
-            size += 4 - mod4 # alienamiento
-        return size # bytes # + 12 # BUG: falta algo, acá se pueden sumar 12 por: 8 bytes udp (BUG: depende de proto) header, 20 bits (redondeado a 4 bytes con alineamiento aunque no se si corresponde) ip header, igual me faltan alrededor de 20 bytes entre msg y bundle, salvo que sea algo dinámico y me falen más. En sclang hay una nota que justo son 20 bytes: // 65515 = 65535 - 16 - 4 (sync msg size)
+    def msg_size(self, arg_list): # ['/path', arg1, arg2, ..., argN]
+        msg = build_msg(arg_list)  # *** BUG: el problema es no estar construyendo el mensaje dos veces igual.
+        return msg.size  # *** BUG: este método está demás, hay que hacer todo en quién llama y guardar el msg.
 
-    def bundle_size(self, args): # args siempre es [['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
-        size = 0
-        for item in args:
-            size += self.msg_size(item)
-        return size + 40 # bytes # BUG: 8 bytes para '#bundle', 8 para time tag, 4 para el tamaño del atado, pero la cuenta en msg está mal, falta(n) algo(s). Y creo que los mensajes pueden tener distinto formato, no me quedó claro.
-
-
-class LOInterface(AbstractOSCInteface):
-    def start(self):
-        if self._running:
-            return
-
-        def recv(*msg):
-            _libsc3.main.update_logical_time()
-
-            time = _libsc3.main.elapsed_time()
-            addr = nad.NetAddr(msg[3].hostname, msg[3].port)
-            arr = [msg[0]]
-            arr.extend(msg[1])
-
-            def sched_func():
-                for func in self.recv_functions:
-                     func(arr, time, addr, self.port)
-
-            clk.AppClock.sched(0, sched_func)  # NOTE: Lo envía al thread de AppClock que es seguro.
-
-        def start_handler(*msg):
-            pass
-
-        def end_handler(*msg):
-            pass
-
-        def init():
-            data_object = dict()  # not used, is msg[4]
-
-            if self.protocol == 'udp':
-                protocol = _lo.UDP
-            elif self.protocol == 'tcp':
-                protocol = _lo.TCP
-            else:
-                raise ValueError("protocol has to be 'udp' or 'tcp'")
-
-            try:
-                self._osc_server_thread = _lo.ServerThread(self.port, protocol)
-                self._osc_server_thread.start()
-            except _lo.ServerError as e:
-                if e.num == 9904:  # liblo: cannot find free port.
-                    if self.port < self.port + self.port_range:
-                        self._port += 1
-                        init()
-                else:
-                    raise e
-            self._osc_server_thread.add_method(None, None, recv, data_object)
-            self._osc_server_thread.add_bundle_handlers(start_handler, end_handler, data_object)
-
-        init()
-        self._running = True
-        atexit.register(self.stop)
-
-    def stop(self):
-        if not self._running:
-            return
-        self._osc_server_thread.stop()
-        self._osc_server_thread.free()
-        self._running = False
-        atexit.unregister(self.stop)
-
-    # *** BUG: sclang convierte nil y [] en cero, "" lo deja como "", True en 1
-    # *** BUG: False en 0, los array dentro de los mensajes los convierte en
-    # *** BUG: blobs que contienen un mensaje o atado osc. También falta la
-    # *** BUG: conversión tuplas como arrays.
-    def send_msg(self, target, *args):
-        """args es la lista de valores para crear un mensaje"""
-        msg = _lo.Message(*args)
-        self._osc_server_thread.send(target, msg) # BUG: AttributeError: 'Client' object has no attribute '_osc_server_thread'. Este error no es informativo de que el cliente no está en ejecución (la variable de instsancia no existe)
-
-    def send_bundle(self, target, time, *args): # // sclang warning: this primitive will fail to send if the bundle size is too large # // but it will not throw an error.  this needs to be fixed
-        """args son listas de valores para crear varios mensajes"""
-        messages = [_lo.Message(*x) for x in args] # BUG: falta la conversión de tipos con tupla
-                                                   # BUG: ver si los bundles en sc pueden ser recursivos!!!
-        if time is None: # BUG: qué pasaba con valores negativos y nrt?
-            time = 0.0
-        # *** BUG: No está hecho porque falta definir la interfaz osc:
-        # *** BUG: la estampa temporal de bundle tiene que ser el tiempo lógico
-        # *** BUG: de current_tt + latency. esto aún no lo hice. según entiendo
-        # *** BUG: de esa manera el servidor debería ejecutar los mensajes con
-        # *** BUG: precisión, pero no parece ser el caso en sclang. ver si no es
-        # *** BUG: un bug allá.
-        bundle = _lo.Bundle(_lo.time() + float(time), *messages) # BUG: estoy usando el tiempo de liblo en vez del de SystemClock, que está mal y tengo que revisar, pero luego ver qué tanta diferencia puede haber entre la implementaciones.
-        self._osc_server_thread.send(target, bundle)
+    def bundle_size(self, arg_list): # [time, ['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
+        bndl = build_bundle(arg_list)  # *** BUG: el problema es no estar construyendo el atado dos veces igual.
+        return bndl.size  # *** BUG: este método está demás, hay que hacer todo en quién llama y guardar el bndl.

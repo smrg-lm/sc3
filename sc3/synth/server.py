@@ -623,7 +623,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 condition.signal()
 
         resp = rdf.OSCFunc(resp_func, '/done', self.addr) # BUG: aún faltan implementar la clase OSCFuncAddrMessageMatcher que llama internamente el dispatcher
-        self.send_bundle(0, args)
+        self.send_bundle(None, args)
         yield from condition.wait()
 
     def sync(self, condition=None, bundles=None, latency=0): # BUG: dice bundles, tengo que ver el nivel de anidamiento

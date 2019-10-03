@@ -46,13 +46,7 @@ sclang, with the same logic regarding multichannel expansion, arguments
 conversion to Control ugens, etc., it should be the same result. For example:
 
 ```python
-# not simplified required imports...
-from sc3.server import Server
-from sc3.synthdef import synthdef
-from sc3.ugens.inout import Out
-from sc3.ugens.osc import SinOsc
-from sc3.ugens.envgen import Linen
-from sc3.node import Synth
+from sc3.all import *
 
 # interactive shell run...
 
@@ -84,9 +78,6 @@ no decided, things may change or move.
 
 Install (in develop mode)
 -------------------------
-
-*pyliblo* has to be installed already (from apt), it may fail to compile if
-downloaded from pip, only tested on Ubuntu 18.04.
 
 ```
 python3 setup.py develop --user

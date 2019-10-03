@@ -64,9 +64,9 @@ class Node(gpp.NodeParameter):
     def map(self, *args):
         bundle = self.map_msg(*args)
         if isinstance(bundle[0], str):
-            self.server.send_bundle(0, bundle) # BUG: timetag es opcional en liblo, tengo que implementar None para que lo evite
+            self.server.send_bundle(None, bundle)
         else:
-            self.server.send_bundle(0, *bundle) # BUG: ídem
+            self.server.send_bundle(None, *bundle)
 
     def map_msg(self, *args):
         kr_values = []

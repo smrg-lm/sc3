@@ -3,6 +3,7 @@
 import ipaddress as _ipaddress
 import socket as _socket
 
+from ..seq import clock as clk
 from . import main as _libsc3
 
 
@@ -52,7 +53,7 @@ class NetAddr():
 
     @classmethod
     def lang_port(cls):
-        return _libsc3.main.osc_server.port
+        return _libsc3.main._osc_interface.port
 
     @staticmethod
     def match_lang_ip(ipstring):
@@ -92,21 +93,24 @@ class NetAddr():
     #         naddr.disconnect() # BUG: esto es para TCP, además, debería ir en la clase Client, o algo más global/general que las direcciones de red.
 
     # def send_raw(self, raw_bytes): # send a raw message without timestamp to the addr.
-    #     _libsc3.main.osc_server.send_raw((self.hostname, self.port), raw_bytes)
+    #     _libsc3.main._osc_interface.send_raw((self.hostname, self.port), raw_bytes)
 
     def send_msg(self, *args):
-        _libsc3.main.osc_server.send_msg(self._target, *args)
+        _libsc3.main._osc_interface.send_msg(self._target, *args)
 
     def send_bundle(self, time, *args):
-        _libsc3.main.osc_server.send_bundle(self._target, time, *args)
+        if time is not None:
+            time += _libsc3.main.current_tt.seconds
+            time = clk.SystemClock.elapsed_time_to_osc(time)
+        _libsc3.main._osc_interface.send_bundle(self._target, time, *args)
 
     def send_status_msg(self):
-        _libsc3.main.osc_server.send_msg(self._target, '/status')
+        _libsc3.main._osc_interface.send_msg(self._target, '/status')
 
-    # def send_clumped_bundles(self, time, *args): # TODO: pasada a client, ver que hace liblo.
+    # def send_clumped_bundles(self, time, *args):
 
     def sync(self, condition=None, bundle=None, latency=0):
-        yield from _libsc3.main.osc_server.sync(self._target, condition, bundle, latency)
+        yield from _libsc3.main._osc_interface.sync(self._target, condition, bundle, latency)
 
     # def make_sync_responder(self, condition): # TODO: funciona en realción al método de arriba.
 

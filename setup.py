@@ -16,7 +16,6 @@ setuptools.setup(
     url="https://github.com/smrg-lm/sc3",
     packages=['sc3'],
     python_requires='>=3.6',
-    install_requires=['pyliblo'],
     classifiers=[
         'Programming Language :: Python :: 3.6',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',

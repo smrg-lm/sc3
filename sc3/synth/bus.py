@@ -81,7 +81,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
             raise Exception("cannot call 'set' on a Bus that has been freed")
         elif self.settable():
             values = [[self._index + i, val] for i, val in enumerate(values)]
-            self._server.send_bundle(0, ['/c_set'].extend(utl.flat(values)))
+            self._server.send_bundle(None, ['/c_set'].extend(utl.flat(values)))
         else:
             _logger.warning('cannot set an audio rate bus')
 
@@ -98,7 +98,8 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         if self._index is None:
             raise Exception("cannot call 'setn' on a Bus that has been freed")
         elif self.settable():
-            self._server.send_bundle(0, ['/c_setn', len(values)].extend(values))
+            self._server.send_bundle(
+                None, ['/c_setn', len(values)].extend(values))
         else:
             _logger.warning('cannot set an audio rate bus')
 
@@ -116,7 +117,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         elif self.settable():
             values = [[self._index + offset + i, val]\
                       for i, val in enumerate(values)]
-            self._server.send_bundle(0, ['/c_set'].extend(utl.flat(values)))
+            self._server.send_bundle(None, ['/c_set'].extend(utl.flat(values)))
         else:
             _logger.warning('cannot set an audio rate bus')
 
@@ -125,7 +126,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
             raise Exception('cannot call setn_at on a Bus that has been freed')
         # // could throw an error if values.size > numChannels
         elif self.settable():
-            self._server.send_bundle(0,
+            self._server.send_bundle(None,
                 ['/c_setn', self._index + offset, len(values)].extend(values))
         else:
             _logger.warning('cannot set an audio rate bus')
@@ -137,7 +138,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         elif self.settable():
             pairs = [[self._index + pair[0], pair[1]]\
                      for pair in utl.gen_cclumps(pairs, 2)]
-            self._server.send_bundle(0, ['/c_set'].extend(utl.flat(paris)))
+            self._server.send_bundle(None, ['/c_set'].extend(utl.flat(paris)))
         else:
             _logger.warning('cannot set an audio rate bus')
 

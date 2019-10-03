@@ -60,8 +60,8 @@ class Process(type):
         cls._rt_time_of_initialization = time.time()  # time_since_epoch
         cls._rt_perf_counter_time_of_initialization = time.perf_counter()  # monotonic clock.
         cls._create_main_thread('rt')
-        cls.osc_server = osci.LOInterface()
-        cls.osc_server.start()
+        cls._osc_interface = osci.OscInteface()
+        cls._osc_interface.start()
 
     def _init_nrt(cls):
         cls._nrt_time_of_initialization = 0.0
@@ -149,18 +149,18 @@ class Process(type):
     # acá se puede hacer un servidor por puerto con distinto protocolo,
     # que es algo que sclang maneja desde NetAddr. Tengo que ver.
     # def open_osc_port(cls, port, protocol=osr.DEFAULT_CLIENT_PROTOCOL):
-    #     cls._osc_servers.append(osr.OSCServer(port, protocol))
+    #     ...
     # def open_ports
 
     def add_osc_recv_func(cls, func):
-        cls.osc_server.add_recv_func(func)
+        cls._osc_interface.add_recv_func(func)
 
     def remove_osc_recv_func(cls, func):
-        cls.osc_server.remove_recv_func(func)
+        cls._osc_interface.remove_recv_func(func)
 
     # por lo que hace es redundante
     # def replace_osc_recv_func(cls, func):
-    #     cls.osc_server.replace_recv_func(func)
+    #     cls._osc_interface.replace_recv_func(func)
 
     # *elapsedTime _ElapsedTime
     def _rt_elapsed_time(cls) -> float: # devuelve el tiempo del reloj de mayor precisión menos _time_of_initialization

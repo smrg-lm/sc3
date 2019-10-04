@@ -932,7 +932,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.connect_shared_memory() # BUG: no está implementado
 
     def _ping_app(self, func, on_failure=None, timeout=3): # subida de 'internal server commands'
-        id = func.__hash__() # *** BUG: el número excede el tipo int de OSC.
+        id = hash(func) & 0x0FFFFFFF  # 31 bits positive to fit in osc int.
 
         def resp_func(msg, *args):
             if msg[1] == id:

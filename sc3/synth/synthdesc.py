@@ -364,7 +364,7 @@ class SynthDesc():
         # NOTE: *** VER POR QUÉ ESTO NECESITA SER UNA FUNCIÓN QUE DEVUELVE UNA
         # NOTE: *** LISTA Y NO PUEDE SER UNA LISTA, A COMPLETAR EN ToDO CASO.
         names_count = 0 # // count the args actually added to the func # NOTE: no reutilizamos ninguna variable que genere confusión.
-        suffix = hex(self.__hash__() & 0xFFFFFFFF) # 32 bits positive
+        suffix = hex(hash(self) & 0xFFFFFFFF) # 32 bits positive
         string = 'def sdesc_' + suffix + '(event):\n' # NOTE: es una función que se asigna a una llave de Event, que se evalúa/llama con valueEnvir en 'note', acá se necesita self al evaluarse como método al llamar a la llave con __getattr__ para tener los parámetros del evento.
         string += '    ret = []\n'
 

@@ -56,7 +56,7 @@ s.boot()
 # wait or error...
 
 @synthdef.add()
-def sinte01(freq=440, amp=0.1, gate=1):
+def sine(freq=440, amp=0.1, gate=1):
     sig = SinOsc.ar(freq) * amp
     sig *= EnvGen.kr(Env.adsr(), gate, done_action=2)
     Out.ar(0, sig.dup())

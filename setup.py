@@ -7,7 +7,7 @@ with open('README.md', 'r') as f:
 
 setuptools.setup(
     name='sc3',
-    version='0.0.2',
+    version='0.0.3',
     author='Lucas Samaruga',
     author_email='samarugalucas@gmail.com',
     description='SuperCollider 3 class library Python 3 port',

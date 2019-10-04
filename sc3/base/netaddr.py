@@ -151,6 +151,7 @@ class NetAddr():
 
     # NOTE: Importante, lo usa para enviar paquetes muy grandes como stream,
     # liblo tira error y no envía.
+    # *** BUG: revisar método en contexto, timetag y ver si se pueden procesar incrementalmente los sub msg/bndl.
     def clump_bundle(self, msg_list, new_bundle_size): # msg_list siempre es un solo bundle [['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
         ret = [[]]
         clump_count = 0
@@ -158,7 +159,7 @@ class NetAddr():
         aux = 0
         for item in msg_list:
             aux = _libsc3.main._osc_interface.msg_size(item)
-            if acc_size + aux > new_bundle_size: # BUG: 65500 es un límite práctico que puede estar mal si las cuentas de abajo están mal.
+            if acc_size + aux > new_bundle_size: # BUG: 65500 es aproximado al límite del datagrama menos la envoltura ipv4, ver sync.
                 acc_size = aux
                 clump_count += 1
                 ret.append([])

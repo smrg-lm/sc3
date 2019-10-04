@@ -56,10 +56,10 @@ s.boot()
 # wait or error...
 
 @synthdef.add()
-def sine(freq=440, amp=0.1, gate=1):
-    osc = SinOsc.ar([freq, freq + 1], mul=amp)
-    env = Linen.kr(gate, done_action=2)
-    Out.ar(0, osc * env)
+def sinte01(freq=440, amp=0.1, gate=1):
+    sig = SinOsc.ar(freq) * amp
+    sig *= EnvGen.kr(Env.adsr(), gate, done_action=2)
+    Out.ar(0, sig.dup())
 
 sine.dump_ugens()
 
@@ -86,6 +86,6 @@ python3 setup.py develop --user
 License
 -------
 
-sc3 holds the same license as its origin: SuperCollider is free software
+The sc3 library holds the same license as SuperCollider: sc3 is free software
 available under Version 3 of the GNU General Public License. See
 [COPYING](COPYING) for details.

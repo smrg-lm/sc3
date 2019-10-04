@@ -726,7 +726,7 @@ class OscMessageBuilder(object):
         """
         if isinstance(arg_value, str):
             arg_type = self.ARG_TYPE_STRING
-        elif isinstance(arg_value, bytes):
+        elif isinstance(arg_value, (bytes, bytearray, memoryview)):
             arg_type = self.ARG_TYPE_BLOB
         elif arg_value is True:
             arg_type = self.ARG_TYPE_TRUE
@@ -738,12 +738,13 @@ class OscMessageBuilder(object):
             arg_type = self.ARG_TYPE_FLOAT
         elif isinstance(arg_value, tuple) and len(arg_value) == 4:
             arg_type = self.ARG_TYPE_MIDI
-        elif isinstance(arg_value, list):
+        elif isinstance(arg_value, list):  # NOTE: not a valid case from sc3.
             arg_type = [self._get_arg_type(v) for v in arg_value]
         elif arg_value is None:
             arg_type = self.ARG_TYPE_NIL
         else:
-            raise ValueError('Infered arg_value type is not supported')
+            raise ValueError(
+                f'Infered arg_value type is not supported: {type(arg_value)}')
         return arg_type
 
     def build(self):

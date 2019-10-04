@@ -4,7 +4,10 @@ import ipaddress as _ipaddress
 import socket as _socket
 
 from ..seq import clock as clk
+from ..seq import stream as stm
 from . import main as _libsc3
+from . import utils as utl
+from . import responsedefs as rdf
 
 
 class NetAddr():
@@ -109,10 +112,62 @@ class NetAddr():
 
     # def send_clumped_bundles(self, time, *args):
 
-    def sync(self, condition=None, bundle=None, latency=0):
-        yield from _libsc3.main._osc_interface.sync(self._target, condition, bundle, latency)
+    def sync(self, condition=None, bundle=None, latency=0.0):
+        condition = condition or stm.Condition()
+        if bundle is None:
+            id = self._make_sync_responder(condition)
+            self.send_bundle(latency, ['/sync', id])
+            yield from condition.wait()
+        else:
+            # BUG: esto no está bien testeado, y acarreo el problema del tamaño exacto de los mensajes.
+            sync_size = _libsc3.main._osc_interface.msg_size(['/sync', utl.UniqueID.next()])
+            max_size = 65500 - sync_size # *** BUG: is max dgram size? Wiki: The field size sets a theoretical limit of 65,535 bytes (8 byte header + 65,527 bytes of data) for a UDP datagram. However the actual limit for the data length, which is imposed by the underlying IPv4 protocol, is 65,507 bytes (65,535 − 8 byte UDP header − 20 byte IP header).
+            if _libsc3.main._osc_interface.bundle_size(bundle) > max_size:
+                clumped_bundles = self.clump_bundle(bundle, max_size)
+                for item in clumped_bundles:
+                    id = self._make_sync_responder(condition)
+                    item.append(['/sync', id])
+                    self.send_bundle(latency, *item)
+                    latency += 1e-9 # nanosecond, TODO: esto lo hace así no sé por qué, además la resolucion por error de punto flotante es casi de usecs.
+                    yield from condition.wait()
+            else:
+                id = self._make_sync_responder(condition)
+                bundle = bundle[:]
+                bundle.append(['/sync', id])
+                self.send_bundle(latency, *bundle)
+                yield from condition.wait()
 
-    # def make_sync_responder(self, condition): # TODO: funciona en realción al método de arriba.
+    def _make_sync_responder(self, condition):
+        id = utl.UniqueID.next()
+
+        def resp_func(msg, *args):
+            if msg[1] == id:
+                resp.free()
+                condition.test = True
+                condition.signal()
+
+        resp = rdf.OSCFunc(resp_func, '/synced', self)
+        return id
+
+    # NOTE: Importante, lo usa para enviar paquetes muy grandes como stream,
+    # liblo tira error y no envía.
+    def clump_bundle(self, msg_list, new_bundle_size): # msg_list siempre es un solo bundle [['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
+        ret = [[]]
+        clump_count = 0
+        acc_size = 0
+        aux = 0
+        for item in msg_list:
+            aux = _libsc3.main._osc_interface.msg_size(item)
+            if acc_size + aux > new_bundle_size: # BUG: 65500 es un límite práctico que puede estar mal si las cuentas de abajo están mal.
+                acc_size = aux
+                clump_count += 1
+                ret.append([])
+                ret[clump_count].append(item)
+            else:
+                acc_size += aux
+                ret[clump_count].append(item)
+        if len(ret[0]) == 0: ret.pop(0)
+        return ret
 
     # def is_connected(self): # tcp
     # def connect(self, disconnect_handler): # tcp

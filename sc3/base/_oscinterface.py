@@ -2,13 +2,10 @@
 import threading
 import atexit
 
-from . import main as _libsc3
-from . import utils as utl
-from . import netaddr as nad
-from . import responsedefs as rdf
-from . import _osclib as oli
 from ..seq import clock as clk
-from ..seq import stream as stm
+from . import main as _libsc3
+from . import netaddr as nad
+from . import _osclib as oli
 
 
 class OscInteface():
@@ -107,8 +104,27 @@ class OscInteface():
         self._running = False
         atexit.unregister(self.stop)
 
-    def build_msg(self, arg_list):  # ['/path', arg1, arg2, ..., argN]
-        ...
+    def _build_msg(self, arg_list):  # ['/path', arg1, arg2, ..., argN]
+        msg_builder = oli.OscMessageBuilder(arg_list.pop(0))
+        for arg in arg_list:
+            if arg is None:
+                msg_builder.add_arg(0)
+            elif isinstance(arg, bool):
+                msg_builder.add_arg(int(arg))
+            elif isinstance(arg, list):
+                if len(arg) == 0:
+                    msg_builder.add_arg(0)
+                elif isinstance(arg[0], str):
+                    msg_builder.add_arg(self._build_msg(arg).dgram)
+                elif isinstance(arg[0], (int, float, type(None))):
+                    msg_builder.add_arg(self._build_bundle(arg).dgram)
+                else:
+                    raise oli.OscMessageBuildError(
+                        'lists within messages must be a valid '
+                        f'OSC message or bundle: {arg}')
+            else:
+                msg_builder.add_arg(arg)  # Infiere correctamente el resto de los tipos.
+        return msg_builder.build()
 
     def send_msg(self, target, *args):
         '''
@@ -118,10 +134,22 @@ class OscInteface():
         Non empty lists are converted to blobs containing osc messages or
         bundles. Empty strings are sent unchanged.
         '''
-        pass  # *** BUG: se necesita hacer la lógica de conversión de acá arriba.
+        msg = self._build_msg(list(args))
+        # *** BUG: Check size?
+        self._server.socket.sendto(msg.dgram, target)
 
-    def build_bundle(self, arg_list):  # [time, ['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
-        ...
+    def _build_bundle(self, arg_list):  # [time, ['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
+        bndl_builder = oli.OscBundleBuilder(arg_list.pop(0) or oli.IMMEDIATELY)  # None or zero are IMMEDIATELY
+        for arg in arg_list:
+            if isinstance(arg[0], str):
+                bndl_builder.add_content(self._build_msg(arg))
+            elif isinstance(arg[0], (int, float, type(None))):
+                bndl_builder.add_content(self._build_bundle(arg))
+            else:
+                raise oli.OscMessageBuildError(
+                    'lists within messages must be a valid '
+                    f'OSC message or bundle: {arg}')
+        return bndl_builder.build()
 
     def send_bundle(self, target, time, *args):
         '''
@@ -131,73 +159,16 @@ class OscInteface():
         If time is negative it will be substracted from elapsed time and be
         an already late timetag (no check for sign).
         '''
-        # *** BUG: la estampa temporal se setean en NetAddr como tiempo lógico de current_tt + latency.
-        # *** BUG: acá si time es None quiere decir IMMEDIATELY (1).
-        ...
+        bndl = self._build_bundle([time, *args])
+        # *** BUG: Check size?
+        self._server.socket.sendto(bndl.dgram, target)
 
-    def sync(self, target, condition=None, bundle=None, latency=0): # BUG: dice array of bundles, los métodos bundle_size y send_bundle solo pueden enviar uno. No me cierra/me confunde en sclang porque usa send bundle agregándole latencia.
-        condition = condition or stm.Condition()
-        if bundle is None:
-            id = self._make_sync_responder(target, condition)
-            self.send_bundle(target, latency, ['/sync', id])
-            yield from condition.wait()
-        else:
-            # BUG: esto no está bien testeado, y acarreo el problema del tamaño exacto de los mensajes.
-            sync_size = self.msg_size(['/sync', utl.UniqueID.next()])
-            max_size = 65500 - sync_size # *** BUG: is max dgram size? TODO: CHECK.
-            if self.bundle_size(bundle) > max_size:
-                clumped_bundles = self.clump_bundle(bundle, max_size)
-                for item in clumped_bundles:
-                    id = self._make_sync_responder(target, condition)
-                    item.append(['/sync', id])
-                    self.send_bundle(target, latency, *item)
-                    latency += 1e-9 # nanosecond, TODO: esto lo hace así no sé por qué.
-                    yield from condition.wait()
-            else:
-                id = self._make_sync_responder(target, condition)
-                bundle = bundle[:]
-                bundle.append(['/sync', id])
-                self.send_bundle(target, latency, *bundle)
-                yield from condition.wait()
-
-    def _make_sync_responder(self, target, condition):
-        id = utl.UniqueID.next()
-
-        def resp_func(msg, *args):
-            if msg[1] == id:
-                resp.free()
-                condition.test = True
-                condition.signal()
-
-        resp = rdf.OSCFunc(
-            resp_func, '/synced',
-            nad.NetAddr(target[0], target[1]))
-        return id
-
-    # NOTE: Importante, lo usa para enviar paquetes muy grandes como stream,
-    # liblo tira error y no envía.
-    def clump_bundle(self, msg_list, new_bundle_size): # msg_list siempre es un solo bundle [['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
-        ret = [[]]
-        clump_count = 0
-        acc_size = 0
-        aux = 0
-        for item in msg_list:
-            aux = self.msg_size(item)
-            if acc_size + aux > new_bundle_size: # BUG: 65500 es un límite práctico que puede estar mal si las cuentas de abajo están mal.
-                acc_size = aux
-                clump_count += 1
-                ret.append([])
-                ret[clump_count].append(item)
-            else:
-                acc_size += aux
-                ret[clump_count].append(item)
-        if len(ret[0]) == 0: ret.pop(0)
-        return ret
-
+    # *** *** BUG: volver estos métodos a NetAddr de alguna manera.
     def msg_size(self, arg_list): # ['/path', arg1, arg2, ..., argN]
-        msg = build_msg(arg_list)  # *** BUG: el problema es no estar construyendo el mensaje dos veces igual.
+        msg = _build_msg(arg_list)  # *** BUG: el problema es no estar construyendo el mensaje dos veces igual.
         return msg.size  # *** BUG: este método está demás, hay que hacer todo en quién llama y guardar el msg.
 
+    # *** BUG: ver _NetAddr_BundleSize
     def bundle_size(self, arg_list): # [time, ['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
-        bndl = build_bundle(arg_list)  # *** BUG: el problema es no estar construyendo el atado dos veces igual.
+        bndl = _build_bundle(arg_list)  # *** BUG: el problema es no estar construyendo el atado dos veces igual.
         return bndl.size  # *** BUG: este método está demás, hay que hacer todo en quién llama y guardar el bndl.

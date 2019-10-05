@@ -63,12 +63,12 @@ def sine(freq=440, amp=0.1, gate=1):
 
 sine.dump_ugens()
 
-# wait or error, manually connect jack meanwhile...
-
 n = Synth('sine')
 n.set('amp', 0.05)
 n.set('freq', 220)
+
 s.query_all_nodes(True)
+
 n.release()
 s.quit()
 ```

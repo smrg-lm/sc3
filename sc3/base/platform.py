@@ -47,6 +47,18 @@ class MetaPlatform(type):
     def tmp_dir(cls):
         return _libsc3.main.platform.tmp_dir
 
+    @property
+    def installation_dir(cls):
+        return _libsc3.main.platform.installation_dir
+
+    @installation_dir.setter
+    def installation_dir(cls, value):
+        _libsc3.main.platform.installation_dir = value
+
+    @property
+    def bin_dir(cls):
+        return _libsc3.main.platform.bin_dir
+
 
 class Platform(metaclass=MetaPlatform):
     # default_startup_file = ...  # *initClass this.userConfigDir +/+ "startup.scd"
@@ -89,6 +101,23 @@ class Platform(metaclass=MetaPlatform):
     def tmp_dir(self):
         return Path(tempfile.gettempdir())
 
+    @property
+    def installation_dir(self):
+        return Path(self._installation_dir)
+
+    @installation_dir.setter
+    def installation_dir(self, value):
+        # Attribute _installation_dir and os.environ['PATH'] mut be
+        # properly initialized by _startup().
+        old_path_dir = str(self.bin_dir)
+        self._installation_dir = str(value)
+        os.environ['PATH'] = os.environ['PATH'].replace(
+            old_path_dir, str(self.bin_dir))
+
+    @property
+    def bin_dir(self):
+        raise NotImplementedError()
+
 
 class UnixPlatform(Platform):
     pass
@@ -96,14 +125,17 @@ class UnixPlatform(Platform):
 
 class LinuxPlatform(UnixPlatform):
     def _startup(self):
-        srv.Server.program = 'scsynth'
-        # sco.Score.program = srv.Server.program
         # // default jack port hookup
         os.environ['SC_JACK_DEFAULT_INPUTS'] = 'system'
         os.environ['SC_JACK_DEFAULT_OUTPUTS'] = 'system'
         # // automatically start jack when booting the server
         # // can still be overridden with JACK_NO_START_SERVER
         os.environ['JACK_START_SERVER'] = 'true'
+
+        self._installation_dir = '/usr/local'  # whereis scsynth ../
+        os.environ['PATH'] += os.pathsep + str(self.bin_dir)
+        srv.Server.program = 'scsynth'
+        # sco.Score.program = srv.Server.program
         # // load user startup file
         # self.load_startup_file()
 
@@ -120,7 +152,7 @@ class LinuxPlatform(UnixPlatform):
 
     @property
     def resource_dir(self):
-        ...  # /usr/local/share/SuperCollider: sounds, examples, HID_Support, etc.
+        return self.installation_dir / Path('share/SuperCollider')
 
     @property
     def synthdef_dir(self):
@@ -129,6 +161,10 @@ class LinuxPlatform(UnixPlatform):
     @property
     def recording_dir(self):
         return self.support_dir / Path('Recordings')
+
+    @property
+    def bin_dir(self):
+        return self.installation_dir / Path('bin')
 
 
 class OSXPlatform(UnixPlatform):
@@ -140,7 +176,65 @@ class WindowsPlatform(Platform):
 
 
 class Win32Platform(WindowsPlatform):
-    ...
+    def _startup(self):
+        from . import _knownpaths as kp
+
+        self._local_app_data = kp.get_path(kp.FOLDERID.LocalAppData, 0)
+        self._documents = kp.get_path(kp.FOLDERID.Documents, 0)
+
+        program_files_x86 = kp.get_path(kp.FOLDERID.ProgramFilesX86, 0)
+        program_files_x64 = kp.get_path(kp.FOLDERID.ProgramFilesX64, 0)
+        folders = list(Path(program_files_x86).glob('SuperCollider*'))
+        folders += list(Path(program_files_x64).glob('SuperCollider*'))
+
+        self._installation_dir = str(self._get_lastest_version(folders))
+        os.environ['PATH'] += str(self.bin_dir) + os.pathsep
+        srv.Server.program = 'scsynth.exe'
+        # sco.Score.program = srv.Server.program
+        # // load user startup file
+        # self.load_startup_file()
+
+    def _shutdown(self):
+        pass
+
+    @staticmethod
+    def _get_lastest_version(path_list):
+        '''
+        Get the folder with the lastest version. Folder name format sould be
+        'SuperCollider-X.X.X'.
+        '''
+        res = []
+        for path in path_list:
+            name = path.name
+            version = name.split('-')[1]
+            version = version.split('.')
+            version = [int(n) for n in version if n.isdigit()]
+            res.append((version, path))
+        return sorted(res, key=lambda x: x[0])[-1][1]
+
+    @property
+    def support_dir(self):
+        return Path(self._local_app_data) / Path('SuperCollider')
+
+    @property
+    def config_dir(self):
+        return self.support_dir()
+
+    @property
+    def resource_dir(self):
+        return self.installation_dir
+
+    @property
+    def synthdef_dir(self):
+        return self.support_dir / Path('synthdefs')
+
+    @property
+    def recording_dir(self):
+        return Path(self._documents) / Path('SuperCollider/Recordings')
+
+    @property
+    def bin_dir(self):
+        return self.installation_dir
 
 
 class CygwinPlatform(WindowsPlatform):

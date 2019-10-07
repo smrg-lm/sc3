@@ -239,7 +239,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         # // response to OSC and MIDI messages, the main Thread's logical
         # // time is set to the current physical time (see Process: *elapsedTime).
         # NOTE: En Python es cada vez que se requiere el tiempo de una ruitna.
-        if self is _libsc3.main.main_tt:
+        if _libsc3.main.current_tt is _libsc3.main.main_tt:  # *** TODO: test possible calls combinations
             _libsc3.main.update_logical_time()
         return self._seconds
 
@@ -251,7 +251,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
     @property
     def beats(self):
         # NOTE: Ver seconds arriba.
-        if self is _libsc3.main.main_tt:
+        if _libsc3.main.current_tt is _libsc3.main.main_tt:  # *** TODO: test possible calls combinations
             _libsc3.main.update_logical_time()
         return self._beats
 

@@ -4,7 +4,7 @@ from sc3.all import *
 
 # TODO: this are just thrown bits.
 
-
+########################
 # Tolerable math errors.
 et = main.elapsed_time()  # or arbitrary numbre from 0.
 eoo01 = SystemClock._elapsed_osc_offset
@@ -16,6 +16,7 @@ if eoo01 == eoo02 == eoo03:  # _elapsed_osc_offset not affected by _resync_threa
     [et, eto, ote, et - ote]  # convertion and rouding error.
 
 
+############################################################################
 # Let's call this 'endogamic clock test'. I think it shows that time between
 # thread wakeups is neither constant nor its increments are cumulative which
 # defines a numerical behavior for time math. Better tests ideas are welcome.
@@ -51,3 +52,31 @@ def rout():
     print(f'max+: {maxim}, max-: {minim}, maxpp: {maxpp}, avg0: {avg/n}')
 
 Routine(rout).play()
+
+
+##################################
+# Logical time == bundle time test
+# TODO: check all possible calls to update_logical_time, make a map.
+# TODO: trace and profile all logical time updates.
+from sc3.all import *
+
+n = NetAddr('127.0.0.1', NetAddr.lang_port())
+time_steps = []
+
+def recv_func(*args):
+    time_steps.append(args[1])
+
+recv = OSCFunc(recv_func, '/test')
+
+@routine
+def ro():
+    for i in range(3):
+        time_steps.append(main.current_tt.seconds)  # must be almost the same time of the bundle (floating point error)
+        n.send_bundle(0, ['/test'])
+        yield 1
+    print([round(time_steps[i], 9) == round(time_steps[i + 1], 9)\
+           for i in range(0, len(time_steps), 2)])  # equal at nanos.
+
+ro.play(TempoClock.default)
+# [round(time_steps[i], 9) == round(time_steps[i + 1], 9) for i in range(0, len(time_steps), 2)]
+# recv.free()

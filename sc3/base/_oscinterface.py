@@ -45,11 +45,11 @@ class OscInteface():
             time: OSC timetag as 64bits unsigned integer.
             *msg: OSC message as address followed by values.
         '''
-        _libsc3.main.update_logical_time()
+        # _libsc3.main.update_logical_time()  # *** BUG: Clock.sched actualiza abajo, VER TIEMPO LÓGICO.
         addr = nad.NetAddr(addr[0], addr[1])
 
         if time is None:
-            time = _libsc3.main.elapsed_time()
+            time = _libsc3.main.elapsed_time()  # *** BUG: VER TIEMPO LÓGICO, probar en sclang recibiendo desde una rutina con tempoclock.
         else:
             time = clk.SystemClock.osc_to_elapsed_time(time)
 

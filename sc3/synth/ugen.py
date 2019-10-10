@@ -628,6 +628,14 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
             return None
 
     def _arg_names_inputs_offset(self):
+        '''
+        This method exist for two reasons, one is to skip 'this' argument in
+        sclang introspection which is not needed in Python, the other reason is
+        that many 'spec' ugens, such as EnvGen, Klang, etc., receive the
+        specification array as the first argument in the language constructors
+        but becomes a variable length list of arguments at the end of the
+        server's ugen instruction so is moved at the end of the stored inputs.
+        '''
         return 0  # NOTE: Is one less than sclang.
 
     @classmethod

@@ -71,6 +71,9 @@ class ChannelList(list, gpp.UGenSequence, fn.AbstractFunction):
     def dup(self, n=2):
         return ChannelList([self] * n)
 
+    def sum(self):  # Implemented by Collection with optional function.
+        return utl.list_sum(self, type(self))
+
     def madd(self, mul=1.0, add=0.0):
         return type(self)(MulAdd.new(i, mul, add) for i in self)
 

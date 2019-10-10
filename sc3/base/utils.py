@@ -248,10 +248,10 @@ def list_narop(op, a, *args, t=None):  # t is keyword only.
         return op(a, *args)
 
 
-def list_sum(lst):
+def list_sum(lst, t=None):
     res = 0
     for item in lst:
-        res = list_binop(operator.add, res, item)
+        res = list_binop(operator.add, res, item, t)
     return res
 
 # NOTE: maxItem used in Env.duration gives the clue that only one level of
@@ -263,28 +263,28 @@ def list_sum(lst):
 # [1, 2, [3, 4]].maxItem // not ok
 # [[1, 2], [3, 4]].maxItem // not ok
 
-def list_min(lst):
+def list_min(lst, t=None):
     t_seq = (list, tuple)
     min_item = lst[0]
     if isinstance(min_item, t_seq):
-        min_item = list_min(min_item)
+        min_item = list_min(min_item, t)
     for item in lst[1:]:
         if isinstance(item, t_seq):
-            item = list_min(item)
-        if list_binop(operator.lt, item, min_item):
+            item = list_min(item, t)
+        if list_binop(operator.lt, item, min_item, t):
             min_item = item
     return min_item
 
 
-def list_max(lst):
+def list_max(lst, t=None):
     t_seq = (list, tuple)
     max_item = lst[0]
     if isinstance(max_item, t_seq):
-        max_item = list_max(max_item)
+        max_item = list_max(max_item, t)
     for item in lst[1:]:
         if isinstance(item, t_seq):
-            item = list_max(item)
-        if list_binop(operator.gt, item, max_item):
+            item = list_max(item, t)
+        if list_binop(operator.gt, item, max_item, t):
             max_item = item
     return max_item
 
@@ -360,6 +360,7 @@ def flop(lst):
                 ret[i][j] = [] # NOTE: *** y a = []; a[0] es nil, pero este método está implementado a bajo nivel y no lo miré, 0 o nil es [] acá.
     return ret
 
+
 # # otras implementaciones de flop, comparar
 # #[[None] * length] * n # al multiplicar copia la misma lista n veces
 # def flop(lst):
@@ -377,19 +378,79 @@ def flop(lst):
 # # lst = [[1, 2], [10, 20, 30], [100, 200, 300, 400]]
 # # [[lst[j][i % len(lst[j])] for j in range(len(lst))] for i in range(max(len(l) for l in lst))]
 
-def flop_together(*lsts):
+
+def flop_together(*lsts):  # BUG: in sclang, modifies the original list with garbage.
     max_size = 0
     for sub_list in lsts:
         for each in sub_list:
             if isinstance(each, list):
                 max_size = max(max_size, len(each))
-    stand_in = [0] * max_size
-    for sub_list in lsts:
-        sub_list.append(stand_in)
+    stand_in = [None] * max_size
     ret = []
     for i, sub_list in enumerate(lsts):
+        sub_list = sub_list[:]
+        sub_list.append(stand_in)
         ret.append([])
         for each in flop(sub_list):
-            each.pop()
+            each.pop()  # // remove stand-in
             ret[i].append(each)
     return ret
+
+
+def max_depth(lst):
+    def find_max(lst, max_rank=1):
+        ret = max_rank
+        for item in lst:
+            if isinstance(item, list):
+                ret = max(ret, find_max(item, max_rank + 1))
+        return ret
+    return find_max(lst)
+
+
+def max_size_at_depth(lst, rank):
+    if rank <= 0:  # BUG: in sclang recursive condition is wrong.
+        return len(lst)
+    max_size = 0
+    for item in lst:
+        if isinstance(item, list):
+            sz = max_size_at_depth(item, rank - 1)
+        else:
+            sz = 1
+        if sz > max_size:
+            max_size = sz
+    return max_size
+
+
+def wrap_at_depth(lst, rank, index):
+    if rank <= 0:  # BUG: in sclang recursive condition is wrong.
+        return lst[index % len(lst)]
+    ret = []
+    for item in lst:  # BUG: in sclang i is not used
+        if isinstance(item, list):
+            ret.append(wrap_at_depth(item, rank - 1, index))
+        else:
+            ret.append(item)
+    return ret
+
+
+def flop_deep(lst, rank):
+    if rank is None:
+        rank = max_depth(lst) - 1
+    if rank <= 1:
+        return flop(lst)
+    size = len(lst)
+    max_size = max_size_at_depth(lst, rank)
+    ret = []
+    for i in range(max_size):
+        ret.append(wrap_at_depth(lst, rank, i))
+    return ret
+
+
+def multichannel_expand_tuple(tpl, rank):
+    # // Allow to multichannel expand ugen specs, like those of Klank,
+    # // in the case of which two is the rank, but could be otherwise.
+    lst = list(tpl)
+    if max_size_at_depth(lst, rank) <= 1:
+        return tpl
+    lst = flop_deep(lst, rank)
+    return unbubble([tuple(item) for item in lst])  # why unbubble?

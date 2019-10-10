@@ -607,33 +607,25 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
                     f'{gpp.ugen_param(self.inputs[0])._as_ugen_rate()}')
         return self._check_valid_inputs()
 
-    def _arg_name_for_input_at(self, i): # se usa acá y en basicopugen dentro de checkValidInputs, ambas clases lo implementan.
+    def _arg_name_for_input_at(self, i):
         try:
             selector = type(self)._method_selector_for_rate(self.rate)
             method = getattr(type(self), selector)
             sig = inspect.signature(method)
             params = list(sig.parameters.values())
             arg_names = [x.name for x in params]
-            if not arg_names: return None
+            if len(arg_names) == 0:
+                return None
+            i += self._arg_names_inputs_offset()
             if i < len(arg_names):
-                # if selector is '__init__': # TODO: *** __init__ SOLO PUEDE RETORNAR NONE Y _new1 RETORNA DISTINTAS COSAS. super().__init__() inicializa las propiedades desde _new1 *** No se puede usar __init__ (super(UGen, self).__init__() no me funciona) hay que usar new o dr para demand rate!!!!!
-                #     return arg_names[i + 1] # TODO: VER ABAJO: 1 es arg_names_inputs_offset
-                # else:
-                #     return arg_names[i]
                 return arg_names[i]
             else:
                 return None # sclang at(i) retorna nil en vez de una excepción. No sé si eso está bien acá, porque claramente puede ser un error de índice si se pide algo que no existe, self.inputs no puede ser distinto.
         except AttributeError:
             return None
 
-    # BUG: VER: Si este método es necesario en Python.
-    # a = SinOsc.ar; a.class.class.findMethod(\ar).argNames; -> SymbolArray[ this, freq, phase, mul, add ]
-    # arg_names como se extrae arriba omite el primer argumento que es self/cls, salvo para los métodos mágicos.
-    # Si se usa __init__ como new de sclang *sí* se necesita offset. Los métodos mágicos devuelven self/cls. VER los métodos de clase.
-    # Además, lo implementan muchas UGens (devuelven 2). Se usa solo en _arg_name_for_input_at, de UGen y BasicOpUGenself.
-    # En todo caso sería una propiedad o un método?
-    # def arg_names_inputs_offset(self): # lo implementan varias clases como intefaz, se usa solo acá y basicopugen en argNameForInputAt
-    #     return 1
+    def _arg_names_inputs_offset(self):
+        return 0  # NOTE: Is one less than sclang.
 
     @classmethod
     def _method_selector_for_rate(cls, rate):
@@ -654,16 +646,17 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
         # return None  # original behaviour
         raise AttributeError(f'{cls.__name__} has no {rate} rate constructor')
 
-    def _dump_args(self):
+    def dump_args(self):
         '''Used for error messages.'''
         msg = 'ARGS:\n'
         tab = ' ' * 4
         arg_name = None
         for i, input in enumerate(self.inputs):
             arg_name = self._arg_name_for_input_at(i)
-            if arg_name is None: arg_name = str(i)
-            msg += tab + arg_name + ' ' + str(input)
-            msg += ' ' + type(self).__name__ + '\n'
+            if arg_name is None:
+                arg_name = str(i)
+            msg += tab + arg_name + ': ' + str(input)
+            msg += ' ' + type(input).__name__ + '\n'
         print(msg, end='')
 
     def _dump_name(self):
@@ -993,19 +986,36 @@ class BasicOpUGen(UGen):
     def operator(self):
         del self._operator
 
-    #argNamesInputsOffset # VER: estos métodos no se cambian acá porque estoy usando *new* que no es __init__ en Python y no incluye this/self como primer argumento. sclang hace lo mismo que Python con new, argNames devuevle [this, ...] para Meta_Object*new
-    #argNameForInputAt
+    def _arg_name_for_input_at(self, i):  # override
+        try:
+            method = getattr(type(self), 'new')
+            sig = inspect.signature(method)
+            params = list(sig.parameters.values())
+            arg_names = [x.name for x in params]
+            if len(arg_names) == 0:
+                return None
+            i += self._arg_names_inputs_offset()
+            if i < len(arg_names):
+                return arg_names[i]
+            else:
+                return None # sclang at(i) retorna nil en vez de una excepción. No sé si eso está bien acá, porque claramente puede ser un error de índice si se pide algo que no existe, self.inputs no puede ser distinto.
+        except AttributeError:
+            return None
 
-    def _dump_args(self):  # override
+    def _arg_names_inputs_offset(self):
+        return 1  # One less than sclang
+
+    def dump_args(self):  # override
         msg = 'ARGS:\n'
         tab = ' ' * 4
         msg += tab + 'operator: ' + self.operator + '\n'
         arg_name = None
         for i, input in enumerate(self.inputs):
             arg_name = self._arg_name_for_input_at(i)
-            if not arg_name: arg_name = str(i)
-            msg += tab + arg_name + ' ' + str(input)
-            msg += ' ' + type(self).__name__ + '\n'
+            if not arg_name:
+                arg_name = str(i)
+            msg += tab + arg_name + ': ' + str(input)
+            msg += ' ' + type(input).__name__ + '\n'
         print(msg, end='')
 
     def _dump_name(self):  # override
@@ -1399,7 +1409,7 @@ class Mix():  # Pseudo UGen.
                 rate = gpp.ugen_param(item)._as_ugen_rate()
                 if rate == 'audio':
                     print(f'{type(item).__name__} {rate}')
-                    item._dump_args()
+                    item.dump_args()
                     lst[i] = lne.A2K.kr(item)
         result = cls.new(lst)
         rate = result._as_ugen_rate()

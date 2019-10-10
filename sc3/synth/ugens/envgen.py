@@ -103,9 +103,8 @@ class EnvGen(ugn.UGen):
     # Override may be an optimization in sclang.
     # def _init_ugen(self, inputs)  # override
 
-    # No, see UGen.
-    # def arg_names_inputs_offset(self):
-    #     return 2
+    def _arg_names_inputs_offset(self):  # override
+        return 1  # One less than sclang.
 
 
 class Linen(ugn.UGen):

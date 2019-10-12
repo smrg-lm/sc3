@@ -443,7 +443,11 @@ class AbstractFunction():
     def excess(self, other):
         return self._compose_binop(bi.excess, other)
 
-    # firstArg -> _FirstArg -> SetRaw(a, slotRawObject(a));
+    def first_arg(self, other):
+        # firstArg -> _FirstArg -> SetRaw(a, slotRawObject(a));
+        # // this is useful when two ugens need to be called, but only
+        # // one of their outputs is needed. (Operators help file).
+        return self._compose_binop(bi.first_arg, other)
 
     def rrand(self, other):
         return self._compose_binop(bi.rrand, other)

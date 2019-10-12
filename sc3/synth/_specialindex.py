@@ -126,7 +126,7 @@ _binops_list = [
     ('excess',),
     ('fold2',),
     ('wrap2',),
-    ('firstArg',),
+    ('firstArg', 'first_arg'),
     ('rrand',),
     ('exprand',),
     #opNumBinarySelectors

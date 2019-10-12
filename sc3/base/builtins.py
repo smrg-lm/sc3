@@ -876,6 +876,10 @@ def excess(a, b): # sc_excess(T a, T b)
     return a - clip(a, -b, b)
 
 @scbuiltin.binop
+def first_arg(a, b):
+    return a
+
+@scbuiltin.binop
 def scaleneg(a, b):
     # template: T a, T b
 	# if (a < 0)

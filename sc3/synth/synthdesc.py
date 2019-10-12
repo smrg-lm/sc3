@@ -260,7 +260,7 @@ class SynthDesc():
                     input = ugen
             ugen_inputs.append(input)
 
-        rate = ['scalar', 'control', 'audio'][rate_index]
+        rate = ['scalar', 'control', 'audio', 'demand'][rate_index]
         ugen = ugen_class._new_from_desc(rate, num_outputs, ugen_inputs, special_index)
         if isinstance(ugen, ugn.OutputProxy):
             ugen = ugen.source_ugen # BUG: esta propiedad se llama source en sclang y la implementan todas las clases pero solo se usa para OutputProxy. Comentarios en UGen._init_topo_sort

@@ -18,7 +18,7 @@ class Demand(ugn.MultiOutUGen):
         return cls._multi_new('control', trig, reset, *utl.as_list(demand_ugens))
 
     def _init_ugen(self, *inputs):  # override
-        self.inputs = inputs
+        self._inputs = inputs
         return self._init_outputs(len(self.inputs) - 2, self.rate)
 
 
@@ -211,7 +211,7 @@ class Dpoll(DUGen):
         return cls._multi_new('demand', input, label, run, trig_id)
 
     @classmethod
-    def new1(cls, rate, input, label, run, trig_id):  # override
+    def _new1(cls, rate, input, label, run, trig_id):  # override
         label = label or f'DemandUGen({type(input).__name__})'
         label = [int(x) for x in bytes(label, 'utf-8')]  # *** TODO: sc ascii method, sclang uses signed values, see Poll.
         obj = cls()
@@ -220,12 +220,44 @@ class Dpoll(DUGen):
         return obj._init_ugen(input, trig_id, run, len(label), *label)
 
 
-# // Behave as identical in multiple uses.
-class Dunique(ugn.UGen):
-    # TODO: todo.
+class Dunique(ugn.UGen):  # Pseudo UGen.
+    @classmethod
+    def new(cls, source, max_buffer_size=1024, protected=True):
+        obj = cls()
+        obj._init(source, max_buffer_size, protected)
+        return obj
 
-    # UGen graph parameter interface #
-    # TODO: ver el resto en UGenParameter
+    def _init(self, source, max_buffer_size, protected):
+        self._protected = bool(protected)
+        self._buffer = bio.LocalBuf.new(max_buffer_size)
+        self._buffer.clear()
+        if self._protected:
+            self._iwr = bio.LocalBuf.new(1)
+            self._iwr.clear()
+            # // Here we also limit to the largest integer a 32bit float
+            # // can correctly address.
+            self._writer = Dbufwr.new(
+                source,  self._buffer,
+                Dbufwr.new(Dseries.new(0, 1, 16777216), self._iwr), 1)
+        else:
+            self._iwr = None
+            # // Here we can simply loop.
+            self._writer = Dbufwr.new(
+                source, self._buffer,
+                Dseq.new([Dseries.new(0, 1, max_buffer_size)], bi.inf), 0)
 
     def _as_ugen_input(self, *_):
-        pass # TODO: es complicado para ahora.
+        # // We call the writer from each reader.
+        brd = self._buffer.first_arg(self._writer)
+        if self._protected:
+            ird = bio.LocalBuf.new(1)
+            ird.clear()
+            index = Dbufwr.new(Dseries.new(0, 1, bi.inf), ird)
+            overrun = (Dbufrd.new(self._iwr) - Dbufrd.new(ird)) >\
+                      self._buffer.num_frames
+            # // Catch buffer overrun by switching to a zero length series.
+            brd = Dswitch1.new([brd, Dseries.new(length=0)], overrun)
+        else:
+            index = Dseq.new(
+                [Dseries.new(0, 1, self._buffer.num_frames)], bi.inf)
+        return Dbufrd.new(brd, index, 1)

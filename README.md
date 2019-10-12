@@ -24,26 +24,21 @@ libraries applicable to composition, sonic-art and alike, and to be able to
 compile synth definitions and send them to the server is very handy.
 
 I still don't know what would be the scope regarding features, what I will get
-finished for sure are server abstractions and interaction. The first idea was to
-transcribe patterns too, sounds easy, but patterns and events are a big deal for
-many reasons.
+finished for sure are server abstractions and interaction.
 
-Python is not a real time language, it has much more jitter than sclang. While
-in my laptop sclang maintains an average 0.1ms time drift peak between calls
-with Python I have peaks of 5ms which is quite a lot. A pure Python
-implementation will not solve that and I don’t have intentions to go low level
-by now. It is not that it is impossible but that it is out of my scope.
+Isn't Python slow?
+------------------
 
-It is not really a deal breaker for many use cases because SuperCollider
-algorithms sync routines time no matter what but if you use routines to
-sequence musical events non real time code will produce rhythmic irregularities
-(soft real time degradation) if the system is a bit loaded and specially if code
-is complex and make many calls, and even less than 1ms is too much when it
-starts to add.
+Yes it is and so is sclang, the problem would be realtimeness and that's solved
+the same way for Python [TODO: brief explanation of logical time, interaction
+with the server and time boundaries].
 
-Having said that, the idea is that you can write the same in Python as in
-sclang, with the same logic regarding multichannel expansion, arguments
-conversion to Control ugens, etc., it should be the same result. For example:
+Example
+-------
+
+The idea is that you can write the same in Python as in sclang, with the same
+logic regarding multichannel expansion, arguments conversion to Control ugens,
+etc., it should be the same result. For example:
 
 ```python
 from sc3.all import *

@@ -125,6 +125,24 @@ def flatten(inlist, n_levels=1):
     return outlist
 
 
+def shape(lst):
+    if isinstance(lst, (list, tuple)):
+        size = len(lst)
+        if size > 0:
+            # // This assumes every element has the same shape.
+            sub_shape = shape(lst[0])
+            if len(sub_shape) > 0:
+                ret = [size]
+                ret.extend(sub_shape)
+                return tuple(ret)
+            else:
+                return (size, )
+        else:
+            return (0,)
+    else:
+        return tuple()
+
+
 def reshape_like(one, another):
     index = 0
     one_flat = flat(one)

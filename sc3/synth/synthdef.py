@@ -15,6 +15,7 @@ from . import ugen as ugn
 from . import server as srv
 from . import synthdesc as sdc
 from .ugens import inout as scio
+from .ugens import fftunpacking as ffu
 
 
 _logger = logging.getLogger(__name__)
@@ -312,7 +313,7 @@ class SynthDef(metaclass=MetaSynthDef):
     def _add_copies_if_needed(self):
         # // Could also have PV_UGens store themselves in a separate collection.
         for child in self._width_first_ugens:
-            if isinstance(child, xxx.PV_ChainUGen):  # *** BUG: missing yet.
+            if isinstance(child, ffu.PV_ChainUGen):
                 child._add_copies_if_needed()  # pong
 
     # L468

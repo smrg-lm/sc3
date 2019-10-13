@@ -211,6 +211,12 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
                 new_offset = time_of_day_in_osc_units - system_time_in_osc_units
 
+        # This function seems to add only the jitter between clock calls here
+        # and in sclang. Running every 20 seconds or 1 minute would be the same
+        # if the date clock wasn't adjusted by ntp. Based on the logged numbers
+        # osc time may jump up to ~700 nanoseconds, far from ~238 picoseconds.
+        # NOTE: Without this bundles will be late.
+        # print('new offset diff:', cls._host_osc_offset - new_offset)
         cls._host_osc_offset = new_offset
 
     @classmethod

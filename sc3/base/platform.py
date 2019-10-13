@@ -167,7 +167,7 @@ class LinuxPlatform(UnixPlatform):
         return self.installation_dir / Path('bin')
 
 
-class OSXPlatform(UnixPlatform):
+class DarwinPlatform(UnixPlatform):
     ...
 
 

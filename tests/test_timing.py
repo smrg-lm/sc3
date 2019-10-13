@@ -13,7 +13,13 @@ eoo02 = SystemClock._elapsed_osc_offset
 ote = SystemClock.osc_to_elapsed_time(eto)
 eoo03 = SystemClock._elapsed_osc_offset
 if eoo01 == eoo02 == eoo03:  # _elapsed_osc_offset not affected by _resync_thread_func.
-    [et, eto, ote, et - ote]  # convertion and rouding error.
+    [et, eto, ote, et - ote]  # conversion and rouding error.
+
+
+t1 = main.current_tt.seconds
+o1 = SystemClock.elapsed_time_to_osc(t1)
+t2 = SystemClock.osc_to_elapsed_time(o1)
+[t1, t2, t1 - t2] # t1 - t2 > 0 retrieved time is in the past at picoseconds without _sync_osc_offset_with_tod.
 
 
 ############################################################################

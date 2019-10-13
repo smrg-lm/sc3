@@ -79,7 +79,7 @@ class OscInteface():
                     ('127.0.0.1', self._port), oli.UDPHandler)
                 break
             except OSError as e:
-                if e.errno == 98 and i < self.port_range:  # Address already in use.
+                if e.errno == 98 and i < self.port_range:  # Address already in use. 48 en Mac?????
                     pass
                 elif e.errno == 98 and i == self.port_range - 1:
                     err = OSError(

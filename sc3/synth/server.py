@@ -626,7 +626,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.send_bundle(None, args)
         yield from condition.wait()
 
-    def sync(self, condition=None, bundles=None, latency=0): # BUG: dice bundles, tengo que ver el nivel de anidamiento
+    def sync(self, condition=None, bundles=None, latency=None): # BUG: dice bundles, tengo que ver el nivel de anidamiento
         yield from self.addr.sync(condition, bundles, latency)
 
     # Este método no se usa en la libreríá de clases

@@ -139,7 +139,7 @@ class OscInteface():
         self._server.socket.sendto(msg.dgram, target)
 
     def _build_bundle(self, arg_list):  # [time, ['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
-        bndl_builder = oli.OscBundleBuilder(arg_list.pop(0) or oli.IMMEDIATELY)  # None or zero are IMMEDIATELY
+        bndl_builder = oli.OscBundleBuilder(arg_list.pop(0) or oli.IMMEDIATELY)  # Only None is IMMEDIATELY, zero can't reach this stage through addr.send_bundle.
         for arg in arg_list:
             if isinstance(arg[0], str):
                 bndl_builder.add_content(self._build_msg(arg))

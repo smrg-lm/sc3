@@ -112,7 +112,7 @@ class NetAddr():
 
     # def send_clumped_bundles(self, time, *args):
 
-    def sync(self, condition=None, bundle=None, latency=0.0):
+    def sync(self, condition=None, bundle=None, latency=None):
         condition = condition or stm.Condition()
         if bundle is None:
             id = self._make_sync_responder(condition)
@@ -128,7 +128,8 @@ class NetAddr():
                     id = self._make_sync_responder(condition)
                     item.append(['/sync', id])
                     self.send_bundle(latency, *item)
-                    latency += 1e-9 # nanosecond, TODO: esto lo hace así no sé por qué, además la resolucion por error de punto flotante es casi de usecs.
+                    if latency is not None:
+                        latency += 1e-9 # nanoseconds
                     yield from condition.wait()
             else:
                 id = self._make_sync_responder(condition)

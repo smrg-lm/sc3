@@ -25,7 +25,7 @@ class TaskQueue():
     """
     This class is an encapsulation of the algorithm found in heapq
     documentation. heapq module in itself use the same principles as
-    SuperCollider's clocks implementation.
+    SuperCollider's clocks implementation. TaskQueue is not thread safe.
     """
 
     _REMOVED = '<removed-task>'
@@ -69,8 +69,8 @@ class TaskQueue():
     def peek(self):
         '''Return the lowest time entry as a tuple (time, task) without
         removing it.'''
-        if self._queue:
-            time, count, task = self._queue[0]
+        for i in range(len(self._queue)):  # Can have <removed-task>s first.
+            time, count, task = self._queue[i]
             if task is not type(self)._REMOVED:
                 return (time, task)
         raise KeyError('peek from an empty task queue')

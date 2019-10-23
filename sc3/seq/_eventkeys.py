@@ -18,14 +18,19 @@ from . import clock as clk
 from .rest import Rest
 
 
+
+class _EmptyKey():
+    pass
+
+
 ### Event Keys ###
 
 
-class EventKeys():  # Hacer ABC o constructor por defecto, se puede necesitar para CustomKeys.
+class EventKeys():  # Hacer ABC o constructor por defecto
     name = None
     __slots__ = ()
 
-    def __call__(self, dict=None, **kwargs):
+    def __call__(self, dict):
         # *** NOTE: hace que el objeto sea reutilizable, se podría aplicar a la funcion/módulo graphparam?
         self.__init__(dict, **kwargs)  # *** NOTE: el último sobreescribe, sirve para parent en Event (que iría primero al mezclar)
 
@@ -37,26 +42,24 @@ class PitchKeys(EventKeys):
                  'ctranspose', 'octave', 'root', 'scale', 'detune', 'harmonic',
                  '_set_key')
 
-    _pitch_keys = ('freq', 'midinote', 'degree')  # special keys, other keys in _keys.
+    _special_keys = ('freq', 'midinote', 'degree')  # special keys, other keys in _keys.
 
     _keys = [('mtranspose', 0), ('gtranspose', 0.0),
              ('ctranspose', 0.0), ('octave', 5.0),
              ('root', 0.0), ('scale', scl.Scale([0, 2, 4, 5, 7, 9, 11])),  # BUG: Scale tiene que ser inmutable como tuple.
              ('detune', 0.0), ('harmonic', 1.0)]
 
-    def __init__(self, dict=None, **kwargs):
-        dict = dict or {}
-        dict = {**dict, **kwargs}
-        for key in self._pitch_keys:
-            value = dict.get(key)
-            if value:
+    def __init__(self, dict):
+        for key in self._special_keys:
+            value = dict.pop(key, _EmptyKey)
+            if value is not _EmptyKey:
                 setattr(self, key, value)
                 self._set_key = key
                 break
         if not value:
             raise ValueError('no valid pitch key given')
         for key, value in self._keys:
-            value = dict.get(key, value)
+            value = dict.pop(key, value)
             setattr(self, key, value)
 
     @property
@@ -126,20 +129,19 @@ class DurationKeys(EventKeys):
     _keys = [('tempo', None), ('dur', 1.0), ('stretch', 1.0), ('legato', 0.8),
              ('lag', 0.0), ('strum', 0.0), ('strum_ends_together', False)]
 
-    def __init__(self, dict=None, **kwargs):
-        dict = dict or {}
-        dict = {**dict, **kwargs}
-        self._sustain = dict.get('sustain')  # NOTE: simplificar redundacia preparando super().__init__ para atributos internos.
+    def __init__(self, dict):
+        self._sustain = dict.pop('sustain', _EmptyKey)  # NOTE: simplificar redundacia preparando super().__init__ para atributos internos.
         for key, value in self._keys:
-            value = dict.get(key, value)
+            value = dict.pop(key, value)
             setattr(self, key, value)
 
     @property
     def sustain(self):
-        if self._sustain:
-            return self._sustain
-        else:
+        if self._sustain is _EmptyKey:
             return self.dur * self.legato * self.stretch
+        else:
+            return self._sustain
+
 
     @sustain.setter
     def sustain(self, value):
@@ -151,26 +153,26 @@ class AmplitudeKeys(EventKeys):
 
     __slots__ = ('_amp', 'db', 'velocity', 'pan', 'trig')
 
+    _special_keys = ('amp', 'db', 'velocity')  # *** TODO
+
     _keys = [('db', -20.0), ('velocity', 64), ('pan', 0.0), ('trig', 0.5)]
 
-    def __init__(self, dict=None, **kwargs):
-        dict = dict or {}
-        dict = {**dict, **kwargs}
-        self._amp = dict.get('_amp')  # NOTE: esta podría tener special_keys _set_key entre db, amp y velocity
+    def __init__(self, dict):
+        self._amp = dict.pop('amp', _EmptyKey)
         for key, value in self._keys:
-            value = dict.get(key, value)
+            value = dict.pop(key, value)
             setattr(self, key, value)
 
     @property
     def amp(self):
-        if self._amp is None:
+        if self._amp is _EmptyKey:
             return bi.dbamp(self.db)
         else:
-            return self._dur
+            return self._amp
 
     @amp.setter
     def amp(self, value):
-        self._dur = value
+        self._amp = value
 
 
 class ServerKeys(EventKeys):
@@ -186,13 +188,11 @@ class ServerKeys(EventKeys):
              ('args', ('freq', 'amp', 'pan', 'trig')), # // for \type \set
              ('lag', 0), ('timing_offset', 0)]
 
-    def __init__(self, dict=None, **kwargs):
-        dict = dict or {}
-        dict = {**dict, **kwargs}
-        self._group = dict.get('group')  # NOTE: simplificar redundacia preparando super().__init__ para atributos internos.
-        self._send_gate = dict.get('send_gate')  # NOTE: simplificar redundacia preparando super().__init__ para atributos internos.
+    def __init__(self, dict):
+        self._group = dict.pop('group', _EmptyKey)  # NOTE: simplificar redundacia preparando super().__init__ para atributos internos.
+        self._send_gate = dict.pop('send_gate', _EmptyKey)  # NOTE: simplificar redundacia preparando super().__init__ para atributos internos.
         for key, value in self._keys:
-            value = dict.get(key, value)
+            value = dict.pop(key, value)
             setattr(self, key, value)
 
     @property
@@ -200,7 +200,7 @@ class ServerKeys(EventKeys):
         # BUG: *** en NodeEvents.sc está definido como:
         # BUG: *** this.parent = Event.parentEvents[\groupEvent] y retorna self.
         # BUG: *** PERO SÍ SE LLAMA LA LLAVE CON e[\group] O ~group en 'note'!
-        if self._group is None:
+        if self._group is _EmptyKey:
             return self.server.default_group.node_id
         else:
             return self._group
@@ -212,7 +212,7 @@ class ServerKeys(EventKeys):
     @property
     def send_gate(self):
         # // sendGate == false turns off releases
-        if self._send_gate is None:
+        if self._send_gate is _EmptyKey:
             return self.has_gate
         else:
             return self._send_gate
@@ -226,8 +226,7 @@ class ServerKeys(EventKeys):
     # argumentos (menos gate?). El problema también es que las llaves están
     # repartidas.
     # msg_func = self.server.msg_func
-    # NOTE: De ser así tiene que haber una clase CustomKeys para EventType.event_keys.
-    # NOTE: no puede ser una propiedad y rompo la regla que quería.
+
     def _get_msg_params(self, event_type):  # Was get_msg_func
         if self.msg_params is None:  # *** NOTE: msg_params podría ser @property y llama a este método si _msg_params is None.
             if self.synth_lib is None:
@@ -300,6 +299,14 @@ class ServerKeys(EventKeys):
 # TODO...
 
 
+class CustomKeys(EventKeys):
+    name = 'custom'
+
+    def __init__(self, dict, **kwargs):
+        for key in dict.copy().keys():
+            setattr(self, key, dict.pop(key))
+
+
 ### Event Types ###
 
 # PartialEvent es EventKeys.
@@ -311,8 +318,6 @@ class ServerKeys(EventKeys):
 
 # EventTypes deberían agrupar solo las llaves que necesitan para play.
 
-# El problema es que el diccionario que se le pasa a Event es filtrado
-# por cada una de las EventKeys, quién hace el filtrado y en qué formato?
 # Creo que lo correcto sería el EventType que es quién necesita las llaves para play.
 # NOTE: Pensar más por el lado de lenguaje declarativo.
 
@@ -321,8 +326,11 @@ class EventType():  # ABC
     name = None
     event_keys = ()
 
-    def __init__(self, dict, parent):  # Aunque tal vez parent debería ser un conjunto de event_keys? complica, que sea una especificación declarativa de los valores de los tipos por defecto. Y se pueden sacar los valres por defecto a _keys de arriba.
-        dict = {**parent, **dict}
+    def __init__(self, dict, parent=None):  # Aunque tal vez parent debería ser un conjunto de event_keys? complica, que sea una especificación declarativa de los valores de los tipos por defecto. Y se pueden sacar los valres por defecto a _keys de arriba.
+        if parent is None:
+            dict = dict.copy()
+        else:
+            dict = {**parent, **dict}  # copy?
         for keys_class in type(self).event_keys:
             setattr(self, keys_class.name, keys_class(dict))  # Crea una instancia de cada una por evento, mal pero se necesita, simplifica mucho.
 
@@ -332,7 +340,8 @@ class EventType():  # ABC
 
 class NoteType(EventType):
     name = 'note'
-    event_keys = (PitchKeys, DurationKeys, AmplitudeKeys, ServerKeys) # TODO: , ...)
+    event_keys = (PitchKeys, DurationKeys, AmplitudeKeys, ServerKeys,
+                  CustomKeys) # TODO: , ...)
 
     def play(self, server):
         # BUG: self.pitch.freq = self.pitch.detuned_freq  # NOTE: Necesita reemplazarlo porque se usa en _get_msg_params.
@@ -353,7 +362,6 @@ class NoteType(EventType):
         # caso principal, es la función devuelta por synthdesc a la que se
         # le pasa event como parámetro para que obtenga los valores de las llaves.
 
-        # NOTE: De ser así tiene que haber una clase CustomKeys...
         param_list = self.server._get_msg_params(self)  # *** NOTE: se tiene que llamar antes de _synthdef_name
         instrument_name = self.server._synthdef_name()
         id = server.next_node_id()  # NOTE: debería quedar guardado.

@@ -13,6 +13,7 @@ from ..base import builtins as bi
 from ..synth import node as nod
 from ..synth import _graphparam as gpp
 from ..synth import synthdesc as sdc
+from ..synth import server as srv
 from . import scale as scl
 from . import clock as clk
 from .rest import Rest
@@ -126,6 +127,8 @@ class DurationKeys(EventKeys):
     __slots__ = ('_sustain', 'tempo', 'dur', 'stretch', 'legato',
                  'lag', 'strum', 'strum_ends_together')
 
+    _special_keys = ('sustain')  # *** TODO
+
     _keys = [('tempo', None), ('dur', 1.0), ('stretch', 1.0), ('legato', 0.8),
              ('lag', 0.0), ('strum', 0.0), ('strum_ends_together', False)]
 
@@ -182,6 +185,8 @@ class ServerKeys(EventKeys):
                  'add_action', 'msg_params', 'instrument', 'variant',
                  'has_gate', '_send_gate', 'args', 'lag', 'timing_offset')
 
+    _special_keys = ('group', 'send_gate')  # *** TODO
+
     _keys = [('server', None), ('latency', None), ('synth_lib', None),
              ('out', 0), ('add_action', 'addToHead'), ('msg_params', None),
              ('instrument', 'default'), ('variant', None), ('has_gate', True),  # // assume SynthDef has gate
@@ -228,7 +233,7 @@ class ServerKeys(EventKeys):
     # msg_func = self.server.msg_func
 
     def _get_msg_params(self, event_type):  # Was get_msg_func
-        if self.msg_params is None:  # *** NOTE: msg_params podría ser @property y llama a este método si _msg_params is None.
+        if self.msg_params is None or event_type._done:  # *** NOTE: msg_params podría ser @property y llama a este método si _msg_params is None.
             if self.synth_lib is None:
                 synth_lib = sdc.SynthDescLib.default  # BUG: global_ u otro término.
             else:
@@ -244,7 +249,7 @@ class ServerKeys(EventKeys):
                 else:
                     control_names = desc.control_names  # *** BUG: No realiza los checkeos que hace SynthDesc.make_msg_func.
                 self.msg_params = []
-                for arg in control_names:
+                for arg in control_names:  # No optimal.
                     for keys_class in type(event_type).event_keys:
                         keys_obj = getattr(event_type, keys_class.name)
                         if hasattr(keys_obj, arg):
@@ -271,29 +276,11 @@ class ServerKeys(EventKeys):
             return self.instrument
 
     # *** NOTE: Ver notas en event.py y pasar las necesarias.
-    def _sched_bundle(self, lag, offset, server, msg, latency=None):  # *** NOTE: No era bundle, es msg... o cómo era?
-        # // "lag" is a tempo independent absolute lag time (in seconds)
-        # // "offset" is the delta time for the clock (usually in beats)
-        if latency is None:
-            latency = server.latency
-        lmbd = lambda: server.send_bundle(latency, msg)
-        if lag != 0:
-            if offset != 0:
-                # // schedule on both clocks
-                _libsc3.main.current_tt.clock.sched(
-                    offset,
-                    lambda: clk.SystemClock.sched(lag, lmbd)
-                )
-            else:
-                # // only lag specified: schedule only on the system clock
-                clk.SystemClock.sched(lag, lmbd)
-        else:
-            if offset != 0:
-                # // only delta specified: schedule only on the clock passed in # NOTE: passed in siempre es thisThread.clock
-                _libsc3.main.current_tt.clock.sched(offset, lmbd)
-            else:
-                # // no delays: send directly
-                lmbd()
+    # BUG: lag y offset pierden el tiempo lógico del tt que llama, en esta implementación,
+    # BUG: al hacer sched de una Function u otra Routine, ver para qué sirven.
+    # def _sched_bundle(self, lag, offset, server, msg, latency=None):
+    #     # // "lag" is a tempo independent absolute lag time (in seconds)
+    #     # // "offset" is the delta time for the clock (usually in beats)
 
 
 # TODO...
@@ -333,6 +320,11 @@ class EventType():  # ABC
             dict = {**parent, **dict}  # copy?
         for keys_class in type(self).event_keys:
             setattr(self, keys_class.name, keys_class(dict))  # Crea una instancia de cada una por evento, mal pero se necesita, simplifica mucho.
+        self._done = False
+
+    @property
+    def done(self):
+        return self._done
 
     def play(self):
         pass
@@ -343,28 +335,15 @@ class NoteType(EventType):
     event_keys = (PitchKeys, DurationKeys, AmplitudeKeys, ServerKeys,
                   CustomKeys) # TODO: , ...)
 
-    def play(self, server):
-        # BUG: self.pitch.freq = self.pitch.detuned_freq  # NOTE: Necesita reemplazarlo porque se usa en _get_msg_params.
-                                                   # NOTE: O se puede reemplazar 'freq' por detuned_freq en el loop sobre self.synthdef_args.
-                                                   # NOTE: Ver otros parametros en la misma situación.
+    def play(self):  # NOTE: No server parameter.
+        if self.server.server is None:
+            self.server.server = srv.Server.default
 
-        # Reemplazar get_msg_func, msg_func, SynthDesc msg_func por una
-        # función que devuelva simplemente una lista de los nombres de los
-        # argumentos (menos gate?). El problema también es que las llaves están
-        # repartidas.
-        # msg_func = self.server.msg_func
-
-        # // sendGate == false turns off releases
-        # send_gate = self.server.send_gate or self.server.has_gate  # NOTE: OR WAS WRONG, pasado a ServerKeys.
-
-        # Se podría hacer, mejor, que la lógica esté contenida en las llaves
-        # salvo las que compartan parámetros entre llaves. getMsgFunc es el
-        # caso principal, es la función devuelta por synthdesc a la que se
-        # le pasa event como parámetro para que obtenga los valores de las llaves.
+        self.pitch.freq = self.pitch.detuned_freq
 
         param_list = self.server._get_msg_params(self)  # *** NOTE: se tiene que llamar antes de _synthdef_name
         instrument_name = self.server._synthdef_name()
-        id = server.next_node_id()  # NOTE: debería quedar guardado.
+        id = self.server.server.next_node_id()  # NOTE: debería quedar guardado.
         add_action = nod.Node.action_number_for(self.server.add_action)
         group = gpp.node_param(self.server.group)._as_control_input() # *** NOTE: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido? VER PERORATA ABAJO EN GRAIN
 
@@ -372,17 +351,14 @@ class NoteType(EventType):
         bndl.extend(param_list)
         bndl = gpp.node_param(bndl)._as_osc_arg_list()
 
-        self.server._sched_bundle(
-            self.server.lag, self.server.timing_offset,  # *** NOTE: lag no está definida en ningún partialEvent?
-            server, bndl, self.server.latency) # NOTE: puede ser cualquier cantidad de mensajes/notas, esto es algo que no está claro en la implementación de sclang, aquí offset es escalar, en strummed es una lista.
+        # *** BUG: socket.sendto and/or threading mixin use too much cpu.
+        self.server.server.send_bundle(self.server.server.latency, bndl)
+        if self.server.send_gate:
+            self.server.server.send_bundle(
+                self.server.server.latency + self.duration.sustain,
+                ['/n_set', id, 'gate', 0])
 
-        self.is_playing = True  # NOTE: no queda entre las llaves sino en eventype, creo que no está definida en partialEvents.
-
-        if self.server.send_gate:  # NOTE: todavía no tiene definida la lógica de la asignación de arriba.
-            self.server._sched_bundle(
-                self.server.lag,  # *** NOTE: lag no está definida en ningún partialEvent?
-                self.duration.sustain + self.server.timing_offset,
-                server, ['/n_set', id, 'gate', 0], self.server.latency)
+        self._done = True  # NOTE: instead of is_playing.
 
 # TODO...
 
@@ -391,10 +367,34 @@ class NoteType(EventType):
 
 
 class Event():
-    ...
+    default_parent = {}
 
+    event_types = {
+        NoteType.name: NoteType
+    }
+
+    def __init__(self, dict, parent=None):
+        if parent is None:
+            self.parent = type(self).default_parent
+        else:
+            self.parent = parent
+        self.dict = dict
+        self.type = dict.get('type') or self.parent.get('type') or 'note'
+        self.reset()
+
+    def play(self):
+        if self._event.done:  # NOTE: también podría ser una comprobación externa para no sobrecargar acá.
+            self.reset()
+        self._event.play()
+
+    @property
+    def done(self):
+        return self._event.done
+
+    def reset(self):
+        self._event = type(self).event_types[self.type](self.dict, self.parent)
 
 # LOS DEFAULT EVENTS SE PODRÍAN SACAR EN FAVOR DE EVENTTYPES (QUE TIENEN QUE
 # TENER PLAY Y YA DEFINE LAS LLAVES QUE NECESITA), SIMPLIFICA.
-class PlayerEvent(Event):  # es DefaultEvent/ParentEvent, ver arriba.
-    ...
+# class PlayerEvent(Event):  # es DefaultEvent/ParentEvent, ver arriba.
+#     ...

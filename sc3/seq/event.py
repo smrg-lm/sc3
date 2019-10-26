@@ -778,7 +778,7 @@ def _make_parent_events():
         instrument_name = event.synthdef_name()
         # // determine how to send those commands
         # // sendGate == false turns off releases
-        send_gate = event.send_gate or event.has_gate
+        send_gate = event.send_gate or event.has_gate  # ESTO ESTABA MAL, SI EL PRIMERO ES FALSE VA FALSE.
         # // update values in the Event that may be determined by functions
         event.freq = freqs
         event.amp = event.value('amp')

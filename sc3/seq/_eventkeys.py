@@ -1,11 +1,5 @@
 '''
-Intención de generalización como objetos:
-
-- La clase Event se encarga de definir un diccionario como parent y/o proto.
-- Se mezcla el diccionario de creación del evento con parent y/o proto.
-- Las clases que representan propiedades (EventKeys) quedan inalteradas.
-
-No hay expansión multicanal, al menos por ahora.
+Event.sc simplification attemp. No multichannel expasion.
 '''
 
 from ..base import main as _libsc3
@@ -15,7 +9,6 @@ from ..synth import _graphparam as gpp
 from ..synth import synthdesc as sdc
 from ..synth import server as srv
 from . import scale as scl
-from . import clock as clk
 from .rest import Rest
 
 
@@ -27,13 +20,12 @@ class _EmptyKey():
 ### Event Keys ###
 
 
-class EventKeys():  # Hacer ABC o constructor por defecto
+class EventKeys():
     name = None
     __slots__ = ()
 
     def __call__(self, dict):
-        # *** NOTE: hace que el objeto sea reutilizable, se podría aplicar a la funcion/módulo graphparam?
-        self.__init__(dict, **kwargs)  # *** NOTE: el último sobreescribe, sirve para parent en Event (que iría primero al mezclar)
+        self.__init__(dict)
 
 
 class PitchKeys(EventKeys):
@@ -265,7 +257,7 @@ class ServerKeys(EventKeys):
         return ['freq', event_type.pitch.freq, 'amp', event_type.amplitude.amp,
                 'pan', event_type.amplitude.pan, 'out', event_type.server.out]
 
-    def _synthdef_name(self):  # *** NOTE: depdende de que se haya llamado a _get_msg_params por synth_desc.
+    def _synthdef_name(self):
         # # // allow `nil to cancel a variant in a pattern # BUG: no entiendo por qué no alcanza solamente con nil en sclang.
         # variant = variant.dereference;
         if self.variant is not None\
@@ -313,13 +305,13 @@ class EventType():  # ABC
     name = None
     event_keys = ()
 
-    def __init__(self, dict, parent=None):  # Aunque tal vez parent debería ser un conjunto de event_keys? complica, que sea una especificación declarativa de los valores de los tipos por defecto. Y se pueden sacar los valres por defecto a _keys de arriba.
+    def __init__(self, dict, parent=None):
         if parent is None:
             dict = dict.copy()
         else:
-            dict = {**parent, **dict}  # copy?
+            dict = {**parent, **dict}
         for keys_class in type(self).event_keys:
-            setattr(self, keys_class.name, keys_class(dict))  # Crea una instancia de cada una por evento, mal pero se necesita, simplifica mucho.
+            setattr(self, keys_class.name, keys_class(dict))
         self._done = False
 
     @property
@@ -341,7 +333,7 @@ class NoteType(EventType):
 
         self.pitch.freq = self.pitch.detuned_freq
 
-        param_list = self.server._get_msg_params(self)  # *** NOTE: se tiene que llamar antes de _synthdef_name
+        param_list = self.server._get_msg_params(self)  # Populates synth_desc.
         instrument_name = self.server._synthdef_name()
         id = self.server.server.next_node_id()  # NOTE: debería quedar guardado.
         add_action = nod.Node.action_number_for(self.server.add_action)
@@ -383,7 +375,7 @@ class Event():
         self.reset()
 
     def play(self):
-        if self._event.done:  # NOTE: también podría ser una comprobación externa para no sobrecargar acá.
+        if self._event.done:
             self.reset()
         self._event.play()
 
@@ -393,8 +385,3 @@ class Event():
 
     def reset(self):
         self._event = type(self).event_types[self.type](self.dict, self.parent)
-
-# LOS DEFAULT EVENTS SE PODRÍAN SACAR EN FAVOR DE EVENTTYPES (QUE TIENEN QUE
-# TENER PLAY Y YA DEFINE LAS LLAVES QUE NECESITA), SIMPLIFICA.
-# class PlayerEvent(Event):  # es DefaultEvent/ParentEvent, ver arriba.
-#     ...

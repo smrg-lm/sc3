@@ -214,7 +214,7 @@ class SynthDesc():
                     self.sdef = None
                     self.constats = None
 
-                self.make_msg_func()
+                self.make_msg_func()  # *** NOTE: aún tiene que llamar para setear _has_gate. Y realiza comprobaciones que son independientes de la función en sí.
             finally:
                 _gl.current_synthdef = None
 
@@ -392,6 +392,7 @@ class SynthDesc():
     @property
     def msg_func_keep_gate(self):
         return self._msg_func_keep_gate
+
     @msg_func_keep_gate.setter
     def msg_func_keep_gate(self, value):
         if value != self.msg_func_keep_gate:

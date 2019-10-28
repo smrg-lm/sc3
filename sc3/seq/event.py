@@ -35,7 +35,7 @@ class PitchKeys(EventKeys):
                  'ctranspose', 'octave', 'root', 'scale', 'detune', 'harmonic',
                  '_set_key')
 
-    _special_keys = ('freq', 'midinote', 'degree')  # special keys, other keys in _keys.
+    _special_keys = ('degree', 'midinote', 'freq')  # special keys, other keys in _keys.
 
     _keys = [('mtranspose', 0), ('gtranspose', 0.0),
              ('ctranspose', 0.0), ('octave', 5.0),
@@ -49,7 +49,7 @@ class PitchKeys(EventKeys):
                 setattr(self, key, value)
                 self._set_key = key
                 break
-        if not value:
+        if value is _EmptyKey or value is None:
             raise ValueError('no valid pitch key given')
         for key, value in self._keys:
             value = dict.pop(key, value)
@@ -81,7 +81,7 @@ class PitchKeys(EventKeys):
             ret = self.scale.degree_to_key(self._degree + self.mtranspose)  # degree -> note -> midinote
             ret = ret + self.gtranspose + self.root
             ret = ret / self.scale.spo() + self.octave - 5.0
-            ret = ret * (12.0 * math.log2(self.scale.octave_ratio)) + 60
+            ret = ret * (12.0 * bi.log2(self.scale.octave_ratio)) + 60
             return ret
         else:  # self._set_key == 'freq'
             return bi.cpsmidi(self._freq)  # no existe en sclang

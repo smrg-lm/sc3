@@ -5,6 +5,8 @@ import tempfile
 import os
 import sys
 # import site
+import subprocess
+import threading
 
 from . import main as _libsc3
 from ..synth import server as srv
@@ -58,6 +60,17 @@ class MetaPlatform(type):
     @property
     def bin_dir(cls):
         return _libsc3.main.platform.bin_dir
+
+    @staticmethod
+    def _cmd_line(*popenargs, sync=False):  # sclang unixCmd no pid return.
+        if sync:
+            subprocess.call(*popenargs)
+        else:
+            run = lambda: subprocess.call(*popenargs)
+            threading.Thread(target=run, daemon=True).start()
+
+    def kill_all(cls, program_name):
+        return _libsc3.main.platform.kill_all(program_name)
 
 
 class Platform(metaclass=MetaPlatform):
@@ -120,7 +133,9 @@ class Platform(metaclass=MetaPlatform):
 
 
 class UnixPlatform(Platform):
-    pass
+    def kill_all(self, program_name):
+        cmd = ['killall', '-9', program_name]
+        type(self)._cmd_line(cmd)
 
 
 class LinuxPlatform(UnixPlatform):
@@ -172,7 +187,9 @@ class DarwinPlatform(UnixPlatform):
 
 
 class WindowsPlatform(Platform):
-    pass
+    def kill_all(self, program_name):
+        cmd = ['taskkill', '/F', '/IM', program_name]
+        type(self)._cmd_line(cmd)
 
 
 class Win32Platform(WindowsPlatform):

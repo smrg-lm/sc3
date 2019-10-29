@@ -940,17 +940,17 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 task.stop()
 
         if timeout is not None:
-            def task():
+            def task_func():
                 yield timeout
                 resp.free()
                 if on_failure is not None:
                     on_failure()
         else:
-            def task():
+            def task_func():
                 pass # no hace nada
 
         resp = rdf.OSCFunc(resp_func, '/synced', self.addr)
-        stm.Routine.run(task, clk.AppClock)
+        task = stm.Routine.run(task_func, clk.AppClock)
         self.addr.send_msg('/sync', id)
 
     def _wait_for_pid_release(self, on_complete, on_failure=None, timeout=1):
@@ -1093,9 +1093,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # // over from crashes, unexpected quits etc.
         # // you can't cause them to quit via OSC (the boot button)
         # // this brutally kills them all off
-        # thisProcess.platform.killAll(this.program.basename);
-        # this.quitAll(watchShutDown: false);
-        print('* implementar Server.kill platform.kill_all') # BUG: implementar
+        _libsc3.main.platform.kill_all(_pathlib.Path(cls.program).name)
+        cls.quit_all(watch_shutdown=False)
 
     def free_all(self): # BUG: VER tiene variante como @classmethod
         self.send_msg('/g_freeAll', 0)

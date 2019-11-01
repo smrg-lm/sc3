@@ -28,10 +28,8 @@ from . import buffer as bff
 _logger = _logging.getLogger(__name__)
 
 
-# BUG: revisar porque hay un patch que cambió esto y otros que cambiaron un par
-# BUG: de cosas, el problema es que los patch se aplican meses después a master.
-# Esto de acá abajo lo hace con un diccionario en initClass, me parece mejor.
-# command line server exec default values
+### Command line server exec default values ###
+
 _NUM_CONTROL_BUS_CHANNELS = 16384
 _NUM_AUDIO_BUS_CHANNELS = 1024 # esta no se usa, hace self.num_private_audio_bus_channels + self.num_input_bus_channels + self.num_output_bus_channels
 _NUM_INPUT_BUS_CHANNELS = 8
@@ -53,6 +51,8 @@ _NUM_WIRE_BUFS = 64
 _VERBOSITY = 0
 #_ZEROCONF = 1 (True) # BUG: ver abajo, la lógica de esto es endeble
 _MAX_LOGINS = 64
+
+_BIND_ADDRESS = '127.0.0.1'
 
 
 class ServerOptions():
@@ -108,6 +108,8 @@ class ServerOptions():
         self.rec_channels = 2
         self.rec_buf_size = None
 
+        self.bind_address = _BIND_ADDRESS
+
     @property
     def device(self):
         if self.in_device == self.out_device:
@@ -119,103 +121,75 @@ class ServerOptions():
     def device(self, value):
         self.in_device = self.out_device = value
 
-    def as_options_string(self, port=57110): # BUG: el nombre está mal, acá no es un string, tengo que reveer la generación de cmd
+    def options_list(self, port=57110):
         o = []
 
         if self.protocol == 'tcp':
-            o.append('-t')
+            o.extend(['-t', str(port)])
         else:
-            o.append('-u')
-        o.append(str(port))
+            o.extend(['-u', str(port)])
 
-        o.append('-a')
-        o.append(str(self.num_private_audio_bus_channels
-                     + self.num_input_bus_channels
-                     + self.num_output_bus_channels))
+        o.extend(['-a', str(self.num_private_audio_bus_channels +
+                        self.num_input_bus_channels +
+                        self.num_output_bus_channels)])
 
+        o.extend(['-i', str(self.num_input_bus_channels)])  # BUG: ver default de _NUM_INPUT_BUS_CHANNELS
+        o.extend(['-o', str(self.num_output_bus_channels)])  # BUG: ver default de _NUM_OUTPUT_BUS_CHANNELS
+
+        # bind_address, hay otros cambios -i y -o
+
+        if self.bind_address != _BIND_ADDRESS:
+            o.extend(['-B', self.bind_address])
         if self.num_control_bus_channels != _NUM_CONTROL_BUS_CHANNELS:
-            o.append('-c')
-            o.append(str(self.num_control_bus_channels))
-        if self.num_input_bus_channels != _NUM_INPUT_BUS_CHANNELS:
-            o.append('-i')
-            o.append(str(self.num_input_bus_channels))
-        if self.num_output_bus_channels != _NUM_OUTPUT_BUS_CHANNELS:
-            o.append('-o')
-            o.append(str(self.num_output_bus_channels))
+            o.extend(['-c', str(self.num_control_bus_channels)])
         if self.num_buffers != _NUM_BUFFERS:
-            o.append('-b')
-            o.append(str(self.num_buffers))
+            o.extend(['-b', str(self.num_buffers)])
         if self.max_nodes != _MAX_NODES:
-            o.append('-n')
-            o.append(str(self.max_nodes))
+            o.extend(['-n', str(self.max_nodes)])
         if self.max_synth_defs != _MAX_SYNTH_DEFS:
-            o.append('-d')
-            o.append(str(self.max_synth_defs))
+            o.extend(['-d', str(self.max_synth_defs)])
         if self.block_size != _BLOCK_SIZE:
-            o.append('-z')
-            o.append(str(self.block_size))
+            o.extend(['-z', str(self.block_size)])
         if self.hardware_buffer_size is not None: # BUG: ver, la lógica de esto es endeble
-            o.append('-Z')
-            o.append(str(self.hardware_buffer_size))
+            o.extend(['-Z', str(self.hardware_buffer_size)])
         if self.mem_size != _MEM_SIZE:
-            o.append('-m')
-            o.append(str(self.mem_size))
+            o.extend(['-m', str(self.mem_size)])
         if self.num_rgens != _NUM_RGENS:
-            o.append('-r')
-            o.append(str(self.num_rgens))
+            o.extend(['-r', str(self.num_rgens)])
         if self.num_wire_bufs != _NUM_WIRE_BUFS:
-            o.append('-w')
-            o.append(str(self.num_wire_bufs))
+            o.extend(['-w', str(self.num_wire_bufs)])
         if self.sample_rate is not None: # BUG: ver, la lógica de esto es endeble
-            o.append('-S')
-            o.append(str(self.sample_rate))
+            o.extend(['-S', str(self.sample_rate)])
         if not self.load_defs: # BUG: ver, la lógica de esto es endeble
-            o.append('-D')
-            o.append('0')
+            o.extend(['-D', '0'])
         if self.input_streams_enabled is not None: # BUG: ver, la lógica de esto es endeble
-            o.append('-I')
-            o.append(self.input_streams_enabled) # es un string
+            o.extend(['-I', self.input_streams_enabled])
         if self.output_streams_enabled is not None: # BUG: ver, la lógica de esto es endeble
-            o.append('-O')
-            o.append(self.output_streams_enabled) # es un string
-
-        # if _libsc3.main.platform.name != 'osx'\
-        # or self.in_device == self.out_device: # BUG: no está implementado: thisProcess.platform.name
-        if self.in_device == self.out_device: # BUG: borrar, va lo de arriba pero implementado
+            o.extend(['-O', self.output_streams_enabled])
+        if self.in_device == self.out_device:
             if self.in_device is not None:
-                o.append('-H')
-                o.append('"{}"'.format(self.in_device)) # BUG: comprobar que funciona en Python
+                o.extend(['-H', f'"{self.in_device}"'])  # BUG: comprobar que funciona en Python
         else:
-            o.append('-H')
-            params = '"{}" "{}"'.format(str(self.in_device), str(self.out_device)) # BUG: comprobar que funciona en Python
-            o.append(params)
-
+            o.extend(['-H', f'"{self.in_device}" "{self.out_device}"'])  # BUG: comprobar que funciona en Python
         if self.verbosity != _VERBOSITY:
-            o.append('-V')
-            o.append(str(self.verbosity))
+            o.extend(['-V', str(self.verbosity)])
         if not self.zeroconf: # BUG: ver, la lógica de esto es endeble
-            o.append('-R')
-            o.append('0')
+            o.extend(['-R', '0'])
         if self.restricted_path is not None:
-            o.append('-P')
-            o.append(str(self.restricted_path)) # puede ser str o Path
+            o.extend(['-P', str(self.restricted_path)])  # may be str o Path
         if self.ugen_plugins_path is not None:
-            o.append('-U')
             plist = utl.as_list(self.ugen_plugins_path)
             plist = [_os.path.normpath(x) for x in plist] # BUG: ensure platform format? # BUG: windows drive?
-            o.append(_os.pathsep.join(plist))
+            o.extend(['-U', _os.pathsep.join(plist)])
         if self.memory_locking:
             o.append('-L')
         if self.threads is not None:
             if Server.program.endswith('supernova'):
-                o.append('-T')
-                o.append(str(self.threads))
+                o.extend(['-T', str(self.threads)])
         if self.use_system_clock is not None:
-            o.append('-C')
-            o.append(int(self.use_system_clock))
+            o.extend(['-C', str(int(self.use_system_clock))])
         if self.max_logins is not None:
-            o.append('-l')
-            o.append(str(self.max_logins))
+            o.extend(['-l', str(self.max_logins)])
         return o
 
     def first_private_bus(self):
@@ -302,10 +276,10 @@ class MetaServer(type):
         cls.buffer_alloc_class = eng.ContiguousBlockAllocator
         cls.bus_alloc_class = eng.ContiguousBlockAllocator
 
-        cls._default = cls.local = cls('localhost',
-                                       nad.NetAddr('127.0.0.1', 57110))
-        # cls.internal = cls('internal',
-        #                    nad.NetAddr(None, None))  # No internal by now.
+        cls.default = cls.local = cls(
+            'localhost', nad.NetAddr('127.0.0.1', 57110))
+        # cls.internal = cls(
+        #     'internal', nad.NetAddr(None, None))  # No internal by now.
 
     @property
     def default(cls):
@@ -315,10 +289,10 @@ class MetaServer(type):
     def default(cls, value):
         cls._default = value
         if cls.sync_s:
+            _logger.info(f"setting global variable 's' to '{value.name}'")
             global s
-            s = value # BUG: ver, puede que no sea bueno para Python.
+            s = value
         for server in cls.all:
-            # server.changed(\default, value)
             mdl.NotificationCenter.notify(server, 'default', value)
 
 
@@ -1239,7 +1213,7 @@ class _ServerProcess():
 
     def run(self):
         cmd = [Server.program]
-        cmd.extend(self.options.as_options_string())
+        cmd.extend(self.options.options_list())
 
         self.proc = _subprocess.Popen(
             cmd,  # TODO: maybe a method popen_cmd regarding server, options and platform.

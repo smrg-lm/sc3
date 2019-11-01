@@ -58,6 +58,10 @@ def sine(freq=440, amp=0.1, gate=1):
 
 sine.dump_ugens()
 
+# following lines are meant to be executed one by one as in interactive
+# session. Commands to the server are asynchronous actions that need a bit
+# of time for the resource to be available/changed.
+
 n = Synth('sine')
 n.set('amp', 0.05)
 n.set('freq', 220)
@@ -65,7 +69,9 @@ n.set('freq', 220)
 s.query_all_nodes(True)
 
 n.release()
-s.quit()
+# s.free_all()  # if something went wrong free all nodes.
+
+s.quit()  # stop server at the end of interactive session or just quit ipython.
 ```
 
 That's a working example but many things are not finished or tested and some are

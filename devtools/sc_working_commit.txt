@@ -1,4 +1,8 @@
 sc3 current commit
+SuperCollider commit 67a1eb18b01cafce5fb126ae90e456691b5ee8cb
+git diff --name-only 834c036d3519337d409277d13f15f321759c5756 HEAD | grep SCClassLibrary
+Changes done.
+
 SuperCollider commit 834c036d3519337d409277d13f15f321759c5756
 The only changes to lib were:
 commit 553e66194542868ef0ec63c97d0ae399297cb761

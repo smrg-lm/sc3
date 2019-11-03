@@ -19,6 +19,7 @@ from ..seq import clock as clk
 from . import _engine as eng
 from . import synthdef as sdf
 from . import _serverstatus as sst
+from . import _volume as vlm
 from . import node as nod
 from . import bus
 from . import _graphparam as gpp
@@ -132,11 +133,8 @@ class ServerOptions():
         o.extend(['-a', str(self.num_private_audio_bus_channels +
                         self.num_input_bus_channels +
                         self.num_output_bus_channels)])
-
         o.extend(['-i', str(self.num_input_bus_channels)])  # BUG: ver default de _NUM_INPUT_BUS_CHANNELS
         o.extend(['-o', str(self.num_output_bus_channels)])  # BUG: ver default de _NUM_OUTPUT_BUS_CHANNELS
-
-        # bind_address, hay otros cambios -i y -o
 
         if self.bind_address != _BIND_ADDRESS:
             o.extend(['-B', self.bind_address])
@@ -339,7 +337,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # // go thru setter to test validity
         self.client_id = client_id or 0 # es @property y usa el setter
 
-        #self.volume = xxx.Volume(server=self, persist=True) # BUG: falta implementar
+        self._volume = vlm.Volume(server=self, persist=True)
         #self.recorder = xxx.Recorder(server=self) # BUG: falta implementar
         #self.recorder.notify_server = True # BUG: falta implementar
 
@@ -372,7 +370,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         type(self).all.remove(self)
         del type(self).named[self.name]
 
-    # L357
     @property
     def addr(self):
         return self._addr
@@ -407,10 +404,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             self.sync()
         clk.AppClock.sched(0, init_task)
 
-    # client ID
 
-    # // clientID is settable while server is off, and locked while server is running
-    # // called from prHandleClientLoginInfoFromServer once after booting.
+    ### client ID  ##
+
+    # // clientID is settable while server is off, and locked while server is
+    # // running called from prHandleClientLoginInfoFromServer once after booting.
+
     @property
     def client_id(self):
         return self._client_id
@@ -437,8 +436,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._client_id = value
         self.new_allocators() # *** BUG: parece un método privado pero lo usan en UnitTest-bootServer
 
-    # L414
-    # /* clientID-based id allocators */
+
+    ### clientID-based id allocators ###
 
     def new_allocators(self):
         self.new_node_allocators()
@@ -570,7 +569,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                             f"for notifications: {msg}. To recover, please "
                             "reboot the server")
 
-    # L634
+
     ### network messages ###
 
     def send_msg(self, *args):
@@ -630,8 +629,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             target.node_id, *node_list
         )
 
-    # // load from disk locally, send remote
     def send_synthdef(self, name, dir=None):
+        # // Load from disk locally, send remote.
         dir = dir or sdf.SynthDef.synthdef_dir
         dir = _pathlib.Path(dir)
         full_path = dir / (name + '.scsyndef')
@@ -642,22 +641,22 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         except FileNotFoundError:
             _logger.warning(f'send_synthdef FileNotFoundError: {full_path}')
 
-    # // tell server to load from disk
     def load_synthdef(self, name, completion_msg=None, dir=None):
+        # // Tell server to load from disk.
         dir = dir or sdf.SynthDef.synthdef_dir
         dir = _pathlib.Path(dir)
         path = str(dir / (name + '.scsyndef'))
         self.send_msg('/d_load', path, fn.value(completion_msg, self))
 
-    # // /d_loadDir
     def load_directory(self, dir, completion_msg=None):
         self.send_msg('/d_loadDir', dir, fn.value(completion_msg, self))
 
-    # L722
-    ### network message bundling ###
-    # TODO
 
-    # L761
+    ### network message bundling ###
+
+    # TODO...
+
+
     ### scheduling ###
 
     def wait(self, response_name): # BUG: la implementación en sclang parece un bug, pero tendríá que ver cómo responde _RoutineResume y cómo se hace el reschedule.
@@ -730,7 +729,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                              f"server '{self.name}': {result}s")
 
         def ping_func():
-            stm.Routine.run(task, clk.SystemClock) # NOTE: Routine.run usa SystemClock por defecto (con un checkeo puesto demás en sclang, y acá, porque es lo que pasa a bajo nivel)
+            stm.Routine.run(task, clk.SystemClock)
+
         ping_func()
 
     def cached_buffers_do(self, func):
@@ -739,8 +739,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def cached_buffer_at(self, bufnum):
         return bff.Buffer.cached_buffer_at(self, bufnum)
 
-    # // keep defaultGroups for all clients on this server:
     def make_default_groups(self):
+        # // Keep defaultGroups for all clients on this server.
         self.default_groups = [nod.Group.basic_new(
             self, self.node_allocator.num_ids * client_id + 1
         ) for client_id in range(self.max_num_clients)]
@@ -765,11 +765,19 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def output_bus(self):
         return bus.Bus('audio', 0, self.options.num_output_bus_channels, self)
 
-    # L877
-    ### recording formats ###
-    # TODO
 
-    # L888
+    ### recording formats ###
+
+    # These atributes are just a wrapper of ServerOptions, use s.options.
+    # To me it looks a bit inconsistent that some options have a shortcut
+    # whilte other don't. ServerStatusWatcher is a different case becuase
+    # it is an internal class not used as interface.
+    # @property rec_header_format
+    # @property rec_sample_format
+    # @property rec_channels
+    # @property rec_buf_size
+
+
     ### server status ###
 
     @property
@@ -820,11 +828,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def unresponsive(self):
         return self.status_watcher.unresponsive
 
-    # no es property
     def start_alive_thread(self, delay=0.0):
         self.status_watcher.start_alive_thread(delay)
 
-    # no es property
     def stop_alive_thread(self):
         self.status_watcher.stop_alive_thread()
 
@@ -840,7 +846,14 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def alive_thread_period(self, value):
         self.status_watcher.alive_thread_period = value
 
-    # shm
+    @classmethod
+    def resume_threads(cls):
+        for server in cls.all:
+            server.status_watcher.resume_thread()
+
+
+    ### shared memory interface ###
+
     def disconnect_shared_memory(self):
         ...
 
@@ -850,12 +863,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def has_shm_interface(self):
         ...
 
-    @classmethod
-    def resume_threads(cls):
-        for server in cls.all:
-            server.status_watcher.resume_thread()
 
-    # L931
     def boot(self, start_alive=True, recover=False, on_failure=None):
         if self.status_watcher.unresponsive:
             _logger.info(f"server '{self.name}' unresponsive, rebooting...")
@@ -1050,7 +1058,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         # *** TODO:
         # if(scopeWindow.notNil) { scopeWindow.quit }  # No.
-        # self.volume.free_synth
+        self._volume.free_synth()
         nod.RootNode(self).free_all()
         self.new_allocators()
 
@@ -1102,11 +1110,28 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def all_running_servers(cls):
         return [x for x in cls.all if x.server_running]
 
-    # L1181
-    ### volume control ###
-    # TODO
 
-    # L1195
+    ### volume control ###
+
+    @property
+    def volume(self):
+        return self._volume
+
+    @property
+    def gain(self):
+        return self._volume.gain
+
+    @gain.setter
+    def gain(self, value):  # Was volume_
+        self._volume.gain = value
+
+    def mute(self):
+        self._volume.mute()
+
+    def unmute(self):
+        self._volume.unmute()
+
+
     ### recording output ###
     # TODO
 

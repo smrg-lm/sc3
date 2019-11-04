@@ -200,33 +200,33 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         # BUG: revisar todos los 'or' BUG, BUG
 
     def get_synchronous(self):
-        pass
+        ...
 
     def getn_synchronous(self, count):
-        pass
+        ...
 
     def set_synchronous(self, *values):
-        pass
+        ...
 
     def setn_synchronous(self, values):
-        pass
+        ...
 
     def fill(self, value, num_chans):
-        pass
+        ...
 
     def fill_msg(self, value):
-        pass
+        ...
 
     def free(self, clear=False):
-        pass
+        ...
 
     # // allow reallocation
 
     def alloc_bus(self):  # NOTE: Naming convention as Buffer for instance methods.
-        pass
+        ...
 
     def realloc_bus(self):
-        pass
+        ...
 
     # // alternate syntaxes
     # TODO: hay métodos que son importantes (e.g. asMap), VER.

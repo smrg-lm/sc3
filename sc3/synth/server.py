@@ -682,21 +682,21 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def do_when_booted(self, on_complete, limit=100, on_failure=None):
         self.status_watcher.do_when_booted(on_complete, limit, on_failure)
 
-    def if_running(self, func, fail_func=lambda s: None): # TODO: no se usa, pero como llama a statusWatcher puede ser útil
-        if self.status_watcher.unresponsive:
-            _logger.info(f"server '{self.name}' not responsive")
-            fail_func(self)
-        elif self.status_watcher.server_running:
-            func(self)
-        else:
-            _logger.info(f"server '{self.name}' no running")
-            fail_func(self)
-        # NOTE: no retorna nada a diferencia de sclang, se podría comprobar el
-        # valor de retorno en vez de postear, esta función no está documentada.
-
-    def if_not_running(self, func): # TODO: no se usa, pero como llama a statusWatcher puede ser útil
-        self.if_running(lambda s: None, func) # NOTE: para el caso if_running deberíá postear 'server tal funning' en caso de error
-        # NOTE: Ídem.
+    # NOTE: To be removed.
+    # def if_running(self, func, fail_func=lambda s: None):
+    #     # if not self.unresponsive and self.server_running: is running
+    #     # if self.unresponsive or not self.server_running: is not running
+    #     if self.status_watcher.unresponsive:
+    #         _logger.info(f"server '{self.name}' not responsive")
+    #         return fail_func(self)
+    #     elif self.status_watcher.server_running:
+    #         return func(self)
+    #     else:
+    #         _logger.info(f"server '{self.name}' no running")
+    #         return fail_func(self)
+    #
+    # def if_not_running(self, func):
+    #     return self.if_running(lambda s: None, func)
 
     def boot_sync(self, condition=None):
         condition = condition or stm.Condition()
@@ -1108,7 +1108,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @classmethod
     def all_running_servers(cls):
-        return [x for x in cls.all if x.server_running]
+        return [x for x in cls.all if x.status_watcher.server_running]
 
 
     ### volume control ###

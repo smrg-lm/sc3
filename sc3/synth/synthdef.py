@@ -22,6 +22,9 @@ _logger = logging.getLogger(__name__)
 
 
 class MetaSynthDef(type):
+    tmp_name_prefix = 'tmp__'
+    _tmp_def_count = 0
+
     def __init__(cls, *_):
 
         def init_func(cls):
@@ -29,6 +32,11 @@ class MetaSynthDef(type):
             cls.synthdef_dir.mkdir(exist_ok=True) # // Ensure exists
 
         utl.ClassLibrary.add(cls, init_func)
+
+    def generate_tmp_name(cls):
+        name = cls.tmp_name_prefix + str(cls._tmp_def_count)
+        cls._tmp_def_count += 1
+        return name
 
 
 class SynthDef(metaclass=MetaSynthDef):

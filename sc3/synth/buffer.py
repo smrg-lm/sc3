@@ -1,8 +1,12 @@
 """Buffer.sc"""
 
+import pathlib
+import time
+
 from ..base import responsedefs as rdf
 from ..base import model as mdl
 from ..base import functions as fn
+from ..base import main as _libsc3
 from . import _graphparam as gpp
 from . import server as srv
 
@@ -199,16 +203,162 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 num_frames, buf_start_frame, leave_open, *channels,
                 fn.value(completion_msg, self)]  # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
 
-    def cue(self, path, start_frame=0, completion_msg=None):
+    def cue(self, path, start_frame=0, completion_msg=None):  # Was cue_soundfile
+        # // Preload a buffer for use with DiskIn.
         self._path = path
         self._server.send_msg(*self.cue_msg(path, start_frame, completion_msg))
         # NOTE: no llama a cache()
 
-    def cue_msg(self, path, start_frame=0, completion_msg=None):
+    def cue_msg(self, path, start_frame=0, completion_msg=None):  # Was cue_soundfile_msg
         return ['/b_read', self._bufnum, path, start_frame, 0, 1,  # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
                 self._num_frames, fn.value(completion_msg, self)]  # *** BUG: pone 1 en vez de True, porque es el mensaje, pero no lo hace siempre.
 
-    # TODO: sigue
+    @classmethod
+    def new_load(cls, server, collection, num_channels=1, action=None):  # Was new_load_collection
+        ...  # Move classmethod method up.
+
+    def load(self, collection, start_frame=0, action=None):  # Was load_collection
+        ...
+
+    @classmethod
+    def new_send(cls, server, collection, num_channels=1, wait=-1, action=None):  # Was send_collection
+        # // Send a Collection to a buffer one UDP sized packet at a time.
+        ... # Move class method up.
+
+    def send(self, collection, start_frame=0, wait=-1, action=None):  # Was send_collection
+        ...
+
+    def _stream_data(self, collstream, collsize, start_frame=0, wait=-1, action=None):  # Was streamCollection
+        # // Called internally.
+        ...
+
+
+    # TODO:
+    # // these next two get the data and put it in a float array which is passed to action
+    # loadToFloatArray
+    # // risky without wait
+    # getToFloatArray
+
+
+    def write(self, path=None, header_format="aiff", sample_format="int24",
+              num_frames=-1, start_frame=0, leave_open=False,
+              completion_msg=None):
+        if self._bufnum is None:
+            raise Exception(
+                'cannot call write on a Buffer that has been freed')
+
+        if path is None:
+            dir = _libsc3.main.platform.recording_dir
+            timestamp = time.strftime('%Y%m%d_%H%M%S')
+            path = dir / ('SC_' + timestamp + '.' + header_format)
+        else:
+            path = pathlib.Path(path)
+            if not path.suffix:
+                path = pathlib.Path(str(path) + '.' + header_format)
+
+        self._server.send_msg(*self.write_msg(
+            str(path), header_format, sample_format, num_frames,
+            start_frame, leave_open, completion_msg))
+
+    def write_msg(self, path, header_format="aiff", sample_format="int24",
+                  num_frames=-1, start_frame=0, leave_open=False,
+                  completion_msg=None):
+        if self._bufnum is None:
+            raise Exception(
+                'cannot call write_msg on a Buffer that has been freed')
+        # // Doesn't change my path.
+        return ['/b_write', self._bufnum, path, header_format, sample_format,
+                int(num_frames), int(start_frame), int(leave_open),
+                fn.value(completion_msg, self)]
+
+    def free(self, completion_msg=None):
+        if self._bufnum is None:
+            _logger.warning(
+                'cannot call free on a Buffer that has been freed')
+        self._server.send_msg(*self.free_msg(completion_msg))
+
+    def free_msg(self, completion_msg=None):
+        if self._bufnum is None:
+            _logger.warning(
+                'cannot call free_msg on a Buffer that has been freed')
+        self._uncache()
+        self._server.buffer_allocator.free(self._bufnum)
+        msg = ['/b_free', self._bufnum, fn.value(completion_msg, self)]
+        self._bufnum = self._num_frames = self._num_channels = None
+        self._sample_rate = self._path = self._start_frame = None
+        return msg
+
+    @classmethod
+    def free_all(cls, server=None):  # Move up?
+        server = server if server is not None else srv.Server.default
+        server.free_all_buffers()
+        type(self)._clear_server_caches(server) # *** BUG: no hace _clear_server_caches de default si es nil en sclang.
+
+    def zero(self, completion_msg=None):
+        ...
+
+    def zero_msg(self, completion_msg=None):
+        ...
+
+    def set(self, index, value, *more_pairs):
+        ...
+
+    def set_msg(self, index, value, *more_pairs):
+        ...
+
+    def setn(self, *args):
+        ...
+
+    def setn_msg_args(self, *args):
+        ...
+
+    def setn_msg(self, *args):
+        ...
+
+    def get(self, index, action=None):
+        ...
+
+    def get_msg(self, index, action=None):
+        ...
+
+    def getn(self, index, count, action=None):
+        ...
+
+    def getn_msg(self, index, count, action=None):
+        ...
+
+    def fill(self, start, num_frames, value, *more_values):
+        ...
+
+    def fill_msg(self, start, num_frames, value, *more_values):
+        ...
+
+    def normalize(self, new_max=1, as_wavetable=False):
+        ...
+
+    def normalize_msg(self, new_max=1, as_wavetable=False):
+        ...
+
+
+    # TODO:
+    # gen
+    # gen_msg
+    # sine1
+    # sine2
+    # sine3
+    # cheby
+    # sine1_msg
+    # sine2_msg
+    # sine3_msg
+    # cheby_msg
+    # copy_data  # NOTE: ver el cambio de nombre de streamCollection.
+    # copy_msg
+    # clase
+    # close_msg
+    # query
+    # query_msg
+    # update_info
+
 
     def _cache(self):
         # // cache Buffers for easy info updating
@@ -280,7 +430,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         self._do_on_info = lambda buf: None
 
     # printOn
-    # *loadDialog # TODO: ver qué se hace con los métodos gui en general.
+    # *loadDialog # No builtin gui.
 
     def play(self, loop=False, mul=1):
         print('*** implementar Buffer.play tal vez mejor como función play(buffer) que retorna el objeto player y que cada clase implemente __play__') # TODO

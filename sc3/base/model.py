@@ -17,7 +17,10 @@ class _Dendrite():
         sub = self.dictionary
         for key in path_lst:
             if key in sub:
-                sub = sub[key]
+                if isinstance(sub[key], dict):
+                    sub = sub[key]
+                else:
+                    sub = dict()  # next key will fail if current wasn't last.
             else:
                 raise KeyError(tuple(path))
         err = None
@@ -36,29 +39,37 @@ class _Dendrite():
             return list(value)
         if isinstance(value, collections.Hashable):
             return [value]
-        raise KeyError('{} is not a valid path'.format(type(value).__name__))
+        raise KeyError(f'{type(value).__name__} is not a valid path')
 
     def __setitem__(self, path, value):
         path_lst = self._as_path(path)
         last = path_lst.pop()
         sub = self.dictionary
-        prev_sub = sub
-        prev_key = None
+        # prev_sub = sub
+        # prev_key = None
         for key in path_lst:
             if isinstance(sub, dict):
                 if key in sub:
-                    prev_sub = sub
-                    prev_key = key
+                    # prev_sub = sub
+                    # prev_key = key
                     sub = sub[key]
                 else:
                     sub[key] = dict()
                     sub = sub[key]
             else:
-                prev_sub[prev_key] = dict()
-                sub = prev_sub[prev_key]
-                sub[key] = dict()
-                sub = sub[key]
-        sub[last] = value
+                # TODO: que se puedan hacer forks en ambos casos, el nodo
+                # TODO: contiene una list/tuple con el valor terminal (uno
+                # TODO: solo) y un camino anidado, cambiarían get y contains.
+                # prev_sub[prev_key] = dict()
+                # sub = prev_sub[prev_key]
+                # sub[key] = dict()
+                # sub = sub[key]
+                raise KeyError(
+                    f'existing path fork before {key}: {tuple(path)}')
+        if isinstance(sub, dict):
+            sub[last] = value
+        else:
+            raise KeyError(f'leaf path fork at {last}: {tuple(path)}')
 
     def __delitem__(self, path):
         path_lst = self._as_path(path)
@@ -76,9 +87,13 @@ class _Dendrite():
         sub = self.dictionary
         for key in path_lst:
             if key in sub:
-                return True
+                if isinstance(sub[key], dict):
+                    sub = sub[key]
+                else:
+                    sub = dict()  # next key will fail if current wasn't last.
             else:
                 return False
+        return True
 
     def __repr__(self):
         msg = type(self).__name__ + '('

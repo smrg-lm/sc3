@@ -4,6 +4,7 @@ from abc import ABC, abstractclassmethod
 
 from ..synth import server as srv
 from ..seq import clock as clk
+from . import functions as fn
 
 
 class AbstractSystemAction(ABC):
@@ -33,9 +34,13 @@ class AbstractSystemAction(ABC):
     def run(cls):
         pass
 
+    @classmethod
+    def _do_action(cls, obj, selector, *args):
+        fn.value(getattr(obj, selector, obj), *args)
 
-# // things to clear when hitting cmd-.
+
 class CmdPeriod(AbstractSystemAction):
+    # // Things to clear when hitting <cmd-.>.
     era = 0
     clear_clocks = True
     free_servers = True
@@ -45,7 +50,7 @@ class CmdPeriod(AbstractSystemAction):
     def do_once(cls, object):
         def do_func():
             cls.remove(do_func)
-            object.do_on_cmd_period() # BUG: ver extSystemActions.sc, tiene que ser algo como atexit, también cambiaría AbstractServerAction
+            cls._do_action(item, 'do_on_cmd_period')
         cls.add(do_func)
 
     @classmethod
@@ -54,7 +59,7 @@ class CmdPeriod(AbstractSystemAction):
             clk.SystemClock.clear()
             clk.AppClock.clear()
         for item in cls.objects[:]:
-            item.do_on_cmd_period() # BUG: ver extSystemActions.sc, tal vez es solo comprobar por un método mágico
+            cls._do_action(item, 'do_on_cmd_period')
         if cls.free_servers:
             srv.Server.free_all(cls.free_remote) # // stop all sounds on local, or remote servers
             srv.Server.resume_threads()
@@ -66,27 +71,44 @@ class CmdPeriod(AbstractSystemAction):
         clk.AppClock.clear()
         clk.TempoClock.default.clear()
         for item in cls.objects[:]:
-            item.do_on_cmd_period() # BUG: ver extSystemActions.sc, voy a tener que cambiar la interfaz y que registren la función junto con el objeto, que recibe al objeto
-        srv.Server.hard_free_all() # // stop all sounds on local servers
+            cls._do_action(item, 'do_on_cmd_period')
+        srv.Server.hard_free_all()  # // stop all sounds on local servers
         srv.Server.resume_threads()
         cls.era += 1
 
 
-# // things to do after startup file executed
-class StartUp(AbstractSystemAction): # TODO
+class StartUp(AbstractSystemAction):
+    # // Things to do after startup file executed.
+    done = False
+
+    @classmethod
+    def run(cls):
+        cls.done = True
+        for item in cls.objects[:]:
+            cls._do_action(item, 'do_on_start_up')
+
     @classmethod
     def defer(cls, obj):
-        obj() # BUG: TEST para probar SynthDef
+        if cls.done:
+            cls._do_action(obj, 'do_on_start_up')
+        else:
+            cls.add(obj)
 
 
-# // things to do before system shuts down
 class ShutDown(AbstractSystemAction):
-    pass
+    # // Things to do before system shuts down.
+    @classmethod
+    def run(cls):
+        for item in cls.objects[:]:
+            cls._do_action(item, 'do_on_shut_down')
 
 
-# // things to do on a system reset
 class OnError(AbstractSystemAction):
-    pass
+    # // Things to do on a system reset.
+    @classmethod
+    def run(cls):
+        for item in cls.objects[:]:
+            cls._do_action(item, 'do_on_error')
 
 
 class AbstractServerAction(AbstractSystemAction):
@@ -125,7 +147,8 @@ class AbstractServerAction(AbstractSystemAction):
     @classmethod
     def run(cls, server):
         selector = cls.function_selector()
-        cls.perform_function(server, lambda obj: getattr(obj, selector, obj)(server)) # NOTE: o es un objeto que responde a los selectores do_on_server_* o es una función/callable
+        cls.perform_function(
+            server, lambda obj: cls._do_action(obj, selector, server))
 
     @classmethod
     def perform_function(cls, server, function): # server es str o srv.Server)
@@ -146,22 +169,22 @@ class AbstractServerAction(AbstractSystemAction):
         pass
 
 
-# // things to do after server has booted
 class ServerBoot(AbstractServerAction):
+    # // Things to do after server has booted.
     @classmethod
     def function_selector(cls):
         return 'do_on_server_boot'
 
 
-# // things to do after server has quit
 class ServerQuit(AbstractServerAction):
+    # // Things to do after server has quit.
     @classmethod
     def function_selector(cls):
         return 'do_on_server_quit'
 
 
-# // things to do after server has booted and initialised
 class ServerTree(AbstractServerAction):
+    # // Things to do after server has booted and initialised.
     @classmethod
     def function_selector(cls):
         return 'do_on_server_tree'

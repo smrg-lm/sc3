@@ -13,7 +13,7 @@ def value(obj, *args, **kwargs):
     If obj is function it gets evaluated with *args and **kwargs and the result
     is returned, else obj is returned as is. Spare parameters are discarded.
     '''
-    if inspect.isfunction(obj):
+    if inspect.isfunction(obj) or inspect.ismethod(obj):
         parameters = inspect.signature(obj).parameters
         nargs = len(parameters)
         kwords = parameters.keys()

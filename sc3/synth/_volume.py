@@ -43,7 +43,7 @@ class Volume():
             self._send_synthdef()
             self._update_synth()
 
-        def init_func(server):  # Mandatory argument.
+        def init_func():
             self._amp_synth = None
             self._send_synthdef()
             # // Only create synth now if it won't be created by ServerTree.
@@ -136,7 +136,7 @@ class Volume():
                 sdf.SynthDef(self._def_name, graph).send(self._server)
                 self._server.sync()
 
-                def update_func(server):  # Mandatory argument.
+                def update_func():
                     self._amp_synth = None
                     if self._persist:
                         self._update_synth()

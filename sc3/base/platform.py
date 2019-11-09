@@ -183,8 +183,28 @@ class LinuxPlatform(UnixPlatform):
 
 
 class DarwinPlatform(UnixPlatform):
-    ...
+    def _startup(self):
+        srv.Server.program = str(self.resource_dir / Path("scsynth"))
 
+    @property
+    def support_dir(self):  # userAppSupportDir
+        return self.home_dir / Path("Library/Application Support/SuperCollider")
+
+    @property
+    def config_dir(self):
+        return self.home_dir / Path("Library/Application Support/SuperCollider")
+
+    @property
+    def resource_dir(self):  # userAppSupportDir/supportDir
+        return Path("/Applications/SuperCollider.app/Contents/Resources")
+
+    @property
+    def synthdef_dir(self):
+        return self.support_dir / Path('synthdefs')
+
+    @property
+    def recording_dir(self):
+        return self.home / Path("Music/SuperCollider Recordings")
 
 class WindowsPlatform(Platform):
     def kill_all(self, program_name):

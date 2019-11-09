@@ -1,6 +1,7 @@
 
 import threading
 import atexit
+import errno
 
 from ..seq import clock as clk
 from . import main as _libsc3
@@ -79,13 +80,13 @@ class OscInteface():
                     ('127.0.0.1', self._port), oli.UDPHandler)
                 break
             except OSError as e:
-                if e.errno == 98 and i < self.port_range:  # Address already in use. 48 en Mac?????
+                if e.errno == errno.EADDRINUSE and i < self.port_range:
                     pass
-                elif e.errno == 98 and i == self.port_range - 1:
+                elif e.errno == errno.EADDRINUSE and i == self.port_range - 1:
                     err = OSError(
-                        '[Errno 98] Port range already in use: '
+                        f'[Errno {errno.EADDRINUSE}] Port range already in use: '
                         f'{self.port}-{self.port_range - 1}')
-                    err.errno = 98
+                    err.errno = errno.EADDRINUSE
                     raise err
                 else:
                     raise e

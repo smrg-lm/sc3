@@ -6,11 +6,6 @@
 sc3
 ===
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-
 Port of core features from sclang to Python 3, 3.6 for sure maybe >= 3.5 (not
 tested). It is intended to be the same library in a different language and to
 keep sclang elegance in a pythonic way (if possible).
@@ -115,6 +110,18 @@ License
 The sc3 library holds the same license as SuperCollider: sc3 is free software
 available under Version 3 of the GNU General Public License. See COPYING for
 details.
+
+
+Contents
+========
+
+.. toctree::
+   :maxdepth: 2
+
+   License <license>
+   Authors <authors>
+   Changelog <changelog>
+   Module Reference <api/modules>
 
 
 Indices and tables

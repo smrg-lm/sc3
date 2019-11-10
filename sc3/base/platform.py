@@ -206,6 +206,10 @@ class DarwinPlatform(UnixPlatform):
     def recording_dir(self):
         return self.home / Path("Music/SuperCollider Recordings")
 
+    @property
+    def bin_dir(self):
+        return self.installation_dir
+
 
 class WindowsPlatform(Platform):
     def kill_all(self, program_name):

@@ -19,6 +19,7 @@ from ..seq import clock as clk
 from . import _engine as eng
 from . import synthdef as sdf
 from . import _serverstatus as sst
+from . import _nodewatcher as ndw
 from . import _volume as vlm
 from . import node as nod
 from . import bus
@@ -264,20 +265,29 @@ class ServerShmInterface():
 
 class MetaServer(type):
     def __init__(cls, *_):
-        cls.named = dict()
-        cls.all = set()
-        cls.program = None  # Initialized with Platform.
-        cls.sync_s = True
 
-        cls.node_alloc_class = eng.NodeIDAllocator
-        # // cls.node_alloc_class = ReadableNodeIDAllocator;
-        cls.buffer_alloc_class = eng.ContiguousBlockAllocator
-        cls.bus_alloc_class = eng.ContiguousBlockAllocator
+        def init_func(cls):
+            cls.named = dict()
+            cls.all = set()
+            # BUG: Server.program se llama en Platform que se crea an main
+            # BUG: antes de llamar ClassLibrary.init() que sobreescribe con
+            # BUG: None al evaluar esta función. Estos detalles SON UN PROBLEMA.
+            # BUG: *** Tal vez se debería usar Platfrom acá en vez de Server allá. ***
+            # BUG: porque Platform se inicializa en main antes que ClassLibrary.init().
+            # cls.program = None  # Initialized with Platform.
+            cls.sync_s = True
 
-        cls.default = cls.local = cls(
-            'localhost', nad.NetAddr('127.0.0.1', 57110))
-        # cls.internal = cls(
-        #     'internal', nad.NetAddr(None, None))  # No internal by now.
+            cls.node_alloc_class = eng.NodeIDAllocator
+            # // cls.node_alloc_class = ReadableNodeIDAllocator;
+            cls.buffer_alloc_class = eng.ContiguousBlockAllocator
+            cls.bus_alloc_class = eng.ContiguousBlockAllocator
+
+            cls.default = cls.local = cls(
+                'localhost', nad.NetAddr('127.0.0.1', 57110))
+            # cls.internal = cls(
+            #     'internal', nad.NetAddr(None, None))  # No internal by now.
+
+        utl.ClassLibrary.add(cls, init_func)
 
     @property
     def default(cls):
@@ -336,6 +346,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.status_watcher = sst.ServerStatusWatcher(server=self)
         # // go thru setter to test validity
         self.client_id = client_id or 0 # es @property y usa el setter
+
+        self.node_watcher = ndw.NodeWatcher(server=self)
 
         self._volume = vlm.Volume(server=self, persist=True)
         #self.recorder = xxx.Recorder(server=self) # BUG: falta implementar

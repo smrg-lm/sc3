@@ -206,6 +206,7 @@ class DarwinPlatform(UnixPlatform):
     def recording_dir(self):
         return self.home / Path("Music/SuperCollider Recordings")
 
+
 class WindowsPlatform(Platform):
     def kill_all(self, program_name):
         cmd = ['taskkill', '/F', '/IM', program_name]

@@ -4,11 +4,12 @@ import logging
 
 from ..base import utils as utl
 from ..base import responsedefs as rdf
+from ..base import functions as fn
 from ..seq import stream as stm
+from ..base import model as mdl
 from . import server as srv
 from . import synthdesc as sdc
 from . import _graphparam as gpp
-from . import nodewatcher as ndw
 
 
 _logger = logging.getLogger(__name__)
@@ -27,8 +28,24 @@ class Node(gpp.NodeParameter):
         0: 0, 1: 1, 2: 2, 3: 3, 4: 4
     }
 
+    _register_all = False
+
     def __init__(self):
         super(gpp.NodeParameter, self).__init__(self)
+
+    def _init_register(self, register):
+        self._is_playing = None  # None (not watched/no info), True or False
+        self._is_running = None  # None (not watched/no info), True or False
+        if register or Node._register_all:
+            self.register()
+
+    @property
+    def is_playing(self):
+        return self._is_playing
+
+    @property
+    def is_running(self):
+        return self._is_running
 
     @classmethod
     def basic_new(cls, server=None, node_id=None):
@@ -37,8 +54,8 @@ class Node(gpp.NodeParameter):
         obj.server = server or srv.Server.default
         obj.node_id = node_id or obj.server.next_node_id()
         obj.group = None
-        obj.is_playing = False
-        obj.is_running = False
+        obj._is_playing = None  # None (not watched/no info), True or False
+        obj._is_running = None  # None (not watched/no info), True or False
         return obj
 
     @classmethod
@@ -49,8 +66,6 @@ class Node(gpp.NodeParameter):
         if send_flag:
             self.server.send_msg('/n_free', self.node_id) # 11
         self.group = None
-        self.is_playing = False
-        self.is_running = False
 
     def free_msg(self):
         return ('/n_free', self.node_id) # 11
@@ -181,16 +196,15 @@ class Node(gpp.NodeParameter):
                     None, self.node_id).one_shot()
         self.server.send_msg('/n_query', self.node_id)
 
-    def register(self, assume_playing=False):
-        ndw.NodeWatcher.register(self, assume_playing)
+    def register(self, playing=True, running=True):
+        self.server.node_watcher.register(self, playing, running)
 
     def unregister(self):
-        ndw.NodeWatcher.unregister(self)
+        self.server.node_watcher.unregister(self)
 
     def on_free(self, action):
-        def action_wrapper(): # (n, m):  # *** BUG: revisar después, es distinto porque sclang usa dependancy.
-            # if m == '/n_end':
-            action(self) # , m)
+        def action_wrapper():
+            fn.value(action, self)
             mdl.NotificationCenter.unregister(self, '/n_end', self)
 
         self.register()
@@ -258,7 +272,7 @@ class Node(gpp.NodeParameter):
 # // common base for Group and ParGroup classes
 class AbstractGroup(Node):
     # /** immediately sends **/
-    def __init__(self, target=None, add_action='addToHead'):
+    def __init__(self, target=None, add_action='addToHead', register=False):
         super().__init__()
         target = gpp.node_param(target)._as_target()
         self.server = target.server
@@ -268,12 +282,10 @@ class AbstractGroup(Node):
             self.group = target
         else:
             self.group = target.group
-        self.is_playing = False
-        self.is_running = False
+        self._init_register(register)
         self.server.send_msg(
             self.creation_cmd(), self.node_id,
-            add_action_id, target.node_id
-        )
+            add_action_id, target.node_id)
 
     def new_msg(self, target=None, add_action='addToHead'):
         # // if target is nil set to default group of server specified when basicNew was called
@@ -367,7 +379,7 @@ class AbstractGroup(Node):
         self.server.send_msg('/g_dumpTree', self.node_id, int(post_controls))
 
     def query_tree(self):
-        raise Exception('implementar AbstractGroup:query_tree con OSCFunc y SystemClock') # BUG
+        raise Exception('implementar AbstractGroup:query_tree con OSCFunc y SystemClock')  # *** BUG
 
     @staticmethod
     def creation_cmd():
@@ -397,8 +409,8 @@ class RootNode(Group):
             obj = super(gpp.NodeParameter, cls).__new__(cls)
             obj.server = server
             obj.node_id = 0
-            obj.is_playing = True
-            obj.is_running = True
+            obj._is_playing = True  # Always true even if not watched.
+            obj._is_running = True  # Always true even if not watched.
             obj.group = obj
             cls.roots[obj.server.name] = obj
             return obj
@@ -432,7 +444,8 @@ class RootNode(Group):
 
 class Synth(Node):
     # /** immediately sends **/
-    def __init__(self, def_name, args=None, target=None, add_action='addToHead'):
+    def __init__(self, def_name, args=None, target=None,
+                 add_action='addToHead', register=False):
         super().__init__()
         target = gpp.node_param(target)._as_target()
         self.server = target.server
@@ -442,9 +455,8 @@ class Synth(Node):
             self.group = target
         else:
             self.group = target.group
-        self.is_playing = False
-        self.is_running = False
         self.def_name = def_name
+        self._init_register(register)
         self.server.send_msg(
             '/s_new', # 9
             self.def_name, self.node_id,

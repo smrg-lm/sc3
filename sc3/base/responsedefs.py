@@ -41,7 +41,7 @@ class AbstractResponderFunc(ABC):
     @func.setter
     def func(self, value):  # prFunc_
         self._func = value
-        mdl.NotificationCenter.notify(self, 'function', self)
+        mdl.NotificationCenter.notify(self, 'function')
 
     def cmd_period(self):
         self.free()
@@ -118,6 +118,7 @@ class AbstractResponderFunc(ABC):
 
 class AbstractDispatcher(ABC):
     '''Defines the required interface.'''
+
     all = set()
 
     def __init__(self):
@@ -158,15 +159,11 @@ class AbstractDispatcher(ABC):
         '''This method must return an str.'''
         pass
 
-    def update(self):
-        '''Code here to update any changed state in this dispatcher's
-        proxies, e.g. a new function; default does nothing.'''
-        pass
 
-
-# // basis for the default dispatchers
-# // uses function wrappers for matching
 class AbstractWrappingDispatcher(AbstractDispatcher):
+    # // basis for the default dispatchers
+    # // uses function wrappers for matching
+
     def __init__(self):
         super().__init__()
         self.active = dict() # NOTE: tal vez sea mejor hacerlas privadas
@@ -174,9 +171,7 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
 
     def add(self, func_proxy):
         mdl.NotificationCenter.register(
-            func_proxy, 'function', # NOTE: es addDependant, el msj es function en update de esta clase, el center debería poder reponder a cualquier mensaje en un caso así
-            self, self.update
-        )
+            func_proxy, 'function', self, self.update_func_for_func_proxy)
         func = self.wrap_func(func_proxy)
         self.wrapped_funcs[func_proxy] = func
         keys = self.get_keys_for_func_proxy(func_proxy)
@@ -189,7 +184,7 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
             self.register()
 
     def remove(self, func_proxy):
-        mdl.NotificationCenter.unregister(func_proxy, 'function', self) # NOTE: es addDependant, el msj es function en update de esta clase
+        mdl.NotificationCenter.unregister(func_proxy, 'function', self)
         keys = self.get_keys_for_func_proxy(func_proxy)
         func = self.wrapped_funcs[func_proxy]
         for key in keys:
@@ -214,9 +209,6 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
     @abstractmethod
     def get_keys_for_func_proxy(self, func_proxy): # TODO: este método pude ser privado, ver documentación
         pass
-
-    def update(self, *args):
-        self.update_func_for_func_proxy(args[0])
 
     def free(self):
         for func_proxy in self.wrapped_funcs:
@@ -365,9 +357,8 @@ class OSCFunc(AbstractResponderFunc):
             cls._trace_running = False
 
     def __repr__(self):
-        string = '{}({}, {}, {}, {})'
-        return string.format(type(self).__name__, self._func.__name__, self.path, self.src_id, # BUG: agregado self._func.__name__ to test
-                             self.recv_port, self.arg_template)
+        return (f'{type(self).__name__}({self.path}, {self.src_id}, '
+                f'{self.recv_port}, {self.arg_template})')
 
 
 class OSCDef(OSCFunc):

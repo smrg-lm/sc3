@@ -1,7 +1,7 @@
 
 import unittest
 
-from sc3.model import NotificationCenter, NotificationRegistration
+from sc3.base.model import NotificationCenter, NotificationRegistration
 
 
 class NotificationCenterTestCase(unittest.TestCase):
@@ -28,12 +28,11 @@ class NotificationCenterTestCase(unittest.TestCase):
         a.value = 1
         b.value = 2
 
-        def b_action(*args):
+        def b_action(obj, msg, listener, *args):
             b.value = args[0]
 
         registration = NotificationCenter.register(
-            a, 'value_changed', b, b_action
-        )
+            a, 'value_changed', b, b_action)
 
         a.value = 10
         NotificationCenter.notify(a, 'value_changed', a.value)
@@ -55,8 +54,7 @@ class NotificationCenterTestCase(unittest.TestCase):
         for r, a in zip(registrations, actions):
             self.assertIs(
                 NotificationCenter.registrations[r.obj, r.msg, r.listener],
-                a, msg
-            )
+                a, msg)
 
     # TODO
 

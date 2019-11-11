@@ -2,6 +2,8 @@
 
 import collections
 
+from . import functions as fn
+
 
 class _Dendrite():
     # TODO: no tiene toda la funcionalidad de MultiLevelIdentityDictionary
@@ -124,8 +126,8 @@ class NotificationCenter():
     @classmethod
     def notify(cls, obj, msg, *args):
         if (obj, msg) in cls.registrations:
-            for action in cls.registrations[obj, msg].copy().values():
-                action(*args)
+            for listener, action in cls.registrations[obj, msg].copy().items():
+                fn.value(action, obj, msg, listener, *args)
 
     @classmethod
     def register(cls, obj, msg, listener, action):

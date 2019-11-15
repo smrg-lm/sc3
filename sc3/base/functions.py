@@ -15,10 +15,11 @@ def value(obj, *args, **kwargs):
     '''
     if inspect.isfunction(obj) or inspect.ismethod(obj):
         parameters = inspect.signature(obj).parameters
-        nargs = len(parameters)
-        kwords = parameters.keys()
-        kwargs = {k: kwargs[k] for k in kwargs.keys() & kwords}
-        return obj(*args[:nargs], **kwargs)
+        if any(p.kind == p.VAR_POSITIONAL for p in parameters.values()):
+            return obj(*args, **kwargs)
+        else:
+            nargs = len(parameters)
+            return obj(*args[:nargs], **kwargs)
     else:
         return obj
 

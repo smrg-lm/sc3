@@ -2,11 +2,17 @@
 
 from abc import ABC, abstractmethod
 import inspect
+import logging
 
+from ..synth import server as srv
+from . import functions as fn
 from . import systemactions as sac
 from . import model as mdl
 from . import main as _libsc3
 from . import utils as utl
+
+
+_logger = logging.getLogger(__name__)
 
 
 class AbstractResponderFunc(ABC):
@@ -256,7 +262,7 @@ class OSCMessageDispatcher(AbstractWrappingDispatcher):
     def __call__(self, msg, time, addr, recv_port):
         try:
             for func in self.active[msg[0]]:
-                func(msg, time, addr, recv_port)
+                fn.value(func, msg, time, addr, recv_port)
         except KeyError as e:
             if len(inspect.trace()) > 1: # TODO: sigue solo si la excepción es del frame actual, este patrón se repite en Routine y Clock
                 raise e
@@ -282,7 +288,7 @@ class OSCMessagePatternDispatcher(OSCMessageDispatcher):
         for key, funcs in self.active.items():
             if match_osc_address_pattern(key, patter): # BUG: implementar
                 for func in funcs:
-                    func(msg, time, addr, recv_port)
+                    fn.value(func, msg, time, addr, recv_port)
 
     def type_key(self):
         return 'OSC matched'
@@ -292,21 +298,21 @@ class OSCFunc(AbstractResponderFunc):
     default_dispatcher = OSCMessageDispatcher()
     default_matching_dispatcher = OSCMessagePatternDispatcher()
 
-    @staticmethod
-    def _trace_func_show_status(msg, time, addr, recv_port):
-        msg = 'OSC Message Received:\n'
-        msg += '    time: {}\n'
-        msg += '    address: {}\n'
-        msg += '    recv_port: {}\n'
-        msg += '    msg: {}'
-        print(msg.format(time, addr, recv_port, msg)) # BUG: log
+    @classmethod
+    def _trace_func_show_status(cls, msg, time, addr, recv_port):
+        log = ('OSC Message Received:\n'
+               f'    time: {time}\n'
+               f'    address: {addr}\n'
+               f'    recv_port: {recv_port}\n'
+               f'    msg: {msg}')
+        _logger.info(log)
 
-    @staticmethod
-    def _trace_func_hide_status(msg, time, addr, recv_port):
+    @classmethod
+    def _trace_func_hide_status(cls, msg, time, addr, recv_port):
         if msg[0] == '/status.reply'\
-        and any(x.addr == self.addr for x in srv.Server.all):
+        and any(server.addr == addr for server in srv.Server.all):
             return
-        OSCFunc._trace_func_show_status(msg, time, addr, recv_port)
+        cls._trace_func_show_status(msg, time, addr, recv_port)
 
     _trace_func = _trace_func_show_status
     _trace_running = False
@@ -348,11 +354,11 @@ class OSCFunc(AbstractResponderFunc):
                     cls._trace_func = cls._trace_func_hide_status
                 else:
                     cls._trace_func = cls._trace_func_show_status
-                # thisProcess.addOSCRecvFunc(traceFunc) # BUG: implementar
+                _libsc3.main._osc_interface.add_recv_func(cls._trace_func)
                 sac.CmdPeriod.add(cls)
                 cls._trace_running = True
         else:
-            # thisProcess.removeOSCRecvFunc(traceFunc) # BUG: implementar
+            _libsc3.main._osc_interface.remove_recv_func(cls._trace_func)
             sac.CmdPeriod.remove(cls)
             cls._trace_running = False
 
@@ -374,7 +380,7 @@ class OSCFuncAddrMessageMatcher(AbstractMessageMatcher):
 
     def __call__(self, msg, time, addr, recv_port):
         if addr.addr == self.addr.addr and addr.port == self.addr.port: # BUG: usa matchItem??
-            self.func(msg, time, addr, recv_port)
+            fn.value(self.func, msg, time, addr, recv_port)
 
 
 # // if you need to test for recvPort func gets wrapped in this
@@ -400,7 +406,7 @@ class OSCArgsMatcher(AbstractMessageMatcher):
                 continue
             if item != args[i]: # BUG: acá no estoy comparando identidad porque supongo que compara tipos básicos
                 return
-        self.func(msg, time, addr, recv_port)
+        fn.value(self.func, msg, time, addr, recv_port)
 
 # MIDI #
 

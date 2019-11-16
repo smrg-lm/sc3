@@ -199,8 +199,17 @@ class NetAddr():
     def recover(self): # TODO: VER: se usa en el homónimo de BundleNetAddr y en Server-cmdPeriod
         return self
 
+    def __eq__(self, other):
+        if type(self) == type(other):
+            return self._target == other._target
+        else:
+            return False
+
+    def __hash__(self):
+        return hash((type(self), hash(self._target)))
+
     def __repr__(self):
-        return f'{type(self).__name__}({self.hostname}, {self.port})'
+        return f"{type(self).__name__}('{self.hostname}', {self.port})"
 
 
 # BUG: hay que implementar para server

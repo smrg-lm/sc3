@@ -110,7 +110,7 @@ class ServerStatusWatcher():
         if self._status_watcher is not None:
             self._status_watcher.disable()
             if self.notified:
-                def osc_func(msg, *args):
+                def osc_func(msg, *_):
                     nonlocal server_really_quit
                     if msg[1] == '/quit':
                         if self._status_watcher is not None:
@@ -142,7 +142,7 @@ class ServerStatusWatcher():
 
     def add_status_watcher(self):
         if self._status_watcher is None:
-            def osc_func(msg, *args):
+            def osc_func(msg, *_):
                 if self.notify and not self.notified:
                     self._send_notify_request(True, True)
                 self._alive = True
@@ -288,7 +288,7 @@ class ServerStatusWatcher():
             return
 
         # // set up oscfuncs for possible server responses, \done or \failed
-        def _done(msg, *args):
+        def done(msg, *_):
             new_client_id = msg[2]
             new_max_logins = msg[3]
             fail_osc_func.free()
@@ -310,16 +310,16 @@ class ServerStatusWatcher():
                 self.notified = False
 
         done_osc_func = rdf.OSCFunc(
-            _done, '/done', self.server.addr,
+            done, '/done', self.server.addr,
             arg_template=['/notify', None])
         done_osc_func.one_shot()
 
-        def _fail(msg, *args):
+        def fail(msg, *_):
             done_osc_func.free()
             self.server._handle_notify_fail_string(msg[2], msg)
 
         fail_osc_func = rdf.OSCFunc(
-            _fail, '/fail', self.server.addr,
+            fail, '/fail', self.server.addr,
             arg_template=['/notify', None, None])
         fail_osc_func.one_shot()
 

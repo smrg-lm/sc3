@@ -152,7 +152,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
                     print(f'Bus {self._rate} index: {self._index} value: {val}')
                 action = func
 
-            def osc_func(msg, *args):
+            def osc_func(msg, *_):
                 # // The response is of the form [/c_set, index, value].
                 # // We want "value," which is at index 2.
                 action(msg[2])
@@ -180,7 +180,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
                 print(f'Bus {self._rate} index: {self._index} values: {vals}')
             action = func
 
-        def osc_func(msg, *args):
+        def osc_func(msg, *_):
             # // The response is of the form [/c_set, index, count, ...values].
             # // We want the values, which are at indexes 3 and above.
             action(msg[3:])

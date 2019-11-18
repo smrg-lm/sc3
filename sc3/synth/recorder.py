@@ -195,7 +195,7 @@ class Recorder():
         self._record_node.on_free(lambda: self.stop_recording())
 
         if self._responder is None:
-            def resp_recording_func(msg):
+            def resp_recording_func(msg, *_):
                 if msg[2] == self._id:
                     self._duration = msg[3]
                     self._changed_server('recording_duration', self._duration)

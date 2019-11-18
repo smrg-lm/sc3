@@ -20,7 +20,7 @@ class NodeWatcher():
         for cmd in self.cmds:
             method = '_' + cmd[1:]
             osc_func = rdf.OSCFunc(
-                (lambda mthd: lambda msg, *_: self.respond(mthd, msg))(method),  # *** BUG: ver argumentos variables en OSCFunc function y fn.value
+                (lambda mthd: lambda msg, *_: self.respond(mthd, msg))(method),
                 cmd, self._server.addr)
             osc_func.permanent = True
             # osc_func.disable()  # *** NOTE: no sense if self.start() is not manual.

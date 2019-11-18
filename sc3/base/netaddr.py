@@ -141,7 +141,7 @@ class NetAddr():
     def _make_sync_responder(self, condition):
         id = utl.UniqueID.next()
 
-        def resp_func(msg, *args):
+        def resp_func(msg, *_):
             if msg[1] == id:
                 resp.free()
                 condition.test = True

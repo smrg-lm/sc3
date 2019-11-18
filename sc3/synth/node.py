@@ -191,9 +191,10 @@ class Node(gpp.NodeParameter):
                             f'\n   tail: {tail}')
                 print(msg)
 
-        rdf.OSCFunc(lambda *args: action(*args[0]),
-                    '/n_info', self.server.addr,
-                    None, self.node_id).one_shot()
+        rdf.OSCFunc(
+            lambda msg, *_: action(*msg),
+            '/n_info', self.server.addr,
+            None, self.node_id).one_shot()
         self.server.send_msg('/n_query', self.node_id)
 
     def register(self, playing=True, running=True):

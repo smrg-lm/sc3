@@ -601,7 +601,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         args = list(args)
         args[0] = cmd_name # BUG: esto no está en sclang, supongo que se encarga luego a bajo nivel.
 
-        def resp_func(*msg): # TODO: agregar decorador luego
+        def resp_func(msg, *_):
             if str(msg[1]) == cmd_name:
                 resp.free()
                 condition.test = True
@@ -674,7 +674,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def wait(self, response_name): # BUG: la implementación en sclang parece un bug, pero tendríá que ver cómo responde _RoutineResume y cómo se hace el reschedule.
         cond = stm.Condition()
 
-        def resp_func():
+        def resp_func(*_):
             cond.test = True
             cond.signal()
 
@@ -928,7 +928,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def _ping_app(self, func, on_failure=None, timeout=3): # subida de 'internal server commands'
         id = hash(func) & 0x0FFFFFFF  # 28 bits positive to fit in osc int, rand would be the same, fix?
 
-        def resp_func(msg, *args):
+        def resp_func(msg, *_):
             if msg[1] == id:
                 func()
                 task.stop()

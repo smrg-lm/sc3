@@ -183,7 +183,7 @@ class SynthDef(metaclass=MetaSynthDef):
                 self._add_kr(name, value, lag)
 
     def _get_valid_arg_values(self, params):
-        valid_args = (int, float, bool, complex, str, type(None))  # + tuple
+        valid_args = (int, float, bool, complex, type(None))  # + tuple
         ret = []
         for param in params:
             if param.default != inspect.Signature.empty:

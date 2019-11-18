@@ -618,8 +618,8 @@ class OscMessage(object):
                 elif param == "]":  # Array stop.
                     if len(param_stack) < 2:
                         raise OscMessageParseError(
-                            f'Unexpected closing bracket '
-                            'in type tag: {type_tag}')
+                            'Unexpected closing bracket '
+                            f'in type tag: {type_tag}')
                     param_stack.pop()
                 # TODO: Support more exotic types as described in the specification.
                 else:
@@ -628,12 +628,12 @@ class OscMessage(object):
                 if param not in "[]":
                     param_stack[-1].append(val)
             if len(param_stack) != 1:
-                raise OscMessageParseError('Missing closing bracket '
-                                           'in type tag: {type_tag}')
+                raise OscMessageParseError(
+                    f'Missing closing bracket in type tag: {type_tag}')
             self._parameters = params
         except OscTypeParseError as e:
             raise OscMessageParseError(
-                f'Found incorrect datagram, ignoring it') from e
+                'Found incorrect datagram, ignoring it') from e
 
     @property
     def address(self) -> str:

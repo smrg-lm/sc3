@@ -123,6 +123,12 @@ class OscInteface():
                     raise oli.OscMessageBuildError(
                         'lists within messages must be a valid '
                         f'OSC message or bundle: {arg}')
+            elif arg == '[':
+                msg_builder.args.append(
+                    (msg_builder.ARG_TYPE_ARRAY_START, None))
+            elif arg == ']':
+                msg_builder.args.append(
+                    (msg_builder.ARG_TYPE_ARRAY_STOP, None))
             else:
                 msg_builder.add_arg(arg)  # Infiere correctamente el resto de los tipos.
         return msg_builder.build()

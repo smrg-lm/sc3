@@ -488,8 +488,9 @@ class SynthDef(metaclass=MetaSynthDef):
             server.send_msg('/d_recv', buffer, completion_msg)
         else:
             if server.is_local:
-                _logger.warning(f'SynthDef {self.name} too big for sending. '
-                                'Retrying via synthdef file')
+                _logger.warning(
+                    f'SynthDef {self.name} too big for sending. '
+                    'Retrying via synthdef file')
                 self._write_def_file(SynthDef.synthdef_dir)
                 server.send_msg(
                     '/d_load',
@@ -547,21 +548,25 @@ class SynthDef(metaclass=MetaSynthDef):
 
             self._write_constants(file)
 
-            # //controls have been added by the Control UGens
+            # // Controls have been added by the Control UGens.
             file.write(struct.pack('>i', len(self._controls)))  # putInt32
             for item in self._controls:
-                file.write(struct.pack('>f', item)) # putFloat
+                file.write(struct.pack('>f', item))  # putFloat
 
-            allcns_tmp = [x for x in self._all_control_names
-                          if x.rate != 'noncontrol'] # reject
-            file.write(struct.pack('>i', len(allcns_tmp))) # putInt32
+            allcns_tmp = [
+                x for x in self._all_control_names if x.rate != 'noncontrol']  # reject
+            file.write(struct.pack('>i', len(allcns_tmp)))  # putInt32
             for item in allcns_tmp:
                 # comprueba if (item.name.notNil) # TODO: posible BUG? (ver arriba _set_control_names). Pero no debería poder agregarse items sin no son ControlNames. Arrays anidados como argumentos, de más de un nivel, no están soportados porque fallar _set_control_names según analicé.
                 #if item.name: # TODO: y acá solo comprueba que sea un string no vacío, pero no comprueba el typo ni de name ni de item.
                 if not isinstance(item, scio.ControlName): # TODO: test para debugear luego.
-                    raise Exception('ERROR: SynthDef self._all_control_names has non ControlName object')
+                    raise Exception(
+                        'SynthDef self._all_control_names '
+                        'has non ControlName object')
                 elif not item.name: # ídem.
-                    raise Exception(f'ERROR: SynthDef self._all_control_names has empty ControlName object = {item.name}')
+                    raise Exception(
+                        'SynthDef self._all_control_names has '
+                        f'empty ControlName object = {item.name}')
                 file.write(struct.pack('B', len(item.name))) # 01 putPascalString, unsigned int8 -> bytes
                 file.write(bytes(item.name, 'ascii')) # 02 putPascalString
                 file.write(struct.pack('>i', item.index))
@@ -579,24 +584,25 @@ class SynthDef(metaclass=MetaSynthDef):
                 for varname, pairs in self.variants.items():
                     varname = self.name + '.' + varname
                     if len(varname) > 32:
-                        _logger.warning(f"variant '{varname}' name too log, "
-                                        "not writing more variants")
+                        _logger.warning(
+                            f"variant '{varname}' name too log, "
+                            "not writing more variants")
                         return False
 
                     varcontrols = self._controls[:]
                     for cname, values in pairs.items():
                         if allcns_map.keys().isdisjoint([cname]):
-                            _logger.warning(f"control '{cname}' of variant "
-                                            f"'{varname}' not found, not "
-                                            "writing more variants")
+                            _logger.warning(
+                                f"control '{cname}' of variant '{varname}' "
+                                "not found, not writing more variants")
                             return False
 
                         cn = allcns_map[cname]
                         values = utl.as_list(values)
                         if len(values) > len(utl.as_list(cn.default_value)):
-                            _logger.warning(f"control: '{cname}' of variant: "
-                                            f"'{varname}' size mismatch, not  "
-                                            "writing more variants")
+                            _logger.warning(
+                                f"control: '{cname}' of variant: '{varname}' "
+                                "size mismatch, not writing more variants")
                             return False
 
                         index = cn.index
@@ -640,8 +646,9 @@ class SynthDef(metaclass=MetaSynthDef):
         servers = utl.as_list(server or srv.Server.all_booted_servers())
         for server in servers:
             if not server.has_booted:
-                _logger.warning(f"Server '{server.name}' not running, "  # *** BUG in sclang: prints server.name instead of each.name
-                                "could not send SynthDef")
+                _logger.warning(
+                    f"Server '{server.name}' not running, "  # *** BUG in sclang: prints server.name instead of each.name
+                    "could not send SynthDef")
             if self.metadata.get('shouldNotSend', False):
                 self._load_reconstructed(
                     server, fn.value(completion_msg, server))
@@ -652,16 +659,17 @@ class SynthDef(metaclass=MetaSynthDef):
     # // This method warns and does not halt because loading existing def from
     # // disk is a viable alternative to get the synthdef to the server.
     def _load_reconstructed(self, server, completion_msg):
-        _logger.warning(f"SynthDef '{self.name}' was reconstructed from a "
-                        ".scsyndef file, it does not contain all the required "
-                        "structure to send back to the server")
+        _logger.warning(
+            f"SynthDef '{self.name}' was reconstructed from a "
+            ".scsyndef file, it does not contain all the required "
+            "structure to send back to the server")
         if server.is_local:
             _logger.warning(f"loading from disk instead for Server '{server}'")
             bundle = ['/d_load', self.metadata['loadPath'], completion_msg]
             server.send_bundle(None, bundle)
         else:
-            raise Exception(f"Server '{server}' is remote, "
-                            "cannot load from disk")
+            raise Exception(
+                f"Server '{server}' is remote, cannot load from disk")
 
     # // Send to server and write file.
     def load(self, server, completion_msg=None, dir=None):

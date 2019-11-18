@@ -149,8 +149,7 @@ class SynthDef(metaclass=MetaSynthDef):
         # // the argument array from combining the OutputProxies of these two
         # // Control ugens in the original order.
         names = names[skip_args:]
-        values = [x.default if x != inspect.Signature.empty else None
-                  for x in params]
+        values = self._get_valid_arg_values(params)
         values = values[skip_args:]
         values = self._apply_metadata_specs(names, values)
 
@@ -182,6 +181,24 @@ class SynthDef(metaclass=MetaSynthDef):
             else:
                 if lag == 'kr': lag = 0.0
                 self._add_kr(name, value, lag)
+
+    def _get_valid_arg_values(self, params):
+        valid_args = (int, float, bool, complex, str, type(None))  # + tuple
+        ret = []
+        for param in params:
+            if param.default != inspect.Signature.empty:
+                if isinstance(param.default, valid_args):
+                    ret.append(param.default)
+                elif isinstance(param.default, tuple):
+                    ret.append(list(param.default))
+                else:
+                    _logger.warning(
+                        "graph_func invalid value as default argument "
+                        f"'{param.default}' replaced by None")
+                    ret.append(None)
+            else:
+                ret.append(None)
+        return ret
 
     # método agregado
     def _apply_metadata_specs(self, names, values):
@@ -276,7 +293,7 @@ class SynthDef(metaclass=MetaSynthDef):
                 values.append(cn.default_value)
                 valsize = len(utl.as_list(cn.default_value))
                 if valsize > 1:
-                    lags.append(utl.wrap_extend(utl.as_list(cn.lag), valsize))
+                    lags.extend(utl.wrap_extend(utl.as_list(cn.lag), valsize))
                 else:
                     lags.append(cn.lag)
             index = self._control_index # TODO: esto puede ir abajo si los kr no cambian el índice.
@@ -295,7 +312,7 @@ class SynthDef(metaclass=MetaSynthDef):
                 self._set_control_names(ctrl_ugens[i], cn)
 
         self._control_names = [x for x in self._control_names
-                              if x.rate != 'noncontrol']
+                               if x.rate != 'noncontrol']
         return arguments
 
     # L263

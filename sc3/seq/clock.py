@@ -1,5 +1,6 @@
 """Clock.sc"""
 
+import logging
 import heapq as _heapq
 import itertools as _itertools
 import threading as _threading
@@ -9,6 +10,7 @@ import inspect as _inspect
 import traceback as _traceback
 import math as _math
 import types as _types
+import weakref as _weakref
 
 from ..base import utils as utl
 from ..base import main as _libsc3
@@ -17,6 +19,9 @@ from ..base import functions as fn
 from ..base import systemactions as sac
 from ..base import model as mdl
 from . import stream as stm
+
+
+_logger = logging.getLogger(__name__)
 
 
 # // Clocks for timing threads.
@@ -704,7 +709,7 @@ class Quant():
 
 class MetaTempoClock(type):
     def __init__(cls, *_):
-        cls._all = []
+        cls._all = _weakref.WeakSet()
 
         def init_func(cls):
             cls.default = cls()
@@ -715,19 +720,16 @@ class MetaTempoClock(type):
 
     @property
     def all(cls):
-        return cls._all
+        return set(cls._all)
 
 
 class TempoClock(Clock, metaclass=MetaTempoClock):
     @classmethod
     def cmd_period(cls):
-        for item in cls.all:
-            item.clear(False)
-        # // copy is important: You must never iterate over the same
-        # // collection from which you're removing items
-        for item in cls.all[:]:
-            if not item.permanent:
-                item.stop() # NOTE: stop hace type(self)._all.remove(self)
+        for clock in cls.all:
+            clock.clear(False)
+            if not clock.permanent:
+                clock.stop()
 
     # BUG: C++ TempoClock_stopAll se usa en ./lang/LangSource/PyrLexer.cpp
     # BUG: shutdownLibrary(), no importa si hay permanentes, va para Main, VER.
@@ -759,7 +761,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         self._base_bar_beat = 0
         self._base_bar = 0.0
         self.permanent = False
-        type(self)._all.append(self)
+        type(self)._all.add(self)
 
         if _libsc3.main.mode == _libsc3.main.RT:
             self._task_queue = TaskQueue()
@@ -851,8 +853,9 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     def stop(self):
         # prStop -> prTempoClock_Free -> StopReq -> StopAndDelete -> Stop
         # prTempoClock_Free
-        if not self._thread.is_alive():
-            raise RuntimeError(f'{self} is not running')
+        if self._thread is None or not self._thread.is_alive():
+            _logger.debug(f'{self} is not running')
+            return
 
         # StopAndDelete
         def stop_func(clock):
@@ -866,6 +869,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             # *** BUG: así y clock._sched_cond trabaja sobre un solo hilo.
             # *** BUG: Pero también puede ser que notifique varias veces a
             # *** BUG: la misma condición por los distintos wait? Desconocimiento.
+            clock._thread = None
+            clock._sched_cond = None
 
         # StopReq
         stop_thread = _threading.Thread(
@@ -875,10 +880,10 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             daemon=True)
         stop_thread.start()
 
-    def __del__(self):
-        # BUG: threading mantiene referencias al hilo mientras está vivo,
-        # BUG: nunca llama. Posiible solución: que no herede de Thread.
-        self.stop()
+    # def __del__(self):
+    #     # BUG: self needs to be stoped to be gc collected because is in
+    #     # BUG: cyclic reference with target=_run.
+    #     self.stop()
 
     def play(self, task, quant=1):
         quant = Quant.as_quant(quant)
@@ -1134,7 +1139,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         return self.beats - self.bars2beats(self.bar())
 
     def running(self):
-        return self._thread.is_alive()
+        return self._thread is not None and self._thread.is_alive()
 
 
 def defer(item, delta=None):

@@ -14,6 +14,7 @@ from ..base import model as mdl
 from ..base import responsedefs as rdf
 from ..base import systemactions as sac
 from ..base import functions as fn
+from ..base import platform as plt
 from ..seq import stream as stm
 from ..seq import clock as clk
 from . import _engine as eng
@@ -59,6 +60,7 @@ _BIND_ADDRESS = '127.0.0.1'
 
 class ServerOptions():
     def __init__(self):
+        self.program = plt.Platform.default_server_cmd
         self.num_control_bus_channels = _NUM_CONTROL_BUS_CHANNELS # getter/setter
         self._num_audio_bus_channels = _NUM_AUDIO_BUS_CHANNELS # @property
         self._num_input_bus_channels = 2 # @property, es 2 a propósito
@@ -183,7 +185,7 @@ class ServerOptions():
         if self.memory_locking:
             o.append('-L')
         if self.threads is not None:
-            if Server.program.endswith('supernova'):
+            if self.program == plt.Platform.SUPERNOVA_CMD:
                 o.extend(['-T', str(self.threads)])
         if self.use_system_clock is not None:
             o.extend(['-C', str(int(self.use_system_clock))])
@@ -270,12 +272,6 @@ class MetaServer(type):
         def init_func(cls):
             cls.named = dict()
             cls.all = set()
-            # BUG: Server.program se llama en Platform que se crea an main
-            # BUG: antes de llamar ClassLibrary.init() que sobreescribe con
-            # BUG: None al evaluar esta función. Estos detalles SON UN PROBLEMA.
-            # BUG: *** Tal vez se debería usar Platfrom acá en vez de Server allá. ***
-            # BUG: porque Platform se inicializa en main antes que ClassLibrary.init().
-            # cls.program = None  # Initialized with Platform.
             cls.sync_s = True
 
             cls.node_alloc_class = eng.NodeIDAllocator
@@ -1076,13 +1072,13 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 server.quit(watch_shutdown=watch_shutdown)
 
     @classmethod
-    def kill_all(cls):
+    def kill_all(cls):  # *** TODO: remove this method
         # // if you see Exception in World_OpenUDP: unable to bind udp socket
         # // its because you have multiple servers running, left
         # // over from crashes, unexpected quits etc.
         # // you can't cause them to quit via OSC (the boot button)
         # // this brutally kills them all off
-        _libsc3.main.platform.kill_all(_pathlib.Path(cls.program).name)
+        _libsc3.main.platform.kill_all(plt.Platform.default_server_cmd)  # *** BUG: don't work if scsynth and supernova.
         cls.quit_all(watch_shutdown=False)
 
     def free_all(self): # BUG: VER tiene variante como @classmethod
@@ -1218,22 +1214,16 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     # funciones set/getControlBug*
     # TODO
 
-    @classmethod
-    def scsynth(cls):
-        # BUG: ver, no me parece buena idea, además setea el valor en
-        # ./Platform/osx/OSXPlatform.sc o ./Platform/linux/LinuxPlatform.sc
-        # dentro del método startup.
-        cls.program = cls.program.replace('supernova', 'scsynth')
-
-    @classmethod
-    def supernova(cls):
-        cls.program = cls.program.replace('scsynth', 'supernova')
-
 
     ### Node parameter interface ###
 
     def _as_target(self):
         return self.default_group
+
+    # def scsynth(cls): No.
+    # def supernova(cls): No.
+    # def from_name(cls): No.
+    # def kill_all(cls): No.
 
 
 class _ServerProcess():
@@ -1243,7 +1233,7 @@ class _ServerProcess():
         self.timeout = 0.1
 
     def run(self, server):
-        cmd = [Server.program]
+        cmd = [server.options.program]
         cmd.extend(server.options.options_list(server.addr.port))
 
         self.proc = _subprocess.Popen(

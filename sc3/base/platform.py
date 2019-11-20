@@ -9,8 +9,6 @@ import subprocess
 import threading
 
 from . import main as _libsc3
-from ..synth import server as srv
-# from ..synth import score as sco
 
 
 __all__ = ['Platform']
@@ -60,6 +58,18 @@ class MetaPlatform(type):
     @property
     def bin_dir(cls):
         return _libsc3.main.platform.bin_dir
+
+    @property
+    def default_server_cmd(cls):
+        return _libsc3.main.platform.default_server_cmd
+
+    @property
+    def SCSYNTH_CMD(cls):
+        return _libsc3.main.platform.SCSYNTH_CMD
+
+    @property
+    def SUPERNOVA_CMD(cls):
+        return _libsc3.main.platform.SUPERNOVA_CMD
 
     @staticmethod
     def _cmd_line(*popenargs, sync=False):  # sclang unixCmd no pid return.
@@ -133,6 +143,9 @@ class Platform(metaclass=MetaPlatform):
 
 
 class UnixPlatform(Platform):
+    SCSYNTH_CMD = 'scsynth'
+    SUPERNOVA_CMD = 'supernova'
+
     def kill_all(self, program_name):
         cmd = ['killall', '-9', program_name]
         type(self)._cmd_line(cmd)
@@ -149,8 +162,7 @@ class LinuxPlatform(UnixPlatform):
 
         self._installation_dir = '/usr/local'  # whereis scsynth ../
         os.environ['PATH'] += os.pathsep + str(self.bin_dir)
-        srv.Server.program = 'scsynth'
-        # sco.Score.program = srv.Server.program
+        self.default_server_cmd = self.SCSYNTH_CMD
         # // load user startup file
         # self.load_startup_file()
 
@@ -186,7 +198,7 @@ class DarwinPlatform(UnixPlatform):
     def _startup(self):
         self._installation_dir = '/Applications/SuperCollider.app'
         os.environ['PATH'] += os.pathsep + str(self.bin_dir)
-        srv.Server.program = 'scsynth'
+        self.default_server_cmd = self.SCSYNTH_CMD
 
     @property
     def support_dir(self):
@@ -214,6 +226,9 @@ class DarwinPlatform(UnixPlatform):
 
 
 class WindowsPlatform(Platform):
+    SCSYNTH_CMD = 'scsynth.exe'
+    SUPERNOVA_CMD = 'supernova.exe'
+
     def kill_all(self, program_name):
         cmd = ['taskkill', '/F', '/IM', program_name]
         type(self)._cmd_line(cmd)
@@ -233,8 +248,7 @@ class Win32Platform(WindowsPlatform):
 
         self._installation_dir = str(self._get_lastest_version(folders))
         os.environ['PATH'] += str(self.bin_dir) + os.pathsep
-        srv.Server.program = 'scsynth.exe'
-        # sco.Score.program = srv.Server.program
+        self.default_server_cmd = self.SCSYNTH_CMD
         # // load user startup file
         # self.load_startup_file()
 

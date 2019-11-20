@@ -8,6 +8,7 @@ from ..base import model as mdl
 from ..base import systemactions as sac
 from ..base import responsedefs as rdf
 from ..base import functions as fn
+from ..base import platform as plt
 
 
 _logger = logging.getLogger(__name__)
@@ -290,7 +291,10 @@ class ServerStatusWatcher():
         # // set up oscfuncs for possible server responses, \done or \failed
         def done(msg, *_):
             new_client_id = msg[2]
-            new_max_logins = msg[3]
+            if self.server.options.program == plt.Platform.SCSYNTH_CMD:
+                new_max_logins = msg[3]
+            else:
+                new_max_logins = None
             fail_osc_func.free()
             if new_client_id is not None:
                 # // notify on: On registering scsynth sends back a free

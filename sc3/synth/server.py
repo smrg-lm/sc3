@@ -265,6 +265,7 @@ class ServerShmInterface():
 
 class MetaServer(type):
     def __init__(cls, *_):
+        cls.DEFAULT_ADDRESS = nad.NetAddr('127.0.0.1', 57110)
 
         def init_func(cls):
             cls.named = dict()
@@ -282,8 +283,7 @@ class MetaServer(type):
             cls.buffer_alloc_class = eng.ContiguousBlockAllocator
             cls.bus_alloc_class = eng.ContiguousBlockAllocator
 
-            cls.default = cls.local = cls(
-                'localhost', nad.NetAddr('127.0.0.1', 57110))
+            cls.default = cls.local = cls('localhost', cls.DEFAULT_ADDRESS)
             # cls.internal = cls(
             #     'internal', nad.NetAddr(None, None))  # No internal by now.
 
@@ -305,10 +305,6 @@ class MetaServer(type):
 
 
 class Server(gpp.NodeParameter, metaclass=MetaServer):
-    @classmethod
-    def from_name(cls, name):
-        return cls.named[name] or cls(name, nad.NetAddr("127.0.0.1", 57110)) # BUG: en sclang, no tiene sentido llamar a ServerOptions.new, init provee una instancia por defecto
-
     @classmethod
     def remote(cls, name, addr, options, client_id):
         result = cls(name, addr, options, client_id)
@@ -388,7 +384,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @addr.setter
     def addr(self, value):
-        self._addr = value or nad.NetAddr("127.0.0.1", 57110)
+        self._addr = value
         self.in_process = self._addr.addr == 0
         self.is_local = self.in_process or self._addr.is_local()
         self.remote_controlled = not self.is_local
@@ -979,9 +975,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             on_complete()
         else:
             self.disconnect_shared_memory()  # BUG: not implemented yet
-            self._server_process = _ServerProcess(
-                self.options, self._on_server_process_exit)
-            self._server_process.run()
+            self._server_process = _ServerProcess(self._on_server_process_exit)
+            self._server_process.run(self)
             self.pid = self._server_process.proc.pid
             _logger.info(f"booting server '{self.name}' on address "
                          f"{self.addr.hostname}:{self.addr.port}")
@@ -1116,11 +1111,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @classmethod
     def all_booted_servers(cls):
-        return [x for x in cls.all if x.has_booted]
+        return set(s for s in cls.all if s.has_booted)
 
     @classmethod
     def all_running_servers(cls):
-        return [x for x in cls.all if x.status_watcher.server_running]
+        return set(s for s in cls.all if s.status_watcher.server_running)
 
 
     ### volume control ###
@@ -1242,15 +1237,14 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
 
 class _ServerProcess():
-    def __init__(self, options, on_exit=None):
-        self.options = options
+    def __init__(self, on_exit=None):
         self.on_exit = on_exit or (lambda pid: None)
         self.proc = None
         self.timeout = 0.1
 
-    def run(self):
+    def run(self, server):
         cmd = [Server.program]
-        cmd.extend(self.options.options_list())
+        cmd.extend(server.options.options_list(server.addr.port))
 
         self.proc = _subprocess.Popen(
             cmd,  # TODO: maybe a method popen_cmd regarding server, options and platform.

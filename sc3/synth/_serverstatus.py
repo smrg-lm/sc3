@@ -22,8 +22,8 @@ class ServerStatusWatcher():
         self._notify = True # @property
 
         self._alive = False
-        self.alive_thread = None
-        self.alive_thread_period = 0.7
+        self._alive_thread = None
+        self._alive_thread_period = 0.7
         self._status_watcher = None
 
         self.has_booted = False
@@ -170,31 +170,34 @@ class ServerStatusWatcher():
 
     def start_alive_thread(self, delay=0.0):
         self.add_status_watcher()
-        if self.alive_thread is None:
+        if self._alive_thread is None:
             def rtn_func():
                 # // this thread polls the server to see if it is alive
                 yield delay
                 while True:
                     self._alive = False
                     self.server.send_status_msg()
-                    yield self.alive_thread_period
+                    yield self._alive_thread_period
                     self.update_running_state(self._alive)
-            self.alive_thread = stm.Routine.run(rtn_func, clk.AppClock)
-        return self.alive_thread # TODO: por qué hace return de este atributo en sclang?
+            self._alive_thread = stm.Routine.run(rtn_func, clk.AppClock)
+        return self._alive_thread # TODO: por qué hace return de este atributo en sclang?
 
     def stop_alive_thread(self):
         if self._status_watcher: # is not None, NOTE: pero debería haber algún flag que evite llamar todo esto de nuevo, pj. s.quit() sigue inmprimiendo quit sent
             self._status_watcher.free()
             self._status_watcher = None
-        if self.alive_thread: # is not None
-            self.alive_thread.stop()
-            self.alive_thread = None
+        if self._alive_thread is not None:
+            self._alive_thread.stop()
+            self._alive_thread = None
         self._alive = False
 
     def resume_thread(self):
-        if self.alive_thread is not None:
+        if self._alive_thread is not None:
             self.stop_alive_thread()
             self.start_alive_thread()
+
+    def alive_thread_running(self):
+        return self._alive_thread.playing()
 
     @property
     def server_running(self):

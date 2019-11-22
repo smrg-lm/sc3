@@ -304,7 +304,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     @classmethod
     def remote(cls, name, addr, options, client_id):
         result = cls(name, addr, options, client_id)
-        result.start_alive_thread()
+        result.status_watcher.start_alive_thread()
         return result
 
     def __init__(self, name, addr, options=None, client_id=None):
@@ -784,74 +784,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     ### server status ###
 
-    @property
-    def num_ugens(self):
-        return self.status_watcher.num_ugens
-
-    @property
-    def num_synths(self):
-        return self.status_watcher.num_synths
-
-    @property
-    def num_groups(self):
-        return self.status_watcher.num_groups
-
-    @property
-    def num_synthdefs(self):
-        return self.status_watcher.num_synthdefs
-
-    @property
-    def avg_cpu(self):
-        return self.status_watcher.avg_cpu
-
-    @property
-    def peak_cpu(self):
-        return self.status_watcher.peak_cpu
-
-    @property
-    def sample_rate(self):
-        return self.status_watcher.sample_rate
-
-    @property
-    def actual_sample_rate(self):
-        return self.status_watcher.actual_sample_rate
-
-    @property
-    def has_booted(self):  # TODO: rename to booted?
-        return self.status_watcher.has_booted
-
-    @property
-    def server_running(self):  # TODO: rename to running?
-        return self.status_watcher.server_running
-
-    @property
-    def server_booting(self):  # TODO: rename to booting?
-        return self.status_watcher.server_booting
-
-    @property
-    def unresponsive(self):
-        return self.status_watcher.unresponsive
-
-    def start_alive_thread(self, delay=0.0):
-        self.status_watcher.start_alive_thread(delay)
-
-    def stop_alive_thread(self):
-        self.status_watcher.stop_alive_thread()
-
-    @property
-    def alive_thread_is_running(self):
-        return self.status_watcher.alive_thread.playing()
-
-    @property
-    def alive_thread_period(self):
-        return self.status_watcher.alive_thread_period
-
-    @alive_thread_period.setter
-    def alive_thread_period(self, value):
-        self.status_watcher.alive_thread_period = value
-
     @classmethod
-    def resume_threads(cls):
+    def resume_status_threads(cls):  # NOTE: for SystemActions.
         for server in cls.all:
             server.status_watcher.resume_thread()
 

@@ -62,7 +62,7 @@ class CmdPeriod(AbstractSystemAction):
             cls._do_action(item, 'do_on_cmd_period')
         if cls.free_servers:
             srv.Server.free_all(cls.free_remote) # // stop all sounds on local, or remote servers
-            srv.Server.resume_threads()
+            srv.Server.resume_status_threads()
         cls.era += 1
 
     @classmethod
@@ -73,7 +73,7 @@ class CmdPeriod(AbstractSystemAction):
         for item in cls.objects[:]:
             cls._do_action(item, 'do_on_cmd_period')
         srv.Server.hard_free_all()  # // stop all sounds on local servers
-        srv.Server.resume_threads()
+        srv.Server.resume_status_threads()
         cls.era += 1
 
 

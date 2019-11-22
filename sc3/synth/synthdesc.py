@@ -437,7 +437,7 @@ class MetaSynthDescLib(type):
             # // it should not try to do things that will cause warnings
             # // (or errors, if one of the servers is not local)
             def action(server):
-                if server.has_booted:
+                if server.status_watcher.has_booted:
                     cls.default.send(server, False)
 
             sac.ServerBoot.add(action)  # *** NOTE: *send llama a global.send if server has booted, ver abajo.
@@ -498,7 +498,7 @@ class SynthDescLib(metaclass=MetaSynthDescLib):
 
     # @classmethod
     # def send(cls, server=None, try_reconstructed=True): # BUG: este método se usa en la inicialización de esta clase con ServerBoot.add, la variante de instancia no comprueba si el servidor está corriendo.
-    #     if server.has_booted(): cls.default.send(server, try_reconstructed)
+    #     if server.status_watcher.has_booted: cls.default.send(server, try_reconstructed)
     def send(self, server=None, try_reconstructed=True):
         server_list = utl.as_list(server) or self.servers
         for s in server_list:

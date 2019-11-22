@@ -1107,7 +1107,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @classmethod
     def all_booted_servers(cls):
-        return set(s for s in cls.all if s.has_booted)
+        return set(s for s in cls.all if s.status_watcher.has_booted)
 
     @classmethod
     def all_running_servers(cls):

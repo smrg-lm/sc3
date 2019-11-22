@@ -1071,16 +1071,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             if server.send_quit is True:
                 server.quit(watch_shutdown=watch_shutdown)
 
-    @classmethod
-    def kill_all(cls):  # *** TODO: remove this method
-        # // if you see Exception in World_OpenUDP: unable to bind udp socket
-        # // its because you have multiple servers running, left
-        # // over from crashes, unexpected quits etc.
-        # // you can't cause them to quit via OSC (the boot button)
-        # // this brutally kills them all off
-        _libsc3.main.platform.kill_all(plt.Platform.default_server_cmd)  # *** BUG: don't work if scsynth and supernova.
-        cls.quit_all(watch_shutdown=False)
-
     def free_all(self): # BUG: VER tiene variante como @classmethod
         self.send_msg('/g_freeAll', 0)
         self.send_msg('/clearSched')

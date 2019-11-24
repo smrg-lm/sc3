@@ -679,8 +679,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # // if the server fails to boot, the failure error gets posted TWICE.
         # // So, we suppress one of them.
         if not self.status_watcher.server_running:
-            # self.boot(on_failure=True)  # *** BUG: ver true y por qué no nil, es la razón de todo el comentario, además es lambda.
-            self.boot()
+            self.boot(on_failure=True)  # *** BUG: ver true y por qué no nil, es la razón de todo el comentario, además es lambda.
         self.do_when_booted(on_complete, limit, on_failure)
 
     def do_when_booted(self, on_complete, limit=100, on_failure=None):
@@ -773,9 +772,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     ### recording formats ###
 
     # These atributes are just a wrapper of ServerOptions, use s.options.
-    # To me it looks a bit inconsistent that some options have a shortcut
-    # whilte other don't. ServerStatusWatcher is a different case becuase
-    # it is an internal class not used as interface.
     # @property rec_header_format
     # @property rec_sample_format
     # @property rec_channels
@@ -910,10 +906,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         mdl.NotificationCenter.notify(self, 'dump_osc', code)
 
     def quit(self, on_complete=None, on_failure=None, watch_shutdown=True):
-        if not self.is_local:
-            _logger.info("can't quit a remote server")
-            return
-
         if self.status_watcher.server_quiting:
             _logger.info(f"server '{self.name}' already quiting")
             return

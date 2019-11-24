@@ -136,7 +136,7 @@ class AbstractServerAction(AbstractSystemAction):
     def remove(cls, obj, server=None):
         server = server or 'all'
         if cls.objects is not None:
-            if server in cls.objects:
+            if server in cls.objects and obj in cls.objects[server]:  # *** BUG: ver try, ver los demás remove, qué pasa si se llama dos veces.
                 cls.objects[server].remove(obj)
 
     @classmethod

@@ -319,7 +319,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # self.is_local # inicializa con el setter de addr
         # self.in_process # inicializa con el setter de addr
         # self.remote_controlled # inicializa con el setter de addr
-        self.send_quit = None # inicializa en boot_init
 
         self.options = options or ServerOptions()
         self.latency = 0.2
@@ -680,7 +679,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # // if the server fails to boot, the failure error gets posted TWICE.
         # // So, we suppress one of them.
         if not self.status_watcher.server_running:
-            self.boot(on_failure=True) # BUG: ver true y por qué no nil, es la razón de todo el comentario
+            # self.boot(on_failure=True)  # *** BUG: ver true y por qué no nil, es la razón de todo el comentario, además es lambda.
+            self.boot()
         self.do_when_booted(on_complete, limit, on_failure)
 
     def do_when_booted(self, on_complete, limit=100, on_failure=None):
@@ -806,12 +806,15 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         if self.status_watcher.unresponsive:
             _logger.info(f"server '{self.name}' unresponsive, rebooting...")
             self.quit(watch_shutdown=False)
+
         if self.status_watcher.server_running:
             _logger.info(f"server '{self.name}' already running")
             return
+
         if self.status_watcher.server_booting:
             _logger.info(f"server '{self.name}' already booting")
             return
+
         self.status_watcher.server_booting = True
 
         def on_complete():
@@ -824,19 +827,16 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         if self.remote_controlled:
             _logger.info(f"remote server '{self.name}' needs manual boot")
         else:
-            def ping_func():
-                self.quit()
-                self.boot()
+            def boot_task():
+                if self.pid is not None:  # NOTE: pid es el flag que dice si se está/estuvo ejecutando un server local o internal
+                    if not self.status_watcher.server_quiting:
+                        self.quit(watch_shutdown=False)
+                    yield from self._pid_release_condition.hang()  # NOTE: signal from _on_server_process_exit from _ServerProcess
+                self.boot_server_app(
+                    lambda: self.status_watcher.start_alive_thread()\
+                            if start_alive else None)
 
-            def on_failure():
-                self._wait_for_pid_release(
-                    lambda: self.boot_server_app(\
-                        lambda: self.status_watcher.start_alive_thread()\
-                        if start_alive else None\
-                    ) # TODO: lambda siempre retorna un valor, no afecta pero no se puede usar como en sclang es rebuscado acá
-                )
-
-            self._ping_app(ping_func, on_failure, 0.25)
+            stm.Routine.run(boot_task, clk.AppClock)
 
     # // FIXME: recover should happen later, after we have a valid clientID!
     # // would then need check whether maxLogins and clientID have changed or not,
@@ -847,55 +847,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # // this.newAllocators };
         if self.dump_mode != 0:
             self.send_msg('/dumpOSC', self.dump_mode)
-        if self.send_quit is None:
-            self.send_quit = self.in_process or self.is_local
         self.connect_shared_memory() # BUG: no está implementado
-
-    def _ping_app(self, func, on_failure=None, timeout=3): # subida de 'internal server commands'
-        id = hash(func) & 0x0FFFFFFF  # 28 bits positive to fit in osc int, rand would be the same, fix?
-
-        def resp_func(msg, *_):
-            if msg[1] == id:
-                func()
-                task.stop()
-
-        if timeout is not None:
-            def task_func():
-                yield timeout
-                resp.free()
-                if on_failure is not None:
-                    on_failure()
-        else:
-            def task_func():
-                pass # no hace nada
-
-        resp = rdf.OSCFunc(resp_func, '/synced', self.addr)
-        task = stm.Routine.run(task_func, clk.AppClock)
-        self.addr.send_msg('/sync', id)
-
-    def _wait_for_pid_release(self, on_complete, on_failure=None, timeout=1):
-        if self.in_process or self.is_local or self.pid is None:
-            on_complete()
-            return
-
-        # // FIXME: quick and dirty fix for supernova reboot hang on macOS:
-        # // if we have just quit before running server.boot,
-        # // we wait until server process really ends and sets its pid to nil
-        # BUG: puede que todo esto no sea necesario con python Popen (_ServerProcess)
-        waiting = True
-        clk.AppClock.sched( # usa SystemClock pero no me parece que bootear el servidor sea time critical, y dice que es un hack
-            timeout,
-            lambda: self._pid_release_condition.unhang() if waiting else None)
-
-        def task():
-            self._pid_release_condition.hang() # BUG: revisar
-            if self._pid_release_condition.test(): # BUG: revisar
-                waiting = False
-                on_complete()
-            else:
-                on_failure()
-
-        stm.Routine.run(task, clk.AppClock)
 
     def boot_server_app(self, on_complete):
         if self.in_process:
@@ -920,12 +872,13 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.pid = None
         self._pid_release_condition.signal()
         _logger.info(f"Server '{self.name}' exited with exit code {exit_code}.")
-        self.status_watcher.quit(watch_shutdown=False)
+        self.status_watcher.quit(watch_shutdown=False)  # *** NOTE: este quit se llama cuando temina el proceso y cuando se llama a server.quit.
 
     def reboot(self, func=None, on_failure=None): # // func is evaluated when server is off
         if not self.is_local:
             _logger.info("can't reboot a remote server")
             return
+
         if self.status_watcher.server_running\
         and not self.status_watcher.unresponsive:
             def _():
@@ -969,7 +922,21 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         mdl.NotificationCenter.notify(self, 'dump_osc', code)
 
     def quit(self, on_complete=None, on_failure=None, watch_shutdown=True):
+        if not self.is_local:
+            _logger.info("can't quit a remote server")
+            return
+
+        if self.status_watcher.server_quiting:
+            _logger.info(f"server '{self.name}' already quiting")
+            return
+
+        self.status_watcher.server_quiting = True
         self.addr.send_msg('/quit')
+
+        def _on_complete():
+            self.status_watcher.server_quiting = False
+            if on_complete is not None:
+                on_complete()
 
         if watch_shutdown and self.status_watcher.unresponsive:
             _logger.info(f"server '{self.name}' was "
@@ -978,19 +945,18 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         if self.options.protocol == 'tcp':
             self.status_watcher.quit(
-                lambda: self.addr.try_disconnect_tcp(on_complete, on_failure),
+                lambda: self.addr.try_disconnect_tcp(_on_complete, on_failure),
                 None, watch_shutdown
             )
         else:
-            self.status_watcher.quit(on_complete, on_failure, watch_shutdown)
+            self.status_watcher.quit(_on_complete, on_failure, watch_shutdown)
 
         if self.in_process:
-            self.quit_in_process()
+            self.quit_in_process()  # *** BUG: no existe.
             _logger.info('internal server has quit')
         else:
             _logger.info(f"'/quit' message sent to server '{self.name}'")
 
-        self.send_quit = None
         self._max_num_clients = None
 
         # *** TODO:
@@ -1002,7 +968,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     @classmethod
     def quit_all(cls, watch_shutdown=True):
         for server in cls.all:
-            if server.send_quit is True:
+            if server.is_local:
                 server.quit(watch_shutdown=watch_shutdown)
 
     def free_all(self): # BUG: VER tiene variante como @classmethod
@@ -1152,7 +1118,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
 class _ServerProcess():
     def __init__(self, on_exit=None):
-        self.on_exit = on_exit or (lambda pid: None)
+        self.on_exit = on_exit or (lambda exit_code: None)
         self.proc = None
         self.timeout = 0.1
 

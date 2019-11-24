@@ -28,6 +28,7 @@ class ServerStatusWatcher():
 
         self.has_booted = False
         self.server_booting = False
+        self.server_quiting = False
         self._unresponsive = False
 
         self.num_ugens = 0
@@ -157,9 +158,8 @@ class ServerStatusWatcher():
 
                 clk.defer(defer_func)
 
-            resp = rdf.OSCFunc(osc_func, '/status.reply', self.server.addr)
-            resp.permanent = True
-            self._status_watcher = resp
+            self._status_watcher = rdf.OSCFunc(
+                osc_func, '/status.reply', self.server.addr)
             self._status_watcher.permanent = True
         else:
             self._status_watcher.enable()
@@ -197,7 +197,7 @@ class ServerStatusWatcher():
             self.start_alive_thread()
 
     def alive_thread_running(self):
-        return self._alive_thread.playing()
+        return self._alive_thread is not None and self._alive_thread.playing()
 
     @property
     def server_running(self):

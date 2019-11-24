@@ -900,18 +900,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def send_status_msg(self): # BUG: este método tal vez no vaya? o el de arriba?
         self.addr.send_status_msg()
 
-    @property
-    def notify(self):
-        return self.status_watcher.notify
-
-    @notify.setter
-    def notify(self, value):
-        self.status_watcher.notify = value
-
-    @property
-    def notified(self):
-        return self.status_watcher.notified
-
     def dump_osc(self, code=1):
         # 0 - turn dumping OFF.
         # 1 - print the parsed contents of the message.

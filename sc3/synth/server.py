@@ -707,17 +707,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         rdf.OSCFunc(resp_func, response_name, self.addr).one_shot()
         yield from cond.wait()
 
-    def wait_for_boot(self, on_complete, on_failure=None):
-        if not self.status_watcher.server_running\
-        and not self.status_watcher.server_booting:
-            self.boot(on_complete, on_failure)
-        elif self.status_watcher.server_running\
-        and not self.status_watcher.server_booting:
-            fn.value(on_complete, self)
-        else:
-            self.status_watcher.do_when_booted(on_complete, on_failure)
-
-    # wait_for_boot, do_when_booted, son lo mismo que boot ahora.
+    # wait_for_boot, is the same as boot except no on_complete if running
+    # do_when_booted, is status_watcher._add_boot_action
     # if_running, No.
     # if_not_running, No.
 
@@ -803,7 +794,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     @classmethod
     def resume_status_threads(cls):  # NOTE: for SystemActions.
         for server in cls.all:
-            server.status_watcher.resume_thread()
+            server.status_watcher.resume_alive_thread()
 
 
     ### shared memory interface ###
@@ -839,7 +830,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             self._boot_init(recover)
             fn.value(on_complete, server)
 
-        self.status_watcher.do_when_booted(_on_complete, on_failure)
+        self.status_watcher._add_boot_action(_on_complete, on_failure)
 
         if self.remote_controlled:
             _logger.info(f"remote server '{self.name}' needs manual boot")
@@ -911,10 +902,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def application_running(self):  # *** TODO: este método se relaciona con server_running que es propiedad, ver
         return self._server_process.running()
 
-    def status(self):
-        self.addr.send_status_msg() # // backward compatibility
-
-    def send_status_msg(self): # BUG: este método tal vez no vaya? o el de arriba?
+    def send_status_msg(self):
         self.addr.send_status_msg()
 
     def dump_osc(self, code=1):
@@ -927,6 +915,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         mdl.NotificationCenter.notify(self, 'dump_osc', code)
 
     def quit(self, on_complete=None, on_failure=None, watch_shutdown=True):
+        # if server is not running or is running but unresponsive.
+        if not self.status_watcher.server_running\
+        or self.status_watcher.unresponsive:
+            _logger.info(f'server {self.name} is not running')
+            return
+
         if self.status_watcher.server_quiting:
             _logger.info(f"server '{self.name}' already quiting")
             return

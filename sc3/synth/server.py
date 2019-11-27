@@ -302,7 +302,7 @@ class MetaServer(type):
 
 class Server(gpp.NodeParameter, metaclass=MetaServer):
     @classmethod
-    def remote(cls, name, addr, options, client_id):
+    def remote(cls, name, addr, options=None, client_id=None):
         result = cls(name, addr, options, client_id)
         result.status_watcher.start_alive_thread()
         return result
@@ -431,9 +431,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _logger.warning(msg, *args)
             return
         if value < 0 or value >= self.max_num_clients:
-            msg2 = 'outside max_num_clients range of '\
-                   f'0 - {self.max_num_clients - 1}'
-            _logger.warning(msg, (self.name, value, msg2, self.client_id))
+            msg2 = 'outside max_num_clients range '\
+                   f'0..{self.max_num_clients - 1}'
+            _logger.warning(msg, self.name, value, msg2, self.client_id)
             return
         if self._client_id != value:
             _logger.info(f"server '{self.name}' setting client_id to {value}")
@@ -452,10 +452,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def new_node_allocators(self):
         self.node_allocator = type(self).node_alloc_class(
-            self.client_id,
-            self.options.initial_node_id,
-            # self.max_num_clients # BUG: en sclang, node_alloc_class es eng.NodeIDAllocator por defecto, los alocadores originales reciben 2 parámetros, ContiguousBlockAllocator, que se usa para buses y buffers, recibe uno más, cambia la interfaz. Acá se pasa el tercer parámetro y NodeIDAllocator lo ignora (característica de las funciones de sclang), tengo que ver cómo maneja los ids de los nodos por cliente.
-        )
+            self.client_id, self.options.initial_node_id)
+            #, self.max_num_clients) # BUG: en sclang, node_alloc_class es eng.NodeIDAllocator por defecto, los alocadores originales reciben 2 parámetros, ContiguousBlockAllocator, que se usa para buses y buffers, recibe uno más, cambia la interfaz. Acá se pasa el tercer parámetro y NodeIDAllocator lo ignora (característica de las funciones de sclang), tengo que ver cómo maneja los ids de los nodos por cliente.
         # // defaultGroup and defaultGroups depend on allocator,
         # // so always make them here:
         self.make_default_groups()
@@ -664,8 +662,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         node_list = [x.node_id for x in node_list]
         self.send(
             '/n_order', nod.Node.action_number_for(add_action), # 62
-            target.node_id, *node_list
-        )
+            target.node_id, *node_list)
 
     def send_synthdef(self, name, dir=None):
         # // Load from disk locally, send remote.
@@ -943,8 +940,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         if self.options.protocol == 'tcp':
             self.status_watcher.quit(
                 lambda: self.addr.try_disconnect_tcp(_on_complete, _on_failure),  # *** BUG: envuelvo las funciones que son para server y status_watcher para pasar self, la implementación en sclang de try_disconnect_tcp le pasa addr a ambos incluso cuando a onComplete no se le pasa nada nunca y a onFailure se le pasa server *solo* en status_watcher.
-                None, watch_shutdown
-            )
+                None, watch_shutdown)
         else:
             self.status_watcher.quit(_on_complete, _on_failure, watch_shutdown)
 

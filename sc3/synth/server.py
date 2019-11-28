@@ -964,14 +964,23 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             if server.is_local:
                 server.quit(watch_shutdown=watch_shutdown)
 
-    def free_all(self): # BUG: VER tiene variante como @classmethod
+    @classmethod
+    def free_all(cls, even_remote=False):  # All refers to cls.all.
+        if even_remote:
+            for server in cls.all:
+                if server.status_watcher.server_running:
+                    server.free_nodes()
+        else:
+            for server in cls.all:
+                if server.is_local and server.status_watcher.server_running:
+                    server.free_nodes()
+
+    def free_nodes(self):  # Instance free_all in sclang.
         self.send_msg('/g_freeAll', 0)
         self.send_msg('/clearSched')
         self.init_tree()
-    # @classmethod
-    # def free_all(cls, even_remote=False): pass # BUG: IMPLEMENTAR NO SÉ CÓMO, hace lo mismo que hard_free_all, llama al método de instancia en cada server.
 
-    def free_my_default_group(self):
+    def free_default_group(self):
         self.send_msg('g_freeAll', self.default_group.node_id)
 
     def free_default_groups(self):
@@ -982,11 +991,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def hard_free_all(cls, even_remote=False):
         if even_remote:
             for server in cls.all:
-                server.free_all()
+                server.free_nodes()
         else:
             for server in cls.all:
                 if server.is_local:
-                    server.free_all()
+                    server.free_nodes()
 
     @classmethod
     def all_booted_servers(cls):

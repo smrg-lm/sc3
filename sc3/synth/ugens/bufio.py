@@ -126,14 +126,18 @@ class ScopeOut(ugn.UGen):
 class ScopeOut2(ugn.UGen):
     @classmethod
     def ar(cls, input_list, scope_num=0, max_frames=4096, scope_frames=None):
+        if scope_frames is None:
+            scope_frames = max_frames
         self._multi_new('audio', scope_num, max_frames,
-                        scope_frames or max_frames, *utl.as_list(input_list))
+                        scope_frames, *utl.as_list(input_list))
         return 0.0
 
     @classmethod
     def ar(cls, input_list, scope_num=0, max_frames=4096, scope_frames=None):
+        if scope_frames is None:
+            scope_frames = max_frames
         self._multi_new('control', scope_num, max_frames,
-                        scope_frames or max_frames, *utl.as_list(input_list))
+                        scope_frames, *utl.as_list(input_list))
         return 0.0
 
 

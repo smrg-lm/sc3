@@ -169,7 +169,8 @@ class VarLag(Filter):
         # // Then 'exp' warp should probably behave as Lag ugen.
         # NOTE: this provisory implementation is low level like in sclang.
         selector = 'ar' if rate == 'audio' else 'kr'
-        start = start or input
+        if start is None:
+            start = input
         try:
             curve = env.Env._SHAPE_NAMES[warp]
         except KeyError:

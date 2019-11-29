@@ -231,7 +231,10 @@ class ContiguousBlockAllocator():
             return None
 
     def reserve(self, addr, size=1, warn=True):
-        block = self._array[addr] or self._find_next(addr)
+        if self._array[addr] is None:
+            block = self._find_next(addr)
+        else:
+            block = self._array[addr]
         if block is not None and block.used and addr + size > block.start:
             if warn:
                 _logger.warning(f'The block at ({addr}, {size}) is '
@@ -327,7 +330,8 @@ class ContiguousBlockAllocator():
     def _reserve(self, addr, size, avail_block=None, prev_block=None):
         if avail_block is None and prev_block is None:
             prev_block = self._find_previous(addr)
-        avail_block = avail_block or prev_block
+        if avail_block is None:
+            avail_block = prev_block
         if avail_block.start < addr:
             _, avail_block = self._split(avail_block, addr - avail_block.start, False)
         return self._split(avail_block, size, True)[0]

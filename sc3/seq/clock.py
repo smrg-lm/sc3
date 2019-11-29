@@ -738,7 +738,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def __init__(self, tempo=None, beats=None, seconds=None):
         # prTempoClock_New
-        tempo = tempo or 1.0
+        tempo = tempo or 1.0  # tempo=0 is invalid too.
         if tempo < 0.0:
             raise ValueError(f'invalid tempo {tempo}')
         beats = beats or 0.0
@@ -1130,8 +1130,9 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         return bi.floor(self.beats2bars(self.beats))
 
     # // given a number of beats, determine number beats at the next bar line.
-    def next_bar(self, beat):
-        beat = beat or self.beats
+    def next_bar(self, beat=None):
+        if beat is None:
+            beat = self.beats
         return self.bars2beats(bi.ceil(self.beats2bars(beat)))
 
     # // return the beat of the bar, range is 0 to < t.beatsPerBar

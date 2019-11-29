@@ -38,7 +38,11 @@ class Klang(ugn.UGen):
     def _new1(cls, rate, freq_scale, freq_offset, spec):  # override
         freqs, amps, phases = spec
         size = len(freqs)
-        spec = [freqs, amps or [1.0] * size, phases or [0.0] * size]
+        if amps is None:
+            amps = [1.0] * size
+        if phases is None:
+            phases = [0.0] * size
+        spec = [freqs, amps, phases]
         spec = utl.flat(utl.flop(spec))
         obj = cls()
         obj._rate = rate
@@ -68,8 +72,14 @@ class DynKlang(ugn.UGen):  # Pseudo UGen.
             freq = utl.list_binop(operator.add, freq, freq_offset)
         else:
             freq = spec[0]
-        phase = spec[2] or [0.0]
-        mul = spec[1] or [1.0]
+        if spec[2] is None:
+            phase = [0.0]
+        else:
+            phase = spec[2]
+        if spec[1] is None:
+            mul = [1.0]
+        else:
+            mul = spec[1]
         selector = cls._method_selector_for_rate(rate)
         sig = getattr(ocl.SinOsc, selector)(freq, phase) * mul
         return sig.sum()
@@ -87,7 +97,11 @@ class Klank(ugn.UGen):
               decay_scale, spec):  # override
         freqs, amps, times = spec
         size = len(freqs)
-        spec = [freqs, amps or [1.0] * size, times or [1.0] * size]
+        if amps is None:
+            amps = [1.0] * size
+        if times is None:
+            times = [1.0] * size
+        spec = [freqs, amps, times]
         spec = utl.flat(utl.flop(spec))
         obj = cls()
         obj._rate = rate
@@ -125,7 +139,10 @@ class DynKlank(ugn.UGen):  # Pseudo UGen.
             decay_time = utl.list_binop(operator.mul, [1.0], decay_scale)
         else:
             decay_time = spec[2]
-        mul = spec[1] or [1.0]
+        if spec[1] is None:
+            mul = [1.0]
+        else:
+            mul = spec[1]
         selector = cls._method_selector_for_rate(rate)
         sig = getattr(flt.Ringz, selector)(input, freq, decay_time) * mul
         return sig.sum()

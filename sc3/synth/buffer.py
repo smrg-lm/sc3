@@ -19,7 +19,10 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         super(gpp.UGenParameter, self).__init__(self)
         # // Doesn't send.
         self._server = server or srv.Server.default
-        self._bufnum = bufnum or self._server.next_buffer_number(1)
+        if bufnum is None:
+            self._bufnum = self._server.next_buffer_number(1)
+        else:
+            self._bufnum = bufnum
         self._num_frames = num_frames
         self._num_channels = num_channels
         self._sample_rate = self._server.sample_rate
@@ -73,7 +76,10 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     @classmethod
     def new_alloc_consecutive(cls, num_bufs=1, server=None, num_frames=None,
                               num_channels=1, completion_msg=None, bufnum=None):
-        buf_base = bufnum or server.next_buffer_number(num_bufs)
+        if bufnum is None:
+            buf_base = server.next_buffer_number(num_bufs)
+        else:
+            buf_base = bufnum
         buf_list = []
         for i in range(num_bufs):
             new_buf = cls(server, num_frames, num_channels, buf_base + i)

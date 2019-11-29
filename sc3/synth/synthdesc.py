@@ -399,7 +399,7 @@ class SynthDesc():
             self._msg_func_keep_gate = value
             self.make_msg_func()
 
-    def write_metadata(self, path, md_plugin): # BUG falta MDPlugin # TODO: el nombre me resulta confuso en realación a lo que hace. En SynthDef writeDefFile y store llama a SynthDesc.populateMetadataFunc.value(desc) inmediatamente antes de esta función.
+    def write_metadata(self, path, md_plugin=None): # BUG falta MDPlugin # TODO: el nombre me resulta confuso en realación a lo que hace. En SynthDef writeDefFile y store llama a SynthDesc.populateMetadataFunc.value(desc) inmediatamente antes de esta función.
         if self.metadata is None:
             AbstractMDPlugin.clear_metadata(path)
             return

@@ -30,9 +30,9 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
     def __init__(self, levels=None, times=None, curves='lin',
                  release_node=None, loop_node=None, offset=0):
         super(gpp.UGenParameter, self).__init__(self)
-        self.levels = levels or [0, 1, 0]
-        self.times = utl.wrap_extend(utl.as_list(times or [1, 1]),
-                                     len(self.levels) - 1)
+        self.levels = levels or [0, 1, 0]  # Can't be empty or zero either.
+        self.times = utl.wrap_extend(
+            utl.as_list(times or [1, 1]), len(self.levels) - 1)
         self.curves = curves
         self.release_node = release_node
         self.loop_node = loop_node
@@ -277,8 +277,14 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
 
         contents.append(levels[0])
         contents.append(size)
-        contents.append(gpp.ugen_param(self.release_node)._as_ugen_input() or -99)
-        contents.append(gpp.ugen_param(self.loop_node)._as_ugen_input() or -99)
+        aux_input = gpp.ugen_param(self.release_node)._as_ugen_input()
+        if aux_input is None:
+            aux_input = -99
+        contents.append(aux_input)
+        aux_input = gpp.ugen_param(self.loop_node)._as_ugen_input()
+        if aux_input is None:
+            aux_input = -99
+        contents.append(aux_input)
 
         for i in range(size):
             contents.append(levels[i + 1])
@@ -300,7 +306,10 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
         size = len(self.times)
         contents = []
 
-        contents.append(gpp.ugen_param(self.offset)._as_ugen_input() or 0)
+        aux_input = gpp.ugen_param(self.offset)._as_ugen_input()
+        if aux_input is None:
+            aux_input = 0
+        contents.append(aux_input)
         contents.append(levels[0])
         contents.append(size)
         contents.append(utl.list_sum(times))

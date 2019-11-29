@@ -52,7 +52,10 @@ class Node(gpp.NodeParameter):
         obj = cls.__new__(cls)  # basic_new doesn't send therefore can't call __init__
         super(gpp.NodeParameter, obj).__init__(obj)
         obj.server = server or srv.Server.default
-        obj.node_id = node_id or obj.server.next_node_id()
+        if node_id is None:
+            obj.node_id = obj.server.next_node_id()
+        else:
+            obj.node_id = node_id
         obj.group = None
         obj._is_playing = None  # None (not watched/no info), True or False
         obj._is_running = None  # None (not watched/no info), True or False
@@ -272,8 +275,8 @@ class Node(gpp.NodeParameter):
 
 # // common base for Group and ParGroup classes
 class AbstractGroup(Node):
-    # /** immediately sends **/
     def __init__(self, target=None, add_action='addToHead', register=False):
+        # // Immediately sends.
         super().__init__()
         target = gpp.node_param(target)._as_target()
         self.server = target.server
@@ -444,9 +447,9 @@ class RootNode(Group):
 
 
 class Synth(Node):
-    # /** immediately sends **/
     def __init__(self, def_name, args=None, target=None,
                  add_action='addToHead', register=False):
+        # // Immediately sends.
         super().__init__()
         target = gpp.node_param(target)._as_target()
         self.server = target.server

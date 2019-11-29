@@ -21,7 +21,8 @@ class Scale(list): # BUG: Tuning es como un array en sc y Scale implementa la in
         return self.tuning.octave_ratio
 
     def degree_to_key(self, degree, spo=None, acc=0): # NOTE: es performDegreeToKey, spo = steps per octave, acc = accidental
-        spo = spo or self.tuning.spo()
+        if spo is None:
+            spo = self.tuning.spo()
         l = len(self)
         base_key = spo * (degree // l) + self[degree % l]
         if acc == 0:

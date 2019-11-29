@@ -130,13 +130,15 @@ class RunningMax(Peak):
 class Stepper(ugn.UGen):
     @classmethod
     def ar(cls, trig=0, reset=0, min=0, max=7, step=1, resetval=None):
-        return cls._multi_new('audio', trig, reset, min, max, step,
-                              resetval or min)
+        if resetval is None:
+            resetval = min
+        return cls._multi_new('audio', trig, reset, min, max, step, resetval)
 
     @classmethod
     def kr(cls, trig=0, reset=0, min=0, max=7, step=1, resetval=None):
-        return cls._multi_new('control', trig, reset, min, max, step,
-                              resetval or min)
+        if resetval is None:
+            resetval = min
+        return cls._multi_new('control', trig, reset, min, max, step, resetval)
 
     def _check_inputs(self):  # override
         return self._check_sr_as_first_input()

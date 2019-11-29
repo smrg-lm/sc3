@@ -11,14 +11,24 @@ from ..base import responsedefs as rdf
 _logger = logging.getLogger(__name__)
 
 
+class BusException(Exception):
+    pass
+
+
+class BusAlreadyFreed(BusException):
+    def __init__(self, method=None):
+        if method is not None:
+            self.args = (f"'{method}' method called",)
+
+
 class Bus(gpp.UGenParameter, gpp.NodeParameter):
     def __init__(self, rate='audio', index=0, num_channels=2, server=None): # NOTE: es *new
         super(gpp.UGenParameter, self).__init__(self)
-        self._rate = rate # todos tienen solo getter salvo _map_symbol que es privado.
+        self._rate = rate
         self._index = index
         self._num_channels = num_channels
         self._server = server or srv.Server.default
-        # self._map_symbol = None
+        self._map_symbol = None
 
     @property
     def rate(self):
@@ -40,8 +50,8 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
     def new_from(cls, bus, offset, num_channels=1):
         if offset > bus.num_channels\
         or num_channels + offset > bus.num_channels:
-            raise Exception(
-                'Bus:new_from tried to reach outside '
+            raise BusException(
+                'new_from tried to reach outside '
                 f'the channel range of {bus}')
         return cls(bus.rate, bus.index + offset, num_channels)
 
@@ -50,8 +60,8 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         server = server or srv.Server.default
         alloc = server.control_bus_allocator.alloc(num_channels)
         if alloc is None:
-            raise Exception(
-                'Bus:control failed to get a control bus allocated, '
+            raise BusException(
+                'failed to get a control bus allocated, '
                 f'num_channels = {num_channels}, server = {server.name}')
         return cls('control', alloc, num_channels, server)
 
@@ -60,8 +70,8 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         server = server or srv.Server.default
         alloc = server.audio_bus_allocator.alloc(num_channels)
         if alloc is None:
-            raise Exception(
-                'Bus:audio failed to get a audio bus allocated, '
+            raise BusException(
+                'failed to get a audio bus allocated, '
                 f'num_channels = {num_channels}, server = {server.name}')
         return cls('audio', alloc, num_channels, server)
 
@@ -71,133 +81,134 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
             return cls.control(server, num_channels)
         elif rate == 'audio':
             return cls.audio(server, num_channels)
-        raise Exception(f"Bus:alloc invalid rate '{rate}'")
+        else:
+            raise BusException(f"invalid rate '{rate}'")
 
     def settable(self): # NOTE: está pitonizado, era isSettable
         return self._rate != 'audio'
 
     def set(self, *values):  # // shouldn't be larger than self._num_channels
         if self._index is None:
-            raise Exception("cannot call 'set' on a Bus that has been freed")
+            raise BusAlreadyFreed('set')
         elif self.settable():
             values = [[self._index + i, val] for i, val in enumerate(values)]
             self._server.send_bundle(None, ['/c_set'].extend(utl.flat(values)))
         else:
-            _logger.warning('cannot set an audio rate bus')
+            _logger.warning('audio rate buses cannot be set')
 
     def set_msg(self, *values):
         if self._index is None:
-            raise Exception(
-                "cannot construct a '/c_set' on a Bus that has been freed")
+            raise BusAlreadyFreed('set_msg')
         elif self.settable():
             values = [[self._index + i, val] for i, val in enumerate(values)]
             return ['/c_set'].extend(utl.flat(values))
-        raise Exception('cannot set an audio rate bus')
+        else:
+            raise BusException('audio rate buses cannot be set')
 
     def setn(self, values):
         if self._index is None:
-            raise Exception("cannot call 'setn' on a Bus that has been freed")
+            raise BusAlreadyFreed('setn')
         elif self.settable():
             self._server.send_bundle(
                 None, ['/c_setn', len(values)].extend(values))
         else:
-            _logger.warning('cannot set an audio rate bus')
+            _logger.warning('audio rate buses cannot be set')
 
     def setn_msg(self, values):
         if self._index is None:
-            raise Exception(
-                "cannot construct a '/c_setn' for a Bus that has been freed")
+            raise BusAlreadyFreed('setn_msg')
         elif self.settable():
             return ['/c_setn', len(values)].extend(values)
-        raise Exception('cannot set an audio rate bus')
+        else:
+            raise BusException('audio rate buses cannot be set')
 
     def set_at(self, offset, *values):
         if self._index is None:
-            raise Exception('cannot call set_at on a Bus that has been freed')
+            raise BusAlreadyFreed('set_at')
         elif self.settable():
             values = [[self._index + offset + i, val]\
                       for i, val in enumerate(values)]
             self._server.send_bundle(None, ['/c_set'].extend(utl.flat(values)))
         else:
-            _logger.warning('cannot set an audio rate bus')
+            _logger.warning('audio rate buses cannot be set')
 
     def setn_at(self, offset, values):
         if self._index is None:
-            raise Exception('cannot call setn_at on a Bus that has been freed')
+            raise BusAlreadyFreed('setn_at')
         # // could throw an error if values.size > numChannels
         elif self.settable():
             self._server.send_bundle(None,
                 ['/c_setn', self._index + offset, len(values)].extend(values))
         else:
-            _logger.warning('cannot set an audio rate bus')
+            _logger.warning('audio rate buses cannot be set')
 
     def set_pairs(self, *pairs):
         if self._index is None:
-            raise Exception(
-                'cannot call set_pairs on a Bus that has been freed')
+            raise BusAlreadyFreed('set_pairs')
         elif self.settable():
             pairs = [[self._index + pair[0], pair[1]]\
                      for pair in utl.gen_cclumps(pairs, 2)]
             self._server.send_bundle(None, ['/c_set'].extend(utl.flat(paris)))
         else:
-            _logger.warning('cannot set an audio rate bus')
+            _logger.warning('audio rate buses cannot be set')
 
     def get(self, action=None):
         if self._index is None:
-            raise Exception('cannot call get on a Bus that has been freed')
+            raise BusAlreadyFreed('get')
 
         if self._num_channels == 1:
             if action is None:
-                def func(val):
-                    print(f'Bus {self._rate} index: {self._index} value: {val}')
-                action = func
+                def default_action_func(val):
+                    print(f'bus {self._rate} index: {self._index} value: {val}')
+                action = default_action_func
 
-            def osc_func(msg, *_):
+            def get_func(msg, *_):
                 # // The response is of the form [/c_set, index, value].
                 # // We want "value," which is at index 2.
                 action(msg[2])
 
             rdf.OSCFunc(
-                osc_func, '/c_set', self._server.addr, # BUG: es c_set? está el comentario de arriba pero se ve raro, tal vez por eso lo comenta.
-                arg_template=[self._index]
-            ).one_shot()
+                get_func, '/c_set', self._server.addr,
+                arg_template=[self._index]).one_shot()
             self._server.send_msg('/c_get', self._index)
         else:
             self.getn(self._num_channels, action)
 
     def get_msg(self):
         if self._index is None:
-            raise Exception(
-                "cannot construct a '/c_get' for a Bus that has been freed")
+            raise BusAlreadyFreed('get_msg')
         return ['/c_get', self._index]
 
     def getn(self, count=None, action=None):
         if self._index is None:
-            raise Exception('cannot call getn on a Bus that has been freed')
+            raise BusAlreadyFreed('getn')
 
         if action is None:
-            def func(vals):
-                print(f'Bus {self._rate} index: {self._index} values: {vals}')
-            action = func
+            def default_action_func(vals):
+                print(f'bus {self._rate} index: {self._index} values: {vals}')
+            action = default_action_func
 
-        def osc_func(msg, *_):
+        def getn_func(msg, *_):
             # // The response is of the form [/c_set, index, count, ...values].
             # // We want the values, which are at indexes 3 and above.
             action(msg[3:])
 
         rdf.OSCFunc(
-            osc_func, '/c_setn', self._server.addr,
-            arg_template=[self._index]
-        ).one_shot() # NOTE: ver si one_shot se puede usar en las funcinoes de server que se liberan a sí mismas
-        self._server.send_msg('/c_getn', self._index,
-                              count or self._num_channels) # BUG: revisar los 'or'
+            getn_func, '/c_setn', self._server.addr,
+            arg_template=[self._index]).one_shot()
+        if count is None:
+            count = self._num_channels
+        self._server.send_msg('/c_getn', self._index, count)
 
     def getn_msg(self, count=None):
         if self._index is None:
-            raise Exception(
-                "cannot construct a '/c_getn' for a Bus that has been freed")
-        return ['/c_getn', self._index, count or self._num_channels] # BUG: or no es lo mismo con número, e.g. si count es 0 pasa num_channels, aunque creo que no tiene sentido que sea cero.
-        # BUG: revisar todos los 'or' BUG, BUG
+            raise BusAlreadyFreed('getn_msg')
+        if count is None:
+            count = self._num_channels
+        return ['/c_getn', self._index, count]
+
+
+    ### Shared memory interface ###
 
     def get_synchronous(self):
         ...
@@ -211,25 +222,97 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
     def setn_synchronous(self, values):
         ...
 
-    def fill(self, value, num_chans):
-        ...
+
+    def fill(self, value, num_channels):
+        if self._index is None:
+            raise BusAlreadyFreed('fill')
+        # // Could throw an error if numChans > numChannels.
+        self._server.send_bundle(
+            None, ['/c_fill', self._index, num_channels, value])
 
     def fill_msg(self, value):
-        ...
+        if self._index is None:
+            raise BusAlreadyFreed('fill_msg')
+        return ['/c_fill', self._index, self._num_channels, value]
 
     def free(self, clear=False):
-        ...
+        if self._index is None:
+            _logger.warning('bus has already been freed')
+            return
+        if self._rate == 'audio':
+            self._server.audio_bus_allocator.free(self._index)
+        else:
+            self._server.control_bus_allocator.free(self._index)
+            if clear:
+                self.fill(0, self._num_channels)
+        self._index = None
+        self._num_channels = None
+        self._map_symbol = None
+
 
     # // allow reallocation
 
     def alloc_bus(self):  # NOTE: Naming convention as Buffer for instance methods.
-        ...
+        if self._index is None:
+            raise BusAlreadyFreed('alloc_bus')
+        if self._rate == 'audio':
+            self._index = self._server.audio_bus_allocator.alloc(
+                self._num_channels)
+        else:
+            self._index = self._server.control_bus_allocator.alloc(
+                self._num_channels)
+        self._map_symbol = None
 
     def realloc_bus(self):
-        ...
+        if self._index is None:
+            raise BusAlreadyFreed('realloc_bus')
+        if self._index is not None:
+            rate = self._rate
+            num_channels = self._num_channels
+            self.free()
+            self._rate = rate
+            self._num_channels = num_channels
+            self.alloc()
+        else:
+            raise BusAlreadyFreed('realloc_bus')
 
-    # // alternate syntaxes
-    # TODO: hay métodos que son importantes (e.g. asMap), VER.
+    # setAll is fill(value, self._num_channels)
+    # value_ is fill(value, self._num_channels)
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+
+        if self._index == other._index\
+        and self._num_channels == other._num_channels\
+        and self._rate == other._rate\
+        and self._server == other._server:
+            return True
+        else:
+            return False
+
+    def __hash__(self):
+        hash((self._index, self._num_channels, self._rate, self._server))
+
+    @property
+    def is_audio_output(self):
+        return (self._rate == 'audio' and
+                self._index < self._server.options.first_private_bus())
+
+    def as_map(self):
+        if self._map_symbol is None:
+            if self._index is None:
+                raise BusException('bus not allocated')
+            self._map_symbol = 'a' if self._rate == 'audio' else 'c'
+            self._map_symbol += str(self._index)
+        return self._map_symbol
+
+    def sub_bus(self, offset, num_channels=1):
+        return type(self).new_from(self, offset, num_channels)
+
+    # ar
+    # kr
+    # play
 
 
     ### UGen graph parameter interface ###
@@ -242,7 +325,6 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
 
 
     ### Node parameter interface ###
-    # NOTE: Usa todos los valores por defecto de Object. VISTO, BORRAR.
 
     def _as_control_input(self):
         return self._index

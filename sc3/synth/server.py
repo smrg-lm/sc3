@@ -794,7 +794,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             server.status_watcher.resume_alive_thread()
 
 
-    ### shared memory interface ###
+    ### Shared memory interface ###
 
     def disconnect_shared_memory(self):
         ...

@@ -298,7 +298,7 @@ class ContiguousBlockAllocator():
     def _add_to_freed(self, block):
         if self._freed.get(block.size) is None:
             self._freed[block.size] = set()
-        self._freed[block.size] = block
+        self._freed[block.size].add(block)
 
     def _remove_from_freed(self, block):
         if self._freed.get(block.size) is not None:

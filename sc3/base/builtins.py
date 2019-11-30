@@ -667,13 +667,13 @@ def round(x, quant=1):
     if type(x) is int:
         quant = int(quant)
         if quant == 0:
-            return x
+            return float(x)
         else:
-            return div(x + quant // 2, quant) * quant
+            return float(div(x + quant // 2, quant) * quant)
     if quant == 0.:
-        return x
+        return float(x)
     else:
-        return floor(x / quant + .5) * quant
+        return float(floor(x / quant + .5) * quant)
 
 @scbuiltin.binop
 def roundup(x, quant=1):
@@ -682,13 +682,13 @@ def roundup(x, quant=1):
     if type(x) is int:
         quant = int(quant)
         if quant == 0:
-            return x
+            return float(x)
         else:
-            return div(x + quant - 1, quant) * quant
+            return float(div(x + quant - 1, quant) * quant)
     if quant == 0.:
-        return x
+        return float(x)
     else:
-        return ceil(x / quant) * quant
+        return float(ceil(x / quant) * quant)
 
 @scbuiltin.binop
 def trunc(x, quant=1):
@@ -697,13 +697,13 @@ def trunc(x, quant=1):
     if type(x) is int:
         quant = int(quant)
         if quant == 0:
-            return x
+            return float(x)
         else:
-            return div(x, quant) * quant
+            return float(div(x, quant) * quant)
     if quant == 0.:
-        return x
+        return float(x)
     else:
-        return floor(x / quant) * quant
+        return float(floor(x / quant) * quant)
 
 @scbuiltin.binop
 def atan2(a, b): # TODO: Solo la define para float. Pero creo que no define sin/cos y las demás.

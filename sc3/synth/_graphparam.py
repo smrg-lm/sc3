@@ -64,29 +64,35 @@ class UGenParameter(GraphParameter):
     @property
     def rate(self):
         # NOTE: Convenience for polimorfism, use _as_ugen_rate. TODO: check if used, it shouldn't, remove later.
-        print('*** ERROR: should not call UGenParameter.rate')
-        return self._as_ugen_rate()
+        # NOTE: En ipython completando con obj.<TAB> lo llama (obj siendo instancia de Buffer) y se genera un loop con _as_ugen_rate.
+        # print('*** ERROR: should not call UGenParameter.rate')
+        # return self._as_ugen_rate()
+        raise Exception('*** BUG: should not call UGenParameter().rate')
 
     def _as_ugen_rate(self):  # Was rate for many non UGen objects in sclang.
         try:
             return self.rate
         except AttributeError as e:
-            raise AttributeError(f'{type(self).__name__} does not implement '
-                                 'rate attribute or _as_ugen_rate method') from e
+            raise AttributeError(
+                f'{type(self).__name__} does not implement '
+                'rate attribute or _as_ugen_rate method') from e
 
     def _perform_binary_op_on_ugen(self, selector, ugen):
         selector = _si.sc_opname(selector.__name__)
-        raise TypeError(f"operation '{selector}' is not supported between "
-                        f"UGen and {type(self._param_value).__name__}")
+        raise TypeError(
+            f"operation '{selector}' is not supported between "
+            f"UGen and {type(self._param_value).__name__}")
 
     def _r_perform_binary_op_on_ugen(self, selector, ugen):
         selector = _si.sc_opname(selector.__name__)
-        raise TypeError(f"operation '{selector}' is not supported between "
-                        f"{type(self._param_value).__name__} and UGen")
+        raise TypeError(
+            f"operation '{selector}' is not supported between "
+            f"{type(self._param_value).__name__} and UGen")
 
     def _write_input_spec(self, file, synthdef):
-        raise NotImplementedError(f'{type(self).__name__} does '
-                                  'not implement _write_input_spec()')
+        raise NotImplementedError(
+            f'{type(self).__name__} does '
+            'not implement _write_input_spec()')
 
 
 class UGenNone(UGenParameter):

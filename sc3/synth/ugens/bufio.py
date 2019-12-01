@@ -11,14 +11,16 @@ class PlayBuf(ugn.MultiOutUGen):
     @classmethod
     def ar(cls, num_channels, bufnum=0, rate=1.0, trigger=1.0,
            start_pos=0.0, loop=0.0, done_action=0):
-        return cls._multi_new('audio', num_channels, bufnum, rate, trigger,
-                              start_pos, loop, done_action)
+        return cls._multi_new(
+            'audio', num_channels, bufnum, rate,
+            trigger, start_pos, float(loop), done_action)
 
     @classmethod
     def kr(cls, num_channels, bufnum=0, rate=1.0, trigger=1.0,
            start_pos=0.0, loop=0.0, done_action=0):
-        return cls._multi_new('control', num_channels, bufnum, rate, trigger,
-                              start_pos, loop, done_action)
+        return cls._multi_new(
+            'control', num_channels, bufnum, rate,
+            trigger, start_pos, float(loop), done_action)
 
     def _init_ugen(self, num_channels, *inputs):  # override
         self._inputs = inputs
@@ -32,8 +34,9 @@ class TGrains(ugn.MultiOutUGen):
     @classmethod
     def ar(cls, num_channels, trigger=0, bufnum=0, rate=1.0, center_pos=0,
 		   dur=0.1, pan=0, amp=0.1, interp=4):
-        return cls._multi_new('audio', num_channels, trigger, bufnum, rate,
-                              center_pos, dur, pan, amp, interp)
+        return cls._multi_new(
+            'audio', num_channels, trigger, bufnum,
+            rate, center_pos, dur, pan, amp, interp)
 
     def _init_ugen(self, num_channels, *inputs):  # override
         self._inputs = inputs
@@ -48,14 +51,14 @@ class TGrains(ugn.MultiOutUGen):
 
 class BufRd(ugn.MultiOutUGen):
     @classmethod
-    def ar(cls, num_channels, bufnum=0, phase=0.0, loop=1.0, interpolation=2):
-        return cls._multi_new('audio', num_channels, bufnum, phase,
-                              loop, interpolation)
+    def ar(cls, num_channels, bufnum=0, phase=0.0, loop=0.0, interpolation=2):
+        return cls._multi_new(
+            'audio', num_channels, bufnum, phase, float(loop), interpolation)
 
     @classmethod
-    def kr(cls, num_channels, bufnum=0, phase=0.0, loop=1.0, interpolation=2):
-        return cls._multi_new('control', num_channels, bufnum, phase,
-                              loop, interpolation)
+    def kr(cls, num_channels, bufnum=0, phase=0.0, loop=0.0, interpolation=2):
+        return cls._multi_new(
+            'control', num_channels, bufnum, phase, float(loop), interpolation)
 
     def _init_ugen(self, num_channels, *inputs):  # override
         self._inputs = inputs
@@ -74,14 +77,14 @@ class BufRd(ugn.MultiOutUGen):
 
 class BufWr(ugn.UGen):
     @classmethod
-    def ar(cls, input_list, bufnum=0, phase=0.0, loop=1.0):
-        return cls._multi_new('audio', bufnum, phase, loop,
-                              *utl.as_list(input_list))
+    def ar(cls, input_list, bufnum=0, phase=0.0, loop=0.0):
+        return cls._multi_new(
+            'audio', bufnum, phase, float(loop), *utl.as_list(input_list))
 
     @classmethod
-    def kr(cls, input_list, bufnum=0, phase=0.0, loop=1.0):
-        return cls._multi_new('control', bufnum, phase, loop,
-                              *utl.as_list(input_list))
+    def kr(cls, input_list, bufnum=0, phase=0.0, loop=0.0):
+        return cls._multi_new(
+            'control', bufnum, phase, float(loop), *utl.as_list(input_list))
 
     def _check_inputs(self):  # override
         if self.rate == 'audio':
@@ -98,17 +101,17 @@ class BufWr(ugn.UGen):
 class RecordBuf(ugn.UGen):
     @classmethod
     def ar(cls, input_list, bufnum=0, offset=0.0, rec_level=1.0, pre_level=0.0,
-           run=1.0, loop=1.0, trigger=1.0, done_action=0):
-        return self._multi_new('audio', bufnum, offset, rec_level, pre_level,
-                               run, loop, trigger, done_action,
-                               *utl.as_list(input_list))
+           run=1.0, loop=0.0, trigger=1.0, done_action=0):
+        return cls._multi_new(
+            'audio', bufnum, offset, rec_level, pre_level, run,
+            float(loop), trigger, done_action, *utl.as_list(input_list))
 
     @classmethod
     def kr(cls, input_list, bufnum=0, offset=0.0, rec_level=1.0, pre_level=0.0,
-           run=1.0, loop=1.0, trigger=1.0, done_action=0):
-        return self._multi_new('control', bufnum, offset, rec_level, pre_level,
-                               run, loop, trigger, done_action,
-                               *utl.as_list(input_list))
+           run=1.0, loop=0.0, trigger=1.0, done_action=0):
+        return cls._multi_new(
+            'control', bufnum, offset, rec_level, pre_level, run,
+            float(loop), trigger, done_action, *utl.as_list(input_list))
 
 
 class ScopeOut(ugn.UGen):
@@ -128,16 +131,18 @@ class ScopeOut2(ugn.UGen):
     def ar(cls, input_list, scope_num=0, max_frames=4096, scope_frames=None):
         if scope_frames is None:
             scope_frames = max_frames
-        self._multi_new('audio', scope_num, max_frames,
-                        scope_frames, *utl.as_list(input_list))
+        self._multi_new(
+            'audio', scope_num, max_frames,
+            scope_frames, *utl.as_list(input_list))
         return 0.0
 
     @classmethod
     def ar(cls, input_list, scope_num=0, max_frames=4096, scope_frames=None):
         if scope_frames is None:
             scope_frames = max_frames
-        self._multi_new('control', scope_num, max_frames,
-                        scope_frames, *utl.as_list(input_list))
+        self._multi_new(
+            'control', scope_num, max_frames,
+            scope_frames, *utl.as_list(input_list))
         return 0.0
 
 

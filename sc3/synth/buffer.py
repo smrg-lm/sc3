@@ -1,14 +1,32 @@
 """Buffer.sc"""
 
+import logging
 import pathlib
 import time
+import array
 
 from ..base import responsedefs as rdf
 from ..base import model as mdl
 from ..base import functions as fn
-from ..base import main as _libsc3
+from ..base import platform as plt
+from ..base import builtins as bi
+from ..seq import stream as stm
+from ..seq import clock as clk
 from . import _graphparam as gpp
 from . import server as srv
+
+
+_logger = logging.getLogger(__name__)
+
+
+class BufferException(Exception):
+    pass
+
+
+class BufferAlreadyFreed(BufferException):
+    def __init__(self, method=None):
+        if method is not None:
+            self.args = (f"'{method}' method called",)
 
 
 class Buffer(gpp.UGenParameter, gpp.NodeParameter):
@@ -25,7 +43,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             self._bufnum = bufnum
         self._num_frames = num_frames
         self._num_channels = num_channels
-        self._sample_rate = self._server.sample_rate
+        self._sample_rate = self._server.status_watcher.sample_rate
         self._path = None
         self._start_frame = None
         self._do_on_info = lambda buf: None
@@ -125,10 +143,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     @classmethod
     def new_cue(cls, server, path, start_frame=0, num_channels=2,
                 buffer_size=32768, completion_msg=None):
-        obj = cls.new_alloc(server, buffer_size, num_channels,
-                            lambda buf: buf.read_msg(path, start_frame,
-                                                     buffer_size, 0, True,
-                                                     completion_msg))
+        obj = cls.new_alloc(
+            server, buffer_size, num_channels, lambda buf: buf.read_msg(
+                path, start_frame, buffer_size, 0, True, completion_msg))
         # self._cache() # NOTE: __init__ llama a _cache a través de alloc.
         return obj
 
@@ -181,9 +198,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def read_no_update(self, path, file_start_frame=0, num_frames=-1,
                        buf_start_frame=0, leave_open=False,
                        completion_msg=None):
-        self._server.send_msg(*self.read_msg(path, file_start_frame, num_frames,
-                                             buf_start_frame, leave_open,
-                                             completion_msg))
+        self._server.send_msg(*self.read_msg(
+            path, file_start_frame, num_frames,
+            buf_start_frame, leave_open, completion_msg))
 
     def read_msg(self, path, file_start_frame=0, num_frames=-1,
                  buf_start_frame=0, leave_open=False, completion_msg=None):
@@ -220,41 +237,138 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 self._num_frames, fn.value(completion_msg, self)]  # *** BUG: pone 1 en vez de True, porque es el mensaje, pero no lo hace siempre.
 
     @classmethod
-    def new_load(cls, server, collection, num_channels=1, action=None):  # Was new_load_collection
-        ...  # Move classmethod method up.
+    def new_load_list(cls, server, lst, num_channels=1, action=None):  # Was new_load_collection
+        # // Transfer a collection of numbers to a buffer through a file.
+        server = server or srv.Server.default
+        bufnum = self._server.next_buffer_number(1)
+        if self._server.is_local:
+            lst = list(array.array('f', lst))  # Type check & cast.
+            sndfile = xxx.SoundFile()  # *** TODO
+            sndfile.sample_rate = self._server.status_watcher.sample_rate
+            sndfile.num_channels = num_channels
+            path = plt.Platform.tmp_dir / str(hash(sndfile))  # BUG: Returns pathlib.Path
+            with sndfile:  # *** TODO: needs SoundFile
+                ...
+        else:
+            _logger.warning("cannot call 'new_load' with a non-local Server")
 
-    def load(self, collection, start_frame=0, action=None):  # Was load_collection
-        ...
+    def load_list(self, lst, start_frame=0, action=None):  # Was load_collection
+        if self._server.is_local:
+            ...  # *** TODO: needs SoundFile
+        else:
+            _logger.warning("cannot call 'load' with a non-local Server")
 
     @classmethod
-    def new_send(cls, server, collection, num_channels=1, wait=-1, action=None):  # Was send_collection
+    def new_send_list(cls, server, lst, num_channels=1, wait=-1, action=None):  # Was send_collection
         # // Send a Collection to a buffer one UDP sized packet at a time.
-        ... # Move class method up.
+        lst = list(array.array('f', lst))  # Type check & cast.
+        buffer = cls(server, bi.ceil(len(lst) / num_channels), num_channels)
+        # It was forkIfNeeded, can't be implemented in Python because
+        # yield statment scope is different. The check for need was:
+        # if isinstance(_libsc3.main.current_tt, Routine). Always fork here
+        # is even a bit more clear, use action to sync externally.
+        def send_func():
+            buffer.alloc()
+            yield from server.sync()
+            buffer.send_list(lst, 0, wait, action)
 
-    def send(self, collection, start_frame=0, wait=-1, action=None):  # Was send_collection
-        ...
+        stm.Routine.run(send_func)
+        return buffer
 
-    def _stream_data(self, collstream, collsize, start_frame=0, wait=-1, action=None):  # Was streamCollection
-        # // Called internally.
-        ...
+    def send_list(self, lst, start_frame=0, wait=-1, action=None):  # Was send_collection
+        number = (int, float)
+        if not isinstance(start_frame, number):
+            raise TypeError('start_frame must be int of float')
+        if not isinstance(wait, number):
+            raise TypeError('wait must be int of float')
+        lst = list(array.array('f', lst))  # Type check & cast.
+        size = len(lst)
+        if size > (self._num_frames - start_frame) * self._num_channels:
+            _logger.warning('list larger than available number of frames')
+        self._stream_list(
+            lst, size, start_frame * self._num_channels, wait, action)
 
+    def _stream_list(self, lst, size, start_frame=0, wait=-1, action=None):  # Was streamCollection
+        def stream_func():
+            # // wait = -1 allows an OSC roundtrip between packets.
+            # // wait = 0 might not be safe in a high traffic situation.
+            # // Maybe okay with tcp.
+            max_bndl_size = 1626  # // Max size for setn under udp.
+            pos = 0
+            sublst = None
+            while pos < size:
+                sublst = lst[pos:pos+max_bndl_size]
+                self._server.send_msg(
+                    '/b_setn', self._bufnum, start_frame + pos,
+                    len(sublst), *sublst)
+                pos += max_bndl_size
+                if wait >= 0:
+                    yield wait
+                else:
+                    yield from self._server.sync()
+            fn.value(action, self)
 
-    # TODO:
+        stm.Routine.run(stream_func)
+
     # // these next two get the data and put it in a float array which is passed to action
-    # loadToFloatArray
-    # // risky without wait
-    # getToFloatArray
 
+    def load_to_list(self, index=0, count=-1, action=None):
+        ... # *** TODO: needs SoundFile
+
+    def get_to_list(self, index=0, count=None, wait=0.01,
+                    timeout=3, action=None):
+        # // risky without wait
+        # BUG: some methods have an strict type check but some others don't.
+        max_udp_size = 1633  # // Max size for getn under udp.
+        pos = index = int(index)
+        if count is None:
+            count = int(self._num_frames * self._num_channels)
+        array = []  # [0.0] * count
+        ref_count = int(bi.roundup(count / max_udp_size))
+        count += pos
+        done = False
+
+        def resp_func(msg, *_):
+            nonlocal done, ref_count
+            if msg[1] == self._bufnum:
+                array.extend(msg[4:])
+                ref_count -= 1
+                if ref_count <= 0:
+                    done = True
+                    resp.free()  # *** BUG: clear() ???
+                    fn.value(action, array, self)
+
+        resp = rdf.OSCFunc(resp_func, '/b_setn', self._server.addr)
+
+        def getn_func():
+            nonlocal pos
+            while pos < count:
+                getsize = bi.min(max_udp_size, count - pos)
+                self._server.send_msg(*self.getn_msg(pos, getsize))
+                pos += getsize
+                if wait >= 0:
+                    yield wait
+                else:
+                    yield from self._server.sync()
+
+        stm.Routine.run(getn_func)
+
+        # // Lose the responder if the network choked.
+        def timeout_func():
+            if not done:
+                resp.free()
+                _logger.warning('get_to_list failed, try increasing wait time')  # *** NOTE: timeout may also fail for long buffers.
+
+        clk.SystemClock.sched(timeout, timeout_func)
 
     def write(self, path=None, header_format="aiff", sample_format="int24",
               num_frames=-1, start_frame=0, leave_open=False,
               completion_msg=None):
         if self._bufnum is None:
-            raise Exception(
-                'cannot call write on a Buffer that has been freed')
+            raise BufferAlreadyFreed('write')
 
         if path is None:
-            dir = _libsc3.main.platform.recording_dir
+            dir = plt.Platform.recording_dir
             timestamp = time.strftime('%Y%m%d_%H%M%S')
             path = dir / ('SC_' + timestamp + '.' + header_format)
         else:
@@ -270,8 +384,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                   num_frames=-1, start_frame=0, leave_open=False,
                   completion_msg=None):
         if self._bufnum is None:
-            raise Exception(
-                'cannot call write_msg on a Buffer that has been freed')
+            raise BufferAlreadyFreed('write_msg')
         # // Doesn't change my path.
         return ['/b_write', self._bufnum, path, header_format, sample_format,
                 int(num_frames), int(start_frame), int(leave_open),
@@ -279,8 +392,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     def free(self, completion_msg=None):
         if self._bufnum is None:
-            _logger.warning(
-                'cannot call free on a Buffer that has been freed')
+            _logger.warning('Buffer has already been freed')
         self._server.send_msg(*self.free_msg(completion_msg))
 
     def free_msg(self, completion_msg=None):
@@ -330,8 +442,10 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def getn(self, index, count, action=None):
         ...
 
-    def getn_msg(self, index, count, action=None):
-        ...
+    def getn_msg(self, index, count, action=None):  # *** BUG: desde sclang, los *_msg van sin action acá, o no?
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('getn_msg')
+        return ['b_getn', self._bufnum, index, count]
 
     def fill(self, start, num_frames, value, *more_values):
         ...
@@ -357,7 +471,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     # sine2_msg
     # sine3_msg
     # cheby_msg
-    # copy_data  # NOTE: ver el cambio de nombre de streamCollection.
+    # copy_data
     # copy_msg
     # clase
     # close_msg

@@ -363,6 +363,15 @@ def pairwise(iterable):
 # pero también se puede usar list comprehensions como sugiere el link
 #[f(x) for x in iterable]
 
+
+def lace(lst, size=None):
+    if size is None:
+        return [x for sub in zip(*lst) for x in sub]
+    else:
+        gen = _itertools.cycle(x for sub in zip(*lst) for x in sub)
+        return [next(gen) for _ in range(0, size)]
+
+
 def flop(lst):
     lst = [[None] if x is None else as_list(x) for x in lst] # NOTE: as_list convierte None en []
     n = len(lst)

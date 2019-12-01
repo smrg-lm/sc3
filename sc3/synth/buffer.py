@@ -10,6 +10,7 @@ from ..base import model as mdl
 from ..base import functions as fn
 from ..base import platform as plt
 from ..base import builtins as bi
+from ..base import utils as utl
 from ..seq import stream as stm
 from ..seq import clock as clk
 from . import _graphparam as gpp
@@ -318,6 +319,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def get_to_list(self, index=0, count=None, wait=0.01,
                     timeout=3, action=None):
         # // risky without wait
+        if action is None:
+            raise ValueError('get_to_list without action makes no sense')  # *** NOTE: es que el orden de los parámetros debería ser distinto pero es contrario a la norma.
+
         # BUG: some methods have an strict type check but some others don't.
         max_udp_size = 1633  # // Max size for getn under udp.
         pos = index = int(index)
@@ -336,7 +340,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 if ref_count <= 0:
                     done = True
                     resp.free()  # *** BUG: clear() ???
-                    fn.value(action, array, self)
+                    fn.value(action, array)  #, self)  # *** NOTE: CHANGEG: because get & getn don't pass self to action, only data
 
         resp = rdf.OSCFunc(resp_func, '/b_setn', self._server.addr)
 
@@ -413,72 +417,266 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         type(self)._clear_server_caches(server) # *** BUG: no hace _clear_server_caches de default si es nil en sclang.
 
     def zero(self, completion_msg=None):
-        ...
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('zero')
+        self._server.send_msg(*self.zero_msg(completion_msg))
 
     def zero_msg(self, completion_msg=None):
-        ...
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('zero_msg')
+        return ['/b_zero', self._bufnum, fn.value(completion_msg, self)]
 
     def set(self, index, value, *more_pairs):
-        ...
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('set')
+        self._server.send_msg(*self.set_msg(index, value, *more_pairs))
 
     def set_msg(self, index, value, *more_pairs):
-        ...
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('set_msg')
+        return ['/b_set', self._bufnum, index, value, *more_pairs]
 
     def setn(self, *args):
-        ...
-
-    def setn_msg_args(self, *args):
-        ...
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('setn')
+        self._server.send_msg(*self.setn_msg(*args))
 
     def setn_msg(self, *args):
-        ...
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('setn_msg')
+        nargs = []
+        for control, values in utl.gen_cclumps(args, 2):
+            if isnstance(values, list):
+                nargs.extend([control, len(values), *values])
+            else:
+                nargs.extend([control, 1, values])
+        return ['/b_setn', self._bufnum, *nargs]
 
-    def get(self, index, action=None):
-        ...
+    def get(self, index, action):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('get')
 
-    def get_msg(self, index, action=None):
-        ...
+        def resp_func(msg, *_):
+            # // The server replies with a message of the form:
+            # // [/b_set, bufnum, index, value]. We want 'value,'
+            # // which is at index 3.
+            fn.value(action, msg[3])
 
-    def getn(self, index, count, action=None):
-        ...
+        rdf.OSCFunc(
+            resp_func, '/b_set', self._server.addr,
+            arg_template=[self._bufnum, index]).one_shot()
 
-    def getn_msg(self, index, count, action=None):  # *** BUG: desde sclang, los *_msg van sin action acá, o no?
+        self._server.send_msg(*self.get_msg(index))
+
+    def get_msg(self, index):  # *** BUG: sclang, los *_msg van sin action acá.
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('get_msg')
+        return ['/b_get', self._bufnum, index]
+
+    def getn(self, index, count, action):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('getn')
+
+        def resp_func(msg, *_):
+            # // The server replies with a message of the form:
+            # // [/b_setn, bufnum, starting index, length, ...sample values].
+            # // We want the sample values, which start at index 4.
+            fn.value(action, msg[4:])
+
+        rdf.OSCFunc(
+            resp_func, '/b_setn', self._server.addr,
+            arg_template=[self._bufnum, index]).one_shot()
+
+        self._server.send_msg(*self.getn_msg(index, count))
+
+    def getn_msg(self, index, count):  # *** BUG: sclang, los *_msg van sin action acá.
         if self._bufnum is None:
             raise BufferAlreadyFreed('getn_msg')
         return ['b_getn', self._bufnum, index, count]
 
-    def fill(self, start, num_frames, value, *more_values):
-        ...
+    def fill(self, start, num_frames, values):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('fill')
+        self._server.send_msg(*self.fill_msg(start, num_frames, *values))
 
-    def fill_msg(self, start, num_frames, value, *more_values):
-        ...
+    def fill_msg(self, start, num_frames, *values):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('fill_msg')
+        return ['/b_fill', self._bufnum, start, int(num_frames), *values]  # *** NOTE: puede enviar más values que frames, ignora el servidor, los checks de tipos y valores en estas clases son raros.
 
-    def normalize(self, new_max=1, as_wavetable=False):
-        ...
+
+    # *** NOTE: Es gen command, difiere en formato.
+    def normalize(self, new_max=1, as_wavetable=False):  # *** BUG: tiene action, o debería? No está definido en la especificacion de gen cmd.
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('normalize')
+        self._server.send_msg(*self.normalize_msg(new_max, as_wavetable))
 
     def normalize_msg(self, new_max=1, as_wavetable=False):
-        ...
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('normalize_msg')
+        if as_wavetable:
+            format = 'wnormalize'
+        else:
+            format = 'normalize'
+        return ['/b_gen', self._bufnum, format, new_max]  # *** BUG: format no usa los flags como el resto de los gen.
 
 
-    # TODO:
-    # gen
-    # gen_msg
-    # sine1
-    # sine2
-    # sine3
-    # cheby
-    # sine1_msg
-    # sine2_msg
-    # sine3_msg
-    # cheby_msg
-    # copy_data
-    # copy_msg
-    # clase
-    # close_msg
-    # query
-    # query_msg
-    # update_info
+    ### Gen commands ###
 
+    GEN_NORMALIZE = 1
+    GEN_ASWAVETABLE = 2
+    GEN_CLEARFIRST = 4
+    _SUPPORTED_GEN_FLAGS = (GEN_NORMALIZE, GEN_ASWAVETABLE, GEN_CLEARFIRST)
+
+    def gen(self, cmd, args=(), flags=(), action=None):  # *** NOTE: maybe don't use tuple flags for sine1, sine2, etc., and go back to arguments, this way is clumpsy for user.
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('gen')
+
+        if action is not None:
+            def resp_func(msg, *_):
+                # // The server replies with a message of the form:
+                # // [/done, /b_gen, bufnum]
+                fn.value(action, self)
+
+            rdf.OSCFunc(
+                resp_func, '/done', self._server.addr,
+                arg_template=['/b_gen', self._bufnum]).one_shot()  # *** BUG: comprobar que filtra por arg_template (no recuerdo si está implementado así).
+
+        self._server.send_msg(*self.gen_msg(cmd, args, flags))
+
+    def gen_msg(self, cmd, args=(), flags=()):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('gen')
+        # *** TODO: check supported commands?
+        oflags = self._get_oflags(flags)
+        return ['/b_gen', self._bufnum, cmd, oflags, *args]
+
+    def _get_oflags(self, flags):
+        if len(flags) == 0:
+            return sum(self._SUPPORTED_GEN_FLAGS)  # All on by default.
+        oflags = 0
+        for i in range(0, len(flags)):
+            if flags[i] not in self._SUPPORTED_GEN_FLAGS:
+                raise ValueError(f'unsuported flags[{i}]')
+            oflags |= flags[i]
+        return oflags
+
+    def sine1(self, amps, flags=()):  # *** BUG: todas estas podrían tener action
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('sine1')
+        self._server.send_msg(*self.sine1_msg(amps, flags))
+
+    def sine1_msg(self, amps, flags=()):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('sine1_msg')
+        oflags = self._get_oflags(flags)
+        return ['/b_gen', self._bufnum, 'sine1', oflags, *amps]
+
+    def sine2(self, freqs, amps, flags=()):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('sine2')
+        self._server.send_msg(*self.sine2_msg(freqs, amps, flags))
+
+    def sine2_msg(self, freqs, amps, flags=()):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('sine2_msg')
+        oflags = self._get_oflags(flags)
+        return ['/b_gen', self._bufnum, 'sine2', oflags,
+                utl.lace([freqs, amps], len(freqs) * 2)]
+
+    def sine3(self, freqs, amps, phases, flags=()):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('sine3')
+        self._server.send_msg(*self.sine3_msg(freqs, amps, phases, flags))
+
+    def sine3_msg(self, freqs, amps, phases, flags=()):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('sine3_msg')
+        oflags = self._get_oflags(flags)
+        return ['/b_gen', self._bufnum, 'sine3', oflags,
+                utl.lace([freqs, amps, phases], len(freqs) * 2)]
+
+    def cheby(self, amps, flags=()):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('cheby')
+        self._server.send_msg(*self.cheby_msg(amps, flags))
+
+    def cheby_msg(self, amps, flags=()):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('cheby_msg')
+        oflags = self._get_oflags(flags)
+        return ['/b_gen', self._bufnum, 'cheby', oflags, *amps]
+
+    def copy_data(self, dst_buffer, dst_start=0, start=0,
+                  num_sapmles=-1, action=None):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('copy_data')
+
+        if action is not None:
+            def resp_func(msg, *_):
+                # // The server replies with a message of the form:
+                # // [/done, /b_gen, bufnum]
+                fn.value(action, self, dst_buffer)
+
+            rdf.OSCFunc(
+                resp_func, '/done', self._server.addr,
+                arg_template=['/b_gen', self._bufnum]).one_shot()  # *** BUG: comprobar que filtra por arg_template (no recuerdo si está implementado así).
+
+        self._server.send_msg(*self.copy_msg(
+            dst_buffer, dst_start, start, num_samples))
+
+    def copy_data_msg(self, dst_buffer, dst_start=0, start=0, num_samples=-1):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('copy_data_msg')
+        return ['/b_gen', dst_buffer.bufnum, 'copy', dst_start,
+                self._bufnum, start, num_samples]
+
+
+    def close(self, completion_msg=None):
+        # // Close a file, write header, after DiskOut usage.
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('close')
+        self._server.send_msg(*self.close_msg(completion_msg))
+
+    def close_msg(self, completion_msg):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('close_msg')
+        return ['/b_close', self._bufnum, fn.value(completion_msg, self)]
+
+    def query(self, action=None):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('query')
+        if action is None:
+            def action(addr, bufnum, num_frames,
+                            num_channels, sample_rate):
+                _logger.info(
+                    f'bufnum: {bufnum}\n'
+                    f'num_frames: {num_frames}\n'
+                    f'num_channels: {num_channels}\n'
+                    f'sample_rate: {sample_rate}')  # *** BUG: o estos son print? Lo mismo pasa con s.query_all_nodes().
+
+        def resp_func(msg, *_):
+            fn.value(action, *msg)
+
+        rdf.OSCFunc(
+            resp_func, '/b_info', self._server.addr,
+            arg_template=[self._bufnum]).one_shot()
+        self._server.send_msg('/b_query', self._bufnum)
+
+    def query_msg(self):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('query_msg')
+        return ['/b_query', self._bufnum]
+
+    def update_info(self, action):
+        # // Add to the array here. That way, update will
+        # // be accurate even if this buf has been freed.
+        self._cache()
+        self._do_on_info = action
+        self._server.send_msg('/b_query', self._bufnum)
+
+
+    ### Cache methods ###
 
     def _cache(self):
         # // cache Buffers for easy info updating

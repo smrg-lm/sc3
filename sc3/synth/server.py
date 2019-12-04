@@ -823,11 +823,15 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.status_watcher.server_booting = True
 
         def _on_complete(server):
-            self.status_watcher.server_booting = False
-            self._boot_init(recover)
+            server.status_watcher.server_booting = False
+            server._boot_init(recover)
             fn.value(on_complete, server)
 
-        self.status_watcher._add_boot_action(_on_complete, on_failure)
+        def _on_failure(server):
+            server.status_watcher.server_booting = False
+            fn.value(on_failure, server)
+
+        self.status_watcher._add_boot_action(_on_complete, _on_failure)
 
         if self.remote_controlled:
             _logger.info(f"remote server '{self.name}' needs manual boot")
@@ -930,6 +934,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             fn.value(on_complete, self)  # *** BUG: try_disconnect_tcp
 
         def _on_failure():
+            self.status_watcher.server_quiting = False
             fn.value(on_failure, self)  # *** BUG: try_disconnect_tcp
 
         if watch_shutdown and self.status_watcher.unresponsive:

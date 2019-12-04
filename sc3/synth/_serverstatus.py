@@ -242,6 +242,8 @@ class ServerStatusWatcher():
         self.stop_alive_thread()
         self.server_running = False # usa @property
         self.has_booted = False
+        self.server_booting = False
+        self.server_quiting = False
         self._alive = False
         self.notified = False
         self._unresponsive = False

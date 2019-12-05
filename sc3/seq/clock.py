@@ -24,6 +24,14 @@ from . import stream as stm
 _logger = logging.getLogger(__name__)
 
 
+class ClockError(RuntimeError):
+    pass
+
+
+class ClockNotRunning(ClockError):
+    pass
+
+
 # // Clocks for timing threads.
 
 class TaskQueue():
@@ -853,7 +861,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     def stop(self):
         # prStop -> prTempoClock_Free -> StopReq -> StopAndDelete -> Stop
         # prTempoClock_Free
-        if self._thread is None or not self._thread.is_alive():
+        if not self.running():
             _logger.debug(f'{self} is not running')
             return
 
@@ -895,8 +903,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     @property
     def tempo(self):
         # _TempoClock_Tempo
-        if not self._thread.is_alive():
-            raise RuntimeError(f'{self} is not running')
+        if not self.running():
+            raise ClockNotRunning(self)
         return self._tempo
 
     # // for setting the tempo at the current logical time
@@ -909,8 +917,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # NOTE: dependacy o porque difiere la lógica del objeto en C++.
         # NOTE: Paso la lógica de setTempoAtBeat y TempoClock::SetTempoAtBeat a este setter.
         # setTempoAtBeat(newTempo, this.beats) -> prTempoClock_SetTempoAtBeat
-        if not self._thread.is_alive():
-            raise RuntimeError(f'{self} is not running')
+        if not self.running():
+            raise ClockNotRunning(self)
         if self._tempo < 0.0: # BUG: NO ES CLARO: usa _tempo (mTempo), que puede ser negativo mediante etempo y en ese caso no deja setear acá, ES RARO.
             raise ValueError(
                 "cannot set tempo from this method. "
@@ -934,8 +942,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     def etempo(self, value):
         # TODO: this.setTempoAtSec(newTempo, Main.elapsedTime);
         # _TempoClock_SetTempoAtTime
-        if not self._thread.is_alive():
-            raise RuntimeError(f'{self} is not running')
+        if not self.running():
+            raise ClockNotRunning(self)
         # TempoClock::SetTempoAtTime
         seconds = _libsc3.main.elapsed_time()
         self._base_beats = self.secs2beats(seconds)
@@ -949,22 +957,22 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def beat_dur(self):
         # _TempoClock_BeatDur
-        if not self._thread.is_alive():
-            raise RuntimeError(f'{self} is not running')
+        if not self.running():
+            raise ClockNotRunning(self)
         return self._beat_dur
 
     def elapsed_beats(self):
         # _TempoClock_ElapsedBeats
-        if not self._thread.is_alive():
-            raise RuntimeError(f'{self} is not running')
+        if not self.running():
+            raise ClockNotRunning(self)
         return self.secs2beats(_libsc3.main.elapsed_time())
 
     @property
     def beats(self):
         # _TempoClock_Beats
         # // returns the appropriate beats for this clock from any thread
-        if not self._thread.is_alive():
-            raise RuntimeError(f'{self} is not running')
+        if not self.running():
+            raise ClockNotRunning(self)
         if _libsc3.main.current_tt.clock is self:
             return _libsc3.main.current_tt.beats
         else:
@@ -973,8 +981,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     @beats.setter
     def beats(self, value):
         # _TempoClock_SetBeats
-        if not self._thread.is_alive():
-            raise RuntimeError(f'{self} is not running')
+        if not self.running():
+            raise ClockNotRunning(self)
         with self._sched_cond:
             seconds = _libsc3.main.current_tt.seconds # BUG: revisar en C++ las veces que obtiene beats o seconds de &g->thread que es current_tt
             # TempoClock::SetAll # NOTE: _TempoClock_SetAll no se usa en sclang, creo que no están bien nombrasdos SetAll (para setea beats), SetTempoAtTime (para setea etempo) y SetTempoAtBeat (para setear tempo)
@@ -1008,8 +1016,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def sched(self, delta, item):
         # _TempoClock_Sched
-        if not self._thread.is_alive():
-            raise RuntimeError(f'{self} is not running')
+        if not self.running():
+            raise ClockNotRunning(self)
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
         with self._sched_cond:
@@ -1025,8 +1033,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def sched_abs(self, beat, item):
         # _TempoClock_SchedAbs
-        if not self._thread.is_alive():
-            raise RuntimeError(f'{self} is not running')
+        if not self.running():
+            raise ClockNotRunning(self)
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
         if beat == _math.inf:
@@ -1038,11 +1046,11 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # // flag tells EventStreamPlayers that CmdPeriod
         # // is removing them, so nodes are already freed
         # clear -> prClear -> _TempoClock_Clear -> TempoClock::Clear
-        if self._thread.is_alive() and self._run_sched:
+        if self.running():  # and self._run_sched:  # NOTE: _run_sched check was needed?
             item = None
             with self._sched_cond:
                 while not self._task_queue.empty():
-                    item = self._task_queue.get()[1] # de por sí PriorityQueue es thread safe, la implementación de SuperCollider es distinta, ver SystemClock*clear.
+                    item = self._task_queue.pop()[1] # de por sí PriorityQueue es thread safe, la implementación de SuperCollider es distinta, ver SystemClock*clear.
                     if isinstance(item, (stm.EventStreamPlayer, stm.PauseStream)):
                         item.removed_from_scheduler(release_nodes)
                 self._sched_cond.notify() # NOTE: es notify_one en C++
@@ -1054,8 +1062,9 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     @beats_per_bar.setter
     def beats_per_bar(self, value):
         if _libsc3.main.current_tt is not self:
-            RuntimeError('should only change beats_per_bar'
-                         'within the scheduling thread')
+            raise ClockError(
+                'TempoClock should only change beats_per_bar'
+                'within the scheduling thread')
         # setMeterAtBeat
         beats = self.beats
         self._base_bar = bi.round(
@@ -1076,20 +1085,20 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def beats2secs(self, beats):
         # _TempoClock_BeatsToSecs
-        if not self._thread.is_alive():
-            raise RuntimeError(f'{self} is not running')
+        if not self.running():
+            raise ClockNotRunning(self)
         return (beats - self._base_beats) * self._beat_dur + self._base_seconds
 
     def secs2beats(self, seconds):
         # _TempoClock_SecsToBeats
-        if not self._thread.is_alive():
-            raise RuntimeError(f'{self} is not running')
+        if not self.running():
+            raise ClockNotRunning(self)
         return (seconds - self._base_seconds) * self._tempo + self._base_beats
 
     def dump(self):
         # _(pr)TempoClock_Dump -> TepmoClock::Dump
         # BUG: Pero no usa este método sclang, usa dump de Object (_ObjectDump)
-        if self._thread.is_alive():
+        if self.running():
             msg = self.__repr__()
             msg += (f'\n    tempo: {self.tempo}'
                     f'\n    beats: {self.beats}'
@@ -1099,7 +1108,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                     f'\n    _base_beats: {self._base_beats}')
             print(msg)
         else:
-            raise RuntimeError(f'{self} is not running')
+            raise ClockNotRunning(self)
 
     def next_time_on_grid(self, quant=1, phase=0):
         if quant == 0:

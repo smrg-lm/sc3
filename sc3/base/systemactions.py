@@ -50,7 +50,7 @@ class CmdPeriod(AbstractSystemAction):
     def do_once(cls, object):
         def do_func():
             cls.remove(do_func)
-            cls._do_action(item, 'do_on_cmd_period')
+            cls._do_action(item, 'cmd_period')
         cls.add(do_func)
 
     @classmethod
@@ -59,7 +59,7 @@ class CmdPeriod(AbstractSystemAction):
             clk.SystemClock.clear()
             clk.AppClock.clear()
         for item in cls.objects[:]:
-            cls._do_action(item, 'do_on_cmd_period')
+            cls._do_action(item, 'cmd_period')
         if cls.free_servers:
             srv.Server.free_all(cls.free_remote) # // stop all sounds on local, or remote servers
             srv.Server.resume_status_threads()
@@ -71,7 +71,7 @@ class CmdPeriod(AbstractSystemAction):
         clk.AppClock.clear()
         clk.TempoClock.default.clear()
         for item in cls.objects[:]:
-            cls._do_action(item, 'do_on_cmd_period')
+            cls._do_action(item, 'cmd_period')
         srv.Server.hard_free_all()  # // stop all sounds on local servers
         srv.Server.resume_status_threads()
         cls.era += 1

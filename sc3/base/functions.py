@@ -580,7 +580,7 @@ class NAryOpFunction(AbstractFunction):
 
 
 # class FunctionList(AbstractFunction):
-#     pass
+#     ...
 
 
 ### Function.sc ###

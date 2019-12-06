@@ -229,8 +229,8 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         return clk.SystemClock
 
     @clock.setter
-    def clock(self, value): # NOTE: se necesita por compatibilidad/generalidad para no checkear qué reloj es. Routine sobreescribe.
-        pass
+    def clock(self, value):
+        pass  # NOTE: Needed for polymorphism, overriden by Routine.
 
     @property
     def seconds(self):
@@ -528,13 +528,13 @@ class FlowVar():
 
 
 class FuncStream(Stream):
-    pass # TODO
+    ... # TODO
 
 
-# class OneShotStream(Stream): pass # TODO: ver para qué sirve, la única referencia está en Object:iter, no está documentada.
-# class EmbedOnce(Stream): pass # TODO, ver, solo se usa en JITLib, no está documentada.
-# class StreamClutch(Stream): pass # TODO: no se usa en la librería de clases, actúa como un filtro, sí está documentada.
-# class CleanupStream(Stream): pass # TODO: no se usa en la librería de clases, creo, ver bien, no tiene documentación.
+# class OneShotStream(Stream): ... # TODO: ver para qué sirve, la única referencia está en Object:iter, no está documentada.
+# class EmbedOnce(Stream): ... # TODO, ver, solo se usa en JITLib, no está documentada.
+# class StreamClutch(Stream): ... # TODO: no se usa en la librería de clases, actúa como un filtro, sí está documentada.
+# class CleanupStream(Stream): ... # TODO: no se usa en la librería de clases, creo, ver bien, no tiene documentación.
 
 
 # // PauseStream is a stream wrapper that can be started and stopped.
@@ -657,7 +657,7 @@ class PauseStream(Stream):
 
     @thread_player.setter
     def thread_player(self, value):
-        pass # NOTE: siempre es this para esta clase en sclang, el método se hereda de object y no se puede setear.
+        pass  # NOTE: Setter from Object in sclang does nothing, polymorphism (might be error prone), overriden by tt.
 
 
 # // Task is a PauseStream for wrapping a Routine

@@ -82,7 +82,7 @@ class NetAddr():
 
     # @classmethod
     # def client_ip(cls):
-    #     pass # BUG: este método no está definido en sclang, aunque debería?, supongo que tiene que retornar la dirección de ip, o en la red local, el problema es que no hay una sola y simple solución multiplataforma.
+    #     ...  # BUG: este método no está definido en sclang, aunque debería?, supongo que tiene que retornar la dirección de ip, o en la red local, el problema es que no hay una sola y simple solución multiplataforma.
                # BUG: ver las repuestas de abajo en: https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib
 
     # @classmethod
@@ -214,4 +214,4 @@ class NetAddr():
 
 # BUG: hay que implementar para server
 # class BundleNetAddr(NetAddr):
-#     pass
+#     ...

@@ -158,29 +158,29 @@ class Pnarop(Pattern): # BUG: nombre cambiado
 
 
 class Pfunc(Pattern):
-    pass
+    ...
 
 
 class Prout(Pattern):
-    pass
+    ...
 
 
 class Pfuncn(Pattern):
-    pass
+    ...
 
 
 # BUG: ver su utilidad, qué diferencia hay
 # con usar un operador enario directamente?
 # class PdegreeToKey(Pnarop):
-#     pass
+#     ...
 
 
 class Pchain(Pattern):
-    pass
+    ...
 
 
 class Pevent(Pattern):
-    pass
+    ...
 
 
 class Pbind(Pattern):
@@ -228,56 +228,56 @@ class Pbind(Pattern):
 
 
 class Pmono(Pattern):
-    pass
+    ...
 
 
 class PmonoArtic(Pmono):
-    pass
+    ...
 
 
 ### math patterns ###
 
 
 class Pseries(Pattern):
-    pass
+    ...
 
 
 class Pgeom(Pattern):
-    pass
+    ...
 
 
 class Pbrown(Pattern):
-    pass
+    ...
 
 
 class Pgbrown(Pbrown):
-    pass
+    ...
 
 
 class Pwhite(Pattern):
-    pass
+    ...
 
 
 class Pprob(Pattern):
-    pass
+    ...
 
 
 # NOTE: estos patterns y otros que no están en este archivo se usan para
 # crear los operadores/builtins como patterns.
 class Pstep2add(Pattern): # NOTE: no está documentada, las siguientes si.
-    pass
+    ...
 
 
 class Pstep3add(Pattern):
-    pass
+    ...
 
 
 class PstepNfunc(Pattern):
-    pass
+    ...
 
 
 class PstepNadd(PstepNfunc):
-    pass
+    ...
 
 
 ### imperative patterns ###
@@ -285,18 +285,18 @@ class PstepNadd(PstepNfunc):
 
 # // returns relative time (in beats) from moment of embedding
 class Ptime(Pattern):
-    pass
+    ...
 
 
 # // if an error is thrown in the stream, func is evaluated
 # class Pprotect(FilterPattern): # BUG: FilterPatterns.sc
-#     pass
+#     ...
 
 
 # // access a key from the input event
 class Pkey(Pattern):
-    pass
+    ...
 
 
 class Pif(Pattern):
-    pass
+    ...

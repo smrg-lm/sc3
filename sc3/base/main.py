@@ -123,13 +123,13 @@ class Process(type):
 
     # TODO: ver y agregar los comentarios en el código original
     def startup(cls):
-        pass
+        ...
 
     def run(cls):
-        pass
+        ...
 
     def stop(cls):
-        pass
+        ...
 
     def shutdown(cls):
         cls.platform._shutdown()
@@ -143,7 +143,7 @@ class Process(type):
         # BUG: probablemente tenga que hacer lo mismo con todos los relojes.
 
     def tick(cls): # BUG: este tick? Creo que es algo que no se usa más y quedó de la vieja implementación en sclang.
-        pass
+        ...
 
     # BUG: en sclang hay un solo servidor osc que abre varios puertos
     # acá se puede hacer un servidor por puerto con distinto protocolo,

@@ -802,7 +802,7 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
         out_stack.append(self)
 
     def _optimize_graph(self):  # pong
-        pass  # Empty.
+        pass
 
     def _perform_dead_code_elimination(self):  # Se usa en _optimize_graph de BinaryOpUGen, PureMultiOutUGen, PureUGen y UnaryOpUGen.
         # TODO: Cuando quedan las synthdef solo con controles que no van a ninguna parte también se podrían optimizar?
@@ -1288,7 +1288,7 @@ class BinaryOpUGen(BasicOpUGen):
 
     # L301
     def _constant_folding(self): # No sé si se usa este método, tal vez fue reemplazado porque está comentada la llamada arriba, pero no está comentado.
-        pass # BUG, boring to copy
+        ... # BUG, boring to copy
 
 
 class MulAdd(UGen):

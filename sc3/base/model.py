@@ -159,7 +159,7 @@ class NotificationCenter():
     # @classmethod
     # def remove_for_listener(cls, listener):
     #     #del cls.registrations[] # BUG: no entiendo cómo puede ser que funcione la implementación en sclang
-    #     pass
+    #     ...
 
     @classmethod
     def clear(cls):

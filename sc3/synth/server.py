@@ -257,12 +257,12 @@ class ServerShmInterface():
         self.connect(port) # llama a una primitiva y debe guardar port a bajo nivel
 
     # copy # // never ever copy! will cause duplicate calls to the finalizer!
-    def connect(self, port): pass # primitiva
-    def disconnect(self): pass # primitiva
-    def get_control_bus_value(self): pass # primitiva
-    def get_control_bus_values(self): pass # primitiva
-    def set_control_bus_value(self, value): pass # primitiva # BUG: desconozco los parámetros.
-    def set_control_bus_values(self, *values): pass # primitiva # BUG: desconozco los parámetros.
+    def connect(self, port): ... # primitiva
+    def disconnect(self): ... # primitiva
+    def get_control_bus_value(self): ... # primitiva
+    def get_control_bus_values(self): ... # primitiva
+    def set_control_bus_value(self, value): ... # primitiva # BUG: desconozco los parámetros.
+    def set_control_bus_values(self, *values): ... # primitiva # BUG: desconozco los parámetros.
 
 
 class MetaServer(type):
@@ -653,9 +653,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             self.sync_thread = stm.Routine.run(sync_thread_rtn, clk.AppClock) # BUG:s en sclang usa TempoClock, ver arriba, acá deberíá pasar todos los AppClock a SystemClock (el reloj por defecto orginialmente de las rutinas).
 
     # def list_send_msg(self, msg): # TODO: creo que es un método de conveniencia que genera confusión sobre la interfaz, acá msg es una lista no más.
-    #     pass
+    #     ...
     # def list_send_bundle(self, time, msgs):# TODO: creo que es un método de conveniencia que genera confusión sobre la interfaz, acá msgs es una lista no más.
-    #     pass
+    #     ...
 
     def reorder(self, node_list, target, add_action='addToHead'): # BUG: ver los comandos en notación camello, creo que el servidor los usa así, no se puede cambiar.
         target = gpp.node_param(target)._as_target()

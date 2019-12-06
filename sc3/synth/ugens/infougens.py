@@ -9,21 +9,56 @@ class InfoUGenBase(ugn.UGen):
         return cls._multi_new('scalar')
 
 
-class SampleRate(InfoUGenBase): pass
-class SampleDur(InfoUGenBase): pass
-class RadiansPerSample(InfoUGenBase): pass
-class BlockSize(InfoUGenBase): pass
-class ControlRate(InfoUGenBase): pass
-class ControlDur(InfoUGenBase): pass
-class SubsampleOffset(InfoUGenBase): pass
+class SampleRate(InfoUGenBase):
+    pass
 
 
-class NumOutputBuses(InfoUGenBase): pass
-class NumInputBuses(InfoUGenBase): pass
-class NumAudioBuses(InfoUGenBase): pass
-class NumControlBuses(InfoUGenBase): pass
-class NumBuffers(InfoUGenBase): pass
-class NodeID(InfoUGenBase): pass
+class SampleDur(InfoUGenBase):
+    pass
+
+
+class RadiansPerSample(InfoUGenBase):
+    pass
+
+
+class BlockSize(InfoUGenBase):
+    pass
+
+
+class ControlRate(InfoUGenBase):
+    pass
+
+
+class ControlDur(InfoUGenBase):
+    pass
+
+
+class SubsampleOffset(InfoUGenBase):
+    pass
+
+
+class NumOutputBuses(InfoUGenBase):
+    pass
+
+
+class NumInputBuses(InfoUGenBase):
+    pass
+
+
+class NumAudioBuses(InfoUGenBase):
+    pass
+
+
+class NumControlBuses(InfoUGenBase):
+    pass
+
+
+class NumBuffers(InfoUGenBase):
+    pass
+
+
+class NodeID(InfoUGenBase):
+    pass
 
 
 class NumRunningSynths(InfoUGenBase):
@@ -44,9 +79,25 @@ class BufInfoUGenBase(ugn.UGen):
         return cls._multi_new('scalar', bufnum)
 
 
-class BufSampleRate(BufInfoUGenBase): pass
-class BufRateScale(BufInfoUGenBase): pass
-class BufFrames(BufInfoUGenBase): pass
-class BufSamples(BufInfoUGenBase): pass
-class BufDur(BufInfoUGenBase): pass
-class BufChannels(BufInfoUGenBase): pass
+class BufSampleRate(BufInfoUGenBase):
+    pass
+
+
+class BufRateScale(BufInfoUGenBase):
+    pass
+
+
+class BufFrames(BufInfoUGenBase):
+    pass
+
+
+class BufSamples(BufInfoUGenBase):
+    pass
+
+
+class BufDur(BufInfoUGenBase):
+    pass
+
+
+class BufChannels(BufInfoUGenBase):
+    pass

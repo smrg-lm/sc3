@@ -391,7 +391,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
     # def sched_run(cls): # L609, crea el thread de SystemClock
     #     # esto es simplemente start (sched_run_func es run) con prioridad rt
     #     # iría en el constructor/inicializador
-    #     pass
+    #     ...
     # L651, comentario importante sobre qué maneja cada reloj
     # luego ver también las funciones que exporta a sclang al final de todo
 

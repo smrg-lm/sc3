@@ -7,7 +7,7 @@ from .. import pattern as ptt
 
 
 # class Pindex(ptt.Pattern):
-#     pass # TODO: ver qué patrones definen funcionalidad excepcional
+#     ... # TODO: ver qué patrones definen funcionalidad excepcional
 
 
 class ListPattern(ptt.Pattern):
@@ -46,51 +46,51 @@ class Pseq(ListPattern):
 
 # Es una variante de Pseq que cuenta por item en lugar de por lista
 class Pser(Pseq):
-    pass
+    ...
 
 
 class Pshuf(ListPattern):
-    pass
+    ...
 
 
 class Prand(ListPattern):
-    pass
+    ...
 
 class Pxrand(ListPattern):
-    pass
+    ...
 
 
 class Pwrand(ListPattern):
-    pass
+    ...
 
 
 # # TODO: estos dos son un tanto específicos.
 # # // Finite State Machine
 # class Pfsm(ListPattern):
-#     pass
+#     ...
 # # // Deterministic Finite State Machine
 # class Pdfsm(ListPattern):
-#     pass
+#     ...
 
 
 # TODO: selecciona elementos por índice en la lista.
 class Pswitch(ptt.Pattern):
-    pass
+    ...
 
 
 # TODO: idem pero no embebe el item si es un stream sino que alterna por elemento
 class Pswitch1(Pswitch):
-    pass
+    ...
 
 
 # TODO: es un tipo de paralelización de streams.
 class Ptuple(ListPattern):
-    pass
+    ...
 
 
 # TODO: entrelaza elementos de sub listas, es secuencial.
 class Place(Pseq):
-    pass
+    ...
 
 
 # TODO: este es un caso de funcionalidad repetida por tipo de dato
@@ -98,7 +98,7 @@ class Place(Pseq):
 # en general en el resto de la librería. Pero es un detalle por ahora.
 # // similar to Place, but the list is an array of Patterns or Streams
 class Ppatlace(Pseq):
-    pass
+    ...
 
 
 # TODO: este es una operación específica, una manera de recorrer
@@ -111,11 +111,11 @@ class Pslide(ListPattern):
     # // 'start' is what index to start at.
     # // indexing wraps around if goes past beginning or end.
     # // step can be negative.
-    pass
+    ...
 
 
 class Pwalk(ListPattern):
-    pass
+    ...
 
 
 ### Ppar.sc ###
@@ -125,16 +125,16 @@ class Pwalk(ListPattern):
 # tampoco es que haya otra forma, Ptuple tal vez, se necesita delta.
 # En este sentido actúa como un conjunto de elementos específico (listas).
 class Ppar(ListPattern):
-    pass
+    ...
 
 
 class Ptpar(Ppar):
-    pass
+    ...
 
 
 class Pgpar(Ppar):
-    pass
+    ...
 
 
 class Pgtpar(Pgpar):
-    pass
+    ...

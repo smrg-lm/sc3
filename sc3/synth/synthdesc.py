@@ -45,11 +45,11 @@ class IODesc():
 class AbstractMDPlugin():
     @classmethod
     def clear_metadata(cls, path):
-        pass # BUG: Falta implementar, es test para SynthDef _write_def_after_startup
+        ... # BUG: Falta implementar, es test para SynthDef _write_def_after_startup
 
     @classmethod
     def write_metadata(cls, metadata, synthdef, path):
-        pass # BUG: Falta implementar, es test para SynthDef _write_def_after_startup, acá se llama en la función homónima de SynthDesc
+        ... # BUG: Falta implementar, es test para SynthDef _write_def_after_startup, acá se llama en la función homónima de SynthDesc
 
     @classmethod
     def read_metadata(cls, path):
@@ -60,7 +60,7 @@ class AbstractMDPlugin():
 
 # // simple archiving of the dictionary
 class TextArchiveMDPlugin(AbstractMDPlugin):
-    pass # TODO
+    ... # TODO
 
 
 class SynthDesc():

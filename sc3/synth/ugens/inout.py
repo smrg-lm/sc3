@@ -124,7 +124,7 @@ class AudioControl(AbstractControl):
 
 
 class TrigControl(Control):
-    pass  # Empty.
+    pass
 
 
 class LagControl(Control):
@@ -177,7 +177,7 @@ class LagControl(Control):
 ### Inputs ###
 
 class AbstractIn(ugn.MultiOutUGen):
-    # def is_input_ugen(self):  # See AbstractControl note.
+    # def is_input_ugen(self):  # NOTE: See AbstractControl note.
     pass
 
 
@@ -295,7 +295,7 @@ class Out(AbstractOut):
 
 
 class ReplaceOut(Out):
-    pass  # Empty.
+    pass
 
 
 class OffsetOut(Out):

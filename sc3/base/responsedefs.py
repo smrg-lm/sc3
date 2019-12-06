@@ -367,8 +367,7 @@ class OSCFunc(AbstractResponderFunc):
                 f'{self.recv_port}, {self.arg_template})')
 
 
-class OSCDef(OSCFunc):
-    pass
+# class OSCDef(OSCFunc):
 
 
 # // if you need to test for address func gets wrapped in this
@@ -385,11 +384,11 @@ class OSCFuncAddrMessageMatcher(AbstractMessageMatcher):
 
 # // if you need to test for recvPort func gets wrapped in this
 class OSCFuncRecvPortMessageMatcher(AbstractMessageMatcher):
-    pass
+    ...
 
 
 class OSCFuncBothMessageMatcher(AbstractMessageMatcher):
-    pass
+    ...
 
 
 class OSCArgsMatcher(AbstractMessageMatcher):

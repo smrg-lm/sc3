@@ -505,33 +505,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         return ['/b_fill', self._bufnum, start, int(num_frames), *values]  # *** NOTE: puede enviar más values que frames, ignora el servidor, los checks de tipos y valores en estas clases son raros.
 
 
-    # *** NOTE: Es gen command, difiere en formato.
-    def normalize(self, new_max=1, as_wavetable=False):  # *** BUG: tiene action, o debería? No está definido en la especificacion de gen cmd.
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('normalize')
-        self._server.send_msg(*self.normalize_msg(new_max, as_wavetable))
-
-    def normalize_msg(self, new_max=1, as_wavetable=False):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('normalize_msg')
-        if as_wavetable:
-            format = 'wnormalize'
-        else:
-            format = 'normalize'
-        return ['/b_gen', self._bufnum, format, new_max]  # *** BUG: format no usa los flags como el resto de los gen.
-
-
     ### Gen commands ###
 
-    GEN_NORMALIZE = 1
-    GEN_ASWAVETABLE = 2
-    GEN_CLEARFIRST = 4
-    _SUPPORTED_GEN_FLAGS = (GEN_NORMALIZE, GEN_ASWAVETABLE, GEN_CLEARFIRST)
-
-    def gen(self, cmd, args=(), flags=(), action=None):  # *** NOTE: maybe don't use tuple flags for sine1, sine2, etc., and go back to arguments, this way is clumpsy for user.
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('gen')
-
+    def _gen_action_responder(self, action):
         if action is not None:
             def resp_func(msg, *_):
                 # // The server replies with a message of the form:
@@ -542,69 +518,100 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 resp_func, '/done', self._server.addr,
                 arg_template=['/b_gen', self._bufnum]).one_shot()  # *** BUG: comprobar que filtra por arg_template (no recuerdo si está implementado así).
 
-        self._server.send_msg(*self.gen_msg(cmd, args, flags))
+    def _gen_oflags(self, normalize, as_wavetable, clear_first):
+        flags = (int(normalize), int(as_wavetable) * 2, int(clear_first) * 4)
+        return sum(flags)
 
-    def gen_msg(self, cmd, args=(), flags=()):
+    def normalize(self, new_max=1, as_wavetable=False, action=None):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('normalize')
+        self._gen_action_responder(action)
+        self._server.send_msg(*self.normalize_msg(new_max, as_wavetable))
+
+    def normalize_msg(self, new_max=1, as_wavetable=False):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('normalize_msg')
+        if as_wavetable:
+            format = 'wnormalize'
+        else:
+            format = 'normalize'
+        return ['/b_gen', self._bufnum, format, new_max]  # format would be cmd?
+
+    def gen(self, cmd, args=(), normalize=True, as_wavetable=True,
+            clear_first=True, action=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('gen')
-        # *** TODO: check supported commands?
-        oflags = self._get_oflags(flags)
+        self._gen_action_responder(action)
+        self._server.send_msg(*self.gen_msg(
+            cmd, args, normalize, as_wavetable, clear_first))
+
+    def gen_msg(self, cmd, args=(), normalize=True, as_wavetable=True,
+                clear_first=True):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('gen')
+        oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
         return ['/b_gen', self._bufnum, cmd, oflags, *args]
 
-    def _get_oflags(self, flags):
-        if len(flags) == 0:
-            return sum(self._SUPPORTED_GEN_FLAGS)  # All on by default.
-        oflags = 0
-        for i in range(0, len(flags)):
-            if flags[i] not in self._SUPPORTED_GEN_FLAGS:
-                raise ValueError(f'unsuported flags[{i}]')
-            oflags |= flags[i]
-        return oflags
-
-    def sine1(self, amps, flags=()):  # *** BUG: todas estas podrían tener action
+    def sine1(self, amps, normalize=True, as_wavetable=True,
+              clear_first=True, action=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('sine1')
-        self._server.send_msg(*self.sine1_msg(amps, flags))
+        self._gen_action_responder(action)
+        self._server.send_msg(*self.sine1_msg(
+            amps, normalize, as_wavetable, clear_first))
 
-    def sine1_msg(self, amps, flags=()):
+    def sine1_msg(self, amps, normalize=True, as_wavetable=True,
+                  clear_first=True):
         if self._bufnum is None:
             raise BufferAlreadyFreed('sine1_msg')
-        oflags = self._get_oflags(flags)
+        oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
         return ['/b_gen', self._bufnum, 'sine1', oflags, *amps]
 
-    def sine2(self, freqs, amps, flags=()):
+    def sine2(self, freqs, amps, normalize=True, as_wavetable=True,
+              clear_first=True, action=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('sine2')
-        self._server.send_msg(*self.sine2_msg(freqs, amps, flags))
+        self._gen_action_responder(action)
+        self._server.send_msg(*self.sine2_msg(
+            freqs, amps, normalize, as_wavetable, clear_first))
 
-    def sine2_msg(self, freqs, amps, flags=()):
+    def sine2_msg(self, freqs, amps, normalize=True, as_wavetable=True,
+                  clear_first=True):
         if self._bufnum is None:
             raise BufferAlreadyFreed('sine2_msg')
-        oflags = self._get_oflags(flags)
+        oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
         return ['/b_gen', self._bufnum, 'sine2', oflags,
                 utl.lace([freqs, amps], len(freqs) * 2)]
 
-    def sine3(self, freqs, amps, phases, flags=()):
+    def sine3(self, freqs, amps, phases, normalize=True, as_wavetable=True,
+              clear_first=True, action=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('sine3')
-        self._server.send_msg(*self.sine3_msg(freqs, amps, phases, flags))
+        self._gen_action_responder(action)
+        self._server.send_msg(*self.sine3_msg(
+            freqs, amps, phases, normalize, as_wavetable, clear_first))
 
-    def sine3_msg(self, freqs, amps, phases, flags=()):
+    def sine3_msg(self, freqs, amps, phases, normalize=True,
+                  as_wavetable=True, clear_first=True):
         if self._bufnum is None:
             raise BufferAlreadyFreed('sine3_msg')
-        oflags = self._get_oflags(flags)
+        oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
         return ['/b_gen', self._bufnum, 'sine3', oflags,
                 utl.lace([freqs, amps, phases], len(freqs) * 2)]
 
-    def cheby(self, amps, flags=()):
+    def cheby(self, amps, normalize=True, as_wavetable=True,
+              clear_first=True, action=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('cheby')
-        self._server.send_msg(*self.cheby_msg(amps, flags))
+        self._gen_action_responder(action)
+        self._server.send_msg(*self.cheby_msg(
+            amps, normalize, as_wavetable, clear_first))
 
-    def cheby_msg(self, amps, flags=()):
+    def cheby_msg(self, amps, normalize=True, as_wavetable=True,
+                  clear_first=True):
         if self._bufnum is None:
             raise BufferAlreadyFreed('cheby_msg')
-        oflags = self._get_oflags(flags)
+        oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
         return ['/b_gen', self._bufnum, 'cheby', oflags, *amps]
 
     def copy_data(self, dst_buffer, dst_start=0, start=0,

@@ -6,14 +6,14 @@ tested). It is intended to be the same library in a different language and to
 keep sclang elegance in a pythonic way (if possible).
 
 So far SynthDef compiles and Routine and TempoClock are barely working, for that
-I started form AbstractFunction. Basics are not finished, I’m still studding the
-code. Also I’m not being linear in feature transcription, more like jumping and
+I started form AbstractFunction. Basics are not finished, I'm still studding the
+code. Also I'm not being linear in feature transcription, more like jumping and
 iterating (revisiting and completing) from place to place so to have the whole
 picture, sclang library has features integrated from bottom up and between
 classes. Everything is in a very early stage.
 
 Code is still full of study comments and references (very unprofessional, I
-know) most of them useless, don’t try understand, those are just reminders to
+know) most of them useless, don't try understand, those are just reminders to
 myself. I will be erasing them gradually. Some original sclang comments were
 kept in code with two slash within python comments (`# //`) and each file has a
 reference to the source (many are obvious but some are not and some names were

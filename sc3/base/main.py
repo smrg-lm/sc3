@@ -6,11 +6,9 @@ import time
 import random
 import sys
 
-from ..synth import server as srv
 from ..seq import stream as stm
 from ..seq import clock as clk
 from . import _oscinterface as osci
-from . import responsedefs as rdf
 from . import utils as utl
 from . import platform as plf
 

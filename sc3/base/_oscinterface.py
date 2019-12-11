@@ -55,15 +55,24 @@ class OscInteface():
             time = clk.SystemClock.osc_to_elapsed_time(time)
 
         def sched_func():
-            for func in self.recv_functions:  # *** BUG: no optimal, responsedefs is sitll incomplete.
+            for func in self.recv_functions:
                 func(list(msg), time, addr, self.port)
 
         clk.AppClock.sched(0, sched_func)  # *** BUG: SystemClock?
 
     def add_recv_func(self, func):
+        '''
+        Register a callable to be evaluated each time an OSC message arrives.
+        Signature of func is:
+            msg: OSC message as list.
+            time: Time of arrival meassured from main.elapsed_time().
+            addr: A NetAddr object with sender's address.
+            port: Local port as int.
+        '''
         self._recv_functions.add(func)
 
     def remove_recv_func(self, func):
+        '''Unregister func callback.'''
         self._recv_functions.remove(func)
 
     def running(self):

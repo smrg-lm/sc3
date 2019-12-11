@@ -10,6 +10,7 @@ from . import systemactions as sac
 from . import model as mdl
 from . import main as _libsc3
 from . import utils as utl
+from ._oscmatch import osc_rematch_pattern as _match_osc_address_pattern
 
 
 _logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ class AbstractResponderFunc(ABC):
         self.free()
 
     def one_shot(self):
-        wrapped_func = self._func
+        wrapped_func = self._func  # *** BUG: nombre, esta función no es la que se pasa a OSCFunc? no tendría wrapper?
 
         def one_shot_func(*args):
             self.free()
@@ -222,8 +223,10 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
         super().free()
 
 
-# // The default dispatchers below store by the 'most significant' message argument for fast lookup
-# // These are for use when more than just the 'most significant' argument needs to be matched
+# // The default dispatchers below store by the 'most significant'
+# // message argument for fast lookup. These are for use when more
+# // than just the 'most significant' argument needs to be matched.
+
 class AbstractMessageMatcher(ABC):
     def __init__(self):
         self.func = None
@@ -264,7 +267,7 @@ class OSCMessageDispatcher(AbstractWrappingDispatcher):
             for func in self.active[msg[0]]:
                 fn.value(func, msg, time, addr, recv_port)
         except KeyError as e:
-            if len(inspect.trace()) > 1: # TODO: sigue solo si la excepción es del frame actual, este patrón se repite en Routine y Clock
+            if len(inspect.trace()) > 1: # *** BUG: (CAMBIADO) sigue solo si la excepción es del frame actual, este patrón se repite en Routine y Clock
                 raise e
 
     def register(self):
@@ -283,10 +286,10 @@ class OSCMessagePatternDispatcher(OSCMessageDispatcher):
     def __init__(self):
         super().__init__()
 
-    def value(self, msg, time, addr, recv_port):
+    def __call__(self, msg, time, addr, recv_port):
         pattern = msg[0]
         for key, funcs in self.active.items():
-            if match_osc_address_pattern(key, patter): # BUG: implementar
+            if _match_osc_address_pattern(pattern, key):
                 for func in funcs:
                     fn.value(func, msg, time, addr, recv_port)
 
@@ -337,9 +340,8 @@ class OSCFunc(AbstractResponderFunc):
     @classmethod
     def matching(cls, func, path, src_id=None,
                  recv_port=None, arg_template=None):
-        obj = cls.__new__()
-        obj.__init__(func, path, src_id, recv_port, arg_template,
-                     cls.default_matching_dispatcher)
+        obj = cls(func, path, src_id, recv_port, arg_template,
+                  cls.default_matching_dispatcher)
         return obj
 
     @classmethod
@@ -400,7 +402,7 @@ class OSCArgsMatcher(AbstractMessageMatcher):
     def __call__(self, msg, time, addr, recv_port):
         args = msg[1:]
         for i, item in enumerate(self.arg_template):
-            # BUG: BUUUUUUUG: tengo que implementar utl.match_item
+            # *** BUG: tengo que implementar utl.match_item
             if item is None: # BUG: usa matchItem, para la que 'nil matches anything', collection 'includes', function hace this.value(item) y object compara identidad
                 continue
             if item != args[i]: # BUG: acá no estoy comparando identidad porque supongo que compara tipos básicos

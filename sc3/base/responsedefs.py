@@ -350,16 +350,15 @@ class OSCFunc(AbstractResponderFunc):
 
     @classmethod
     def trace(cls, flag=True, hide_status_msg=False):
-        if flag:
-            if not cls._trace_running:
-                if hide_status_msg:
-                    cls._trace_func = cls._trace_func_hide_status
-                else:
-                    cls._trace_func = cls._trace_func_show_status
-                _libsc3.main._osc_interface.add_recv_func(cls._trace_func)
-                sac.CmdPeriod.add(cls)
-                cls._trace_running = True
-        else:
+        if flag and not cls._trace_running:
+            if hide_status_msg:
+                cls._trace_func = cls._trace_func_hide_status
+            else:
+                cls._trace_func = cls._trace_func_show_status
+            _libsc3.main._osc_interface.add_recv_func(cls._trace_func)
+            sac.CmdPeriod.add(cls)
+            cls._trace_running = True
+        elif cls._trace_running:
             _libsc3.main._osc_interface.remove_recv_func(cls._trace_func)
             sac.CmdPeriod.remove(cls)
             cls._trace_running = False

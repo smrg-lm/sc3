@@ -30,14 +30,14 @@ class AbstractResponderFunc(ABC):
     def enable(self):
         if not self.enabled:
             if not self.permanent:
-                sac.CmdPeriod.add(self)
+                sac.CmdPeriod.add(self.__on_cmd_period, self)
             self.dispatcher.add(self)
             self.enabled = True
             type(self)._all_func_proxies.add(self)
 
     def disable(self):
         if not self.permanent:
-            sac.CmdPeriod.remove(self)
+            sac.CmdPeriod.remove(self.__on_cmd_period)
         self.dispatcher.remove(self)
         self.enabled = False
 
@@ -50,7 +50,8 @@ class AbstractResponderFunc(ABC):
         self._func = value
         mdl.NotificationCenter.notify(self, 'function')
 
-    def cmd_period(self):
+    @staticmethod
+    def __on_cmd_period(self):  # Avoid clash.
         self.free()
 
     def one_shot(self):
@@ -70,9 +71,9 @@ class AbstractResponderFunc(ABC):
     def permanent(self, value):
         self._permanent = value
         if value and self.enabled:
-            sac.CmdPeriod.remove(self)
+            sac.CmdPeriod.remove(self.__on_cmd_period)
         else:
-            sac.CmdPeriod.add(self)
+            sac.CmdPeriod.add(self.__on_cmd_period, self)
 
     # def fix(self): # NOTE: usar oscfunc.permanent = True
     #     self.permanent = True
@@ -344,8 +345,8 @@ class OSCFunc(AbstractResponderFunc):
                   cls.default_matching_dispatcher)
         return obj
 
-    @classmethod
-    def cmd_period(cls):
+    @staticmethod
+    def __on_cmd_period(cls):  # Avoid clash.
         cls.trace(False)
 
     @classmethod
@@ -356,11 +357,11 @@ class OSCFunc(AbstractResponderFunc):
             else:
                 cls._trace_func = cls._trace_func_show_status
             _libsc3.main._osc_interface.add_recv_func(cls._trace_func)
-            sac.CmdPeriod.add(cls)
+            sac.CmdPeriod.add(cls.__on_cmd_period, cls)
             cls._trace_running = True
         elif cls._trace_running:
             _libsc3.main._osc_interface.remove_recv_func(cls._trace_func)
-            sac.CmdPeriod.remove(cls)
+            sac.CmdPeriod.remove(cls.__on_cmd_period)
             cls._trace_running = False
 
     def __repr__(self):

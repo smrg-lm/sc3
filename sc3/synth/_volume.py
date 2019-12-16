@@ -33,25 +33,13 @@ class Volume():
         self._amp_synth = None
         self._num_output_channels = None
         self._def_name = None
-        self._update_func = None
-        self._init_func = None
-
-        # init method
 
         # // Execute immediately if we're already past server tree functions.
         if self._server.status_watcher.server_running:
             self._send_synthdef()
             self._update_synth()
 
-        def init_func():
-            self._amp_synth = None
-            self._send_synthdef()
-            # // Only create synth now if it won't be created by ServerTree.
-            if not self._persist:
-                self._update_synth()
-
-        self._init_func = init_func
-        sac.ServerBoot.add(self._init_func, self._server)
+        sac.ServerBoot.add(self._server, self.__on_server_boot, self)
 
     @property
     def server(self):
@@ -135,14 +123,7 @@ class Volume():
 
                 sdf.SynthDef(self._def_name, graph).send(self._server)
                 self._server.sync()
-
-                def update_func():
-                    self._amp_synth = None
-                    if self._persist:
-                        self._update_synth()
-
-                self._update_func = update_func
-                sac.ServerTree.add(self._update_func, self._server)
+                sac.ServerTree.add(self._server, self.__on_server_tree, self)
 
             stm.Routine.run(send_synthdef, clk.TempoClock.default)
 
@@ -176,8 +157,7 @@ class Volume():
             self._update_synth()
 
     def free_synth(self):
-        sac.ServerTree.remove(self._update_func, self._server)
-        self._update_func = None
+        sac.ServerTree.remove(self._server, self.__on_server_tree)
         if self._amp_synth is not None:
             self._amp_synth.release()
             self._amp_synth = None
@@ -197,6 +177,24 @@ class Volume():
         clipped_gain = bi.clip(self._gain, min, max)
         if clipped_gain != self._gain:
             self.gain = clipped_gain
+
+
+    ### System Actions ###
+
+    @staticmethod
+    def __on_server_boot(_, self):
+        self._amp_synth = None
+        self._send_synthdef()
+        # // Only create synth now if it won't be created by ServerTree.
+        if not self._persist:
+            self._update_synth()
+
+    @staticmethod
+    def __on_server_tree(_, self):
+        self._amp_synth = None
+        if self._persist:
+            self._update_synth()
+
 
     # No gui embedded.
     # gui

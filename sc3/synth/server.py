@@ -789,7 +789,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     ### server status ###
 
     @classmethod
-    def resume_status_threads(cls):  # NOTE: for SystemActions.
+    def resume_status_threads(cls):  # NOTE: for System Actions.
         for server in cls.all:
             server.status_watcher.resume_alive_thread()
 

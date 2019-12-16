@@ -431,18 +431,18 @@ class MetaSynthDescLib(type):
 
         def init_func(cls):
             cls.default = cls('default')  # Was global in sclang.
-
-            # // tryToLoadReconstructedDefs = false:
-            # // since this is done automatically, w/o user action,
-            # // it should not try to do things that will cause warnings
-            # // (or errors, if one of the servers is not local)
-            def action(server):
-                if server.status_watcher.has_booted:
-                    cls.default.send(server, False)
-
-            sac.ServerBoot.add(action)  # *** NOTE: *send llama a global.send if server has booted, ver abajo.
+            sac.ServerBoot.add('all', cls.__on_server_boot, cls)  # *** NOTE: *send llama a global.send if server has booted, ver abajo.
 
         utl.ClassLibrary.add(cls, init_func)
+
+    @staticmethod
+    def __on_server_boot(server, cls):
+        # // tryToLoadReconstructedDefs = false:
+        # // since this is done automatically, w/o user action,
+        # // it should not try to do things that will cause warnings
+        # // (or errors, if one of the servers is not local)
+        if server.status_watcher.has_booted:
+            cls.default.send(server, False)
 
 
 class SynthDescLib(metaclass=MetaSynthDescLib):

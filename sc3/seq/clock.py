@@ -722,9 +722,16 @@ class MetaTempoClock(type):
         def init_func(cls):
             cls.default = cls()
             cls.default.permanent = True
-            sac.CmdPeriod.add(cls)
+            sac.CmdPeriod.add(cls.__on_cmd_period, cls)
 
         utl.ClassLibrary.add(cls, init_func)
+
+    @staticmethod
+    def __on_cmd_period(cls):
+        for clock in cls.all:
+            clock.clear(False)
+            if not clock.permanent:
+                clock.stop()
 
     @property
     def all(cls):
@@ -732,13 +739,6 @@ class MetaTempoClock(type):
 
 
 class TempoClock(Clock, metaclass=MetaTempoClock):
-    @classmethod
-    def cmd_period(cls):
-        for clock in cls.all:
-            clock.clear(False)
-            if not clock.permanent:
-                clock.stop()
-
     # BUG: C++ TempoClock_stopAll se usa en ./lang/LangSource/PyrLexer.cpp
     # BUG: shutdownLibrary(), no importa si hay permanentes, va para Main, VER.
 

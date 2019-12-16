@@ -25,9 +25,9 @@ class NodeWatcher():
             osc_func.permanent = True
             # osc_func.disable()  # *** NOTE: no sense if self.start() is not manual.
             self._responders.append(osc_func)
-        sac.CmdPeriod.add(self)
-        sac.ServerBoot.add(self)
-        sac.ServerQuit.add(self)
+        sac.CmdPeriod.add(self.__on_cmd_period, self)
+        sac.ServerBoot.add(self._server, self.__on_server_boot, self)
+        sac.ServerQuit.add(self._server, self.__on_server_quit, self)
         self.start()  # *** NOTE: could be manual: server.node_watcher.start().
 
     @property
@@ -120,13 +120,16 @@ class NodeWatcher():
         mdl.NotificationCenter.notify(node, '/n_info')
 
 
-    ### SystemActions ###
+    ### System Actions ###
 
-    def cmd_period(self):
+    @staticmethod
+    def __on_cmd_period(self):
         self._clear()
 
-    def do_on_server_quit(self, server):
-        self.do_on_server_boot(server)
+    @staticmethod
+    def __on_server_boot(_, self):
+        self._clear()
 
-    def do_on_server_boot(self, server):
+    @staticmethod
+    def __on_server_quit(_, self):
         self._clear()

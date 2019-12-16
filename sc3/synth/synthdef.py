@@ -517,9 +517,8 @@ class SynthDef(metaclass=MetaSynthDef):
                 sdc.SynthDesc.populate_metadata_func(desc)
                 desc.write_metadata(dir / self.name, md_plugin)
 
-    def _write_def_after_startup(self, name, dir, overwrite=True): # TODO/BUG/WHATDA, este método es sclang Object:writeDefFile
-        def defer_func():
-            nonlocal name
+    def _write_def_after_startup(self, name, dir, overwrite=True):  # *** BUG este método en sclang es Object:writeDefFile, llama con super.
+        def defer_func(self, name, dir, overwrite):
             if name is None:
                 raise Exception('missing SynthDef file name')
             else:
@@ -529,7 +528,7 @@ class SynthDef(metaclass=MetaSynthDef):
                         sdc.AbstractMDPlugin.clear_metadata(name) # BUG: No está implementado
                         self.write_def_list([self], file)
         # // make sure the synth defs are written to the right path
-        sac.StartUp.defer(defer_func) # BUG: No está implementada
+        sac.StartUp.defer(defer_func, self, name, dir, overwrite)
 
     @staticmethod
     def write_def_list(lst, file):

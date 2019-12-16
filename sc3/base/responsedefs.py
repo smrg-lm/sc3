@@ -13,11 +13,14 @@ from . import utils as utl
 from ._oscmatch import osc_rematch_pattern as _match_osc_address_pattern
 
 
+__all__ = ['OSCFunc']
+
+
 _logger = logging.getLogger(__name__)
 
 
 class AbstractResponderFunc(ABC):
-    _all_func_proxies = set()
+    # _all_func_proxies is set()
 
     def __init__(self):
         # tienen solo getter
@@ -229,15 +232,12 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
 # // than just the 'most significant' argument needs to be matched.
 
 class AbstractMessageMatcher(ABC):
-    def __init__(self):
-        self.func = None
-
     @abstractmethod
     def __call__(self):
         pass
 
 
-# OSC #
+### OSC ###
 
 
 class OSCMessageDispatcher(AbstractWrappingDispatcher):
@@ -299,6 +299,7 @@ class OSCMessagePatternDispatcher(OSCMessageDispatcher):
 
 
 class OSCFunc(AbstractResponderFunc):
+    _all_func_proxies = set()
     default_dispatcher = OSCMessageDispatcher()
     default_matching_dispatcher = OSCMessagePatternDispatcher()
 
@@ -375,22 +376,37 @@ class OSCFunc(AbstractResponderFunc):
 # // if you need to test for address func gets wrapped in this
 class OSCFuncAddrMessageMatcher(AbstractMessageMatcher):
     def __init__(self, addr, func):
-        super().__init__() # lo llamo por convención pero lo único que hace es setear func = None
         self.addr = addr
         self.func = func
 
     def __call__(self, msg, time, addr, recv_port):
-        if addr.addr == self.addr.addr and addr.port == self.addr.port: # BUG: usa matchItem??
+        if self.addr.addr == addr.addr\
+        and (self.addr.port is None or self.addr.port == addr.port):  # was matchItem
             fn.value(self.func, msg, time, addr, recv_port)
 
 
 # // if you need to test for recvPort func gets wrapped in this
 class OSCFuncRecvPortMessageMatcher(AbstractMessageMatcher):
-    ...
+    def __init__(self, recv_port, func):
+        self.recv_port = recv_port
+        self.func = func
+
+    def __call__(self, msg, time, addr, recv_port):
+        if self.recv_port == recv_port:
+            fn.value(self.func, msg, time, addr, recv_port)
 
 
 class OSCFuncBothMessageMatcher(AbstractMessageMatcher):
-    ...
+    def __init__(self, addr, recv_port, func):
+        self.addr = addr
+        self.recv_port = recv_port
+        self.func = func
+
+    def __call__(self, msg, time, addr, recv_port):
+        if  self.addr.addr == addr.addr\
+        and (self.addr.port is None or self.addr.port == addr.port)\
+        and self.recv_port == recv_port:
+            fn.value(self.func, msg, time, addr, recv_port)
 
 
 class OSCArgsMatcher(AbstractMessageMatcher):
@@ -402,13 +418,10 @@ class OSCArgsMatcher(AbstractMessageMatcher):
     def __call__(self, msg, time, addr, recv_port):
         args = msg[1:]
         for i, item in enumerate(self.arg_template):
-            # *** BUG: tengo que implementar utl.match_item
-            if item is None: # BUG: usa matchItem, para la que 'nil matches anything', collection 'includes', function hace this.value(item) y object compara identidad
-                continue
-            if item != args[i]: # BUG: acá no estoy comparando identidad porque supongo que compara tipos básicos
+            if item is not None and item != args[i]:  # was matchItem.not
                 return
         fn.value(self.func, msg, time, addr, recv_port)
 
-# MIDI #
+### MIDI ###
 
 # sigue...

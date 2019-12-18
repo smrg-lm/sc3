@@ -46,7 +46,7 @@ class TGrains(ugn.MultiOutUGen):
         return 1  # One less than sclang.
 
 
-# SimpleLoopBuf, missing ugen.
+# SimpleLoopBuf, commented ugen.
 
 
 class BufRd(ugn.MultiOutUGen):

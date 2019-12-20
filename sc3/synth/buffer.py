@@ -47,7 +47,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         self._sample_rate = self._server.status_watcher.sample_rate
         self._path = None
         self._start_frame = None
-        self._do_on_info = lambda buf: None
+        self._do_on_info = None
         self._cache()
 
     @property
@@ -750,9 +750,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             return None
 
     def _query_done(self):
-        # // called from Server when b_info is received
-        self._do_on_info(self)
-        self._do_on_info = lambda buf: None
+        # // Called from Server when b_info is received.
+        fn.value(self._do_on_info, self)
+        self._do_on_info = None
 
     # printOn
     # *loadDialog # No builtin gui.

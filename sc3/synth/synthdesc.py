@@ -383,8 +383,6 @@ class SynthDesc():
         string += '    return ret\n'
         string += 'self.msg_func = sdesc_' + suffix
 
-        print('*** SynthDesc msg_func:'); print(string)
-
         # // do not compile the string if no argnames were added
         if names_count > 0:
             exec(string)

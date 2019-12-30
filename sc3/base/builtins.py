@@ -494,6 +494,17 @@ def degrad(x):
 def raddeg(x):
     return x * 180. / pi
 
+@scbuiltin.unop
+def next_power_of_two(x):  # Integer _NextPowerOfTwo
+    return 2 ** ceil(log(x) / log(2))
+
+@scbuiltin.binop
+def next_near_power(x, base=2):  # SimpleNumber.nextPowerOf
+    return base ** ceil(log(x) / log(base))
+
+@scbuiltin.binop
+def previous_near_power(x, base=2):  # SimpleNumber.previousPowerOf
+    return base ** (ceil(log(x) / log(base)) - 1)
 
 ### Binary ###
 

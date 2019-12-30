@@ -323,7 +323,7 @@ class NodeScalar(NodeParameter):
         return (int, float)
 
     def _as_target(self):
-        return nod.Group.basic_new(srv.Server.default, obj)
+        return nod.Group.basic_new(srv.Server.default, self._param_value)
 
 
 class NodeString(NodeParameter):

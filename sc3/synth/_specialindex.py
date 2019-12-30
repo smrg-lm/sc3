@@ -105,7 +105,7 @@ _binops_list = [
     ('atan2',),
     ('hypot',),
     ('hypotApx', 'hypotx'),
-    ('pow', '__pow__', '__rpow__'),
+    ('pow', '__pow__', '__rpow__'),  # **
     ('leftShift', 'leftshift', '__lshift__', '__rlshift__', 'lshift'),
     ('rightShift', 'rightshift', '__rshift__', '__rrshift__', 'rshift'),
     ('unsignedRightShift', 'urightshift'),

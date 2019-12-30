@@ -22,6 +22,7 @@ from . import synthdef as sdf
 from . import _serverstatus as sst
 from . import _nodewatcher as ndw
 from . import _volume as vlm
+from . import recorder as rcd
 from . import node as nod
 from . import bus
 from . import _graphparam as gpp
@@ -94,7 +95,7 @@ class ServerOptions():
         self.ugen_plugins_path = None
 
         self.initial_node_id = 1000
-        self.remote_control_volume = False
+        # self.remote_control_volume = False  # only used by ServerPlusGui makeGui, no GUI.
 
         self.memory_locking = False
         self.threads = None # // for supernova
@@ -340,9 +341,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         self.node_watcher = ndw.NodeWatcher(server=self)
 
-        self._volume = vlm.Volume(server=self, persist=True)
-        #self.recorder = xxx.Recorder(server=self) # BUG: falta implementar
-        #self.recorder.notify_server = True # BUG: falta implementar
+        self.volume = vlm.Volume(server=self, persist=True)
+        self.recorder = rcd.Recorder(server=self)
+        self.recorder.notify_server = True
 
         self.name = name # ahora si usa @property setter
         type(self).all.add(self)
@@ -352,8 +353,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         self.sync_thread = None # solo getter en la declaración # se usa en sched_sync
         self.sync_tasks = [] # solo getter en la declaración # se usa en sched_sync
-        # var <window, <>scopeWindow, <emacsbuf;
-        # var <volume, <recorder, <statusWatcher;
 
         self.pid = None # iniicaliza al bootear, solo tiene getter en la declaración
         self._server_interface = None  # shm
@@ -409,7 +408,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         clk.defer(init_task)
 
 
-    ### client ID  ##
+    ### Client ID  ##
 
     # // clientID is settable while server is off, and locked while server is
     # // running called from prHandleClientLoginInfoFromServer once after booting.
@@ -441,7 +440,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.new_allocators() # *** BUG: parece un método privado pero lo usan en UnitTest-bootServer
 
 
-    ### clientID-based id allocators ###
+    ### ClientID-based id allocators ###
 
     def new_allocators(self):
         self.new_node_allocators()
@@ -606,7 +605,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                             "reboot the server")
 
 
-    ### network messages ###
+    ### Network messages ###
 
     def send_msg(self, *args):
         self.addr.send_msg(*args)
@@ -687,12 +686,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.send_msg('/d_loadDir', dir, fn.value(completion_msg, self))
 
 
-    ### network message bundling ###
+    ### Network message bundling ###
 
     # TODO...
 
 
-    ### scheduling ###
+    ### Scheduling ###
 
     def wait(self, response_name): # BUG: la implementación en sclang parece un bug, pero tendríá que ver cómo responde _RoutineResume y cómo se hace el reschedule.
         cond = stm.Condition()
@@ -777,8 +776,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         return bus.Bus('audio', 0, self.options.num_output_bus_channels, self)
 
 
-    ### recording formats ###
-
     # These atributes are just a wrapper of ServerOptions, use s.options.
     # @property rec_header_format
     # @property rec_sample_format
@@ -786,7 +783,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     # @property rec_buf_size
 
 
-    ### server status ###
+    ### Server status ###
 
     @classmethod
     def resume_status_threads(cls):  # NOTE: for System Actions.
@@ -957,9 +954,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         self._max_num_clients = None
 
-        # *** TODO:
-        # if(scopeWindow.notNil) { scopeWindow.quit }  # No.
-        self._volume.free_synth()
+        # if(scopeWindow.notNil) { scopeWindow.quit }  # No GUI.
+        self.volume.free_synth()
         nod.RootNode(self).free_all()
         self.new_allocators()
 
@@ -1009,31 +1005,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     @classmethod
     def all_running_servers(cls):
         return set(s for s in cls.all if s.status_watcher.server_running)
-
-
-    ### volume control ###
-
-    @property
-    def volume(self):
-        return self._volume
-
-    @property
-    def gain(self):
-        return self._volume.gain
-
-    @gain.setter
-    def gain(self, value):  # Was volume_
-        self._volume.gain = value
-
-    def mute(self):
-        self._volume.mute()
-
-    def unmute(self):
-        self._volume.unmute()
-
-
-    ### recording output ###
-    # TODO
 
     # L1203
     ### internal server commands ###

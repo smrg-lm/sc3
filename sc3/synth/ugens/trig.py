@@ -40,25 +40,21 @@ class SendTrig(ugn.UGen):
     def _num_outputs(self):  # override
         return 0
 
-    def _write_output_specs(self):  # override
+    def _write_output_specs(self, file):  # override
         pass
 
 
 class SendReply(SendTrig):
     @classmethod
-    def ar(cls, trig=0.0, cmd_name='/reply', values=None, reply_id=-1):
-        values = values or []
-        if not any(isinstance(i, list) for i in values):
-            values = [values]
+    def ar(cls, trig=0.0, cmd_name='/reply', values=(), reply_id=-1):
+        # *** NOTE: values must be a tuple, use a list of tuples for multichannel expansion. Can't be a single value.
         for args in utl.flop([trig, cmd_name, values, reply_id]):
             cls._new1('audio', *args)
         return 0.0  # // SendReply has no output.
 
     @classmethod
-    def kr(cls, trig=0.0, cmd_name='/reply', values=None, reply_id=-1):
-        values = values or []
-        if not any(isinstance(i, list) for i in values):
-            values = [values]
+    def kr(cls, trig=0.0, cmd_name='/reply', values=(), reply_id=-1):
+        # *** NOTE: values must be a tuple, use a list of tuples for multichannel expansion. Can't be a single value.
         for args in utl.flop([trig, cmd_name, values, reply_id]):
             cls._new1('control', *args)
         return 0.0  # // SendReply has no output.
@@ -344,5 +340,5 @@ class SendPeakRMS(ugn.UGen):
     def _num_outputs(self):  # override
         return 0
 
-    def _write_output_specs(self):  # override
+    def _write_output_specs(self, file):  # override
         pass

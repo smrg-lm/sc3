@@ -191,7 +191,7 @@ class In(AbstractIn):
         return cls._multi_new('control', num_channels, bus)
 
     def _init_ugen(self, num_channels, *arg_bus):  # override
-        self._inputs = list(arg_bus)
+        self._inputs = arg_bus
         return self._init_outputs(num_channels, self.rate)
 
 
@@ -205,7 +205,7 @@ class LocalIn(AbstractIn):
         return cls._multi_new('control', num_channels, *utl.as_list(default))
 
     def _init_ugen(self, num_channels, *default):  # override
-        self._inputs = list(utl.wrap_extend(list(default), num_channels))
+        self._inputs = utl.wrap_extend(default, num_channels)
         return self._init_outputs(num_channels, self.rate)
 
 
@@ -215,7 +215,7 @@ class LagIn(AbstractIn):
         return cls._multi_new('control', num_channels, bus, lag)
 
     def _init_ugen(self, num_channels, *inputs):  # override
-        self._inputs = list(inputs)
+        self._inputs = inputs
         return self._init_outputs(num_channels, self.rate)
 
 
@@ -225,7 +225,7 @@ class InFeedback(AbstractIn):
         return cls._multi_new('audio', num_channels, bus)
 
     def _init_ugen(self, num_channels, *arg_bus):  # override
-        self._inputs = list(arg_bus)
+        self._inputs = arg_bus
         return self._init_outputs(num_channels, self.rate)
 
 
@@ -235,7 +235,7 @@ class InTrig(AbstractIn):
         return cls._multi_new('control', num_channels, bus)
 
     def _init_ugen(self, num_channels, *arg_bus):  # override
-        self._inputs = list(arg_bus)
+        self._inputs = arg_bus
         return self._init_outputs(num_channels, self.rate)
 
 

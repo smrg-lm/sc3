@@ -28,7 +28,7 @@ class ServerStatusWatcher():
         self._alive = False
         self._alive_thread = None
         self._alive_thread_period = 0.7
-        self._status_watcher = None
+        self._responder = None
 
         self.has_booted = False
         self.server_booting = False
@@ -99,7 +99,7 @@ class ServerStatusWatcher():
             fn.value(getattr(ba, action_name), self.server)
 
     def start_alive_thread(self, delay=0.0):
-        self.add_status_watcher()
+        self.add_responder()
         if self._alive_thread is None:
             def alive_func():
                 # // this thread polls the server to see if it is alive
@@ -111,9 +111,9 @@ class ServerStatusWatcher():
             self._alive_thread = stm.Routine.run(alive_func, clk.AppClock)
 
     def stop_alive_thread(self):
-        if self._status_watcher is not None:
-            self._status_watcher.free()
-            self._status_watcher = None
+        if self._responder is not None:
+            self._responder.free()
+            self._responder = None
         if self._alive_thread is not None:
             self._alive_thread.stop()
             self._alive_thread = None
@@ -127,8 +127,8 @@ class ServerStatusWatcher():
     def alive_thread_running(self):
         return self._alive_thread is not None and self._alive_thread.playing()
 
-    def add_status_watcher(self):
-        if self._status_watcher is None:
+    def add_responder(self):
+        if self._responder is None:
             def status_func(msg, *_):
                 if self.notify and not self.notified:
                     self._send_notify_request(True)
@@ -143,15 +143,15 @@ class ServerStatusWatcher():
 
                 clk.defer(update_state)
 
-            self._status_watcher = rdf.OSCFunc(
+            self._responder = rdf.OSCFunc(
                 status_func, '/status.reply', self.server.addr)
-            self._status_watcher.permanent = True
+            self._responder.permanent = True
         else:
-            self._status_watcher.enable()
+            self._responder.enable()
 
-    def stop_status_watcher(self):
-        if self._status_watcher is not None:
-            self._status_watcher.disable()
+    def stop_responder(self):
+        if self._responder is not None:
+            self._responder.disable()
 
     def _send_notify_request(self, flag=True):
         if not self.has_booted:
@@ -236,7 +236,7 @@ class ServerStatusWatcher():
         if watch_shutdown:
             self.watch_quit(on_complete, on_failure)
         else:
-            self.stop_status_watcher()
+            self.stop_responder()
             fn.value(on_complete, self.server)
         self.stop_alive_thread()
         self.server_running = False # usa @property
@@ -254,14 +254,14 @@ class ServerStatusWatcher():
     def watch_quit(self, on_complete=None, on_failure=None):
         server_really_quit = False
 
-        if self._status_watcher is not None:
-            self._status_watcher.disable()
+        if self._responder is not None:
+            self._responder.disable()
             if self.notified:
                 def quit_func(msg, *_):
                     nonlocal server_really_quit
                     if msg[1] == '/quit':
-                        if self._status_watcher is not None:
-                            self._status_watcher.enable()
+                        if self._responder is not None:
+                            self._responder.enable()
                         server_really_quit = True
                         quit_watcher.free()
                         fn.value(on_complete, self.server)
@@ -280,8 +280,8 @@ class ServerStatusWatcher():
                         # // don't accumulate quit-watchers
                         # // if /done doesn't come back
                         quit_watcher.free()
-                        if self._status_watcher is not None:
-                            self._status_watcher.disable()
+                        if self._responder is not None:
+                            self._responder.disable()
                         fn.value(on_failure, self.server)
 
                 clk.AppClock.sched(3.0, quit_timeout_func)

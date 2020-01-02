@@ -594,10 +594,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         elif 'not registered' in fail_string:
             # // unregister when already not registered:
             _logger.info(f"'{self.name}' - not registered")
-            self.status_watcher.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_status_watcher y vuelve a crear los responders de booteo al llamar a _send_notify_request
+            self.status_watcher.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_responder y vuelve a crear los responders de booteo al llamar a _send_notify_request
         elif 'too many users' in fail_string:
             _logger.info(f"'{self.name}' - could not register, too many users")
-            self.status_watcher.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_status_watcher y vuelve a crear los responders de booteo al llamar a _send_notify_request
+            self.status_watcher.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_responder y vuelve a crear los responders de booteo al llamar a _send_notify_request
         else:
             # // throw error if unknown failure
             raise Exception(f"Failed to register with server '{self.name}' "

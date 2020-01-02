@@ -305,7 +305,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     @classmethod
     def remote(cls, name, addr, options=None, client_id=None):
         result = cls(name, addr, options, client_id)
-        result.status_watcher.start_alive_thread()
+        result._status_watcher.start_alive_thread()
         return result
 
     def __init__(self, name, addr, options=None, client_id=None):
@@ -335,11 +335,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # self.scope_buffer_allocator = None # se inicializa en new_scope_buffer_allocators
 
         # // make statusWatcher before clientID, so .serverRunning works
-        self.status_watcher = sst.ServerStatusWatcher(server=self)
+        self._status_watcher = sst.ServerStatusWatcher(server=self)
         # // go thru setter to test validity
         self.client_id = client_id or 0 # es @property y usa el setter
 
-        self.node_watcher = ndw.NodeWatcher(server=self)
+        self._node_watcher = ndw.NodeWatcher(server=self)
 
         self.volume = vlm.Volume(server=self, persist=True)
         self.recorder = rcd.Recorder(server=self)
@@ -396,6 +396,21 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         else:
             type(self).named[value] = self
 
+    @property
+    def status(self):
+        '''
+        ServerStatusWatcher instance that keeps track of server status.
+        '''
+        # This this read-only property (non-data descritor) is the only
+        # intended user interface to ServerStatusWatcher instances. Library's
+        # style always uses _status_watcher private attribute directly.
+        # NodeWatcher, on the other hand, is an implementations detail. Nodes
+        # are registered or not with their own interface. Other refinements
+        # can be applied later, the idea is not to cram the Server interface
+        # and to always use composition instead, e.g. addr, options, status,
+        # volume, recorder, etc.
+        return self._status_watcher
+
     # TODO: este método tal vez debería ir abajo de donde se llama por primera vez
     def init_tree(self):
         def init_task():
@@ -421,7 +436,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def client_id(self, value):
         msg = "server '%s' couldn't set client_id "\
               "to %s - %s, client_id is still %s"
-        if self.status_watcher.server_running:
+        if self._status_watcher.server_running:
             args = (self.name, value, 'server is running', self.client_id)
             _logger.warning(msg, *args)
             return
@@ -563,14 +578,14 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             # // By default, only reset clientID if changed,
             # // to leave allocators untouched.
             # // Make sure we can set the clientID, and set it.
-            self.status_watcher.notified = False  # just for setting client_id restored below, looks hackie.
+            self._status_watcher.notified = False  # just for setting client_id restored below, looks hackie.
             self.client_id = client_id_from_process
             _logger.info(  # We need to talk about these messages.
                 'This seems to be a login after a crash, or from a new server '
                 'object, so you may want to release currently running synths '
                 'by hand with: server.default_group.release(). '
                 'And you may want to redo server boot finalization by hand:'
-                'server.status_watcher._finalize_boot()')
+                'server._status_watcher._finalize_boot()')
         else:
             # // Same clientID, so leave all server
             # // resources in the state they were in!
@@ -579,8 +594,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 'Reconnected with the same clientID as before, so probably all '
                 'is well.')
         # // Ensure that statuswatcher is in the correct state immediately.
-        self.status_watcher.notified = True
-        self.status_watcher.unresponsive = False
+        self._status_watcher.notified = True
+        self._status_watcher.unresponsive = False
         mdl.NotificationCenter.notify(self, 'server_running')
 
     def _handle_notify_fail_string(self, fail_string, msg): # *** BUG: yo usé msg en vez de failstr arriba.
@@ -594,10 +609,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         elif 'not registered' in fail_string:
             # // unregister when already not registered:
             _logger.info(f"'{self.name}' - not registered")
-            self.status_watcher.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_responder y vuelve a crear los responders de booteo al llamar a _send_notify_request
+            self._status_watcher.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_responder y vuelve a crear los responders de booteo al llamar a _send_notify_request
         elif 'too many users' in fail_string:
             _logger.info(f"'{self.name}' - could not register, too many users")
-            self.status_watcher.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_responder y vuelve a crear los responders de booteo al llamar a _send_notify_request
+            self._status_watcher.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_responder y vuelve a crear los responders de booteo al llamar a _send_notify_request
         else:
             # // throw error if unknown failure
             raise Exception(f"Failed to register with server '{self.name}' "
@@ -704,7 +719,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         yield from cond.wait()
 
     # wait_for_boot, is the same as boot except no on_complete if running
-    # do_when_booted, is status_watcher._add_boot_action
+    # do_when_booted, is _status_watcher._add_boot_action
     # if_running, No.
     # if_not_running, No.
 
@@ -720,7 +735,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         yield from condition.wait()
 
     def ping(self, n=1, wait=0.1, func=None):
-        if not self.status_watcher.server_running:
+        if not self._status_watcher.server_running:
             _logger.info(f"server '{self.name}' not running")
             return
         result = 0
@@ -788,7 +803,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     @classmethod
     def resume_status_threads(cls):  # NOTE: for System Actions.
         for server in cls.all:
-            server.status_watcher.resume_alive_thread()
+            server._status_watcher.resume_alive_thread()
 
 
     ### Shared memory interface ###
@@ -805,30 +820,30 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def boot(self, on_complete=None, on_failure=None,
              start_alive=True, recover=False):
-        if self.status_watcher.unresponsive:
+        if self._status_watcher.unresponsive:
             _logger.info(f"server '{self.name}' unresponsive, rebooting...")
             self.quit(watch_shutdown=False)
 
-        if self.status_watcher.server_running:
+        if self._status_watcher.server_running:
             _logger.info(f"server '{self.name}' already running")
             return
 
-        if self.status_watcher.server_booting:
+        if self._status_watcher.server_booting:
             _logger.info(f"server '{self.name}' already booting")
             return
 
-        self.status_watcher.server_booting = True
+        self._status_watcher.server_booting = True
 
         def _on_complete(server):
-            server.status_watcher.server_booting = False
+            server._status_watcher.server_booting = False
             server._boot_init(recover)
             fn.value(on_complete, server)
 
         def _on_failure(server):
-            server.status_watcher.server_booting = False
+            server._status_watcher.server_booting = False
             fn.value(on_failure, server)
 
-        self.status_watcher._add_boot_action(_on_complete, _on_failure)
+        self._status_watcher._add_boot_action(_on_complete, _on_failure)
 
         if self.remote_controlled:
             _logger.info(f"remote server '{self.name}' needs manual boot")
@@ -838,7 +853,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                     yield from self._pid_release_condition.hang()  # NOTE: signal from _on_server_process_exit from _ServerProcess
                 if start_alive:
                     self.boot_server_app(
-                        lambda: self.status_watcher.start_alive_thread())
+                        lambda: self._status_watcher.start_alive_thread())
                 else:
                     self.boot_server_app()
 
@@ -878,15 +893,15 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.pid = None
         self._pid_release_condition.signal()
         _logger.info(f"Server '{self.name}' exited with exit code {exit_code}.")
-        self.status_watcher.quit(watch_shutdown=False)  # *** NOTE: este quit se llama cuando temina el proceso y cuando se llama a server.quit.
+        self._status_watcher.quit(watch_shutdown=False)  # *** NOTE: este quit se llama cuando termina el proceso y cuando se llama a server.quit.
 
     def reboot(self, func=None, on_failure=None): # // func is evaluated when server is off
         if not self.is_local:
             _logger.info("can't reboot a remote server")
             return
 
-        if self.status_watcher.server_running\
-        and not self.status_watcher.unresponsive:
+        if self._status_watcher.server_running\
+        and not self._status_watcher.unresponsive:
             def _():
                 if func is not None:
                     func()
@@ -914,37 +929,37 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def quit(self, on_complete=None, on_failure=None, watch_shutdown=True):
         # if server is not running or is running but unresponsive.
-        if not self.status_watcher.server_running\
-        or self.status_watcher.unresponsive:
+        if not self._status_watcher.server_running\
+        or self._status_watcher.unresponsive:
             _logger.info(f'server {self.name} is not running')
             return
 
-        if self.status_watcher.server_quiting:
+        if self._status_watcher.server_quiting:
             _logger.info(f"server '{self.name}' already quiting")
             return
 
-        self.status_watcher.server_quiting = True
+        self._status_watcher.server_quiting = True
         self.addr.send_msg('/quit')
 
         def _on_complete():
-            self.status_watcher.server_quiting = False
+            self._status_watcher.server_quiting = False
             fn.value(on_complete, self)  # *** BUG: try_disconnect_tcp
 
         def _on_failure():
-            self.status_watcher.server_quiting = False
+            self._status_watcher.server_quiting = False
             fn.value(on_failure, self)  # *** BUG: try_disconnect_tcp
 
-        if watch_shutdown and self.status_watcher.unresponsive:
+        if watch_shutdown and self._status_watcher.unresponsive:
             _logger.info(f"server '{self.name}' was "
                          "unresponsive, quitting anyway")
             watch_shutdown = False
 
         if self.options.protocol == 'tcp':
-            self.status_watcher.quit(
-                lambda: self.addr.try_disconnect_tcp(_on_complete, _on_failure),  # *** BUG: envuelvo las funciones que son para server y status_watcher para pasar self, la implementación en sclang de try_disconnect_tcp le pasa addr a ambos incluso cuando a onComplete no se le pasa nada nunca y a onFailure se le pasa server *solo* en status_watcher.
+            self._status_watcher.quit(
+                lambda: self.addr.try_disconnect_tcp(_on_complete, _on_failure),  # *** BUG: envuelvo las funciones que son para server y _status_watcher para pasar self, la implementación en sclang de try_disconnect_tcp le pasa addr a ambos incluso cuando a onComplete no se le pasa nada nunca y a onFailure se le pasa server *solo* en _status_watcher.
                 None, watch_shutdown)
         else:
-            self.status_watcher.quit(_on_complete, _on_failure, watch_shutdown)
+            self._status_watcher.quit(_on_complete, _on_failure, watch_shutdown)
 
         if self.in_process:
             self.quit_in_process()  # *** BUG: no existe.
@@ -969,11 +984,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def free_all(cls, even_remote=False):  # All refers to cls.all.
         if even_remote:
             for server in cls.all:
-                if server.status_watcher.server_running:
+                if server._status_watcher.server_running:
                     server.free_nodes()
         else:
             for server in cls.all:
-                if server.is_local and server.status_watcher.server_running:
+                if server.is_local and server._status_watcher.server_running:
                     server.free_nodes()
 
     def free_nodes(self):  # Instance free_all in sclang.
@@ -1000,11 +1015,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @classmethod
     def all_booted_servers(cls):
-        return set(s for s in cls.all if s.status_watcher.has_booted)
+        return set(s for s in cls.all if s._status_watcher.has_booted)
 
     @classmethod
     def all_running_servers(cls):
-        return set(s for s in cls.all if s.status_watcher.server_running)
+        return set(s for s in cls.all if s._status_watcher.server_running)
 
     # L1203
     ### internal server commands ###

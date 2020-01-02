@@ -28,7 +28,7 @@ class NodeWatcher():
         sac.CmdPeriod.add(self.__on_cmd_period, self)
         sac.ServerBoot.add(self._server, self.__on_server_boot, self)
         sac.ServerQuit.add(self._server, self.__on_server_quit, self)
-        self.start()  # *** NOTE: could be manual: server.node_watcher.start().
+        self.start()  # *** NOTE: could be manual: server._node_watcher.start().
 
     @property
     def server(self):
@@ -69,7 +69,7 @@ class NodeWatcher():
             # self.free()  # *** BUG: sclang call Object.free that does nothing.
 
     def register(self, node, playing=True, running=True):
-        if not self._server.status_watcher.server_running:
+        if not self._server._status_watcher.server_running:
             # self._nodes.clear()  # *** BUG: sclang usa removeAll sin argumentos, que no hace nada!
             return
         if self._is_watching:

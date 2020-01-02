@@ -35,7 +35,7 @@ class Volume():
         self._def_name = None
 
         # // Execute immediately if we're already past server tree functions.
-        if self._server.status_watcher.server_running:
+        if self._server._status_watcher.server_running:
             self._send_synthdef()
             self._update_synth()
 
@@ -109,7 +109,7 @@ class Volume():
         return self._num_output_channels
 
     def _send_synthdef(self):
-        if self._server.status_watcher.has_booted:
+        if self._server._status_watcher.has_booted:
 
             def send_synthdef():
                 self._num_output_channels = self.num_channels
@@ -131,7 +131,7 @@ class Volume():
         amp = bi.dbamp(self.gain) if not self._is_muted else 0.0
         active = amp != 1.0
         if active:
-            if self._server.status_watcher.has_booted:
+            if self._server._status_watcher.has_booted:
                 if self._amp_synth is None:
                     self._amp_synth = nod.Synth.after(
                         self._server.default_group, self._def_name,

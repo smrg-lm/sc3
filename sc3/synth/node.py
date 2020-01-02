@@ -201,10 +201,10 @@ class Node(gpp.NodeParameter):
         self.server.send_msg('/n_query', self.node_id)
 
     def register(self, playing=True, running=True):
-        self.server.node_watcher.register(self, playing, running)
+        self.server._node_watcher.register(self, playing, running)
 
     def unregister(self):
-        self.server.node_watcher.unregister(self)
+        self.server._node_watcher.unregister(self)
 
     def on_free(self, action):
         def action_wrapper():

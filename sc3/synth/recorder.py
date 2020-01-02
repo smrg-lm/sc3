@@ -70,8 +70,8 @@ class Recorder():
 
     def record(self, path=None, bus=None, num_channels=None,
                node=None, duration=None):
-        if self._server.status_watcher.unresponsive\
-        or not self._server.status_watcher.server_running: # Was if_not_running.
+        if self._server._status_watcher.unresponsive\
+        or not self._server._status_watcher.server_running: # Was if_not_running.
             return
         bus = bus if bus is not None else 0
         self._bus = gpp.node_param(bus)._as_control_input()
@@ -159,7 +159,7 @@ class Recorder():
     def prepare_for_record(self, path=None, num_channels=None):
         if self.rec_buf_size is None:
             if self._server.options.rec_buf_size is None:
-                n = self._server.status_watcher.sample_rate
+                n = self._server._status_watcher.sample_rate
                 buf_size = bi.next_power_of_two(n)
             else:
                 buf_size = self._server.options.rec_buf_size

@@ -44,7 +44,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             self._bufnum = bufnum
         self._num_frames = num_frames
         self._num_channels = num_channels
-        self._sample_rate = self._server.status_watcher.sample_rate
+        self._sample_rate = self._server._status_watcher.sample_rate
         self._path = None
         self._start_frame = None
         self._do_on_info = None
@@ -245,7 +245,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         if self._server.is_local:
             lst = list(array.array('f', lst))  # Type check & cast.
             sndfile = xxx.SoundFile()  # *** TODO
-            sndfile.sample_rate = self._server.status_watcher.sample_rate
+            sndfile.sample_rate = self._server._status_watcher.sample_rate
             sndfile.num_channels = num_channels
             path = plt.Platform.tmp_dir / str(hash(sndfile))  # BUG: Returns pathlib.Path
             with sndfile:  # *** TODO: needs SoundFile

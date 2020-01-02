@@ -644,7 +644,7 @@ class SynthDef(metaclass=MetaSynthDef):
     def send(self, server=None, completion_msg=None):
         servers = utl.as_list(server or srv.Server.all_booted_servers())
         for server in servers:
-            if not server.status_watcher.has_booted:
+            if not server._status_watcher.has_booted:
                 _logger.warning(
                     f"Server '{server.name}' not running, "  # *** BUG in sclang: prints server.name instead of each.name
                     "could not send SynthDef")

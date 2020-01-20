@@ -64,7 +64,7 @@ class Volume():
     @property
     def num_channels(self):
         if self._num_channels is None:
-            return self._server.options.num_output_bus_channels
+            return self._server.options.output_channels
         else:
             return self._num_channels
 

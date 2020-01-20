@@ -1,5 +1,6 @@
 """Server.sc"""
 
+import enum
 import subprocess as _subprocess
 import threading as _threading
 import atexit as _atexit
@@ -32,223 +33,196 @@ from . import buffer as bff
 _logger = _logging.getLogger(__name__)
 
 
-### Command line server exec default values ###
+class Defaults(enum.Enum):
+    UDP_PORT = ('-u', None)  # mutex -t, opt int
+    TCP_PORT = ('-t', None)  # mutex -u, opt int
 
-_NUM_CONTROL_BUS_CHANNELS = 16384
-_NUM_AUDIO_BUS_CHANNELS = 1024 # esta no se usa, hace self.num_private_audio_bus_channels + self.num_input_bus_channels + self.num_output_bus_channels
-_NUM_INPUT_BUS_CHANNELS = 8
-_NUM_OUTPUT_BUS_CHANNELS = 8
-_NUM_BUFFERS = 1024
+    BIND_ADDRESS = ('-B', '127.0.0.1')  # opt str
+    MAX_LOGINS = ('-l', 64)  # opt int
+    PASSWORD = ('-p', None)  # opt str
+    ZEROCONF = ('-R', 1)  # RENDEZVOUS, boolean
 
-_MAX_NODES = 1024
-_MAX_SYNTH_DEFS = 1024
-_BLOCK_SIZE = 64
-#_HARDWARE_BUFFER_SIZE = 0 (None) # BUG: ver abajo, la lógica de esto es endeble
+    RESTRICTED_PATH = ('-P', None)  # opt str
+    UGEN_PLUGINS_PATH = ('-U', None)  # opt str
 
-_MEM_SIZE = 8192
-_NUM_RGENS = 64
-_NUM_WIRE_BUFS = 64
+    CONTROL_BUSES = ('-c', 16384)  # # opt int, num_control_bus_channels
+    AUDIO_BUSES = ('-a', 1024)  # # opt int, num_audio_bus_channels
+    INPUT_CHANNELS = ('-i', 8)  # opt int, num_input_bus_channels
+    OUTPUT_CHANNELS = ('-o', 8)  # opt int, num_output_bus_channels
+    BLOCK_SIZE = ('-z', 64)  # opt int
+    BUFFERS = ('-b', 1024)  # opt int, num_buffers
+    MAX_NODES = ('-n', 1024)  # opt int
+    MAX_SYNTHDEFS = ('-d', 1024)  # opt int, max_synth_defs
+    RT_MEMORY = ('-m', 8192)  # opt int, mem_size
+    WIRES = ('-w', 64)  # opt int, num_wire_bufs
+    RGENS = ('-r', 64)  # opt int, num_rgens
+    LOAD_SYNTHDEFS = ('-D', 1)  # opt bool, load_defs
 
-#_SAMPLE_RATE = 0 (None) # BUG: ver abajo, la lógica de esto es endeble
-#_LOAD_DEFS = 1 (True) # BUG: ver abajo, la lógica de esto es endeble
+    HW_DEVICE_NAME = ('-H', None)  # opt str
+    HW_BUFFER_SIZE = ('-Z', 0)  # opt int, hardware_buffer_size
+    SAMPLE_RATE = ('-S', 0)  # opt int, supernova differs: 44100
+    NRT = ('-N', None)  # mode flag
+    VERBOSE = ('-V', 0)  # opt int
 
-_VERBOSITY = 0
-#_ZEROCONF = 1 (True) # BUG: ver abajo, la lógica de esto es endeble
-_MAX_LOGINS = 64
+    # Supernova only.
+    MEMORY_LOCKING = ('-L', None)  # mode flag
+    THREADS = ('-T', 4)  # opt int
+    USE_SYSTEM_CLOCK = ('-C', 0)  # opt bool
 
-_BIND_ADDRESS = '127.0.0.1'
+    # Darwin only.
+    INPUT_STREAMS = ('-I', None)  # opt str, input_streams_enabled
+    OUTPUT_STREAMS = ('-O', None)  # opt str, output_streams_enabled
+
+    def __init__(self, flag, default):
+        self.flag = flag
+        self.default = default
 
 
 class ServerOptions():
+    # locals().update(Defaults.__members__)
+
     def __init__(self):
         self.program = plt.Platform.default_server_cmd
-        self.num_control_bus_channels = _NUM_CONTROL_BUS_CHANNELS # getter/setter
-        self._num_audio_bus_channels = _NUM_AUDIO_BUS_CHANNELS # @property
-        self._num_input_bus_channels = 2 # @property, es 2 a propósito
-        self._num_output_bus_channels = 2 # @property, es 2 a propósito
-        self._num_private_audio_bus_channels = 1020 # @property
-        self.num_buffers = 1026 # getter setter, es 1026 a propósito
-
-        self.max_nodes = _MAX_NODES # Todos los métodos siguientes tiene getter y setter salvo indicación contraria
-        self.max_synth_defs = _MAX_SYNTH_DEFS
         self.protocol = 'upd'
-        self.block_size = _BLOCK_SIZE
-        self.hardware_buffer_size = None # BUG: ver, la lógica de esto es endeble
 
-        self.mem_size = _MEM_SIZE
-        self.num_rgens = _NUM_RGENS
-        self.num_wire_bufs = _NUM_WIRE_BUFS
+        self.bind_address = Defaults.BIND_ADDRESS.default
+        self.max_logins = 1  # not default cmd value.
+        self.password = Defaults.PASSWORD.default
+        self.zeroconf = 0  # not default cmd value.
 
-        self.sample_rate = None # BUG: ver, la lógica de esto es endeble
-        self.load_defs = True # BUG: ver, la lógica de esto es endeble
+        self.restricted_path = Defaults.RESTRICTED_PATH.default
+        self.ugen_plugins_path = Defaults.UGEN_PLUGINS_PATH.default
 
-        self.input_streams_enabled = None # es nil o un string, e.g. '0110000' # BUG: ver, la lógica de esto es endeble
-        self.output_streams_enabled = None # es nil o un string, e.g. '0110000' # BUG: ver, la lógica de esto es endeble
+        self.control_buses = Defaults.CONTROL_BUSES.default
+        self.audio_buses = Defaults.AUDIO_BUSES.default
+        self.input_channels = 2  # not default cmd value
+        self.output_channels = 2  # not default cmd value
+        self.block_size = Defaults.BLOCK_SIZE.default
+        self.buffers = Defaults.BUFFERS.default
+        self.max_nodes = Defaults.MAX_NODES.default
+        self.max_synthdefs = Defaults.MAX_SYNTHDEFS.default
+        self.rt_memory = Defaults.RT_MEMORY.default
+        self.wires = Defaults.WIRES.default
+        self.rgens = Defaults.RGENS.default
+        self.load_synthdefs = Defaults.LOAD_SYNTHDEFS.default
 
-        self.in_device = None
-        self.out_device = None
+        # removed sclang's inDevice, outDevice, prListDevices, etc., the
+        # solution would be to use an IOAudioDevice class that generate
+        # the string for this options.
+        self.hw_device_name = Defaults.HW_DEVICE_NAME.default
+        self.hw_buffer_size = Defaults.HW_BUFFER_SIZE.default
+        self.sample_rate = Defaults.SAMPLE_RATE.default
+        self.nrt = Defaults.NRT.default
+        self.verbose = Defaults.VERBOSE.default
 
-        self.verbosity = _VERBOSITY
-        self.zeroconf = False # BUG: ver, la lógica de esto es endeble # // Whether server publishes port to Bonjour, etc.
+        # Supernova only.
+        self.memory_locking = Defaults.MEMORY_LOCKING.default
+        self.threads = Defaults.THREADS.default
+        self.use_system_clock = Defaults.USE_SYSTEM_CLOCK.default
 
-        self.restricted_path = None
-        self.ugen_plugins_path = None
+        # Darwin only.
+        self.input_streams = Defaults.INPUT_STREAMS.default
+        self.output_streams = Defaults.OUTPUT_STREAMS.default
 
+        # Language side.
+        self.reserved_audio_buses = 0  # not used, really.
+        self.reserved_control_buses = 0  # not used, really.
+        self.reserved_buffers = 0  # not used, really.
         self.initial_node_id = 1000
-        # self.remote_control_volume = False  # only used by ServerPlusGui makeGui, no GUI.
-
-        self.memory_locking = False
-        self.threads = None # // for supernova
-        self.use_system_clock = None # // for supernova # BUG semántico en sclang, lo inicializa en False, pero la lógica es que si no es None usa true/false para 1/0, entonces siempre pasa al valor por defecto (0)
-
-        self.reserved_num_audio_bus_channels = 0
-        self.reserved_num_control_bus_channels = 0
-        self.reserved_num_buffers = 0
+        # self.remote_control_volume = False  # ServerPlusGui makeGui, no GUI.
         self.pings_before_considered_dead = 5
-
-        self.max_logins = 1
-
         self.rec_header_format = 'aiff'
         self.rec_sample_format = 'float'
         self.rec_channels = 2
         self.rec_buf_size = None
 
-        self.bind_address = _BIND_ADDRESS
-
-    @property
-    def device(self):
-        if self.in_device == self.out_device:
-            return self.in_device
-        else:
-            return (self.in_device, self.out_device)
-
-    @device.setter
-    def device(self, value):
-        self.in_device = self.out_device = value
-
     def options_list(self, port=57110):
         o = []
 
         if self.protocol == 'tcp':
-            o.extend(['-t', str(port)])
+            o.extend([Defaults.TCP_PORT.flag, str(port)])
         else:
-            o.extend(['-u', str(port)])
+            o.extend([Defaults.UDP_PORT.flag, str(port)])
 
-        o.extend(['-a', str(self.num_private_audio_bus_channels +
-                        self.num_input_bus_channels +
-                        self.num_output_bus_channels)])
-        o.extend(['-i', str(self.num_input_bus_channels)])  # BUG: ver default de _NUM_INPUT_BUS_CHANNELS
-        o.extend(['-o', str(self.num_output_bus_channels)])  # BUG: ver default de _NUM_OUTPUT_BUS_CHANNELS
+        if self.bind_address != Defaults.BIND_ADDRESS.default:
+            o.extend([Defaults.BIND_ADDRESS.flag, str(self.bind_address)])
+        if self.max_logins != Defaults.MAX_LOGINS.default:
+            o.extend([Defaults.MAX_LOGINS.flag, str(self.max_logins)])
+        if self.password != Defaults.PASSWORD.default:
+            o.extend([Defaults.PASSWORD.flag, str(self.password)])
+        if self.zeroconf != Defaults.ZEROCONF.default:
+            o.extend([Defaults.ZEROCONF.flag, str(int(self.zeroconf))])
 
-        if self.bind_address != _BIND_ADDRESS:
-            o.extend(['-B', self.bind_address])
-        if self.num_control_bus_channels != _NUM_CONTROL_BUS_CHANNELS:
-            o.extend(['-c', str(self.num_control_bus_channels)])
-        if self.num_buffers != _NUM_BUFFERS:
-            o.extend(['-b', str(self.num_buffers)])
-        if self.max_nodes != _MAX_NODES:
-            o.extend(['-n', str(self.max_nodes)])
-        if self.max_synth_defs != _MAX_SYNTH_DEFS:
-            o.extend(['-d', str(self.max_synth_defs)])
-        if self.block_size != _BLOCK_SIZE:
-            o.extend(['-z', str(self.block_size)])
-        if self.hardware_buffer_size is not None: # BUG: ver, la lógica de esto es endeble
-            o.extend(['-Z', str(self.hardware_buffer_size)])
-        if self.mem_size != _MEM_SIZE:
-            o.extend(['-m', str(self.mem_size)])
-        if self.num_rgens != _NUM_RGENS:
-            o.extend(['-r', str(self.num_rgens)])
-        if self.num_wire_bufs != _NUM_WIRE_BUFS:
-            o.extend(['-w', str(self.num_wire_bufs)])
-        if self.sample_rate is not None: # BUG: ver, la lógica de esto es endeble
-            o.extend(['-S', str(self.sample_rate)])
-        if not self.load_defs: # BUG: ver, la lógica de esto es endeble
-            o.extend(['-D', '0'])
-        if self.input_streams_enabled is not None: # BUG: ver, la lógica de esto es endeble
-            o.extend(['-I', self.input_streams_enabled])
-        if self.output_streams_enabled is not None: # BUG: ver, la lógica de esto es endeble
-            o.extend(['-O', self.output_streams_enabled])
-        if self.in_device == self.out_device:
-            if self.in_device is not None:
-                o.extend(['-H', f'"{self.in_device}"'])  # BUG: comprobar que funciona en Python
-        else:
-            o.extend(['-H', f'"{self.in_device}" "{self.out_device}"'])  # BUG: comprobar que funciona en Python
-        if self.verbosity != _VERBOSITY:
-            o.extend(['-V', str(self.verbosity)])
-        if not self.zeroconf: # BUG: ver, la lógica de esto es endeble
-            o.extend(['-R', '0'])
-        if self.restricted_path is not None:
-            o.extend(['-P', str(self.restricted_path)])  # may be str o Path
-        if self.ugen_plugins_path is not None:
+        if self.restricted_path != Defaults.RESTRICTED_PATH.default:
+            o.extend([Defaults.RESTRICTED_PATH.flag, str(self.restricted_path)])
+        if self.ugen_plugins_path != Defaults.UGEN_PLUGINS_PATH.default:
             plist = utl.as_list(self.ugen_plugins_path)
-            plist = [_os.path.normpath(x) for x in plist] # BUG: ensure platform format? # BUG: windows drive?
-            o.extend(['-U', _os.pathsep.join(plist)])
-        if self.memory_locking:
-            o.append('-L')
-        if self.threads is not None:
-            if self.program == plt.Platform.SUPERNOVA_CMD:
-                o.extend(['-T', str(self.threads)])
-        if self.use_system_clock is not None:
-            o.extend(['-C', str(int(self.use_system_clock))])
-        if self.max_logins is not None:
-            o.extend(['-l', str(self.max_logins)])
+            plist = [_os.path.normpath(x) for x in plist]
+            o.extend([Defaults.UGEN_PLUGINS_PATH.flag, ':'.join(plist)])
+
+        if self.control_buses != Defaults.CONTROL_BUSES.default:
+            o.extend([Defaults.CONTROL_BUSES.flag, str(self.control_buses)])
+        if self.audio_buses != Defaults.AUDIO_BUSES.default:
+            o.extend([Defaults.AUDIO_BUSES.flag, str(self.audio_buses)])
+        if self.input_channels != Defaults.INPUT_CHANNELS.default:
+            o.extend([Defaults.INPUT_CHANNELS.flag, str(self.input_channels)])
+        if self.output_channels != Defaults.OUTPUT_CHANNELS.default:
+            o.extend([Defaults.OUTPUT_CHANNELS.flag, str(self.output_channels)])
+
+        if self.block_size != Defaults.BLOCK_SIZE.default:
+            o.extend([Defaults.BLOCK_SIZE.flag, str(self.block_size)])
+        if self.buffers != Defaults.BUFFERS.default:
+            o.extend([Defaults.BUFFERS.flag, str(self.buffers)])
+        if self.max_nodes != Defaults.MAX_NODES.default:
+            o.extend([Defaults.MAX_NODES.flag, str(self.max_nodes)])
+        if self.max_synthdefs != Defaults.MAX_SYNTHDEFS.default:
+            o.extend([Defaults.MAX_SYNTHDEFS.flag, str(self.max_synthdefs)])
+        if self.rt_memory != Defaults.RT_MEMORY.default:
+            o.extend([Defaults.RT_MEMORY.flag, str(self.rt_memory)])
+        if self.wires != Defaults.WIRES.default:
+            o.extend([Defaults.WIRES.flag, str(self.wires)])
+        if self.rgens != Defaults.RGENS.default:
+            o.extend([Defaults.RGENS.flag, str(self.rgens)])
+        if self.load_synthdefs != Defaults.LOAD_SYNTHDEFS.default:
+            o.extend([Defaults.LOAD_SYNTHDEFS.flag,
+                str(int(self.load_synthdefs))])
+
+        if self.hw_device_name != Defaults.HW_DEVICE_NAME.default:
+            o.extend([Defaults.HW_DEVICE_NAME.flag, str(self.hw_device_name)])
+        if self.hw_buffer_size != Defaults.HW_BUFFER_SIZE.default:
+            o.extend([Defaults.HW_BUFFER_SIZE.flag, str(self.hw_buffer_size)])
+        if self.sample_rate != Defaults.SAMPLE_RATE.default:
+            o.extend([Defaults.SAMPLE_RATE.flag, str(self.sample_rate)])
+        if self.nrt != Defaults.NRT.default:
+            o.append(Defaults.NRT.flag)
+        if self.verbose != Defaults.VERBOSE.default:
+            o.extend([Defaults.VERBOSE.flag, str(self.verbose)])
+
+        # Supernova only.
+        if self.program == plt.Platform.SUPERNOVA_CMD:
+            if self.memory_locking != Defaults.MEMORY_LOCKING.default:
+                o.append(Defaults.MEMORY_LOCKING.flag)
+            if self.threads != Defaults.THREADS.default:
+                o.extend([Defaults.THREADS.flag, str(self.threads)])
+            if self.use_system_clock != Defaults.USE_SYSTEM_CLOCK.default:
+                o.extend([Defaults.USE_SYSTEM_CLOCK.flag,
+                    str(int(self.use_system_clock))])
+
+        # Darwin only.
+        if plt.Platform.name.startswith('darwin'):
+            if self.input_streams != Defaults.INPUT_STREAMS.default:
+                o.extend([Defaults.INPUT_STREAMS.flag, str(self.input_streams)])
+            if self.output_streams != Defaults.OUTPUT_STREAMS.default:
+                o.extend([Defaults.OUTPUT_STREAMS.flag,
+                    str(self.output_streams)])
+
         return o
 
     def first_private_bus(self):
-        return self.num_output_bus_channels + self.num_input_bus_channels
+        return self.output_channels + self.input_channels
 
     def boot_in_process(self):
         raise NotImplementedError('in process server is not available')
-
-    @property
-    def num_private_audio_bus_channels(self):
-        return self._num_private_audio_bus_channels
-
-    @num_private_audio_bus_channels.setter
-    def num_private_audio_bus_channels(self, value=112): # TODO: no sé por qué 112
-        self._num_private_audio_bus_channels = value
-        self._recalc_channels()
-
-    @property
-    def num_audio_bus_channels(self):
-        return self._num_audio_bus_channels
-
-    @num_audio_bus_channels.setter
-    def num_audio_bus_channels(self, value): #=1024): es un setter, no puede tener valor por defecto
-        self._num_audio_bus_channels = value
-        self._num_private_audio_bus_channels = self._num_audio_bus_channels\
-            - self._num_input_bus_channels - self._num_output_bus_channels
-
-    @property
-    def num_input_bus_channels(self):
-        return self._num_input_bus_channels
-
-    @num_input_bus_channels.setter
-    def num_input_bus_channels(self, value=8):
-        self._num_input_bus_channels = value
-        self._recalc_channels()
-
-    @property
-    def num_output_bus_channels(self):
-        return self._num_output_bus_channels
-
-    @num_output_bus_channels.setter
-    def num_output_bus_channels(self, value=8):
-        self._num_output_bus_channels = value
-        self._recalc_channels()
-
-    def _recalc_channels(self):
-        self._num_audio_bus_channels = self._num_private_audio_bus_channels\
-            + self._num_input_bus_channels + self._num_output_bus_channels
-
-    # TODO: estas funciones están implementadas solo para CoreAudio en
-    # SC_CoreAudioPrim.cpp. Hay una función de port audio PaQa_ListAudioDevices
-    # en external_libraries con un nombre similar, server/scsynth/SC_PortAudio.cpp
-    # y server/supernova/audio_backend/portaudio_backend.hpp/cpp
-    # *prListDevices { # primitiva
-    # *devices { # llama a *prListDevices
-    # *inDevices { # llama a *prListDevices
-    # *outDevices { # llama a *prListDevices
 
 
 class ServerShmInterface():
@@ -275,10 +249,10 @@ class MetaServer(type):
             cls.all = set()
             cls.sync_s = True
 
-            cls.node_alloc_class = eng.NodeIDAllocator
-            # // cls.node_alloc_class = ReadableNodeIDAllocator;
-            cls.buffer_alloc_class = eng.ContiguousBlockAllocator
-            cls.bus_alloc_class = eng.ContiguousBlockAllocator
+            cls._node_alloc_class = eng.NodeIDAllocator
+            # // cls._node_alloc_class = ReadableNodeIDAllocator;
+            cls._buffer_alloc_class = eng.ContiguousBlockAllocator
+            cls._bus_alloc_class = eng.ContiguousBlockAllocator
 
             cls.default = cls.local = cls('localhost', cls.DEFAULT_ADDRESS)
             # cls.internal = cls(
@@ -310,7 +284,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def __init__(self, name, addr, options=None, client_id=None):
         super(gpp.NodeParameter, self).__init__(self)  # *** BUG: VER AHORA: ESTO SE SOLUCIONA CON __INIT_SUBCLASS__ HOOCK? (NO TENER QUE PONER EN CADA UNA)
-        self._max_num_clients = None # BUG: subida, se necesita antes de setear self.client_id # // maxLogins as sent from booted scsynth # la setea en _handle_client_login_info_from_server
         self._client_id = None # BUG: se necesita antes de setear self.client_id
 
         # // set name to get readable posts from client_id set
@@ -325,14 +298,14 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.latency = 0.2
         self.dump_mode = 0
 
-        # NOTE: Estos valores se inicializan al llamar self.client_id = x abajo.
-        # self.node_allocator = None # se inicializa en new_node_allocators
-        # self.default_group = None # se inicializa en node_allocator -> make default_groups # solo tiene getter en la declaración, init en make_default_groups
-        # self.default_groups = None # se inicializa en node_allocator -> make default_groups # solo tienen getter en la declaración, init en make_default_groups
-        # self.control_bus_allocator = None # se inicializa en new_bus_allocators
-        # self.audio_bus_allocator = None # se inicializa en new_bus_allocators
-        # self.buffer_allocator = None # se inicializa en new_buffer_allocators
-        # self.scope_buffer_allocator = None # se inicializa en new_scope_buffer_allocators
+        # These attributes are initialized through self.client_id property setter.
+        # self._node_allocator = None # init in _new_node_allocators()
+        # self._default_group = None # init in _new_node_allocators() -> _make_default_groups()
+        # self._default_groups = None # init in _new_node_allocators() -> _make_default_groups()
+        # self._control_bus_allocator = None # init in _new_bus_allocators()
+        # self._audio_bus_allocator = None # init in _new_bus_allocators()
+        # self._buffer_allocator = None # init in _new_buffer_allocators()
+        # self._scope_buffer_allocator = None # init in _new_scope_buffer_allocators()
 
         # // make statusWatcher before clientID, so .serverRunning works
         self._status_watcher = sst.ServerStatusWatcher(server=self)
@@ -348,7 +321,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.name = name # ahora si usa @property setter
         type(self).all.add(self)
 
-        #self._max_num_clients = None # // maxLogins as sent from booted scsynth # la setea en _handle_client_login_info_from_server
         self.tree = lambda *args: None # TODO: ver dónde se inicializa (en la clase no lo hace), se usa en init_tree
 
         self.sync_thread = None # solo getter en la declaración # se usa en sched_sync
@@ -363,10 +335,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # TODO: siempre revisar que no esté usando las de variables clase
         # porque no va a funcionar con metaclass sin llamar a type(self).
         # TODO: ver qué atributos no tienen setter y convertirlos en propiedad.
-
-    @property
-    def max_num_clients(self):
-        return self._max_num_clients or self.options.max_logins
 
     def remove(self):
         type(self).all.remove(self)
@@ -395,6 +363,14 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                             "exists, please use a unique name")  # TODO: why not an exception?
         else:
             type(self).named[value] = self
+
+    @property
+    def default_group(self):
+        return self._default_group
+
+    @property
+    def default_groups(self):
+        return self._default_groups
 
     @property
     def status(self):
@@ -444,73 +420,79 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             args = (self.name, value, 'not an int', self.client_id)
             _logger.warning(msg, *args)
             return
-        if value < 0 or value >= self.max_num_clients:
+        # *** BUG: el problema es que necesita asumir un valor por defecto porque
+        # *** BUG: está pensado como si fuese a butear un servidor local con las
+        # *** BUG: opciones por defecto o seteadas en options.
+        # *** BUG: it has to be known or server should return out of range, see Options.max_logins.
+        if value < 0 or value >= self._status_watcher.max_num_clients:
             msg2 = 'outside max_num_clients range '\
-                   f'0..{self.max_num_clients - 1}'
+                   f'0..{self._status_watcher.max_num_clients - 1}'
             _logger.warning(msg, self.name, value, msg2, self.client_id)
             return
         if self._client_id != value:
             _logger.info(f"server '{self.name}' setting client_id to {value}")
         self._client_id = value
-        self.new_allocators() # *** BUG: parece un método privado pero lo usan en UnitTest-bootServer
+        self._new_allocators()
 
 
     ### ClientID-based id allocators ###
 
-    def new_allocators(self):
-        self.new_node_allocators()
-        self.new_bus_allocators()
-        self.new_buffer_allocators()
-        self.new_scope_buffer_allocators()
-        mdl.NotificationCenter.notify(self, 'new_allocators')
+    def _new_allocators(self):
+        self._new_node_allocators()
+        self._new_bus_allocators()
+        self._new_buffer_allocators()
+        self._new_scope_buffer_allocators()
+        mdl.NotificationCenter.notify(self, '_new_allocators')
 
-    def new_node_allocators(self):
-        self.node_allocator = type(self).node_alloc_class(
+    def _new_node_allocators(self):
+        self._node_allocator = type(self)._node_alloc_class(
             self.client_id, self.options.initial_node_id)
-            #, self.max_num_clients) # BUG: en sclang, node_alloc_class es eng.NodeIDAllocator por defecto, los alocadores originales reciben 2 parámetros, ContiguousBlockAllocator, que se usa para buses y buffers, recibe uno más, cambia la interfaz. Acá se pasa el tercer parámetro y NodeIDAllocator lo ignora (característica de las funciones de sclang), tengo que ver cómo maneja los ids de los nodos por cliente.
+            #, self._status_watcher.max_num_clients) # *** BUG: en sclang, _node_alloc_class es eng.NodeIDAllocator por defecto, los alocadores originales reciben 2 parámetros, ContiguousBlockAllocator, que se usa para buses y buffers, recibe uno más, cambia la interfaz. Acá se pasa el tercer parámetro y NodeIDAllocator lo ignora (característica de las funciones de sclang), tengo que ver cómo maneja los ids de los nodos por cliente.
         # // defaultGroup and defaultGroups depend on allocator,
         # // so always make them here:
-        self.make_default_groups()
+        self._make_default_groups()
 
-    def new_bus_allocators(self):
+    def _new_bus_allocators(self):
         audio_bus_io_offset = self.options.first_private_bus()
-        num_ctrl_per_client = (self.options.num_control_bus_channels //
-                               self.max_num_clients)
-        num_audio_per_client = (self.options.num_audio_bus_channels -
-                                audio_bus_io_offset) // self.max_num_clients
-        ctrl_reserved_offset = self.options.reserved_num_control_bus_channels
+        num_ctrl_per_client = (self.options.control_buses //
+                               self._status_watcher.max_num_clients)
+        num_audio_per_client = ((self.options.audio_buses -
+                                audio_bus_io_offset) //
+                                self._status_watcher.max_num_clients)
+        ctrl_reserved_offset = self.options.reserved_control_buses
         ctrl_bus_client_offset = num_ctrl_per_client * self.client_id
-        audio_reserved_offset = self.options.reserved_num_audio_bus_channels
+        audio_reserved_offset = self.options.reserved_audio_buses
         audio_bus_client_offset = num_audio_per_client * self.client_id
 
-        self.control_bus_allocator = type(self).bus_alloc_class(
+        self._control_bus_allocator = type(self)._bus_alloc_class(
             num_ctrl_per_client,
             ctrl_reserved_offset,
             ctrl_bus_client_offset
         )
-        self.audio_bus_allocator = type(self).bus_alloc_class(
+        self._audio_bus_allocator = type(self)._bus_alloc_class(
             num_audio_per_client,
             audio_reserved_offset,
             audio_bus_client_offset + audio_bus_io_offset
         )
 
-    def new_buffer_allocators(self):
-        num_buffers_per_client = self.options.num_buffers // self.max_num_clients
-        num_reserved_buffers = self.options.reserved_num_buffers
+    def _new_buffer_allocators(self):
+        num_buffers_per_client = (self.options.buffers //
+                                  self._status_watcher.max_num_clients)
+        num_reserved_buffers = self.options.reserved_buffers
         buffer_client_offset = num_buffers_per_client * self.client_id
 
-        self.buffer_allocator = type(self).buffer_alloc_class(
+        self._buffer_allocator = type(self)._buffer_alloc_class(
             num_buffers_per_client,
             num_reserved_buffers,
             buffer_client_offset
         )
 
-    def new_scope_buffer_allocators(self):
+    def _new_scope_buffer_allocators(self):
         if self.is_local:
-            self.scope_buffer_allocator = eng.StackNumberAllocator(0, 127)
+            self._scope_buffer_allocator = eng.StackNumberAllocator(0, 127)
 
     def next_buffer_number(self, n):
-        bufnum = self.buffer_allocator.alloc(n)
+        bufnum = self._buffer_allocator.alloc(n)
         if bufnum is None:
             if n > 1:
                 raise Exception(f'No block of {n} consecutive '
@@ -522,102 +504,20 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def free_all_buffers(self):
         bundle = []
-        for block in self.buffer_allocator.blocks():
+        for block in self._buffer_allocator.blocks():
             for i in range(block.address, block.address + block.size - 1):
                 bundle.append(['/b_free', i])
-            self.buffer_allocator.free(block.address)
+            self._buffer_allocator.free(block.address)
         self.send_bundle(None, *bundle) # BUG: comprobar que esté en formato correcto para client.send_bundle
 
     def next_node_id(self):
-        return self.node_allocator.alloc()
+        return self._node_allocator.alloc()
 
     def next_perm_node_id(self):
-        return self.node_allocator.alloc_perm()
+        return self._node_allocator.alloc_perm()
 
     def free_perm_node_id(self, id):
-        return self.node_allocator.free_perm(id)
-
-    def _handle_client_login_info_from_server(self, new_client_id=None,
-                                              new_max_logins=None): # BUG: name!
-        # // only set maxLogins if not internal server
-        if not self.in_process:
-            if new_max_logins is not None:
-                if new_max_logins != self.options.max_logins:
-                    _logger.info(f"'{self.name}' server process has "
-                                 f"max_logins {new_max_logins} - adjusting "
-                                 "options accordingly")
-                else:
-                    _logger.info(f"'{self.name}' server process's max_logins "
-                                 f"({new_max_logins}) matches current options")
-                self.options.max_logins = self._max_num_clients = new_max_logins
-            else:
-                _logger.info(f"'{self.name}' no max_logins "  # *** BUG: in sclang, passes two arguments.
-                             "info from server process")  # BUG: why 'from' if data is a parameter to this method.
-        if new_client_id is not None:
-            if new_client_id == self.client_id:
-                _logger.info(f"'{self.name}' keeping client_id  "
-                             f"({new_client_id}) as confirmed "
-                             "by server process")
-            else:
-                _logger.info(f"'{self.name}' setting client_id to "
-                             f"{new_client_id}, as obtained "
-                             "from server process")
-            self.client_id = new_client_id
-
-    # // This method attempts to recover from a loss of client-server contact,
-    # // which is a serious emergency in live shows. So it posts a lot of info
-    # // on the recovered state, and possibly helpful next user actions.
-    def _handle_login_when_already_registered(self, client_id_from_process):
-        _logger.info(f"'{self.name}' handling login request "
-                     "though already registered")
-        if client_id_from_process is None:
-            _logger.info(f"'{self.name}' notify response did not contain "
-                         "already-registered clientID from server process. "
-                         "Assuming all is well.")
-        elif client_id_from_process != self.client_id:
-            # // By default, only reset clientID if changed,
-            # // to leave allocators untouched.
-            # // Make sure we can set the clientID, and set it.
-            self._status_watcher.notified = False  # just for setting client_id restored below, looks hackie.
-            self.client_id = client_id_from_process
-            _logger.info(  # We need to talk about these messages.
-                'This seems to be a login after a crash, or from a new server '
-                'object, so you may want to release currently running synths '
-                'by hand with: server.default_group.release(). '
-                'And you may want to redo server boot finalization by hand:'
-                'server._status_watcher._finalize_boot()')
-        else:
-            # // Same clientID, so leave all server
-            # // resources in the state they were in!
-            _logger.info(
-                'This seems to be a login after a loss of network contact. '
-                'Reconnected with the same clientID as before, so probably all '
-                'is well.')
-        # // Ensure that statuswatcher is in the correct state immediately.
-        self._status_watcher.notified = True
-        self._status_watcher.unresponsive = False
-        mdl.NotificationCenter.notify(self, 'server_running')
-
-    def _handle_notify_fail_string(self, fail_string, msg): # *** BUG: yo usé msg en vez de failstr arriba.
-        # // post info on some known error cases
-        if 'already registered' in fail_string:
-            # // when already registered, msg[3] is the clientID by which
-            # // the requesting client was registered previously
-            _logger.info(f"'{self.name}' - already registered "
-                         f"with client_id {msg[3]}")
-            self._handle_login_when_already_registered(msg[3])
-        elif 'not registered' in fail_string:
-            # // unregister when already not registered:
-            _logger.info(f"'{self.name}' - not registered")
-            self._status_watcher.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_responder y vuelve a crear los responders de booteo al llamar a _send_notify_request
-        elif 'too many users' in fail_string:
-            _logger.info(f"'{self.name}' - could not register, too many users")
-            self._status_watcher.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_responder y vuelve a crear los responders de booteo al llamar a _send_notify_request
-        else:
-            # // throw error if unknown failure
-            raise Exception(f"Failed to register with server '{self.name}' "
-                            f"for notifications: {msg}. To recover, please "
-                            "reboot the server")
+        return self._node_allocator.free_perm(id)
 
 
     ### Network messages ###
@@ -764,31 +664,30 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def cached_buffer_at(self, bufnum):
         return bff.Buffer.cached_buffer_at(self, bufnum)
 
-    def make_default_groups(self):
+    def _make_default_groups(self):
         # // Keep defaultGroups for all clients on this server.
-        self.default_groups = [nod.Group.basic_new(
-            self, self.node_allocator.num_ids * client_id + 1
-        ) for client_id in range(self.max_num_clients)]
-        self.default_group = self.default_groups[self.client_id]
+        self._default_groups = [nod.Group.basic_new(
+            self, self._node_allocator.num_ids * client_id + 1
+        ) for client_id in range(self._status_watcher.max_num_clients)]
+        self._default_group = self._default_groups[self.client_id]
 
-    def default_group_id(self):
-        return self.default_group.node_id
+    # default_group_id(self): use self.default_group.node_id
 
     def send_default_groups(self):
-        for group in self.default_groups:
+        for group in self._default_groups:
             self.send_msg('/g_new', group.node_id, 0, 0)
 
     def send_default_groups_for_client_ids(self, client_ids):
         for i in client_ids:
-            group = self.default_groups[i]
+            group = self._default_groups[i]
             self.send_msg('/g_new', group.node_id, 0, 0)
 
     def input_bus(self):
-        return bus.Bus('audio', self.options.num_output_bus_channels,
-                        self.options.num_input_bus_channels, self)
+        return bus.Bus('audio', self.options.output_channels,
+                        self.options.input_channels, self)
 
     def output_bus(self):
-        return bus.Bus('audio', 0, self.options.num_output_bus_channels, self)
+        return bus.Bus('audio', 0, self.options.output_channels, self)
 
 
     # These atributes are just a wrapper of ServerOptions, use s.options.
@@ -950,8 +849,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             fn.value(on_failure, self)  # *** BUG: try_disconnect_tcp
 
         if watch_shutdown and self._status_watcher.unresponsive:
-            _logger.info(f"server '{self.name}' was "
-                         "unresponsive, quitting anyway")
+            _logger.info(
+                f"server '{self.name}' was unresponsive, quitting anyway")
             watch_shutdown = False
 
         if self.options.protocol == 'tcp':
@@ -967,12 +866,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         else:
             _logger.info(f"'/quit' message sent to server '{self.name}'")
 
-        self._max_num_clients = None
-
         # if(scopeWindow.notNil) { scopeWindow.quit }  # No GUI.
         self.volume.free_synth()
         nod.RootNode(self).free_all()
-        self.new_allocators()
+        self._new_allocators()
 
     @classmethod
     def quit_all(cls, watch_shutdown=True):
@@ -997,10 +894,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.init_tree()
 
     def free_default_group(self):
-        self.send_msg('g_freeAll', self.default_group.node_id)
+        self.send_msg('g_freeAll', self._default_group.node_id)
 
     def free_default_groups(self):
-        for group in self.default_groups:
+        for group in self._default_groups:
             self.send_msg('g_freeAll', group.node_id)
 
     @classmethod
@@ -1101,7 +998,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     ### Node parameter interface ###
 
     def _as_target(self):
-        return self.default_group
+        return self._default_group
 
     # def scsynth(cls): No.
     # def supernova(cls): No.

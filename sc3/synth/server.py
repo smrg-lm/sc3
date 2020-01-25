@@ -276,15 +276,8 @@ class MetaServer(type):
 
 
 class Server(gpp.NodeParameter, metaclass=MetaServer):
-    @classmethod
-    def remote(cls, name, addr, options=None, client_id=None):
-        result = cls(name, addr, options, client_id)
-        result._status_watcher.start_alive_thread()
-        return result
-
-    def __init__(self, name, addr, options=None, client_id=None):
+    def __init__(self, name, addr, options=None):
         super(gpp.NodeParameter, self).__init__(self)  # *** BUG: VER AHORA: ESTO SE SOLUCIONA CON __INIT_SUBCLASS__ HOOCK? (NO TENER QUE PONER EN CADA UNA)
-        self._client_id = None # BUG: se necesita antes de setear self.client_id
 
         # // set name to get readable posts from client_id set
         self._name = name # no usa @property setter
@@ -307,12 +300,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # self._buffer_allocator = None # init in _new_buffer_allocators()
         # self._scope_buffer_allocator = None # init in _new_scope_buffer_allocators()
 
-        # // make statusWatcher before clientID, so .serverRunning works
         self._status_watcher = sst.ServerStatusWatcher(server=self)
-        # // go thru setter to test validity
-        self.client_id = client_id or 0 # es @property y usa el setter
-
         self._node_watcher = ndw.NodeWatcher(server=self)
+
+        self._client_id = 0
+        self._new_allocators()  # uses assumed id to work without booting.
 
         self.volume = vlm.Volume(server=self, persist=True)
         self.recorder = rcd.Recorder(server=self)
@@ -408,29 +400,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def client_id(self):
         return self._client_id
 
-    @client_id.setter
-    def client_id(self, value):
-        msg = "server '%s' couldn't set client_id "\
-              "to %s - %s, client_id is still %s"
-        if self._status_watcher.server_running:
-            args = (self.name, value, 'server is running', self.client_id)
-            _logger.warning(msg, *args)
-            return
+    def _set_client_id(self, value):
         if not isinstance(value, int):
-            args = (self.name, value, 'not an int', self.client_id)
-            _logger.warning(msg, *args)
-            return
-        # *** BUG: el problema es que necesita asumir un valor por defecto porque
-        # *** BUG: está pensado como si fuese a butear un servidor local con las
-        # *** BUG: opciones por defecto o seteadas en options.
-        # *** BUG: it has to be known or server should return out of range, see Options.max_logins.
-        if value < 0 or value >= self._status_watcher.max_num_clients:
-            msg2 = 'outside max_num_clients range '\
-                   f'0..{self._status_watcher.max_num_clients - 1}'
-            _logger.warning(msg, self.name, value, msg2, self.client_id)
-            return
-        if self._client_id != value:
-            _logger.info(f"server '{self.name}' setting client_id to {value}")
+            raise TypeError(f'value is not an int: {type(value)}')
         self._client_id = value
         self._new_allocators()
 
@@ -447,18 +419,25 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def _new_node_allocators(self):
         self._node_allocator = type(self)._node_alloc_class(
             self.client_id, self.options.initial_node_id)
-            #, self._status_watcher.max_num_clients) # *** BUG: en sclang, _node_alloc_class es eng.NodeIDAllocator por defecto, los alocadores originales reciben 2 parámetros, ContiguousBlockAllocator, que se usa para buses y buffers, recibe uno más, cambia la interfaz. Acá se pasa el tercer parámetro y NodeIDAllocator lo ignora (característica de las funciones de sclang), tengo que ver cómo maneja los ids de los nodos por cliente.
+            #, self._status_watcher.max_logins) # *** BUG: en sclang, _node_alloc_class es eng.NodeIDAllocator por defecto, los alocadores originales reciben 2 parámetros, ContiguousBlockAllocator, que se usa para buses y buffers, recibe uno más, cambia la interfaz. Acá se pasa el tercer parámetro y NodeIDAllocator lo ignora (característica de las funciones de sclang), tengo que ver cómo maneja los ids de los nodos por cliente.
         # // defaultGroup and defaultGroups depend on allocator,
         # // so always make them here:
         self._make_default_groups()
 
+    def _make_default_groups(self):
+        # // Keep defaultGroups for all clients on this server.
+        self._default_groups = [nod.Group.basic_new(
+            self, self._node_allocator.num_ids * client_id + 1
+        ) for client_id in range(self._status_watcher.max_logins)]
+        self._default_group = self._default_groups[self.client_id]
+
     def _new_bus_allocators(self):
         audio_bus_io_offset = self.options.first_private_bus()
-        num_ctrl_per_client = (self.options.control_buses //
-                               self._status_watcher.max_num_clients)
-        num_audio_per_client = ((self.options.audio_buses -
-                                audio_bus_io_offset) //
-                                self._status_watcher.max_num_clients)
+        num_ctrl_per_client = (
+            self.options.control_buses // self._status_watcher.max_logins)
+        num_audio_per_client = (
+            (self.options.audio_buses - audio_bus_io_offset) //
+            self._status_watcher.max_logins)
         ctrl_reserved_offset = self.options.reserved_control_buses
         ctrl_bus_client_offset = num_ctrl_per_client * self.client_id
         audio_reserved_offset = self.options.reserved_audio_buses
@@ -476,8 +455,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         )
 
     def _new_buffer_allocators(self):
-        num_buffers_per_client = (self.options.buffers //
-                                  self._status_watcher.max_num_clients)
+        num_buffers_per_client = (
+            self.options.buffers // self._status_watcher.max_logins)
         num_reserved_buffers = self.options.reserved_buffers
         buffer_client_offset = num_buffers_per_client * self.client_id
 
@@ -664,13 +643,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def cached_buffer_at(self, bufnum):
         return bff.Buffer.cached_buffer_at(self, bufnum)
 
-    def _make_default_groups(self):
-        # // Keep defaultGroups for all clients on this server.
-        self._default_groups = [nod.Group.basic_new(
-            self, self._node_allocator.num_ids * client_id + 1
-        ) for client_id in range(self._status_watcher.max_num_clients)]
-        self._default_group = self._default_groups[self.client_id]
-
     # default_group_id(self): use self.default_group.node_id
 
     def send_default_groups(self):
@@ -716,9 +688,13 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def has_shm_interface(self):
         ...
 
+    def register(self):
+        self._status_watcher.start_alive_thread()
 
-    def boot(self, on_complete=None, on_failure=None,
-             start_alive=True, recover=False):
+    def unregister(self):
+        self._status_watcher._unregister()
+
+    def boot(self, on_complete=None, on_failure=None, start_alive=True):
         if self._status_watcher.unresponsive:
             _logger.info(f"server '{self.name}' unresponsive, rebooting...")
             self.quit(watch_shutdown=False)
@@ -735,7 +711,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         def _on_complete(server):
             server._status_watcher.server_booting = False
-            server._boot_init(recover)
+            server._boot_init()
             fn.value(on_complete, server)
 
         def _on_failure(server):
@@ -758,13 +734,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
             stm.Routine.run(boot_task, clk.AppClock)
 
-    # // FIXME: recover should happen later, after we have a valid clientID!
-    # // would then need check whether maxLogins and clientID have changed or not,
-    # // and recover would only be possible if no changes.
-    def _boot_init(self, recover=False):
-        # // if(recover) { this.newNodeAllocators } {
-        # // 	"% calls newAllocators\n".postf(thisMethod);
-        # // this.newAllocators };
+    def _boot_init(self):
         if self.dump_mode != 0:
             self.send_msg('/dumpOSC', self.dump_mode)
         self.connect_shared_memory() # BUG: no está implementado
@@ -792,7 +762,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.pid = None
         self._pid_release_condition.signal()
         _logger.info(f"Server '{self.name}' exited with exit code {exit_code}.")
-        self._status_watcher.quit(watch_shutdown=False)  # *** NOTE: este quit se llama cuando termina el proceso y cuando se llama a server.quit.
+        self._status_watcher._quit(watch_shutdown=False)  # *** NOTE: este quit se llama cuando termina el proceso y cuando se llama a server.quit.
 
     def reboot(self, func=None, on_failure=None): # // func is evaluated when server is off
         if not self.is_local:
@@ -854,11 +824,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             watch_shutdown = False
 
         if self.options.protocol == 'tcp':
-            self._status_watcher.quit(
+            self._status_watcher._quit(
                 lambda: self.addr.try_disconnect_tcp(_on_complete, _on_failure),  # *** BUG: envuelvo las funciones que son para server y _status_watcher para pasar self, la implementación en sclang de try_disconnect_tcp le pasa addr a ambos incluso cuando a onComplete no se le pasa nada nunca y a onFailure se le pasa server *solo* en _status_watcher.
                 None, watch_shutdown)
         else:
-            self._status_watcher.quit(_on_complete, _on_failure, watch_shutdown)
+            self._status_watcher._quit(
+                _on_complete, _on_failure, watch_shutdown)
 
         if self.in_process:
             self.quit_in_process()  # *** BUG: no existe.

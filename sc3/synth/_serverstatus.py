@@ -23,9 +23,8 @@ class ServerStatusWatcher():
         self.server = server
 
         self.notified = False
-        self._notify = True # @property
 
-        self._max_num_clients = None
+        self._max_logins = None
 
         self._alive = False
         self._alive_thread = None
@@ -51,22 +50,9 @@ class ServerStatusWatcher():
         self._boot_actions = []
 
     @property
-    def notify(self):
-        return self._notify
-
-    @notify.setter
-    def notify(self, value):
-        self._notify = value
-        self._send_notify_request(value)
-
-    @property
-    def max_num_clients(self):
-        # *** BUG: this is still a hack, sclang implementation don't work for
-        # *** BUG: remote clients, is not possible to log out (I think), etc.
-        if self._max_num_clients is None:
-            return self.server.options.max_logins
-        else:
-            return self._max_num_clients
+    def max_logins(self):
+        # supernova doesn't return max_logins info.
+        return self._max_logins or self.server.options.max_logins
 
     @property
     def server_running(self):
@@ -141,7 +127,7 @@ class ServerStatusWatcher():
     def add_responder(self):
         if self._responder is None:
             def status_func(msg, *_):
-                if self.notify and not self.notified:
+                if not self.notified:
                     self._send_notify_request(True)
                 self._alive = True
                 cmd, one, self.num_ugens, self.num_synths, self.num_groups,\
@@ -165,21 +151,14 @@ class ServerStatusWatcher():
             self._responder.disable()
 
     def _send_notify_request(self, flag=True):
-        if not self.has_booted:
-            return
-
-        # // set up oscfuncs for possible server responses, \done or \failed
         def done(msg, *_):
-            new_client_id = msg[2] if len(msg) > 2 else None  # is None when done for flag False
-            new_max_logins = msg[3] if len(msg) > 3 else None  # supernova don't returns max logins
+            # Is None when /done for flag False.
+            new_client_id = msg[2] if len(msg) > 2 else None
+            # Supernova don't returns max logins.
+            new_max_logins = msg[3] if len(msg) > 3 else None
             fail_osc_func.free()
             if new_client_id is not None:
-                # // notify on: On registering scsynth sends back a free
-                # // clientID and maxLogins. This method doesn't fork/wait so
-                # // we're still in the clear. Turn notified off (if it was on)
-                # // to allow setting clientID.
-                self.notified = False
-                self._handle_login_info(new_client_id, new_max_logins)
+                self._handle_login_done(new_client_id, new_max_logins)
                 if self.server_booting:
                     self._finalize_boot_done()
                 else:
@@ -194,7 +173,7 @@ class ServerStatusWatcher():
 
         def fail(msg, *_):
             done_osc_func.free()
-            self._handle_notify_fail_string(msg[2], msg)
+            self._handle_login_fail(msg)
             self._finalize_boot_fail()
 
         fail_osc_func = rdf.OSCFunc(
@@ -205,99 +184,39 @@ class ServerStatusWatcher():
         self.server.send_msg('/notify', int(flag), self.server.client_id)
 
         if flag:
-            _logger.info("requested notification messages "
-                         f"from server '{self.server.name}'")
+            _logger.info(f"'{self.server.name}': requested registration id")
         else:
-            _logger.info("switched off notification messages "
-                         f"from server '{self.server.name}'")
+            _logger.info(f"'{self.server.name}': requested id unregistration")
 
-    def _handle_login_info(self, new_client_id=None, new_max_logins=None):
+    def _handle_login_done(self, new_client_id, new_max_logins):
         # // only set maxLogins if not internal server
-        if not self.server.in_process:
-            if new_max_logins is not None:
-                if new_max_logins != self.server.options.max_logins:
-                    _logger.info(
-                        f"'{self.server.name}' server process has max_logins "
-                        f"{new_max_logins} - adjusting options accordingly")
-                else:
-                    _logger.info(
-                        f"'{self.server.name}' server process's max_logins "
-                        f"({new_max_logins}) matches current options")
-                self.server.options.max_logins = new_max_logins
-                self._max_num_clients = new_max_logins
-            else:
-                _logger.info(
-                    f"'{self.server.name}' no max_logins "
-                    "info from server process")
-        if new_client_id is not None:
-            if new_client_id == self.server.client_id:
-                _logger.info(
-                    f"'{self.server.name}' keeping client_id "
-                    f"({new_client_id}) as confirmed by server process")
-            else:
-                _logger.info(
-                    f"'{self.server.name}' setting client_id to "
-                    f"{new_client_id}, as obtained from server process")
-            self.server.client_id = new_client_id
-
-    def _handle_already_registered_login(self, client_id_from_process):
-        # // This method attempts to recover from a loss of client-server
-        # // contact, which is a serious emergency in live shows. So it posts
-        # // a lot of info on the recovered state, and possibly helpful next
-        # // user actions.
+        if not self.server.in_process and new_max_logins is not None:
+            self._max_logins = new_max_logins
         _logger.info(
-            f"'{self.server.name}' handling login "
-            "request though already registered")
-        if client_id_from_process is None:
-            _logger.info(
-                f"'{self.server.name}' notify response did not contain "
-                "already-registered clientID from server process.")
-        elif client_id_from_process != self.server.client_id:
-            # // By default, only reset clientID if changed, to leave
-            # // allocators untouched. Make sure we can set the clientID,
-            # // and set it.
-            self.notified = False  # just for setting client_id restored below, looks hackie.
-            self.server.client_id = client_id_from_process
-            _logger.info(  # We need to talk about these messages.
-                'This seems to be a login after a crash, or from a new server '
-                'object, so you may want to release currently running synths '
-                'by hand with: server.default_group.release(). '
-                'And you may want to redo server boot finalization by hand:'
-                'server._status_watcher._finalize_boot()')
-        else:
-            # // Same clientID, so leave all server
-            # // resources in the state they were in!
-            _logger.info(
-                'This seems to be a login after a loss of network contact. '
-                'Reconnected with the same clientID as before, so probably all '
-                'is well.')
-        # // Ensure that statuswatcher is in the correct state immediately.
-        self.notified = True
-        self.unresponsive = False
-        mdl.NotificationCenter.notify(self.server, 'server_running')  # *** BUG: server envía la notificación server_running pero es propiedad de status.
+            f"'{self.server.name}': setting client_id to {new_client_id}")
+        self.server._set_client_id(new_client_id)
 
-    def _handle_notify_fail_string(self, fail_string, msg): # *** BUG: yo usé msg en vez de failstr arriba.
+    def _handle_login_fail(self, msg):
+        fail_string = msg[2]
         # // post info on some known error cases
         if 'already registered' in fail_string:
-            # // when already registered, msg[3] is the clientID by which
-            # // the requesting client was registered previously
             _logger.info(
-                f"'{self.server.name}' - already registered "
-                f"with client_id {msg[3]}")
-            self._handle_already_registered_login(msg[3])
+                f"'{self.server.name}': already registered, client_id {msg[3]}")
+            self._unregister()  # Needed to get max_logins from scsynth.
+            self.start_alive_thread()
+            return
         elif 'not registered' in fail_string:
             # // unregister when already not registered:
-            _logger.info(f"'{self.server.name}' - not registered")
-            self.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_responder y vuelve a crear los responders de booteo al llamar a _send_notify_request
+            _logger.info(f"'{self.server.name}': not registered")
         elif 'too many users' in fail_string:
             _logger.info(
-                f"'{self.server.name}' - could not register, too many users")
-            self.notified = False  # *** BUG: si no setea a True no se cumple la condición en la función osc de ServerStatusWatcher.add_responder y vuelve a crear los responders de booteo al llamar a _send_notify_request
+                f"'{self.server.name}': failed to register, too many users")
         else:
             # // throw error if unknown failure
-            raise Exception(
-                f"Failed to register with server '{self.server.name}' for "
-                f"notifications: {msg}. To recover, please reboot the server")
+            # raise Exception(  # gives an uncaught exception in a fork.
+            _logger.warning(f"'{self.server.name}': failed to register")
+        self.stop_alive_thread()
+        self.notified = False
 
     # // final actions needed to finish booting
     def _finalize_boot_done(self):
@@ -330,27 +249,27 @@ class ServerStatusWatcher():
             self._really_dead_count -= 1
             self.unresponsive = self._really_dead_count <= 0
 
-    def quit(self, on_complete=None, on_failure=False, watch_shutdown=True):
+    def _quit(self, on_complete=None, on_failure=False, watch_shutdown=True):
         if watch_shutdown:
-            self.watch_quit(on_complete, on_failure)
+            self._watch_quit(on_complete, on_failure)
         else:
             self.stop_responder()
             fn.value(on_complete, self.server)
         self.stop_alive_thread()
         self.server_running = False # usa @property
-        self.has_booted = False
+        # self.has_booted = False
         self.server_booting = False
         self.server_quiting = False
-        self._alive = False
+        # self._alive = False
         self.notified = False
         self._unresponsive = False
-        self._max_num_clients = None
+        self._max_logins = None
         # // server.changed(\serverRunning) should be deferred in dependants!
         # // just in case some don't, defer here to avoid gui updates breaking.
         clk.defer(lambda: mdl.NotificationCenter.notify(
             self.server, 'server_running'))
 
-    def watch_quit(self, on_complete=None, on_failure=None):
+    def _watch_quit(self, on_complete=None, on_failure=None):
         server_really_quit = False
 
         if self._responder is not None:
@@ -384,3 +303,20 @@ class ServerStatusWatcher():
                         fn.value(on_failure, self.server)
 
                 clk.AppClock.sched(3.0, quit_timeout_func)
+
+    def _unregister(self):
+        self.stop_alive_thread()
+        self._send_notify_request(False)
+        # Same as _quit
+        self.server_running = False # usa @property
+        # self.has_booted = False
+        # self.server_booting = False
+        # self.server_quiting = False
+        # self._alive = False
+        # self.notified = False
+        self._unresponsive = False
+        self._max_logins = None
+        # // server.changed(\serverRunning) should be deferred in dependants!
+        # // just in case some don't, defer here to avoid gui updates breaking.
+        clk.defer(lambda: mdl.NotificationCenter.notify(
+            self.server, 'server_running'))

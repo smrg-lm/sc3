@@ -16,7 +16,7 @@ class NodeIDAllocator():
             raise Exception("NodeIDAllocator user id > 31")
         self.user = user
         self._init_temp = init_temp
-        self.num_ids = 0x04000000 # // 2 ** 26 # // support 32 users
+        self.num_ids = (2 ** 32 // 2 - 1) // 64  # +int32, 64 logins safe range.
         self.reset()
 
     def id_offset(self):

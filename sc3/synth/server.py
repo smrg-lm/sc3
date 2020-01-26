@@ -306,9 +306,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._client_id = 0
         self._new_allocators()  # uses assumed id to work without booting.
 
-        self.volume = vlm.Volume(server=self, persist=True)
-        self.recorder = rcd.Recorder(server=self)
-        self.recorder.notify_server = True
+        self._volume = vlm.Volume(server=self, persist=True)
+        self._recorder = rcd.Recorder(server=self)
+        self._recorder.notify_server = True
 
         self.name = name # ahora si usa @property setter
         type(self).all.add(self)
@@ -378,6 +378,14 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # and to always use composition instead, e.g. addr, options, status,
         # volume, recorder, etc.
         return self._status_watcher
+
+    @property
+    def volume(self):
+        return self._volume
+
+    @property
+    def recorder(self):
+        return self._recorder
 
     # TODO: este método tal vez debería ir abajo de donde se llama por primera vez
     def init_tree(self):
@@ -838,7 +846,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _logger.info(f"'/quit' message sent to server '{self.name}'")
 
         # if(scopeWindow.notNil) { scopeWindow.quit }  # No GUI.
-        self.volume.free_synth()
+        self._volume.free_synth()
         nod.RootNode(self).free_all()
         self._new_allocators()
 

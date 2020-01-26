@@ -66,8 +66,8 @@ class ServerStatusWatcher():
             if not value:
                 sac.ServerQuit.run(self.server)
                 self.server.disconnect_shared_memory()
-                if self.server.recorder.is_recording():
-                    self.server.recorder.stop_recording()
+                if self.server._recorder.is_recording():
+                    self.server._recorder.stop_recording()
                 clk.defer(lambda: mdl.NotificationCenter.notify(
                     self.server, 'did_quit')) # BUG: ver comentario en sclang
                 if not self.server.is_local: # BUG: is_local es un atributo en server y un método en NetAddr

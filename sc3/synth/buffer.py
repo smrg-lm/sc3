@@ -110,7 +110,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     @classmethod
     def new_read(cls, server, path, start_frame=0, num_frames=-1,
-                 action=None, bufnum=None):
+                 bufnum=None, action=None):
         # // read whole file into memory for PlayBuf etc.
         # // Adds a query as a completion message.
         obj = cls(server, None, None, bufnum)
@@ -132,7 +132,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     @classmethod
     def new_read_channel(cls, server, path, start_frame=0, num_frames=-1,
-                         channels=None, action=None, bufnum=None):
+                         channels=None, bufnum=None, action=None):
         obj = cls(server, None, None, bufnum)
         obj._do_on_info = action
         # obj._cache() # NOTE: __init__ llama a _cache

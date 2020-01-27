@@ -621,30 +621,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.wait_for_boot(func)
         yield from condition.wait()
 
-    def ping(self, n=1, wait=0.1, func=None):
-        if not self._status_watcher.server_running:
-            _logger.info(f"server '{self.name}' not running")
-            return
-        result = 0
-
-        def task():
-            t = _libsc3.main.elapsed_time()
-            self.sync()
-            dt = _libsc3.main.elapsed_time() - t
-            _logger.info(f'measured latency: {dt}s')
-            result = max(result, dt)
-            n -= 1
-            if n > 0:
-                clk.SystemClock.sched(wait, lambda: ping_func())
-            else:
-                _logger.info(f"maximum determined latency of "
-                             f"server '{self.name}': {result}s")
-
-        def ping_func():
-            stm.Routine.run(task, clk.SystemClock)
-
-        ping_func()
-
     def cached_buffers_do(self, func):
         bff.Buffer.cached_buffers_do(self, func)
 

@@ -9,6 +9,7 @@ from ..base import model as mdl
 from ..base import systemactions as sac
 from ..base import responsedefs as rdf
 from ..base import functions as fn
+from ..base import main as _libsc3
 
 
 _logger = logging.getLogger(__name__)
@@ -320,3 +321,34 @@ class ServerStatusWatcher():
         # // just in case some don't, defer here to avoid gui updates breaking.
         clk.defer(lambda: mdl.NotificationCenter.notify(
             self.server, 'server_running'))
+
+
+    ### Utilities ###
+
+    def ping(self, n=1, wait=0.1, action=None):
+        if not self.server_running:
+            _logger.info(f"server '{self.server.name}' not running")
+            return
+
+        result = 0
+
+        def task():
+            nonlocal n, result
+            t = _libsc3.main.elapsed_time()
+            self.server.sync()
+            dt = _libsc3.main.elapsed_time() - t
+            _logger.info(f'measured latency: {dt}s')
+            result = max(result, dt)
+            n -= 1
+            if n > 0:
+                clk.SystemClock.sched(wait, lambda: ping_func())
+            else:
+                _logger.info(
+                    f"maximum determined latency of server "
+                    f"'{self.server.name}': {result} seconds")
+                fn.value(action, result)
+
+        def ping_func():
+            stm.Routine.run(task, clk.SystemClock)
+
+        ping_func()

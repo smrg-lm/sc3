@@ -678,7 +678,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def unregister(self):
         self._status_watcher._unregister()
 
-    def boot(self, on_complete=None, on_failure=None, start_alive=True):
+    def boot(self, on_complete=None, on_failure=None, register=True):
         if self._status_watcher.unresponsive:
             _logger.info(f"server '{self.name}' unresponsive, rebooting...")
             self.quit(watch_shutdown=False)
@@ -710,11 +710,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             def boot_task():
                 if self.pid is not None:  # NOTE: pid es el flag que dice si se está/estuvo ejecutando un server local o internal
                     yield from self._pid_release_condition.hang()  # NOTE: signal from _on_server_process_exit from _ServerProcess
-                if start_alive:
-                    self.boot_server_app(
-                        lambda: self._status_watcher.start_alive_thread())
-                else:
-                    self.boot_server_app()
+                self._boot_server_app()
+                if register:
+                    # Needs delay to avoid registering to another local server
+                    # from another client in case of address already in use.
+                    self._status_watcher.start_alive_thread(1)
 
             stm.Routine.run(boot_task, clk.AppClock)
 
@@ -723,7 +723,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             self.send_msg('/dumpOSC', self.dump_mode)
         self.connect_shared_memory() # BUG: no está implementado
 
-    def boot_server_app(self, on_complete=None):
+    def _boot_server_app(self):
         if self.in_process:
             _logger.info('booting internal server')
             self.boot_in_process()  # BUG: not implemented yet
@@ -737,10 +737,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _logger.info(f"booting server '{self.name}' on address "
                          f"{self.addr.hostname}:{self.addr.port}")
             if self.options.protocol == 'tcp':
-                print('*** implement tcp connections')
-                # self.addr.try_connect_tcp(on_complete)  # BUG: not implemented yet, on_complete would need a wrapper as in quit.
-            else:
-                fn.value(on_complete, self)
+                raise NotImplementedError('missing tcp implementation')
+                # self.addr.try_connect_tcp(on_complete, None, 20)  # BUG: not implemented yet
+                # on_complete was a callback with start_alive_thread(delay=0).
 
     def _on_server_process_exit(self, exit_code):
         self.pid = None

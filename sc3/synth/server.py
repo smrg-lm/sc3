@@ -392,11 +392,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         def init_task():
             self.send_default_groups()
             self.tree(self) # tree es un atributo de instancia que contiene una función
-            self.sync()
+            yield from self.sync()
             sac.ServerTree.run(self)
-            self.sync()
+            yield from self.sync()
 
-        clk.defer(init_task)
+        stm.Routine.run(init_task, clk.AppClock)
 
 
     ### Client ID  ##

@@ -122,7 +122,7 @@ class Volume():
                     ugns.XOut.ar(bus, env, input)
 
                 sdf.SynthDef(self._def_name, graph).send(self._server)
-                self._server.sync()
+                yield from self._server.sync()
                 sac.ServerTree.add(self._server, self.__on_server_tree, self)
 
             stm.Routine.run(send_synthdef, clk.TempoClock.default)

@@ -335,7 +335,7 @@ class ServerStatusWatcher():
         def task():
             nonlocal n, result
             t = _libsc3.main.elapsed_time()
-            self.server.sync()
+            yield from self.server.sync()
             dt = _libsc3.main.elapsed_time() - t
             _logger.info(f'measured latency: {dt}s')
             result = max(result, dt)

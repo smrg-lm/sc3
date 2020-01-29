@@ -315,9 +315,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         self.tree = lambda *args: None # TODO: ver dónde se inicializa (en la clase no lo hace), se usa en init_tree
 
-        self.sync_thread = None # solo getter en la declaración # se usa en sched_sync
-        self.sync_tasks = [] # solo getter en la declaración # se usa en sched_sync
-
         self.pid = None # iniicaliza al bootear, solo tiene getter en la declaración
         self._server_interface = None  # shm
         self._server_process = None  # _ServerProcess
@@ -390,7 +387,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     # TODO: este método tal vez debería ir abajo de donde se llama por primera vez
     def init_tree(self):
         def init_task():
-            self.send_default_groups()
+            self._send_default_groups()
             self.tree(self) # tree es un atributo de instancia que contiene una función
             yield from self.sync()
             sac.ServerTree.run(self)
@@ -400,9 +397,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
 
     ### Client ID  ##
-
-    # // clientID is settable while server is off, and locked while server is
-    # // running called from prHandleClientLoginInfoFromServer once after booting.
 
     @property
     def client_id(self):
@@ -421,7 +415,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._new_node_allocators()
         self._new_bus_allocators()
         self._new_buffer_allocators()
-        self._new_scope_buffer_allocators()
+        # self._new_scope_buffer_allocators()
         mdl.NotificationCenter.notify(self, '_new_allocators')
 
     def _new_node_allocators(self):
@@ -454,13 +448,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._control_bus_allocator = type(self)._bus_alloc_class(
             num_ctrl_per_client,
             ctrl_reserved_offset,
-            ctrl_bus_client_offset
-        )
+            ctrl_bus_client_offset)
+
         self._audio_bus_allocator = type(self)._bus_alloc_class(
             num_audio_per_client,
             audio_reserved_offset,
-            audio_bus_client_offset + audio_bus_io_offset
-        )
+            audio_bus_client_offset + audio_bus_io_offset)
 
     def _new_buffer_allocators(self):
         num_buffers_per_client = (
@@ -471,22 +464,24 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._buffer_allocator = type(self)._buffer_alloc_class(
             num_buffers_per_client,
             num_reserved_buffers,
-            buffer_client_offset
-        )
+            buffer_client_offset)
 
-    def _new_scope_buffer_allocators(self):
-        if self.is_local:
-            self._scope_buffer_allocator = eng.StackNumberAllocator(0, 127)
+    # shm for GUI.
+    # def _new_scope_buffer_allocators(self):
+    #     if self.is_local:
+    #         self._scope_buffer_allocator = eng.StackNumberAllocator(0, 127)
 
     def next_buffer_number(self, n):
         bufnum = self._buffer_allocator.alloc(n)
         if bufnum is None:
             if n > 1:
-                raise Exception(f'No block of {n} consecutive '
-                                'buffer numbers is available')
+                raise Exception(
+                    f'No block of {n} consecutive '
+                    'buffer numbers is available')
             else:
-                raise Exception('No more buffer numbers, free '
-                                'some buffers before allocating')
+                raise Exception(
+                    'No more buffer numbers, free '
+                    'some buffers before allocating')
         return bufnum
 
     def free_all_buffers(self):
@@ -495,7 +490,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             for i in range(block.address, block.address + block.size - 1):
                 bundle.append(['/b_free', i])
             self._buffer_allocator.free(block.address)
-        self.send_bundle(None, *bundle) # BUG: comprobar que esté en formato correcto para client.send_bundle
+        self.send_bundle(None, *bundle)
 
     def next_node_id(self):
         return self._node_allocator.alloc()
@@ -515,50 +510,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def send_bundle(self, time, *args):
         self.addr.send_bundle(time, *args)
 
-    # def send_raw(self, raw_bytes): # send a raw message without timestamp to the addr.
-    #    self.addr.send_raw(raw_bytes)
+    def sync(self, condition=None, bundle=None, latency=None):
+        yield from self.addr.sync(condition, bundle, latency)
 
-    def send_msg_sync(self, condition, *args): # este método no se usa en la libreríá de clases
-        condition = condition or stm.Condition()
-        cmd_name = str(args[0]) # BUG: TODO: el método reorder de abajo envía con send_msg y el número de mensaje como int, VER que hace sclang a bajo nivel, pero puede que esta conversión esté puesta para convertir símbolos a strings en sclang?
-        if cmd_name[0] != '/':
-            cmd_name = '/' + cmd_name # BUG: ver reorder abajo, ver por qué agrega la barra acá y no en otras partes.
-        args = list(args)
-        args[0] = cmd_name # BUG: esto no está en sclang, supongo que se encarga luego a bajo nivel.
-
-        def resp_func(msg, *_):
-            if str(msg[1]) == cmd_name:
-                resp.free()
-                condition.test = True
-                condition.signal()
-
-        resp = rdf.OSCFunc(resp_func, '/done', self.addr) # BUG: aún faltan implementar la clase OSCFuncAddrMessageMatcher que llama internamente el dispatcher
-        self.send_bundle(None, args)
-        yield from condition.wait()
-
-    def sync(self, condition=None, bundles=None, latency=None): # BUG: dice bundles, tengo que ver el nivel de anidamiento
-        yield from self.addr.sync(condition, bundles, latency)
-
-    # Este método no se usa en la libreríá de clases
-    # y no especifica cómo debería usarse la condición interna.
-    # BUG: El problema es que le crea dos atributos a Server.
-    # TODO: Probablemente se pueda borrar, ver.
-    def sched_sync(self, func):
-        self.sync_tasks.append(func) # NOTE: las func tienen que ser generadores que hagna yield form cond.wait()?
-        if self.sync_thread is None:
-            def sync_thread_rtn():
-                cond = stm.Condition()
-                while len(self.sync_tasks) > 0:
-                    yield from self.sync_tasks.pop(0)(cond) # BUG: no se si esto funcione así como así, sin más, por cond. Si el control vuelve a sync_thread_rtn nunc ase ejecuta el código en espera.
-                self.sync_thread = None
-            self.sync_thread = stm.Routine.run(sync_thread_rtn, clk.AppClock) # BUG:s en sclang usa TempoClock, ver arriba, acá deberíá pasar todos los AppClock a SystemClock (el reloj por defecto orginialmente de las rutinas).
-
-    # def list_send_msg(self, msg): # TODO: creo que es un método de conveniencia que genera confusión sobre la interfaz, acá msg es una lista no más.
-    #     ...
-    # def list_send_bundle(self, time, msgs):# TODO: creo que es un método de conveniencia que genera confusión sobre la interfaz, acá msgs es una lista no más.
-    #     ...
-
-    def reorder(self, node_list, target, add_action='addToHead'): # BUG: ver los comandos en notación camello, creo que el servidor los usa así, no se puede cambiar.
+    def reorder(self, node_list, target, add_action='addToHead'):
         target = gpp.node_param(target)._as_target()
         node_list = [x.node_id for x in node_list]
         self.send(
@@ -593,56 +548,20 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     # TODO...
 
 
-    ### Scheduling ###
-
-    def wait(self, response_name): # BUG: la implementación en sclang parece un bug, pero tendríá que ver cómo responde _RoutineResume y cómo se hace el reschedule.
-        cond = stm.Condition()
-
-        def resp_func(*_):
-            cond.test = True
-            cond.signal()
-
-        rdf.OSCFunc(resp_func, response_name, self.addr).one_shot()
-        yield from cond.wait()
-
-    # wait_for_boot, is the same as boot except no on_complete if running
-    # do_when_booted, is _status_watcher._add_boot_action
-    # if_running, No.
-    # if_not_running, No.
-
-    def boot_sync(self, condition=None):
-        condition = condition or stm.Condition()
-        condition.test = False
-
-        def func():
-            condition.test = True
-            condition.signal()
-
-        self.wait_for_boot(func)
-        yield from condition.wait()
-
-    def cached_buffers_do(self, func):
-        bff.Buffer.cached_buffers_do(self, func)
-
-    def cached_buffer_at(self, bufnum):
-        return bff.Buffer.cached_buffer_at(self, bufnum)
-
-    # default_group_id(self): use self.default_group.node_id
-
-    def send_default_groups(self):
+    def _send_default_groups(self):
         for group in self._default_groups:
             self.send_msg('/g_new', group.node_id, 0, 0)
 
-    def send_default_groups_for_client_ids(self, client_ids):
+    def _send_default_groups_for_client_ids(self, client_ids):  # unused
         for i in client_ids:
             group = self._default_groups[i]
             self.send_msg('/g_new', group.node_id, 0, 0)
 
-    def input_bus(self):
+    def input_bus(self):  # utility
         return bus.Bus('audio', self.options.output_channels,
                         self.options.input_channels, self)
 
-    def output_bus(self):
+    def output_bus(self):  # utility
         return bus.Bus('audio', 0, self.options.output_channels, self)
 
 
@@ -663,14 +582,17 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     ### Shared memory interface ###
 
-    def disconnect_shared_memory(self):
+    def _disconnect_shared_memory(self):
         ...
 
-    def connect_shared_memory(self):
+    def _connect_shared_memory(self):
         ...
 
-    def has_shm_interface(self):
+    def _has_shm_interface(self):
         ...
+
+
+    ### Boot and login ###
 
     def register(self):
         self._status_watcher.start_alive_thread()
@@ -721,7 +643,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def _boot_init(self):
         if self.dump_mode != 0:
             self.send_msg('/dumpOSC', self.dump_mode)
-        self.connect_shared_memory() # BUG: no está implementado
+        self._connect_shared_memory()  # BUG: not implemented yet
 
     def _boot_server_app(self):
         if self.in_process:
@@ -730,7 +652,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             self.pid = _libsc3.main.pid  # BUG: not implemented yet
             fn.value(on_complete, self)
         else:
-            self.disconnect_shared_memory()  # BUG: not implemented yet
+            self._disconnect_shared_memory()  # BUG: not implemented yet
             self._server_process = _ServerProcess(self._on_server_process_exit)
             self._server_process.run(self)
             self.pid = self._server_process.proc.pid

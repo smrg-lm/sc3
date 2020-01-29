@@ -66,7 +66,7 @@ class ServerStatusWatcher():
             self.has_booted = value
             if not value:
                 sac.ServerQuit.run(self.server)
-                self.server.disconnect_shared_memory()
+                self.server._disconnect_shared_memory()
                 if self.server._recorder.is_recording():
                     self.server._recorder.stop_recording()
                 clk.defer(lambda: mdl.NotificationCenter.notify(

@@ -872,7 +872,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     # TODO
 
     def query_all_nodes(self, query_controls=False, timeout=3):
-        if self.is_local:
+        if self.is_local and self._pid is not None:  # Also needs stdout access.
             self.send_msg('/g_dumpTree', 0, int(query_controls))
         else:
             done = False

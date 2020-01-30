@@ -30,6 +30,9 @@ from . import _graphparam as gpp
 from . import buffer as bff
 
 
+__all__ = ['s', 'Server', 'ServerOptions']
+
+
 _logger = _logging.getLogger(__name__)
 
 
@@ -240,6 +243,84 @@ class ServerShmInterface():
     def set_control_bus_values(self, *values): ... # primitiva # BUG: desconozco los parámetros.
 
 
+class ServerProcess():
+    def __init__(self, on_exit=None):
+        self.on_exit = on_exit or (lambda exit_code: None)
+        self.proc = None
+        self.timeout = 0.1
+
+    def run(self, server):
+        cmd = [server.options.program]
+        cmd.extend(server.options.options_list(server.addr.port))
+
+        self.proc = _subprocess.Popen(
+            cmd,  # TODO: maybe a method popen_cmd regarding server, options and platform.
+            stdout=_subprocess.PIPE,
+            stderr=_subprocess.PIPE,
+            bufsize=1,
+            universal_newlines=True)
+        self._redirect_outerr()
+
+        def popen_wait_thread():
+            self.proc.wait()
+            self._tflag.set()
+            # self._tout.join()
+            # self._terr.join()
+            _atexit.unregister(self._terminate_proc)
+            self.on_exit(self.proc.poll())
+
+        t = _threading.Thread(
+            target=popen_wait_thread,
+            name=f'{type(self).__name__}.popen_wait id: {id(self)}')
+        t.daemon = True
+        t.start()
+        _atexit.register(self._terminate_proc)
+
+    def running(self):
+        return self.proc.poll() is None
+
+    def finish(self):
+        self._terminate_proc()
+
+    def _terminate_proc(self):
+        def terminate_proc_thread():
+            try:
+                if self.running():
+                    self.proc.terminate()
+                    self.proc.wait(timeout=self.timeout)  # TODO: ver, llama a wait de nuevo desde otro hilo, popen_thread están en wait.
+            except _subprocess.TimeoutExpired:
+                self.proc.kill()
+                self.proc.communicate() # just to be polite
+
+        t = _threading.Thread(
+            target=terminate_proc_thread,
+            name=f'{type(self).__name__}.terminate id: {id(self)}')
+        t.daemon = True
+        t.start()
+
+    def _redirect_outerr(self):
+        def read(out, flag, logger):
+            while not flag.is_set() and self.running():  # BUG: is still a different thread.
+                line = out.readline()
+                if line:
+                    # print(line, end='')
+                    logger.info(line.rstrip())
+
+        def make_thread(out, flag, out_name):
+            logger = _logging.getLogger(f'SERVER.{out_name}')
+            t = _threading.Thread(
+                target=read,
+                name=f'{type(self).__name__}.{out_name} id: {id(self)}',
+                args=(out, flag, logger))
+            t.daemon = True
+            t.start()
+            return t
+
+        self._tflag = _threading.Event()
+        self._tout = make_thread(self.proc.stdout, self._tflag, 'stdout')
+        self._terr = make_thread(self.proc.stderr, self._tflag, 'stderr')
+
+
 class MetaServer(type):
     def __init__(cls, *_):
         cls.DEFAULT_ADDRESS = nad.NetAddr('127.0.0.1', 57110)
@@ -315,15 +396,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         self.tree = lambda *args: None # TODO: ver dónde se inicializa (en la clase no lo hace), se usa en init_tree
 
-        self.pid = None # iniicaliza al bootear, solo tiene getter en la declaración
-        self._server_interface = None  # shm
-        self._server_process = None  # _ServerProcess
-        self._pid_release_condition = stm.Condition(lambda: self.pid is None)
+        self._pid = None
+        self._shm_interface = None  # ServerShmInterface
+        self._server_process = None  # ServerProcess
+        self._pid_release_condition = stm.Condition(lambda: self._pid is None)
         mdl.NotificationCenter.notify(type(self), 'server_added', self)
-
-        # TODO: siempre revisar que no esté usando las de variables clase
-        # porque no va a funcionar con metaclass sin llamar a type(self).
-        # TODO: ver qué atributos no tienen setter y convertirlos en propiedad.
 
     def remove(self):
         type(self).all.remove(self)
@@ -384,16 +461,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def recorder(self):
         return self._recorder
 
-    # TODO: este método tal vez debería ir abajo de donde se llama por primera vez
-    def init_tree(self):
-        def init_task():
-            self._send_default_groups()
-            self.tree(self) # tree es un atributo de instancia que contiene una función
-            yield from self.sync()
-            sac.ServerTree.run(self)
-            yield from self.sync()
-
-        stm.Routine.run(init_task, clk.AppClock)
+    @property
+    def pid(self):
+        return self._pid
 
 
     ### Client ID  ##
@@ -510,16 +580,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def send_bundle(self, time, *args):
         self.addr.send_bundle(time, *args)
 
-    def sync(self, condition=None, bundle=None, latency=None):
-        yield from self.addr.sync(condition, bundle, latency)
-
-    def reorder(self, node_list, target, add_action='addToHead'):
-        target = gpp.node_param(target)._as_target()
-        node_list = [x.node_id for x in node_list]
-        self.send(
-            '/n_order', nod.Node.action_number_for(add_action), # 62
-            target.node_id, *node_list)
-
     def send_synthdef(self, name, dir=None):
         # // Load from disk locally, send remote.
         dir = dir or sdf.SynthDef.synthdef_dir
@@ -542,11 +602,45 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def load_directory(self, dir, completion_msg=None):
         self.send_msg('/d_loadDir', dir, fn.value(completion_msg, self))
 
+    def send_status_msg(self):
+        self.addr.send_status_msg()
+
+    def dump_osc(self, code=1):
+        # 0 - turn dumping OFF.
+        # 1 - print the parsed contents of the message.
+        # 2 - print the contents in hexadecimal.
+        # 3 - print both the parsed and hexadecimal representations of the contents.
+        self.dump_mode = code
+        self.send_msg('/dumpOSC', code)
+        mdl.NotificationCenter.notify(self, 'dump_osc', code)
+
+    def reorder(self, node_list, target, add_action='addToHead'):
+        target = gpp.node_param(target)._as_target()
+        node_list = [x.node_id for x in node_list]
+        self.send(
+            '/n_order', nod.Node.action_number_for(add_action), # 62
+            target.node_id, *node_list)
+
+    def sync(self, condition=None, bundle=None, latency=None):
+        yield from self.addr.sync(condition, bundle, latency)
+
 
     ### Network message bundling ###
 
     # TODO...
 
+
+    ### Default group ###
+
+    def init_tree(self):
+        def init_task():
+            self._send_default_groups()
+            self.tree(self) # tree es un atributo de instancia que contiene una función
+            yield from self.sync()
+            sac.ServerTree.run(self)
+            yield from self.sync()
+
+        stm.Routine.run(init_task, clk.AppClock)
 
     def _send_default_groups(self):
         for group in self._default_groups:
@@ -556,13 +650,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         for i in client_ids:
             group = self._default_groups[i]
             self.send_msg('/g_new', group.node_id, 0, 0)
-
-    def input_bus(self):  # utility
-        return bus.Bus('audio', self.options.output_channels,
-                        self.options.input_channels, self)
-
-    def output_bus(self):  # utility
-        return bus.Bus('audio', 0, self.options.output_channels, self)
 
 
     # These atributes are just a wrapper of ServerOptions, use s.options.
@@ -575,7 +662,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     ### Server status ###
 
     @classmethod
-    def resume_status_threads(cls):  # NOTE: for System Actions.
+    def _resume_status_threads(cls):  # NOTE: for System Actions.
         for server in cls.all:
             server._status_watcher.resume_alive_thread()
 
@@ -588,8 +675,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def _connect_shared_memory(self):
         ...
 
-    def _has_shm_interface(self):
-        ...
+    @property
+    def has_shm_interface(self):
+        return self._shm_interface is not None
 
 
     ### Boot and login ###
@@ -630,8 +718,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _logger.info(f"remote server '{self.name}' needs manual boot")
         else:
             def boot_task():
-                if self.pid is not None:  # NOTE: pid es el flag que dice si se está/estuvo ejecutando un server local o internal
-                    yield from self._pid_release_condition.hang()  # NOTE: signal from _on_server_process_exit from _ServerProcess
+                if self._pid is not None:  # NOTE: pid es el flag que dice si se está/estuvo ejecutando un server local o internal
+                    yield from self._pid_release_condition.hang()  # NOTE: signal from _on_server_process_exit from ServerProcess
                 self._boot_server_app()
                 if register:
                     # Needs delay to avoid registering to another local server
@@ -649,13 +737,13 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         if self.in_process:
             _logger.info('booting internal server')
             self.boot_in_process()  # BUG: not implemented yet
-            self.pid = _libsc3.main.pid  # BUG: not implemented yet
+            self._pid = _libsc3.main.pid  # BUG: not implemented yet
             fn.value(on_complete, self)
         else:
             self._disconnect_shared_memory()  # BUG: not implemented yet
-            self._server_process = _ServerProcess(self._on_server_process_exit)
+            self._server_process = ServerProcess(self._on_server_process_exit)
             self._server_process.run(self)
-            self.pid = self._server_process.proc.pid
+            self._pid = self._server_process.proc.pid
             _logger.info(f"booting server '{self.name}' on address "
                          f"{self.addr.hostname}:{self.addr.port}")
             if self.options.protocol == 'tcp':
@@ -664,7 +752,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 # on_complete was a callback with start_alive_thread(delay=0).
 
     def _on_server_process_exit(self, exit_code):
-        self.pid = None
+        self._pid = None
         self._pid_release_condition.signal()
         _logger.info(f"Server '{self.name}' exited with exit code {exit_code}.")
         self._status_watcher._quit(watch_shutdown=False)  # *** NOTE: este quit se llama cuando termina el proceso y cuando se llama a server.quit.
@@ -688,18 +776,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def application_running(self):  # *** TODO: este método se relaciona con server_running que es propiedad, ver
         return self._server_process.running()
-
-    def send_status_msg(self):
-        self.addr.send_status_msg()
-
-    def dump_osc(self, code=1):
-        # 0 - turn dumping OFF.
-        # 1 - print the parsed contents of the message.
-        # 2 - print the contents in hexadecimal.
-        # 3 - print both the parsed and hexadecimal representations of the contents.
-        self.dump_mode = code
-        self.send_msg('/dumpOSC', code)
-        mdl.NotificationCenter.notify(self, 'dump_osc', code)
 
     def quit(self, on_complete=None, on_failure=None, watch_shutdown=True):
         # if server is not running or is running but unresponsive.
@@ -786,13 +862,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 if server.is_local:
                     server.free_nodes()
 
-    @classmethod
-    def all_booted_servers(cls):
-        return set(s for s in cls.all if s._status_watcher.has_booted)
-
-    @classmethod
-    def all_running_servers(cls):
-        return set(s for s in cls.all if s._status_watcher.server_running)
 
     # L1203
     ### internal server commands ###
@@ -870,6 +939,13 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     # funciones set/getControlBug*
     # TODO
 
+    def input_bus(self):  # utility
+        return bus.Bus('audio', self.options.output_channels,
+                        self.options.input_channels, self)
+
+    def output_bus(self):  # utility
+        return bus.Bus('audio', 0, self.options.output_channels, self)
+
 
     ### Node parameter interface ###
 
@@ -880,81 +956,3 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     # def supernova(cls): No.
     # def from_name(cls): No.
     # def kill_all(cls): No.
-
-
-class _ServerProcess():
-    def __init__(self, on_exit=None):
-        self.on_exit = on_exit or (lambda exit_code: None)
-        self.proc = None
-        self.timeout = 0.1
-
-    def run(self, server):
-        cmd = [server.options.program]
-        cmd.extend(server.options.options_list(server.addr.port))
-
-        self.proc = _subprocess.Popen(
-            cmd,  # TODO: maybe a method popen_cmd regarding server, options and platform.
-            stdout=_subprocess.PIPE,
-            stderr=_subprocess.PIPE,
-            bufsize=1,
-            universal_newlines=True)
-        self._redirect_outerr()
-
-        def popen_wait_thread():
-            self.proc.wait()
-            self._tflag.set()
-            # self._tout.join()
-            # self._terr.join()
-            _atexit.unregister(self._terminate_proc)
-            self.on_exit(self.proc.poll())
-
-        t = _threading.Thread(
-            target=popen_wait_thread,
-            name=f'{type(self).__name__}.popen_wait id: {id(self)}')
-        t.daemon = True
-        t.start()
-        _atexit.register(self._terminate_proc)
-
-    def running(self):
-        return self.proc.poll() is None
-
-    def finish(self):
-        self._terminate_proc()
-
-    def _terminate_proc(self):
-        def terminate_proc_thread():
-            try:
-                if self.running():
-                    self.proc.terminate()
-                    self.proc.wait(timeout=self.timeout)  # TODO: ver, llama a wait de nuevo desde otro hilo, popen_thread están en wait.
-            except _subprocess.TimeoutExpired:
-                self.proc.kill()
-                self.proc.communicate() # just to be polite
-
-        t = _threading.Thread(
-            target=terminate_proc_thread,
-            name=f'{type(self).__name__}.terminate id: {id(self)}')
-        t.daemon = True
-        t.start()
-
-    def _redirect_outerr(self):
-        def read(out, flag, logger):
-            while not flag.is_set() and self.running():  # BUG: is still a different thread.
-                line = out.readline()
-                if line:
-                    # print(line, end='')
-                    logger.info(line.rstrip())
-
-        def make_thread(out, flag, out_name):
-            logger = _logging.getLogger(f'SERVER.{out_name}')
-            t = _threading.Thread(
-                target=read,
-                name=f'{type(self).__name__}.{out_name} id: {id(self)}',
-                args=(out, flag, logger))
-            t.daemon = True
-            t.start()
-            return t
-
-        self._tflag = _threading.Event()
-        self._tout = make_thread(self.proc.stdout, self._tflag, 'stdout')
-        self._terr = make_thread(self.proc.stderr, self._tflag, 'stderr')

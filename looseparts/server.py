@@ -84,3 +84,13 @@ class Server(...):
 
     def cached_buffer_at(self, bufnum):
         return bff.Buffer.cached_buffer_at(self, bufnum)
+
+    ...
+
+    @classmethod
+    def all_booted_servers(cls):
+        return set(s for s in cls.all if s._status_watcher.has_booted)
+
+    @classmethod
+    def all_running_servers(cls):
+        return set(s for s in cls.all if s._status_watcher.server_running)

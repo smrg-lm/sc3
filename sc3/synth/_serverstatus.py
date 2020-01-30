@@ -48,6 +48,7 @@ class ServerStatusWatcher():
         self.actual_sample_rate = None
 
         self._really_dead_count = 0
+        self._timeout = 3.0
         self._boot_actions = []
 
     @property
@@ -106,7 +107,18 @@ class ServerStatusWatcher():
                     self._alive = False
                     self.server.send_status_msg()
                     yield self._alive_thread_period
+                    self._update_running_state(self._alive)
+
             self._alive_thread = stm.Routine.run(alive_func, clk.AppClock)
+
+            def start_timeout_func():
+                if self._unresponsive:
+                    self.stop_alive_thread()
+                    _logger.warning(
+                        f"'{self.server.name}': registration "
+                        "failed, server unresponsive")
+
+            clk.AppClock.sched(delay + self._timeout, start_timeout_func)
 
     def stop_alive_thread(self):
         if self._responder is not None:
@@ -116,6 +128,8 @@ class ServerStatusWatcher():
             self._alive_thread.stop()
             self._alive_thread = None
         self._alive = False
+        self._unresponsive = False
+        self._really_dead_count = 0
         self._clear_state_data()
 
     def _clear_state_data(self):
@@ -269,7 +283,7 @@ class ServerStatusWatcher():
         self.server_quiting = False
         # self._alive = False
         self.notified = False
-        self._unresponsive = False
+        # self._unresponsive = False
         self._max_logins = None
         # // server.changed(\serverRunning) should be deferred in dependants!
         # // just in case some don't, defer here to avoid gui updates breaking.
@@ -297,11 +311,13 @@ class ServerStatusWatcher():
                 def quit_timeout_func():
                     if not server_really_quit:
                         if self.unresponsive:
-                            _logger.warning(f"Server '{self.server.name}' "
-                                            "remained unresponsive during quit")
+                            _logger.warning(
+                                f"Server '{self.server.name}' "
+                                "remained unresponsive during quit")
                         else:
-                            _logger.warning(f"Server '{self.server.name}' "
-                                            "failed to quit after 3.0 seconds")
+                            _logger.warning(
+                                f"Server '{self.server.name}' failed to"
+                                f"quit after {self._timeout} seconds")
                         # // don't accumulate quit-watchers
                         # // if /done doesn't come back
                         quit_watcher.free()
@@ -309,7 +325,7 @@ class ServerStatusWatcher():
                             self._responder.disable()
                         fn.value(on_failure, self.server)
 
-                clk.AppClock.sched(3.0, quit_timeout_func)
+                clk.AppClock.sched(self._timeout, quit_timeout_func)
 
     def _unregister(self):
         self.stop_alive_thread()
@@ -321,7 +337,7 @@ class ServerStatusWatcher():
         # self.server_quiting = False
         # self._alive = False
         # self.notified = False
-        self._unresponsive = False
+        # self._unresponsive = False
         self._max_logins = None
         # // server.changed(\serverRunning) should be deferred in dependants!
         # // just in case some don't, defer here to avoid gui updates breaking.

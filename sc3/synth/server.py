@@ -133,7 +133,7 @@ class ServerOptions():
         self.reserved_buffers = 0  # not used, really.
         self.initial_node_id = 1000
         # self.remote_control_volume = False  # ServerPlusGui makeGui, no GUI.
-        self.pings_before_considered_dead = 5
+        self.pings_before_dead = 5
         self.rec_header_format = 'aiff'
         self.rec_sample_format = 'float'
         self.rec_channels = 2

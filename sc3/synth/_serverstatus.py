@@ -116,6 +116,12 @@ class ServerStatusWatcher():
             self._alive_thread.stop()
             self._alive_thread = None
         self._alive = False
+        self._clear_state_data()
+
+    def _clear_state_data(self):
+        self.num_ugens = self.num_synths = self.num_groups =\
+        self.num_synthdefs = self.avg_cpu = self.peak_cpu =\
+        self.sample_rate = self.actual_sample_rate = None
 
     def resume_alive_thread(self):
         if self._alive_thread is not None:
@@ -244,7 +250,7 @@ class ServerStatusWatcher():
         elif running:
             self.server_running = True
             self.unresponsive = False
-            self._really_dead_count = self.server.options.pings_before_considered_dead
+            self._really_dead_count = self.server.options.pings_before_dead
         else:
             # // parrot
             self._really_dead_count -= 1

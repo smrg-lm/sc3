@@ -384,8 +384,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._status_watcher = sst.ServerStatusWatcher(server=self)
         self._node_watcher = ndw.NodeWatcher(server=self)
 
-        self._client_id = 0
-        self._new_allocators()  # uses assumed id to work without booting.
+        self._set_client_id(0)  # Assumed id to work without booting.
 
         self._volume = vlm.Volume(server=self, persist=True)
         self._recorder = rcd.Recorder(server=self)
@@ -825,7 +824,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # if(scopeWindow.notNil) { scopeWindow.quit }  # No GUI.
         self._volume.free_synth()
         nod.RootNode(self).free_all()
-        self._new_allocators()
+        self._set_client_id(0)
 
     @classmethod
     def quit_all(cls, watch_shutdown=True):

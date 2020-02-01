@@ -360,9 +360,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def __init__(self, name, addr, options=None):
         super(gpp.NodeParameter, self).__init__(self)  # *** BUG: VER AHORA: ESTO SE SOLUCIONA CON __INIT_SUBCLASS__ HOOCK? (NO TENER QUE PONER EN CADA UNA)
 
-        # // set name to get readable posts from client_id set
-        self._name = name # no usa @property setter
-        self.addr = addr # @property setter
+        self.addr = addr  # @property setter
+        self._set_name(name)  # Raises ValueException if duplicated.
+        type(self).all.add(self)
 
         # self.is_local # inicializa con el setter de addr
         # self.in_process # inicializa con el setter de addr
@@ -391,9 +391,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._recorder = rcd.Recorder(server=self)
         self._recorder.notify_server = True
 
-        self.name = name # ahora si usa @property setter
-        type(self).all.add(self)
-
         self.tree = lambda *args: None # TODO: ver dónde se inicializa (en la clase no lo hace), se usa en init_tree
 
         self._pid = None
@@ -412,6 +409,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @addr.setter
     def addr(self, value):
+        if any(s.addr == value for s in type(self).all):
+            raise ValueError(f'{value} already in use by other server')
         self._addr = value
         self.in_process = self._addr.addr == 0
         self.is_local = self.in_process or self._addr.is_local()
@@ -421,14 +420,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def name(self):
         return self._name
 
-    @name.setter
-    def name(self, value):
-        self._name = value
+    def _set_name(self, value):
+        # Name can be set only at creation time.
         if value in type(self).named:
-            _logger.warning(f"server name '{value}' already "  # BUG: in sclang, two params to format
-                            "exists, please use a unique name")  # TODO: why not an exception?
-        else:
-            type(self).named[value] = self
+            raise ValueError(f"server name '{value}' already exists")
+        self._name = value
+        type(self).named[value] = self
 
     @property
     def default_group(self):

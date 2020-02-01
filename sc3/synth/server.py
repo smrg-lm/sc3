@@ -681,9 +681,16 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def register(self):
         self._status_watcher.start_alive_thread()
+        _atexit.register(self._unregister_atexit)
 
     def unregister(self):
         self._status_watcher._unregister()
+        _atexit.unregister(self._unregister_atexit)
+
+    def _unregister_atexit(self):
+        if self._status_watcher.server_running:
+            self.send_msg('/notify', 0, self.client_id)
+            _logger.info(f"server '{self.name}' requested id unregistration")
 
     def boot(self, on_complete=None, on_failure=None, register=True):
         if self._status_watcher.unresponsive:
@@ -751,7 +758,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def _on_server_process_exit(self, exit_code):
         self._pid = None
         self._pid_release_condition.signal()
-        _logger.info(f"Server '{self.name}' exited with exit code {exit_code}.")
+        _logger.info(f"server '{self.name}' exited with exit code {exit_code}")
         self._status_watcher._quit(watch_shutdown=False)  # *** NOTE: este quit se llama cuando termina el proceso y cuando se llama a server.quit.
 
     def reboot(self, func=None, on_failure=None): # // func is evaluated when server is off

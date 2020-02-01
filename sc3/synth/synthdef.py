@@ -467,7 +467,8 @@ class SynthDef(metaclass=MetaSynthDef):
     def add(self, libname=None, completion_msg=None, keep_def=True):
         self.as_synthdesc(libname or 'default', keep_def)  # This call adds synthdesc to the lib as side effect which is the intended effect here.
         if libname is None:
-            servers = srv.Server.all_booted_servers()
+            servers = set(
+                s for s in srv.Server.all if s._status_watcher.has_booted)
         else:
             servers = sdc.SynthDescLib.get_lib(libname).servers
         for server in servers:
@@ -642,7 +643,11 @@ class SynthDef(metaclass=MetaSynthDef):
 
     # // Only send to servers.
     def send(self, server=None, completion_msg=None):
-        servers = utl.as_list(server or srv.Server.all_booted_servers())
+        if server is None:
+            servers = list(
+                s for s in srv.Server.all if s._status_watcher.has_booted)
+        else:
+            servers = utl.as_list(server)
         for server in servers:
             if not server._status_watcher.has_booted:
                 _logger.warning(

@@ -124,12 +124,13 @@ class Node(gpp.NodeParameter):
         return ['/n_mapn', self.node_id]\
             + gpp.node_param(args)._as_control_input() # 48
 
-    def set(self, *args):
+    def set(self, **kwargs):  # *** NOTE: TEST
+        import itertools
+        kwargs = list(itertools.chain(*kwargs.items()))
         self.server.send_msg(
             '/n_set', # 15
             self.node_id,
-            *gpp.node_param(args)._as_osc_arg_list()
-        )
+            *gpp.node_param(kwargs)._as_osc_arg_list())
 
     def set_msg(self, *args):
         return ['/n_set', self.node_id]\

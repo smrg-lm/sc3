@@ -5,6 +5,7 @@ import logging
 import io
 import struct
 import pathlib
+import itertools
 
 from ..base import utils as utl
 from ..base import platform as plf
@@ -16,6 +17,7 @@ from . import server as srv
 from . import synthdesc as sdc
 from .ugens import inout as scio
 from .ugens import fftunpacking as ffu
+from . import node as nod
 
 
 _logger = logging.getLogger(__name__)
@@ -740,6 +742,11 @@ class SynthDef(metaclass=MetaSynthDef):
     # creation (e.g. in {}.play) with *wrapOut in Function-asSynthDef.
     # hasGateControl Used in canReleaseSynth.
 
+    def __call__(self, *, target=None, add_action='addToHead',
+                 register=False, **kwargs):  # *** NOTE: TEST
+        args = list(itertools.chain(*kwargs.items()))
+        return nod.Synth(self.name, args, target, add_action, register)
+
 
 # decorator syntax
 class synthdef():
@@ -758,29 +765,32 @@ class synthdef():
     def synth2():
         pass
 
-    @synthdef.add()
+    @synthdef.add(
+        libname='',
+        completion_msg=[],
+        keep_def=bool)
     def synth3():
         pass
     '''
 
-    def __new__(cls, graph_func):
-        return SynthDef(graph_func.__name__, graph_func)
+    def __new__(cls, graph_func):  # *** NOTE: TEST
+        sdef = SynthDef(graph_func.__name__, graph_func)
+        sdef.add()
+        return sdef
 
     @staticmethod
     def params(rates=None, prepend_args=None, variants=None, metadata=None):
         def make_def(graph_func):
-            return SynthDef(graph_func.__name__, graph_func,
-                            rates, prepend_args, variants, metadata)
+            return SynthDef(
+                graph_func.__name__, graph_func, rates,
+                prepend_args, variants, metadata)
         return make_def
 
     @staticmethod
-    def add(libname=None, completion_msg=None, keep_def=True):
-        '''Es atajo solo para add, la SynthDef se construye con los parametros
-        por defecto, el caso más simple, si se quieren más parámetros no tiene
-        sentido agregar todo acá, se crea con params y luego se llama a add.
-        De lo contrario el atajo termina siendo más largo y menos claro.'''
+    def add(libname=None, completion_msg=None, keep_def=True):  # *** NOTE: TEST
+        # Same as __new__ with parameters.
         def make_def(graph_func):
-            sdef = synthdef(graph_func)
+            sdef = SynthDef(graph_func.__name__, graph_func)
             sdef.add(libname, completion_msg, keep_def)
             return sdef
         return make_def

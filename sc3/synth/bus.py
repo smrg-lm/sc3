@@ -58,7 +58,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
     @classmethod
     def control(cls, server=None, num_channels=1):
         server = server or srv.Server.default
-        alloc = server.control_bus_allocator.alloc(num_channels)
+        alloc = server._control_bus_allocator.alloc(num_channels)
         if alloc is None:
             raise BusException(
                 'failed to get a control bus allocated, '
@@ -68,7 +68,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
     @classmethod
     def audio(cls, server=None, num_channels=1):
         server = server or srv.Server.default
-        alloc = server.audio_bus_allocator.alloc(num_channels)
+        alloc = server._audio_bus_allocator.alloc(num_channels)
         if alloc is None:
             raise BusException(
                 'failed to get a audio bus allocated, '
@@ -240,9 +240,9 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
             _logger.warning('bus has already been freed')
             return
         if self._rate == 'audio':
-            self._server.audio_bus_allocator.free(self._index)
+            self._server._audio_bus_allocator.free(self._index)
         else:
-            self._server.control_bus_allocator.free(self._index)
+            self._server._control_bus_allocator.free(self._index)
             if clear:
                 self.fill(0, self._num_channels)
         self._index = None
@@ -256,10 +256,10 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         if self._index is None:
             raise BusAlreadyFreed('alloc_bus')
         if self._rate == 'audio':
-            self._index = self._server.audio_bus_allocator.alloc(
+            self._index = self._server._audio_bus_allocator.alloc(
                 self._num_channels)
         else:
-            self._index = self._server.control_bus_allocator.alloc(
+            self._index = self._server._control_bus_allocator.alloc(
                 self._num_channels)
         self._map_symbol = None
 

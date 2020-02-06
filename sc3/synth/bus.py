@@ -91,8 +91,10 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         if self._index is None:
             raise BusAlreadyFreed('set')
         elif self.settable():
+            msg = ['/c_set']
             values = [[self._index + i, val] for i, val in enumerate(values)]
-            self._server.send_bundle(None, ['/c_set'].extend(utl.flat(values)))
+            msg.extend(utl.flat(values))
+            self._server.send_bundle(None, msg)
         else:
             _logger.warning('audio rate buses cannot be set')
 
@@ -100,8 +102,10 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         if self._index is None:
             raise BusAlreadyFreed('set_msg')
         elif self.settable():
+            msg = ['/c_set']
             values = [[self._index + i, val] for i, val in enumerate(values)]
-            return ['/c_set'].extend(utl.flat(values))
+            msg.extend(utl.flat(values))
+            return msg
         else:
             raise BusException('audio rate buses cannot be set')
 
@@ -109,8 +113,9 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         if self._index is None:
             raise BusAlreadyFreed('setn')
         elif self.settable():
-            self._server.send_bundle(
-                None, ['/c_setn', len(values)].extend(values))
+            msg = ['/c_setn', self._index, len(values)]
+            msg.extend(values)
+            self._server.send_bundle(None, msg)
         else:
             _logger.warning('audio rate buses cannot be set')
 
@@ -118,7 +123,9 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         if self._index is None:
             raise BusAlreadyFreed('setn_msg')
         elif self.settable():
-            return ['/c_setn', len(values)].extend(values)
+            msg = ['/c_setn', self._index, len(values)]
+            msg.extend(values)
+            return msg
         else:
             raise BusException('audio rate buses cannot be set')
 
@@ -126,9 +133,11 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         if self._index is None:
             raise BusAlreadyFreed('set_at')
         elif self.settable():
+            msg = ['/c_set']
             values = [[self._index + offset + i, val]\
                       for i, val in enumerate(values)]
-            self._server.send_bundle(None, ['/c_set'].extend(utl.flat(values)))
+            msg.extend(utl.flat(values))
+            self._server.send_bundle(None, msg)
         else:
             _logger.warning('audio rate buses cannot be set')
 
@@ -137,8 +146,9 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
             raise BusAlreadyFreed('setn_at')
         # // could throw an error if values.size > numChannels
         elif self.settable():
-            self._server.send_bundle(None,
-                ['/c_setn', self._index + offset, len(values)].extend(values))
+            msg = ['/c_setn', self._index + offset, len(values)]
+            msg.extend(values)
+            self._server.send_bundle(None, msg)
         else:
             _logger.warning('audio rate buses cannot be set')
 
@@ -146,9 +156,11 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         if self._index is None:
             raise BusAlreadyFreed('set_pairs')
         elif self.settable():
+            msg = ['/c_set']
             pairs = [[self._index + pair[0], pair[1]]\
                      for pair in utl.gen_cclumps(pairs, 2)]
-            self._server.send_bundle(None, ['/c_set'].extend(utl.flat(paris)))
+            msg.extend(utl.flat(pairs))
+            self._server.send_bundle(None, msg)
         else:
             _logger.warning('audio rate buses cannot be set')
 

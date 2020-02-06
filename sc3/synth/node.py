@@ -5,8 +5,9 @@ import logging
 from ..base import utils as utl
 from ..base import responsedefs as rdf
 from ..base import functions as fn
-from ..seq import stream as stm
 from ..base import model as mdl
+from ..seq import stream as stm
+from ..seq import clock as clk
 from . import server as srv
 from . import synthdesc as sdc
 from . import _graphparam as gpp
@@ -383,8 +384,66 @@ class AbstractGroup(Node):
     def dump_tree(self, post_controls=False):
         self.server.send_msg('/g_dumpTree', self.node_id, int(post_controls))
 
-    def query_tree(self):
-        raise Exception('implementar AbstractGroup:query_tree con OSCFunc y SystemClock')  # *** BUG
+    def query_tree(self, query_controls=False, timeout=3):
+        done = False
+
+        def resp_func(msg, *_):
+            i = 2
+            tabs = 0
+            if msg[1] != 0:
+                print_controls = True
+            else:
+                print_controls = False
+            outstr = f'NODE TREE Group {msg[2]}\n'
+            if msg[3] > 0:
+                def dump_func(num_children):
+                    nonlocal i, tabs, outstr
+                    tabs += 1
+                    for _ in range(num_children):
+                        if msg[i + 1] >= 0:
+                            i += 2
+                        else:
+                            if print_controls:
+                                i += msg[i + 3] * 2 + 1
+                            i += 3
+                        outstr += '   ' * tabs + f'{msg[i]}' # // nodeID
+                        if msg[i + 1] >= 0:
+                            outstr += ' group\n'
+                            if msg[i + 1] > 0:
+                                dump_func(msg[i + 1])
+                        else:
+                            outstr += f' {msg[i + 2]}\n' # // defname
+                            if print_controls:
+                                if msg[i + 3] > 0:
+                                    outstr += ' ' + '   ' * tabs
+                                j = 0
+                                for _ in range(msg[i + 3]):
+                                    outstr += ' '
+                                    if type(msg[i + 4 + j]) is str:
+                                        outstr += f'{msg[i + 4 + j]}: '
+                                    outstr += f'{msg[i + 5 + j]}'
+                                    j += 2
+                                outstr += '\n'
+                    tabs -= 1
+
+                dump_func(msg[3])
+
+            print(outstr)
+            nonlocal done
+            done = True
+
+        resp = rdf.OSCFunc(resp_func, '/g_queryTree.reply', self.server.addr)
+        resp.one_shot()
+
+        def timeout_func():
+            if not done:
+                resp.free()
+                _logger.warning(
+                    f"server '{self.server.name}' failed to respond "
+                    f"to '/g_queryTree' after {timeout} seconds")
+
+        self.server.send_msg('/g_queryTree', self.node_id, int(query_controls))
+        clk.SystemClock.sched(timeout, timeout_func)
 
     @staticmethod
     def creation_cmd():
@@ -593,13 +652,33 @@ class Synth(Node):
                 node_to_replace.node_id, *gpp.node_param(args)._as_osc_arg_list()] # 9
 
     def get(self, index, action):
-        raise Exception('implementar Synth:get con OSCFunc') # BUG
+        def resp_func(msg, *_):
+            # // The server replies with a message of the
+			# // form: [/n_set, node ID, index, value].
+			# // We want 'value' which is at index 3.
+            fn.value(action, msg[3])
+
+        rdf.OSCFunc(
+            resp_func, '/n_set', self.server.addr,
+            arg_template=[self.node_id, index]).one_shot()
+
+        self.server.send_msg('/s_get', self.node_id, index)  # 44
 
     def get_msg(self, index):
         return ['/s_get', self.node_id, index] # 44
 
     def getn(self, index, count, action):
-        raise Exception('implementar Synth:getn con OSCFunc') # BUG
+        def resp_func(msg, *_):
+            # // The server replies with a message of the form
+			# // [/n_setn, node ID, index, count, *values].
+			# // We want '*values' which are at indexes 4 and above.
+            fn.value(action, msg[4:])
+
+        rdf.OSCFunc(
+            resp_func, '/n_setn', self.server.addr,
+            arg_template=[self.node_id, index]).one_shot()
+
+        self.server.send_msg('/s_getn', self.node_id, index)  # 45
 
     def getn_msg(self, index, count):
         return ['/s_getn', self.node_id, index, count] # 45

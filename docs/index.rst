@@ -72,7 +72,7 @@ etc., it should be the same result. For example::
 		n.set('amp', 0.05)
 		n.set('freq', 220)
 
-		s.query_all_nodes(True)
+		s.query_tree(True)
 
 		n.release()
 		# s.free_all()  # if something went wrong free all nodes.

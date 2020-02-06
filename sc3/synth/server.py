@@ -874,69 +874,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     # /* CmdPeriod support for Server-scope and Server-record and Server-volume */
     # TODO
 
-    def query_all_nodes(self, query_controls=False, timeout=3):
+    def query_tree(self, query_controls=False, timeout=3):
         if self.is_local and self._pid is not None:  # Also needs stdout access.
-            self.send_msg('/g_dumpTree', 0, int(query_controls))
+            nod.RootNode(self).dump_tree(query_controls)
         else:
-            done = False
-
-            def resp_func(msg, *_):
-                i = 2
-                tabs = 0
-                if msg[1] != 0:
-                    print_controls = True
-                else:
-                    print_controls = False
-                outstr = f'NODE TREE Group {msg[2]}\n'
-                if msg[3] > 0:
-                    def dump_func(num_children):
-                        nonlocal i, tabs, outstr
-                        tabs += 1
-                        for _ in range(num_children):
-                            if msg[i + 1] >= 0:
-                                i += 2
-                            else:
-                                if print_controls:
-                                    i += msg[i + 3] * 2 + 1
-                                i += 3
-                            outstr += '   ' * tabs + f'{msg[i]}' # // nodeID
-                            if msg[i + 1] >= 0:
-                                outstr += ' group\n'
-                                if msg[i + 1] > 0:
-                                    dump_func(msg[i + 1])
-                            else:
-                                outstr += f' {msg[i + 2]}\n' # // defname
-                                if print_controls:
-                                    if msg[i + 3] > 0:
-                                        outstr += ' ' + '   ' * tabs
-                                    j = 0
-                                    for _ in range(msg[i + 3]):
-                                        outstr += ' '
-                                        if type(msg[i + 4 + j]) is str:
-                                            outstr += f'{msg[i + 4 + j]}: '
-                                        outstr += f'{msg[i + 5 + j]}'
-                                        j += 2
-                                    outstr += '\n'
-                        tabs -= 1
-
-                    dump_func(msg[3])
-
-                print(outstr)
-                nonlocal done
-                done = True
-
-            resp = rdf.OSCFunc(resp_func, '/g_queryTree.reply', self.addr)
-            resp.one_shot()
-
-            def timeout_func():
-                if not done:
-                    resp.free()
-                    _logger.warning(f"remote server '{self.name}' failed "
-                                    "to respond to '/g_queryTree' after "
-                                    f"{timeout} seconds")
-
-            self.send_msg('/g_queryTree', 0, int(query_controls))
-            clk.SystemClock.sched(timeout, timeout_func)
+            nod.RootNode(self).query_tree(query_controls, timeout)
 
     # L1315
     # funciones set/getControlBug*

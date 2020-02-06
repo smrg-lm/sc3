@@ -91,7 +91,8 @@ class Node(gpp.NodeParameter):
         ar_values = []
         result = []
         for control, bus in utl.gen_cclumps(args, 2):
-            bus = xxx.as_bus(bus) # BUG usa asBus que se implementa en Bus, Integer, Nil y Server.
+            # No as_bus cast, Bus object is required for all
+            # rate cases because the method joins /m_mapan.
             if bus.rate == 'control':
                 kr_values.extend([
                     gpp.node_param(control)._as_control_input(),
@@ -100,7 +101,7 @@ class Node(gpp.NodeParameter):
                 ])
             elif bus.rate == 'audio':
                 ar_values.extend([
-                    gpp.node_param(control)._as_control_input(),  # BUG: no entiendo porque tiene que ser un símbolo, de los contrario el mensaje no sería válido si un bus devuelve un entero por ejemplo?
+                    gpp.node_param(control)._as_control_input(),
                     bus.index,
                     bus.num_channels
                 ])

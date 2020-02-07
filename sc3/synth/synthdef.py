@@ -29,7 +29,12 @@ class MetaSynthDef(type):
 
         def init_func(cls):
             cls.synthdef_dir = plf.Platform.synthdef_dir
-            cls.synthdef_dir.mkdir(exist_ok=True) # // Ensure exists
+            # // Ensure exists.
+            if not plf.Platform.support_dir.exists():
+                _logger.info(
+                    'creating Platform.support_dir '
+                    f'at {plf.Platform.support_dir}')
+            cls.synthdef_dir.mkdir(parents=True, exist_ok=True)
 
         utl.ClassLibrary.add(cls, init_func)
 

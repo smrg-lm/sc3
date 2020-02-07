@@ -184,7 +184,8 @@ class Node(gpp.NodeParameter):
 
     def query(self, action=None):
         if action is None:
-            def action(cmd, node_id, parent, prev, next, is_group, head, tail):
+            def action(cmd, node_id, parent, prev, next,
+                       is_group, head=None, tail=None):
                 group = is_group == 1
                 node_type = 'Group' if group else 'Synth'
                 msg = (f'{node_type}: {node_id}'

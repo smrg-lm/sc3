@@ -404,7 +404,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             _logger.warning(
                 'cannot call free_msg on a Buffer that has been freed')
         self._uncache()
-        self._server.buffer_allocator.free(self._bufnum)
+        self._server._buffer_allocator.free(self._bufnum)
         msg = ['/b_free', self._bufnum, fn.value(completion_msg, self)]
         self._bufnum = self._num_frames = self._num_channels = None
         self._sample_rate = self._path = self._start_frame = None

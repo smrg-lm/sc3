@@ -3,6 +3,7 @@
 import inspect
 import enum
 import random
+import logging
 
 from ..base import main as _libsc3
 from ..base import functions as fn
@@ -10,6 +11,9 @@ from ..base import model as mdl
 from ..base import systemactions as sac
 from . import clock as clk
 from . import event as evt
+
+
+_logger = logging.getLogger(__name__)
 
 
 class StopStream(StopIteration):
@@ -555,7 +559,7 @@ class PauseStream(Stream):
 
     def play(self, clock=None, reset=False, quant=None):
         if self._stream is not None:
-            print('already playing')
+            _logger.info('already playing')
             return self # NOTE: sclang retorna self porque los Patterns devuelven la Routine que genéra este método.
         if reset:
             self.reset()
@@ -803,7 +807,7 @@ class EventStreamPlayer(PauseStream):
 
     def play(self, clock=None, reset=False, quant=None):
         if self._stream is not None:
-            print('already playing')
+            _logger.info('already playing')
             return self
         if reset:
             self.reset()

@@ -260,7 +260,8 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         self._beats = beats
         self._seconds = self.clock.beats2secs(beats)
 
-    def playing(self): # BUG: era is_playing, está pitonizado
+    @property
+    def is_playing(self):
         return self.state == self.State.Suspended
 
     @property
@@ -548,7 +549,8 @@ class PauseStream(Stream):
         self.waiting = False # NOTE: era isWaiting, así es más pytónico.
         self.era = 0
 
-    def playing(self): # NOTE: era isPlaying, así es más pytónico.
+    @property
+    def is_playing(self):
         return self._stream is not None
 
     def play(self, clock=None, reset=False, quant=None):

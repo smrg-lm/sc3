@@ -93,7 +93,7 @@ class Recorder():
                     'recording was prepared already with a different '
                     f'path: {self.path}, tried with this path: {path}')
 
-            if not self.is_recording():
+            if not self.is_recording:
                 self._record(self._bus, node, duration)
                 self._changed_server('recording', True)
                 _logger.info(
@@ -108,7 +108,7 @@ class Recorder():
 
     def record_bus(self, bus, duration=None, path=None,
                    num_channels=None, node=None):
-        if self.is_recording():
+        if self.is_recording:
             _logger.warning(
                 f'already recording from bus {self._bus} '
                 f'({self._duration} seconds)')
@@ -118,6 +118,7 @@ class Recorder():
             n = min(num_channels, n)
         self.record(path, bus.index, n, node, duration)
 
+    @property
     def is_recording(self):
         if self._record_node is None:
             return False
@@ -131,7 +132,7 @@ class Recorder():
             return self._record_buf.num_frames
 
     def pause_recording(self):
-        if self.is_recording():
+        if self.is_recording:
             self._record_node.run(False)
             self._changed_server('pause_recording')
             _logger.info(f'recording paused: {self._path}')
@@ -140,7 +141,7 @@ class Recorder():
         self._paused = True
 
     def resume_recording(self):
-        if self.is_recording():
+        if self.is_recording:
             if self._paused:
                 self._record_node.run(True)
                 self._changed_server('recording', True)

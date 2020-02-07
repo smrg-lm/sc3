@@ -72,6 +72,7 @@ class NetAddr():
                 return True
         return False
 
+    @property
     def is_local(self):
         return self.match_lang_ip(self._hostname) # BUG? no sé por qué sclang calcula hostname con addr.asIPString que lo que hace es volver a hostsname...
 

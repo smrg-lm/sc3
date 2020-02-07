@@ -81,7 +81,7 @@ class NodeWatcher():
     def unregister(self, node):
         self._nodes.pop(node.node_id, None)
 
-    def registered(self, node):  # Was node_is_playing, no setter (no sense).
+    def registered(self, node):  # Was node_is_playing, better not to use is_*.
         return node.node_id in self._nodes
 
     def _clear(self):

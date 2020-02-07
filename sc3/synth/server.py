@@ -412,7 +412,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             raise ValueError(f'{value} already in use by other server')
         self._addr = value
         self.in_process = self._addr.addr == 0
-        self.is_local = self.in_process or self._addr.is_local()
+        self.is_local = self.in_process or self._addr.is_local
         self.remote_controlled = not self.is_local
 
     @property

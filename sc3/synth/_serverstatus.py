@@ -68,7 +68,7 @@ class ServerStatusWatcher():
             if not value:
                 sac.ServerQuit.run(self.server)
                 self.server._disconnect_shared_memory()
-                if self.server._recorder.is_recording():
+                if self.server._recorder.is_recording:
                     self.server._recorder.stop_recording()
                 clk.defer(lambda: mdl.NotificationCenter.notify(
                     self.server, 'did_quit')) # BUG: ver comentario en sclang
@@ -143,7 +143,7 @@ class ServerStatusWatcher():
             self.start_alive_thread()
 
     def alive_thread_running(self):
-        return self._alive_thread is not None and self._alive_thread.playing()
+        return self._alive_thread is not None and self._alive_thread.is_playing
 
     def add_responder(self):
         if self._responder is None:

@@ -759,7 +759,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def _quit_atexit(self):
         if self._status_watcher.server_running:
-            self.quit()
+            event = _threading.Event()
+            set_func = lambda: event.set()
+            self.quit(set_func, set_func)
+            event.wait()  # _MainThread, set_func runs in AppClock thread.
 
     def reboot(self, func=None, on_failure=None): # // func is evaluated when server is off
         if not self.is_local:

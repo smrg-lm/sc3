@@ -69,7 +69,7 @@ class ServerStatusWatcher():
                 sac.ServerQuit.run(self.server)
                 self.server._disconnect_shared_memory()
                 if self.server._recorder.is_recording:
-                    self.server._recorder.stop_recording()
+                    self.server._recorder.stop()
                 clk.defer(lambda: mdl.NotificationCenter.notify(
                     self.server, 'did_quit')) # BUG: ver comentario en sclang
                 if not self.server.is_local:

@@ -78,7 +78,7 @@ class Recorder():
 
         if self._record_buf is None:
             def record_setup():
-                self.prepare_for_record(path, num_channels)
+                self.prepare(path, num_channels)
                 yield from self._server.sync()
                 self.record(path, self._bus, num_channels, node, duration)
             stm.Routine.run(record_setup, clk.TempoClock.default)
@@ -101,7 +101,7 @@ class Recorder():
                     f"bus {self._bus} on path: '{self._path}'")
             else:
                 if self._paused:
-                    self.resume_recording()
+                    self.resume()
                 else:
                     _logger.warning(
                         f'recording already ({self._duration} seconds)')
@@ -131,16 +131,16 @@ class Recorder():
         else:
             return self._record_buf.num_frames
 
-    def pause_recording(self):
+    def pause(self):
         if self.is_recording:
             self._record_node.run(False)
-            self._changed_server('pause_recording')
+            self._changed_server('pause')
             _logger.info(f'recording paused: {self._path}')
         else:
             _logger.warning('not recording')
         self._paused = True
 
-    def resume_recording(self):
+    def resume(self):
         if self.is_recording:
             if self._paused:
                 self._record_node.run(True)
@@ -150,14 +150,14 @@ class Recorder():
             _logger.warning('not recording')
         self._paused = False
 
-    def stop_recording(self):
+    def stop(self):
         if self._synthdef is not None:
-            self._stop_record()
+            self._stop()
             self._changed_server('recording', False)
         else:
             _logger.warning('not recording')
 
-    def prepare_for_record(self, path=None, num_channels=None):
+    def prepare(self, path=None, num_channels=None):
         if self.rec_buf_size is None:
             if self._server.options.rec_buf_size is None:
                 n = self._server._status_watcher.sample_rate
@@ -209,7 +209,7 @@ class Recorder():
             node or 0, self._synthdef.name,
             ['input', bus, 'bufnum', self._record_buf, 'duration', dur])
         self._record_node.register(True)
-        self._record_node.on_free(lambda: self.stop_recording())
+        self._record_node.on_free(lambda: self.stop())
 
         if self._responder is None:
             def resp_recording_func(msg, *_):
@@ -221,7 +221,7 @@ class Recorder():
         else:
             self._responder.enable()
 
-    def _stop_record(self):
+    def _stop(self):
         if self._record_node.is_playing:
             self._record_node.unregister()
             self._record_node.free()

@@ -266,7 +266,6 @@ class ServerProcess():
             self._tflag.set()
             # self._tout.join()
             # self._terr.join()
-            _atexit.unregister(self._terminate_proc)
             self.on_exit(self.proc.poll())
 
         t = _threading.Thread(
@@ -274,15 +273,11 @@ class ServerProcess():
             name=f'{type(self).__name__}.popen_wait id: {id(self)}')
         t.daemon = True
         t.start()
-        _atexit.register(self._terminate_proc)
 
     def running(self):
         return self.proc.poll() is None
 
     def finish(self):
-        self._terminate_proc()
-
-    def _terminate_proc(self):
         def terminate_proc_thread():
             try:
                 if self.running():
@@ -710,6 +705,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             server._status_watcher.server_booting = False
             server._boot_init()
             fn.value(on_complete, server)
+            _atexit.register(self._quit_atexit)
 
         def _on_failure(server):
             server._status_watcher.server_booting = False
@@ -741,14 +737,15 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _logger.info('booting internal server')
             self.boot_in_process()  # BUG: not implemented yet
             self._pid = _libsc3.main.pid  # BUG: not implemented yet
-            fn.value(on_complete, self)
+            # fn.value(on_complete, self)  # See else below.
         else:
             self._disconnect_shared_memory()  # BUG: not implemented yet
             self._server_process = ServerProcess(self._on_server_process_exit)
             self._server_process.run(self)
             self._pid = self._server_process.proc.pid
-            _logger.info(f"booting server '{self.name}' on address "
-                         f"{self.addr.hostname}:{self.addr.port}")
+            _logger.info(
+                f"booting server '{self.name}' on address "
+                f"{self.addr.hostname}:{self.addr.port}")
             if self.options.protocol == 'tcp':
                 raise NotImplementedError('missing tcp implementation')
                 # self.addr.try_connect_tcp(on_complete, None, 20)  # BUG: not implemented yet
@@ -759,6 +756,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._pid_release_condition.signal()
         _logger.info(f"server '{self.name}' exited with exit code {exit_code}")
         self._status_watcher._quit(watch_shutdown=False)  # *** NOTE: este quit se llama cuando termina el proceso y cuando se llama a server.quit.
+
+    def _quit_atexit(self):
+        if self._status_watcher.server_running:
+            self.quit()
 
     def reboot(self, func=None, on_failure=None): # // func is evaluated when server is off
         if not self.is_local:
@@ -797,10 +798,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         def _on_complete():
             self._status_watcher.server_quiting = False
             fn.value(on_complete, self)  # *** BUG: try_disconnect_tcp
+            _atexit.unregister(self._quit_atexit)
 
         def _on_failure():
             self._status_watcher.server_quiting = False
             fn.value(on_failure, self)  # *** BUG: try_disconnect_tcp
+            _atexit.unregister(self._quit_atexit)
 
         if watch_shutdown and self._status_watcher.unresponsive:
             _logger.info(

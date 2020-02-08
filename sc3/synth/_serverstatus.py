@@ -72,7 +72,7 @@ class ServerStatusWatcher():
                     self.server._recorder.stop_recording()
                 clk.defer(lambda: mdl.NotificationCenter.notify(
                     self.server, 'did_quit')) # BUG: ver comentario en sclang
-                if not self.server.is_local: # BUG: is_local es un atributo en server y un método en NetAddr
+                if not self.server.is_local:
                     self.notified = False
 
     @property

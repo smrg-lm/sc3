@@ -230,7 +230,7 @@ class Recorder():
         self._synthdef = None
         if self._record_buf is not None:
             self._record_buf.close(lambda buf: buf.free_msg())
-            _logger.info(f'recording stoped: {pathlib.Path(self._path).name}')
+            _logger.info(f'recording stopped: {pathlib.Path(self._path).name}')
             self._record_buf = None
         self._bus = None
         self._num_channels = None

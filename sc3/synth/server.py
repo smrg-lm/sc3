@@ -695,20 +695,20 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _logger.info(f"server '{self.name}' already running")
             return
 
-        if self._status_watcher.server_booting:
+        if self._status_watcher._server_booting:
             _logger.info(f"server '{self.name}' already booting")
             return
 
-        self._status_watcher.server_booting = True
+        self._status_watcher._server_booting = True
 
         def _on_complete(server):
-            server._status_watcher.server_booting = False
+            server._status_watcher._server_booting = False
             server._boot_init()
             fn.value(on_complete, server)
             _atexit.register(self._quit_atexit)
 
         def _on_failure(server):
-            server._status_watcher.server_booting = False
+            server._status_watcher._server_booting = False
             fn.value(on_failure, server)
 
         self._status_watcher._add_boot_action(_on_complete, _on_failure)
@@ -786,7 +786,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 func()
             self.boot(on_failure=on_failure)
 
-    def application_running(self):  # *** TODO: este método se relaciona con server_running que es propiedad, ver
+    @property
+    def application_running(self):
         return self._server_process.running()
 
     def quit(self, on_complete=None, on_failure=None, watch_shutdown=True):
@@ -796,19 +797,19 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _logger.info(f'server {self.name} is not running')
             return
 
-        if self._status_watcher.server_quitting:
+        if self._status_watcher._server_quitting:
             _logger.info(f"server '{self.name}' already quitting")
             return
 
-        self._status_watcher.server_quitting = True
+        self._status_watcher._server_quitting = True
 
         def _on_complete():
-            self._status_watcher.server_quitting = False
+            self._status_watcher._server_quitting = False
             _atexit.unregister(self._quit_atexit)
             fn.value(on_complete, self)  # *** BUG: try_disconnect_tcp
 
         def _on_failure():
-            self._status_watcher.server_quitting = False
+            self._status_watcher._server_quitting = False
             _atexit.unregister(self._quit_atexit)
             fn.value(on_failure, self)  # *** BUG: try_disconnect_tcp
 

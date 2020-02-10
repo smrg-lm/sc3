@@ -33,8 +33,8 @@ class ServerStatusWatcher():
         self._responder = None
 
         self.has_booted = False
-        self.server_booting = False
-        self.server_quitting = False
+        self._server_booting = False
+        self._server_quitting = False
         self._unresponsive = False
 
         self.num_ugens = 0
@@ -98,7 +98,7 @@ class ServerStatusWatcher():
             fn.value(getattr(ba, action_name), self.server)
 
     def start_alive_thread(self, delay=0.0):
-        self.add_responder()
+        self._add_responder()
         if self._alive_thread is None:
             def alive_func():
                 # // this thread polls the server to see if it is alive
@@ -142,10 +142,11 @@ class ServerStatusWatcher():
             self.stop_alive_thread()
             self.start_alive_thread()
 
+    @property
     def alive_thread_running(self):
         return self._alive_thread is not None and self._alive_thread.is_playing
 
-    def add_responder(self):
+    def _add_responder(self):
         if self._responder is None:
             def status_func(msg, *_):
                 if not self.notified:
@@ -167,7 +168,7 @@ class ServerStatusWatcher():
         else:
             self._responder.enable()
 
-    def stop_responder(self):
+    def _stop_responder(self):
         if self._responder is not None:
             self._responder.disable()
 
@@ -180,7 +181,7 @@ class ServerStatusWatcher():
             fail_osc_func.free()
             if new_client_id is not None:
                 self._handle_login_done(new_client_id, new_max_logins)
-                if self.server_booting:
+                if self._server_booting:
                     self._finalize_boot_done()
                 else:
                     self.notified = True
@@ -274,12 +275,12 @@ class ServerStatusWatcher():
         if watch_shutdown:
             self._watch_quit(on_complete, on_failure)
         else:
-            self.stop_responder()
+            self._stop_responder()
             fn.value(on_complete, self.server)
         self.stop_alive_thread()
         # Only changes flags affected when quitting.
         self.server_running = False # usa @property
-        self.server_quitting = False
+        self._server_quitting = False
         self.notified = False
         self._max_logins = None
         # // server.changed(\serverRunning) should be deferred in dependants!

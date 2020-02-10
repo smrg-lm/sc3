@@ -717,8 +717,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _logger.info(f"remote server '{self.name}' needs manual boot")
         else:
             def boot_task():
-                if self._pid is not None:  # NOTE: pid es el flag que dice si se está/estuvo ejecutando un server local o internal
-                    yield from self._pid_release_condition.hang()  # NOTE: signal from _on_server_process_exit from ServerProcess
+                # Server can be quitting and booting at the same time, e.g.
+                # rebooting, pid release blocks boot until quit is completed.
+                if self._pid is not None:  # Is or was running.
+                    yield from self._pid_release_condition.hang()
                 self._boot_server_app()
                 if register:
                     # Needs delay to avoid registering to another local server
@@ -752,10 +754,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 # on_complete was a callback with start_alive_thread(delay=0).
 
     def _on_server_process_exit(self, exit_code):
+        # This method is called after quit or crash.
         self._pid = None
         self._pid_release_condition.signal()
         _logger.info(f"server '{self.name}' exited with exit code {exit_code}")
-        self._status_watcher._quit(watch_shutdown=False)  # *** NOTE: este quit se llama cuando termina el proceso y cuando se llama a server.quit.
+        if self._status_watcher.server_running:  # In case of server crash.
+            self._status_watcher._quit(watch_shutdown=False)
 
     def _quit_atexit(self):
         if self._status_watcher.server_running:
@@ -764,18 +768,19 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             self.quit(set_func, set_func)
             event.wait()  # _MainThread, set_func runs in AppClock thread.
 
-    def reboot(self, func=None, on_failure=None): # // func is evaluated when server is off
+    def reboot(self, func=None, on_failure=None):
+        # // func is evaluated when server is off.
         if not self.is_local:
             _logger.info("can't reboot a remote server")
             return
 
         if self._status_watcher.server_running\
         and not self._status_watcher.unresponsive:
-            def _():
+            def _on_complete():
                 if func is not None:
                     func()
-                clk.defer(lambda: self.boot())
-            self.quit(_, on_failure)
+                self.boot()
+            self.quit(_on_complete, on_failure)
         else:
             if func is not None:
                 func()
@@ -791,22 +796,21 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _logger.info(f'server {self.name} is not running')
             return
 
-        if self._status_watcher.server_quiting:
-            _logger.info(f"server '{self.name}' already quiting")
+        if self._status_watcher.server_quitting:
+            _logger.info(f"server '{self.name}' already quitting")
             return
 
-        self._status_watcher.server_quiting = True
-        self.addr.send_msg('/quit')
+        self._status_watcher.server_quitting = True
 
         def _on_complete():
-            self._status_watcher.server_quiting = False
-            fn.value(on_complete, self)  # *** BUG: try_disconnect_tcp
+            self._status_watcher.server_quitting = False
             _atexit.unregister(self._quit_atexit)
+            fn.value(on_complete, self)  # *** BUG: try_disconnect_tcp
 
         def _on_failure():
-            self._status_watcher.server_quiting = False
-            fn.value(on_failure, self)  # *** BUG: try_disconnect_tcp
+            self._status_watcher.server_quitting = False
             _atexit.unregister(self._quit_atexit)
+            fn.value(on_failure, self)  # *** BUG: try_disconnect_tcp
 
         if watch_shutdown and self._status_watcher.unresponsive:
             _logger.info(
@@ -820,6 +824,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         else:
             self._status_watcher._quit(
                 _on_complete, _on_failure, watch_shutdown)
+
+        self.addr.send_msg('/quit')  # Send quit after responders are in place.
 
         if self.in_process:
             self.quit_in_process()  # *** BUG: no existe.

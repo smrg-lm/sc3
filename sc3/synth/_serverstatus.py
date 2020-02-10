@@ -34,7 +34,7 @@ class ServerStatusWatcher():
 
         self.has_booted = False
         self.server_booting = False
-        self.server_quiting = False
+        self.server_quitting = False
         self._unresponsive = False
 
         self.num_ugens = 0
@@ -277,13 +277,10 @@ class ServerStatusWatcher():
             self.stop_responder()
             fn.value(on_complete, self.server)
         self.stop_alive_thread()
+        # Only changes flags affected when quitting.
         self.server_running = False # usa @property
-        # self.has_booted = False
-        self.server_booting = False
-        self.server_quiting = False
-        # self._alive = False
+        self.server_quitting = False
         self.notified = False
-        # self._unresponsive = False
         self._max_logins = None
         # // server.changed(\serverRunning) should be deferred in dependants!
         # // just in case some don't, defer here to avoid gui updates breaking.
@@ -330,14 +327,8 @@ class ServerStatusWatcher():
     def _unregister(self):
         self.stop_alive_thread()
         self._send_notify_request(False)
-        # Same as _quit
+        # Same as _quit, only unregistration flags change.
         self.server_running = False # usa @property
-        # self.has_booted = False
-        # self.server_booting = False
-        # self.server_quiting = False
-        # self._alive = False
-        # self.notified = False
-        # self._unresponsive = False
         self._max_logins = None
         # // server.changed(\serverRunning) should be deferred in dependants!
         # // just in case some don't, defer here to avoid gui updates breaking.

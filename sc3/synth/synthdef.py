@@ -399,7 +399,8 @@ class SynthDef(metaclass=MetaSynthDef):
                 # err = ugen.class.asString + err;
                 # err.postln;
                 # ugen.dump_args
-                if first_err is None: first_err = err
+                if first_err is None:
+                    first_err = ugen.name + ' ' + err
         if first_err:
             #"SynthDef % build failed".format(this.name).postln;
             raise ValueError(first_err)

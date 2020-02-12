@@ -52,7 +52,7 @@ class LinLin():  # Pseudo UGen.
         return input * scale + offset
 
     @classmethod
-    def _method_selector_for_rate(cls, rate):
+    def _method_selector_for_rate(cls, rate):  # FIXME: API, same in SelectX
         if rate == 'audio':
             return 'ar'
         elif rate == 'control':

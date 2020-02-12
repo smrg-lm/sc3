@@ -4,6 +4,7 @@ from ...base import builtins as bi
 from .. import ugen as ugn
 from .. import _graphparam as gpp
 from . import noise as nse
+from . import pan
 
 
 # *** TODO: Break it all now that is possible:
@@ -220,11 +221,11 @@ class DegreeToKey(ugn.PureUGen):
 class Select(ugn.PureUGen):
     @classmethod
     def ar(cls, which, lst):
-        cls._multi_new('audio', which, *lst)
+        return cls._multi_new('audio', which, *lst)
 
     @classmethod
     def kr(cls, which, lst):
-        cls._multi_new('control', which, *lst)
+        return cls._multi_new('control', which, *lst)
 
     def _check_inputs(self):
         if self.rate == 'audio':
@@ -234,47 +235,54 @@ class Select(ugn.PureUGen):
         return self._check_valid_inputs()
 
 
-# Pseudo UGens don't return instances of itself but of another class subclass
+# Pseudo UGens don't return instances of themselves but of another subclass
 # of UGen, ChannelList or (maybe) optimizations (UGenParameter scalar types).
 
 class SelectX():  # Pseudo UGen.
     @classmethod
-    def _new1(cls, rate, which, lst):
-        selector = ugn.UGen._method_selector_for_rate(rate)
+    def _new1(cls, rate, which, lst, wrap):  # wrap was never implemented (needs to be a proper UGen)
+        selector = cls._method_selector_for_rate(rate)
         return getattr(cls._crossfade_class(), selector)(
             getattr(Select, selector)(bi.round(which, 2), lst),
-            getattr(Select, selector)(bi.trunc(which, 2), lst),
-            bi.fold2(which * 2 - 1, 1)
-        )
+            getattr(Select, selector)(bi.trunc(which, 2) + 1, lst),
+            bi.fold2(which * 2 - 1, 1))
 
     @classmethod
     def ar(cls, which, lst, wrap=1):
-        return cls._new1('audio', which, lst, wrap)  # wrap was never implemented (needs to be a proper UGen)
+        return cls._new1('audio', which, lst, wrap)
 
     @classmethod
     def kr(cls, which, lst, wrap=1):
         return cls._new1('control', which, lst, wrap)
 
     @classmethod
+    def _method_selector_for_rate(cls, rate):  # FIXME: API, same in LinLin
+        if rate == 'audio':
+            return 'ar'
+        elif rate == 'control':
+            return 'kr'
+        raise AttributeError(f'{cls.__name__} has no {rate} rate constructor')
+
+    @classmethod
     def _crossfade_class(cls):
-        return xxx.XFade2
+        return pan.XFade2
 
 
 class LinSelectX(SelectX):  # Pseudo UGen.
     @classmethod
     def _crossfade_class(cls):
-        return xxx.LinXFade2
+        return pan.LinXFade2
 
 
 class SelectXFocus():  # Pseudo UGen.
     @classmethod
     def new(cls, which, lst, focus=1, wrap=False):
         if wrap:
-            return xxx.Mix.new(
+            return ugn.Mix.new(
                 [bi.max(1 - (bi.moddif(which, i, len(lst)) * focus), 0) * input
                  for i, input in enumerate(lst)])
         else:
-            return xxx.Mix.new(
+            return ugn.Mix.new(
                 [bi.max(1 - (bi.absdif(which, i) * focus), 0) * input
                  for i, input in enumerate(lst)])
 

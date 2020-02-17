@@ -755,8 +755,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._pid = None
         self._pid_release_condition.signal()
         _logger.info(f"server '{self.name}' exited with exit code {exit_code}")
-        if self._status_watcher.server_running:  # In case of server crash.
-            self._status_watcher._quit(watch_shutdown=False)
+        # In case of server crash or Exception in World_OpenUDP: bind: Address
+        # already in use, status_watcher should stop to avoid registering to
+        # another local server. See note in boot(). There sould be a better
+        # option for the second case to avoid delay which is arbitrary.
+        self._status_watcher._quit(watch_shutdown=False)
 
     def _quit_atexit(self):
         if self._status_watcher.server_running:

@@ -318,9 +318,8 @@ class ServerProcess():
 
 class MetaServer(type):
     def __init__(cls, *_):
-        cls.DEFAULT_ADDRESS = nad.NetAddr('127.0.0.1', 57110)
-
         def init_func(cls):
+            cls.DEFAULT_ADDRESS = nad.NetAddr('127.0.0.1', 57110)
             cls.named = dict()
             cls.all = set()
             cls.sync_s = True
@@ -749,9 +748,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 f"booting server '{self.name}' on address "
                 f"{self.addr.hostname}:{self.addr.port}")
             if self.options.protocol == 'tcp':
-                raise NotImplementedError('missing tcp implementation')
-                # self.addr.try_connect_tcp(on_complete, None, 20)  # BUG: not implemented yet
-                # on_complete was a callback with start_alive_thread(delay=0).
+                self.addr.connect()
 
     def _on_server_process_exit(self, exit_code):
         # This method is called after quit or crash.
@@ -766,7 +763,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             event = _threading.Event()
             set_func = lambda: event.set()
             self.quit(set_func, set_func)
-            event.wait()  # _MainThread, set_func runs in AppClock thread.
+            event.wait(0.2)  # _MainThread, set_func runs in AppClock thread.
+            # *** BUG: PUEDE NO DESBLOQUEAR SI APPCLOCK DAEMON SE LIBERA ANTES.
+            # *** BUG: VER SI SE PUEDE AJUSTAR EL ORDEN EN VEZ DE USAR TIMEOUT.
 
     def reboot(self, func=None, on_failure=None):
         # // func is evaluated when server is off.
@@ -804,28 +803,25 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._status_watcher._server_quitting = True
 
         def _on_complete():
+            if self.addr.proto == 'tcp':
+                self.addr.disconnect()
             self._status_watcher._server_quitting = False
             _atexit.unregister(self._quit_atexit)
-            fn.value(on_complete, self)  # *** BUG: try_disconnect_tcp
+            fn.value(on_complete, self)
 
         def _on_failure():
+            if self.addr.proto == 'tcp':
+                self.addr.disconnect()
             self._status_watcher._server_quitting = False
             _atexit.unregister(self._quit_atexit)
-            fn.value(on_failure, self)  # *** BUG: try_disconnect_tcp
+            fn.value(on_failure, self)
 
         if watch_shutdown and self._status_watcher.unresponsive:
             _logger.info(
                 f"server '{self.name}' was unresponsive, quitting anyway")
             watch_shutdown = False
 
-        if self.options.protocol == 'tcp':
-            self._status_watcher._quit(
-                lambda: self.addr.try_disconnect_tcp(_on_complete, _on_failure),  # *** BUG: envuelvo las funciones que son para server y _status_watcher para pasar self, la implementación en sclang de try_disconnect_tcp le pasa addr a ambos incluso cuando a onComplete no se le pasa nada nunca y a onFailure se le pasa server *solo* en _status_watcher.
-                None, watch_shutdown)
-        else:
-            self._status_watcher._quit(
-                _on_complete, _on_failure, watch_shutdown)
-
+        self._status_watcher._quit(_on_complete, _on_failure, watch_shutdown)
         self.addr.send_msg('/quit')  # Send quit after responders are in place.
 
         if self.in_process:

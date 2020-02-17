@@ -58,7 +58,7 @@ class Process(type):
         cls._rt_time_of_initialization = time.time()  # time_since_epoch
         cls._rt_perf_counter_time_of_initialization = time.perf_counter()  # monotonic clock.
         cls._create_main_thread('rt')
-        cls._osc_interface = osci.OscInteface()
+        cls._osc_interface = osci.OscUdpInterface()
         cls._osc_interface.start()
 
     def _init_nrt(cls):

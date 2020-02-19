@@ -5,6 +5,7 @@ import atexit
 import errno
 import struct
 import socket
+import logging
 
 from ..seq import clock as clk
 from ..seq import stream as stm
@@ -15,6 +16,9 @@ from . import functions as fn
 
 
 __all__ = ['OscUdpInterface', 'OscTcpInteface']
+
+
+_logger = logging.getLogger(__name__)
 
 
 class OscInterface(ABC):
@@ -278,8 +282,7 @@ class OscTcpInteface(OscInterface):
         self._socket.connect(target)  # Exception on failure.
         self._is_connected = True  # Not thread safe.
         self._tcp_thread = threading.Thread(
-            target=self._tcp_run,
-            name=f'{type(self).__name__} port {self._port}')
+            target=self._tcp_run, name=str(self))
         self._tcp_thread.daemon = True
         self._tcp_thread.start()
         atexit.register(self.disconnect)
@@ -287,14 +290,18 @@ class OscTcpInteface(OscInterface):
     def _tcp_run(self):
         self._run_thread = True
         while self._run_thread:
-            data = self._socket.recv(4)
-            if len(data) == 0:
-                self._is_connected = False
-                break
-            size = struct.unpack('>i', data)[0]
-            data = self._socket.recv(size)
-            if len(data) == 0:
-                self._is_connected = False
+            try:
+                data = self._socket.recv(4)
+                if len(data) == 0:
+                    self._is_connected = False
+                    break
+                size = struct.unpack('>i', data)[0]
+                data = self._socket.recv(size)
+                if len(data) == 0:
+                    self._is_connected = False
+                    break
+            except OSError as e:
+                _logger.error(f'{str(self)}: {str(e)}')
                 break
             packet = oli.OscPacket(data)
             for timed_msg in packet.messages:
@@ -313,7 +320,7 @@ class OscTcpInteface(OscInterface):
                     return
                 except ConnectionRefusedError:
                     yield dt
-            _logger.warning(f"{self} couldn't establish TCP connection")
+            _logger.warning(f"{str(self)} couldn't establish connection")
             fn.value(on_failure, self)
 
         stm.Routine.run(tcp_connect_func, clk.AppClock)
@@ -333,3 +340,6 @@ class OscTcpInteface(OscInterface):
     @property
     def is_connected(self):
         return self._is_connected
+
+    def __str__(self):
+        return f'{type(self).__name__} port {self._port}'

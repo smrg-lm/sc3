@@ -133,7 +133,6 @@ class ServerOptions():
         self.reserved_buffers = 0  # not used, really.
         self.initial_node_id = 1000
         # self.remote_control_volume = False  # ServerPlusGui makeGui, no GUI.
-        self.pings_before_dead = 5
         self.rec_header_format = 'aiff'
         self.rec_sample_format = 'float'
         self.rec_channels = 2
@@ -465,6 +464,16 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def _set_client_id(self, value):
         if not isinstance(value, int):
             raise TypeError(f'value is not an int: {type(value)}')
+        if value < 0 or value >= self.options.max_logins:
+            # Supernova ignores max_logins option
+            # and doesn't return max_logins info.
+            _logger.error(
+                f'id ({value}) outside options.max_logins '
+                f'({s.options.max_logins}), current id is {self._client_id}')
+            if self.options.program == plt.Platform.SUPERNOVA_CMD:
+                _logger.info(
+                    'NOTE: suepernova servers ignore options.max_logins')
+            return
         self._client_id = value
         self._new_allocators()
 
@@ -673,17 +682,35 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     ### Boot and login ###
 
     def register(self):
-        self._status_watcher.start_alive_thread()
-        _atexit.register(self._unregister_atexit)
+        if not self.status.server_running:
+            if self.options.protocol == 'tcp':
+                def on_complete():
+                    self._status_watcher.start_alive_thread()
+                    _atexit.register(self._unregister_atexit)
+
+                self.addr.connect(on_complete)
+            else:
+                self._status_watcher.start_alive_thread()
+                # HACK: In case of timeout/failure status.stop_alive_thread
+                # calls atexit.unregister(server._unregister_atexit).
+                _atexit.register(self._unregister_atexit)
+        else:
+            _logger.info(f"server '{self.name}' already running")
 
     def unregister(self):
-        self._status_watcher._unregister()
-        _atexit.unregister(self._unregister_atexit)
+        if self.status.server_running:
+            self._status_watcher._unregister()
+            if self.addr.proto == 'tcp' and self.addr.is_connected:
+                    self.addr.disconnect()
+            _atexit.unregister(self._unregister_atexit)
+        else:
+            _logger.info(f"server '{self.name}' is not running")
 
     def _unregister_atexit(self):
         if self._status_watcher.server_running:
-            self.send_msg('/notify', 0, self.client_id)
-            _logger.info(f"server '{self.name}' requested id unregistration")
+            self._status_watcher._unregister()
+            # self.send_msg('/notify', 0, self.client_id)
+            # _logger.info(f"server '{self.name}' requested id unregistration")
 
     def boot(self, on_complete=None, on_failure=None, register=True):
         if self._status_watcher.unresponsive:
@@ -796,7 +823,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # if server is not running or is running but unresponsive.
         if not self._status_watcher.server_running\
         or self._status_watcher.unresponsive:
-            _logger.info(f'server {self.name} is not running')
+            _logger.info(f"server '{self.name}' is not running")
             return
 
         if self._status_watcher._server_quitting:

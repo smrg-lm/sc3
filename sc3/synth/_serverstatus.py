@@ -2,6 +2,7 @@
 
 import logging
 import collections
+import atexit
 
 from ..seq import clock as clk
 from ..seq import stream as stm
@@ -30,6 +31,10 @@ class ServerStatusWatcher():
         self._alive = False
         self._alive_thread = None
         self._alive_thread_period = 0.7
+        self.pings_before_dead = 5
+        self._really_dead_count = 0
+        self._timeout = 3
+
         self._responder = None
 
         self.has_booted = False
@@ -47,8 +52,6 @@ class ServerStatusWatcher():
         self.sample_rate = None
         self.actual_sample_rate = None
 
-        self._really_dead_count = 0
-        self._timeout = 3.0
         self._boot_actions = []
 
     @property
@@ -130,6 +133,7 @@ class ServerStatusWatcher():
         self._alive = False
         self._unresponsive = False
         self._really_dead_count = 0
+        atexit.unregister(self.server._unregister_atexit)  # See register note.
         self._clear_state_data()
 
     def _clear_state_data(self):
@@ -176,7 +180,7 @@ class ServerStatusWatcher():
         def done(msg, *_):
             # Is None when /done for flag False.
             new_client_id = msg[2] if len(msg) > 2 else None
-            # Supernova don't returns max logins.
+            # Supernova doesn't return max logins.
             new_max_logins = msg[3] if len(msg) > 3 else None
             fail_osc_func.free()
             if new_client_id is not None:
@@ -194,8 +198,11 @@ class ServerStatusWatcher():
         done_osc_func.one_shot()
 
         def fail(msg, *_):
+            fail_string = msg[2]
+            # Supernova doesn't return previous id.
+            prev_client_id = msg[3] if len(msg) > 3 else None
             done_osc_func.free()
-            self._handle_login_fail(msg)
+            self._handle_login_fail(fail_string, prev_client_id)
             self._finalize_boot_fail()
 
         fail_osc_func = rdf.OSCFunc(
@@ -218,12 +225,12 @@ class ServerStatusWatcher():
             f"'{self.server.name}': setting client_id to {new_client_id}")
         self.server._set_client_id(new_client_id)
 
-    def _handle_login_fail(self, msg):
-        fail_string = msg[2]
+    def _handle_login_fail(self, fail_string, prev_client_id):
         # // post info on some known error cases
         if 'already registered' in fail_string:
             _logger.info(
-                f"'{self.server.name}': already registered, client_id {msg[3]}")
+                f"'{self.server.name}': already registered, "
+                f"client_id {prev_client_id}")
             self._unregister()  # Needed to get max_logins from scsynth.
             self.start_alive_thread()
             return
@@ -265,7 +272,7 @@ class ServerStatusWatcher():
         elif running:
             self.server_running = True
             self.unresponsive = False
-            self._really_dead_count = self.server.options.pings_before_dead
+            self._really_dead_count = self.pings_before_dead
         else:
             # // parrot
             self._really_dead_count -= 1
@@ -330,6 +337,7 @@ class ServerStatusWatcher():
         self._send_notify_request(False)
         # Same as _quit, only unregistration flags change.
         self.server_running = False # usa @property
+        self.notified = False
         self._max_logins = None
         # // server.changed(\serverRunning) should be deferred in dependants!
         # // just in case some don't, defer here to avoid gui updates breaking.

@@ -17,8 +17,8 @@ _logger = logging.getLogger(__name__)
 
 
 class ServerStatusWatcher():
-    _BootAction = collections.namedtuple(
-        typename='BootAction',
+    _Action = collections.namedtuple(
+        typename='_Action',
         field_names=('on_complete', 'on_failure'))
 
     def __init__(self, server):
@@ -40,6 +40,8 @@ class ServerStatusWatcher():
         self.has_booted = False
         self._server_booting = False
         self._server_quitting = False
+        self._server_registering = False
+        self._server_unregistering = False
         self._unresponsive = False
 
         self.num_ugens = 0
@@ -52,7 +54,7 @@ class ServerStatusWatcher():
         self.sample_rate = None
         self.actual_sample_rate = None
 
-        self._boot_actions = []
+        self._clear_actions()
 
     @property
     def max_logins(self):
@@ -89,18 +91,21 @@ class ServerStatusWatcher():
             clk.defer(lambda: mdl.NotificationCenter.notify(
                 self.server, 'server_running'))
 
-    def _add_boot_action(self, on_complete=None, on_failure=None):
-        self._boot_actions.append(self._BootAction(on_complete, on_failure))
+    def _add_action(self, stage, on_complete=None, on_failure=None):
+        if stage not in self._boot_actions:
+            raise ValueError(f"invalid action stage '{stage}'")
+        self._boot_actions[stage].append(self._Action(on_complete, on_failure))
 
-    def _clear_boot_actions(self):
-        self._boot_actions = []
+    def _clear_actions(self):
+        self._boot_actions = {
+            'boot': [], 'quit': [], 'register': [], 'unregister': []}
 
-    def _perform_boot_actions(self, action_name=None):
-        while self._boot_actions:
-            ba = self._boot_actions.pop(0)
+    def _perform_actions(self, stage, action_name):
+        while self._boot_actions[stage]:
+            ba = self._boot_actions[stage].pop(0)
             fn.value(getattr(ba, action_name), self.server)
 
-    def start_alive_thread(self, delay=0.0):
+    def _start_alive_thread(self, delay=0.0):
         self._add_responder()
         if self._alive_thread is None:
             def alive_func():
@@ -116,14 +121,16 @@ class ServerStatusWatcher():
 
             def start_timeout_func():
                 if self._unresponsive:
-                    self.stop_alive_thread()
+                    self._stop_alive_thread()
                     _logger.warning(
                         f"'{self.server.name}': registration "
                         "failed, server unresponsive")
+                    self._server_booting = False
+                    self._server_registering = False
 
             clk.AppClock.sched(delay + self._timeout, start_timeout_func)
 
-    def stop_alive_thread(self):
+    def _stop_alive_thread(self):
         if self._responder is not None:
             self._responder.free()
             self._responder = None
@@ -133,7 +140,7 @@ class ServerStatusWatcher():
         self._alive = False
         self._unresponsive = False
         self._really_dead_count = 0
-        atexit.unregister(self.server._unregister_atexit)  # See register note.
+        # atexit.unregister(self.server._unregister_atexit)  # *** BUG: No se puede por _resume_alive_thread.
         self._clear_state_data()
 
     def _clear_state_data(self):
@@ -141,10 +148,10 @@ class ServerStatusWatcher():
         self.num_synthdefs = self.avg_cpu = self.peak_cpu =\
         self.sample_rate = self.actual_sample_rate = None
 
-    def resume_alive_thread(self):
+    def _resume_alive_thread(self):
         if self._alive_thread is not None:
-            self.stop_alive_thread()
-            self.start_alive_thread()
+            self._stop_alive_thread()
+            self._start_alive_thread()
 
     @property
     def alive_thread_running(self):
@@ -183,14 +190,20 @@ class ServerStatusWatcher():
             # Supernova doesn't return max logins.
             new_max_logins = msg[3] if len(msg) > 3 else None
             fail_osc_func.free()
-            if new_client_id is not None:
-                self._handle_login_done(new_client_id, new_max_logins)
-                if self._server_booting:
-                    self._finalize_boot_done()
-                else:
-                    self.notified = True
-            else:
+            if self._server_booting:
+                if new_client_id is not None:
+                    self._handle_login_done(new_client_id, new_max_logins)
+                self._finalize_boot_done()
+            elif self._server_registering:
+                if new_client_id is not None:
+                    self._handle_login_done(new_client_id, new_max_logins)
+                self._finalize_register_done()
+            elif self._server_unregistering:
                 self.notified = False
+                _logger.info(f"'{self.server.name}': unregistration done")
+                self._perform_actions('unregister', 'on_complete')
+            else:
+                raise Exception('something whent wrong, may be a bug')
 
         done_osc_func = rdf.OSCFunc(
             done, '/done', self.server.addr,
@@ -203,14 +216,21 @@ class ServerStatusWatcher():
             prev_client_id = msg[3] if len(msg) > 3 else None
             done_osc_func.free()
             self._handle_login_fail(fail_string, prev_client_id)
-            self._finalize_boot_fail()
+            if self._server_booting:
+                self._perform_actions('boot', 'on_failure')
+            elif self._server_registering:
+                self._perform_actions('register', 'on_failure')
+            elif self._server_unregistering:
+                self._perform_actions('unregister', 'on_failure')
+            else:
+                raise Exception('something whent wrong, may be a bug')
 
         fail_osc_func = rdf.OSCFunc(
             fail, '/fail', self.server.addr,
             arg_template=['/notify', None, None])
         fail_osc_func.one_shot()
 
-        self.server.send_msg('/notify', int(flag), self.server.client_id)
+        self.server.send_msg('/notify', int(flag))  # OMITIDO PARA PROBAR, ES LO MISMO, VER SUPERNOVA, self.server.client_id)
 
         if flag:
             _logger.info(f"'{self.server.name}': requested registration id")
@@ -232,7 +252,7 @@ class ServerStatusWatcher():
                 f"'{self.server.name}': already registered, "
                 f"client_id {prev_client_id}")
             self._unregister()  # Needed to get max_logins from scsynth.
-            self.start_alive_thread()
+            self._start_alive_thread()
             return
         elif 'not registered' in fail_string:
             # // unregister when already not registered:
@@ -244,26 +264,32 @@ class ServerStatusWatcher():
             # // throw error if unknown failure
             # raise Exception(  # gives an uncaught exception in a fork.
             _logger.warning(f"'{self.server.name}': failed to register")
-        self.stop_alive_thread()
+        self._stop_alive_thread()
         self.notified = False
 
     # // final actions needed to finish booting
     def _finalize_boot_done(self):
         # // this needs to be forked so that ServerBoot and ServerTree
         # // will definitely run before notified is true.
-        def finalize_task():
+        def finalize_boot_task():
             sac.ServerBoot.run(self.server)
             yield from self.server.sync()
             self.server.init_tree()  # forks
             yield from self.server.sync()
             self.notified = True
-            self._perform_boot_actions('on_complete')
+            self._perform_actions('boot', 'on_complete')
             mdl.NotificationCenter.notify(self.server, 'server_running')  # NOTE: esta notificación la hace en varios lugares cuando cambia el estado de running no cuando running es True.
 
-        stm.Routine.run(finalize_task, clk.AppClock)
+        stm.Routine.run(finalize_boot_task, clk.AppClock)
 
-    def _finalize_boot_fail(self):
-        self._perform_boot_actions('on_failure')
+    def _finalize_register_done(self):
+        def finalize_register_task():
+            # sac.ServerBoot.run(self.server)  # *** VER SI VA O NO.
+            yield from self.server.sync()
+            self.notified = True
+            self._perform_actions('register', 'on_complete')
+
+        stm.Routine.run(finalize_register_task, clk.AppClock)
 
     def _update_running_state(self, running):
         if self.server.addr.has_bundle():
@@ -278,13 +304,13 @@ class ServerStatusWatcher():
             self._really_dead_count -= 1
             self.unresponsive = self._really_dead_count <= 0
 
-    def _quit(self, on_complete=None, on_failure=False, watch_shutdown=True):
+    def _quit(self, watch_shutdown=True):
         if watch_shutdown:
-            self._watch_quit(on_complete, on_failure)
+            self._watch_quit()
         else:
             self._stop_responder()
-            fn.value(on_complete, self.server)
-        self.stop_alive_thread()
+            self._perform_actions('quit', 'on_complete')
+        self._stop_alive_thread()
         # Only changes flags affected when quitting.
         self.server_running = False # usa @property
         self._server_quitting = False
@@ -295,7 +321,7 @@ class ServerStatusWatcher():
         clk.defer(lambda: mdl.NotificationCenter.notify(
             self.server, 'server_running'))
 
-    def _watch_quit(self, on_complete=None, on_failure=None):
+    def _watch_quit(self):
         server_really_quit = False
 
         if self._responder is not None:
@@ -308,7 +334,7 @@ class ServerStatusWatcher():
                             self._responder.enable()
                         server_really_quit = True
                         quit_watcher.free()
-                        fn.value(on_complete, self.server)
+                        self._perform_actions('quit', 'on_complete')
 
                 quit_watcher = rdf.OSCFunc(
                     quit_func, '/done', self.server.addr)
@@ -328,12 +354,12 @@ class ServerStatusWatcher():
                         quit_watcher.free()
                         if self._responder is not None:
                             self._responder.disable()
-                        fn.value(on_failure, self.server)
+                        self._perform_actions('quit', 'on_failure')
 
                 clk.AppClock.sched(self._timeout, quit_timeout_func)
 
     def _unregister(self):
-        self.stop_alive_thread()
+        self._stop_alive_thread()
         self._send_notify_request(False)
         # Same as _quit, only unregistration flags change.
         self.server_running = False # usa @property

@@ -181,7 +181,7 @@ class OscInterface(ABC):
     def connect(self, target):
         pass
 
-    def try_connect(self, target, on_complete=None, on_failure=None, timeout=3):
+    def try_connect(self, target, timeout=3, on_complete=None, on_failure=None):
         pass
 
     def disconnect(self):
@@ -309,7 +309,7 @@ class OscTcpInteface(OscInterface):
                 _libsc3.main._osc_interface.recv(
                     self._socket.getpeername(), timed_msg.time, *msg)
 
-    def try_connect(self, target, on_complete=None, on_failure=None, timeout=3):
+    def try_connect(self, target, timeout=3, on_complete=None, on_failure=None):
         def tcp_connect_func():
             dt = 0.2
             attempts = int(timeout / dt)
@@ -320,6 +320,11 @@ class OscTcpInteface(OscInterface):
                     return
                 except ConnectionRefusedError:
                     yield dt
+                except OSError as e:
+                    if e.errno == errno.EADDRNOTAVAIL:  # Happens when trying to register to the existing server after a boot() fail.
+                        yield dt
+                    else:
+                        raise e
             _logger.warning(f"{str(self)} couldn't establish connection")
             fn.value(on_failure, self)
 

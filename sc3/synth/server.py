@@ -663,7 +663,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     @classmethod
     def _resume_status_threads(cls):  # NOTE: for System Actions.
         for server in cls.all:
-            server._status_watcher.resume_alive_thread()
+            server._status_watcher._resume_alive_thread()
 
 
     ### Shared memory interface ###
@@ -681,30 +681,63 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     ### Boot and login ###
 
-    def register(self):
-        if not self.status.server_running:
-            if self.options.protocol == 'tcp':
-                def on_complete():
-                    self._status_watcher.start_alive_thread()
-                    _atexit.register(self._unregister_atexit)
+    def register(self, on_complete=None, on_failure=None):
+        if self._status_watcher._server_registering:
+            _logger.info(f"server '{self.name}' already registeringing")
+            return
 
-                self.addr.connect(on_complete)
-            else:
-                self._status_watcher.start_alive_thread()
-                # HACK: In case of timeout/failure status.stop_alive_thread
-                # calls atexit.unregister(server._unregister_atexit).
+        if not self._status_watcher.server_running:
+            self._status_watcher._server_registering = True
+
+            def _on_complete(server):
+                self._status_watcher._server_registering = False
+                fn.value(on_complete, self)
                 _atexit.register(self._unregister_atexit)
+
+            def _on_failure(server):
+                if self.addr.proto == 'tcp':
+                    self.addr.disconnect()
+                self._status_watcher._server_registering = False
+                fn.value(on_failure, self)
+
+            self._status_watcher._add_action(
+                'register', _on_complete, _on_failure)
+
+            if self.options.protocol == 'tcp':
+                def success():
+                    self._status_watcher._start_alive_thread()
+                def failure():
+                    self._status_watcher._server_registering = False
+                self.addr.connect(success, failure)
+            else:
+                self._status_watcher._start_alive_thread()
         else:
             _logger.info(f"server '{self.name}' already running")
 
-    def unregister(self):
-        if self.status.server_running:
-            self._status_watcher._unregister()
-            if self.addr.proto == 'tcp' and self.addr.is_connected:
+    def unregister(self, on_complete=None, on_failure=None):
+        if self._status_watcher._server_unregistering:
+            _logger.info(f"server '{self.name}' already unregisteringing")
+            return
+
+        if self._status_watcher.server_running:
+            self._status_watcher._server_unregistering = True
+
+            def _on_complete(server):
+                if self.addr.proto == 'tcp' and self.addr.is_connected:
                     self.addr.disconnect()
-            _atexit.unregister(self._unregister_atexit)
+                self._status_watcher._server_unregistering = False
+                fn.value(on_complete, self)
+                _atexit.unregister(self._unregister_atexit)
+
+            def _on_failure(server):
+                self._status_watcher._server_unregistering = False
+                fn.value(on_failure, self)
+
+            self._status_watcher._add_action(
+                'unregister', _on_complete, _on_failure)
+            self._status_watcher._unregister()
         else:
-            _logger.info(f"server '{self.name}' is not running")
+            _logger.info(f"server '{self.name}' is not registered")
 
     def _unregister_atexit(self):
         if self._status_watcher.server_running:
@@ -712,7 +745,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             # self.send_msg('/notify', 0, self.client_id)
             # _logger.info(f"server '{self.name}' requested id unregistration")
 
-    def boot(self, on_complete=None, on_failure=None, register=True):
+    def boot(self, register=True, on_complete=None, on_failure=None):
         if self._status_watcher.unresponsive:
             _logger.info(f"server '{self.name}' unresponsive, rebooting...")
             self.quit(watch_shutdown=False)
@@ -734,10 +767,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _atexit.register(self._quit_atexit)
 
         def _on_failure(server):
+            if self.addr.proto == 'tcp':
+                self.addr.disconnect()
             server._status_watcher._server_booting = False
             fn.value(on_failure, server)
 
-        self._status_watcher._add_boot_action(_on_complete, _on_failure)
+        self._status_watcher._add_action('boot', _on_complete, _on_failure)
 
         if self.remote_controlled:
             _logger.info(f"remote server '{self.name}' needs manual boot")
@@ -747,11 +782,33 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 # rebooting, pid release blocks boot until quit is completed.
                 if self._pid is not None:  # Is or was running.
                     yield from self._pid_release_condition.hang()
-                self._boot_server_app()
+
+                if self.in_process:
+                    _logger.info('booting internal server')
+                    self.boot_in_process()  # Not implemented yet.
+                    self._pid = _libsc3.main.pid  # Not implemented yet.
+                else:
+                    self._disconnect_shared_memory()  # Not implemented yet.
+                    self._server_process = ServerProcess(
+                        self._on_server_process_exit)
+                    self._server_process.run(self)
+                    self._pid = self._server_process.proc.pid
+                    _logger.info(
+                        f"booting server '{self.name}' on address "
+                        f"{self.addr.hostname}:{self.addr.port}")
+
                 if register:
                     # Needs delay to avoid registering to another local server
                     # from another client in case of address already in use.
-                    self._status_watcher.start_alive_thread(1)
+                    if self.options.protocol == 'tcp' and not self.in_process:
+                        def success():
+                            self._status_watcher._start_alive_thread(1)
+                        def failure():
+                            self._status_watcher._server_booting = False
+                            self._status_watcher._clear_actions()
+                        self.addr.connect(success, failure)
+                    else:
+                        self._status_watcher._start_alive_thread(1)
 
             stm.Routine.run(boot_task, clk.AppClock)
 
@@ -760,28 +817,14 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             self.send_msg('/dumpOSC', self.dump_mode)
         self._connect_shared_memory()  # BUG: not implemented yet
 
-    def _boot_server_app(self):
-        if self.in_process:
-            _logger.info('booting internal server')
-            self.boot_in_process()  # BUG: not implemented yet
-            self._pid = _libsc3.main.pid  # BUG: not implemented yet
-            # fn.value(on_complete, self)  # See else below.
-        else:
-            self._disconnect_shared_memory()  # BUG: not implemented yet
-            self._server_process = ServerProcess(self._on_server_process_exit)
-            self._server_process.run(self)
-            self._pid = self._server_process.proc.pid
-            _logger.info(
-                f"booting server '{self.name}' on address "
-                f"{self.addr.hostname}:{self.addr.port}")
-            if self.options.protocol == 'tcp':
-                self.addr.connect()
-
     def _on_server_process_exit(self, exit_code):
         # This method is called after quit or crash.
         self._pid = None
         self._pid_release_condition.signal()
         _logger.info(f"server '{self.name}' exited with exit code {exit_code}")
+        if self._status_watcher._server_booting:
+            self._status_watcher._server_booting = False
+            _logger.warning(f"server '{self.name}' failed to boot")
         # In case of server crash or Exception in World_OpenUDP: bind: Address
         # already in use, status_watcher should stop to avoid registering to
         # another local server. See note in boot(). There sould be a better
@@ -819,7 +862,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def application_running(self):
         return self._server_process.running()
 
-    def quit(self, on_complete=None, on_failure=None, watch_shutdown=True):
+    def quit(self, watch_shutdown=True, on_complete=None, on_failure=None):
         # if server is not running or is running but unresponsive.
         if not self._status_watcher.server_running\
         or self._status_watcher.unresponsive:
@@ -851,7 +894,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 f"server '{self.name}' was unresponsive, quitting anyway")
             watch_shutdown = False
 
-        self._status_watcher._quit(_on_complete, _on_failure, watch_shutdown)
+        self._status_watcher._add_action('quit', _on_complete, _on_failure)
+        self._status_watcher._quit(watch_shutdown)
         self.addr.send_msg('/quit')  # Send quit after responders are in place.
 
         if self.in_process:

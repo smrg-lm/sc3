@@ -90,7 +90,7 @@ class NetAddr():
             local_port or self.lang_port() + 1, port_range)
         self._osc_interface.bind()
         self._osc_interface.try_connect(
-            self._target, on_complete, on_failure, timeout)
+            self._target, timeout, on_complete, on_failure)
 
     def disconnect(self):
         # Sync.

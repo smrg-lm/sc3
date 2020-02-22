@@ -2,7 +2,7 @@
 
 import logging
 import collections
-import atexit
+# import atexit
 
 from ..seq import clock as clk
 from ..seq import stream as stm
@@ -305,12 +305,11 @@ class ServerStatusWatcher():
             self.unresponsive = self._really_dead_count <= 0
 
     def _quit(self, watch_shutdown=True):
+        self._stop_alive_thread()
         if watch_shutdown:
             self._watch_quit()
         else:
-            self._stop_responder()
             self._perform_actions('quit', 'on_complete')
-        self._stop_alive_thread()
         # Only changes flags affected when quitting.
         self.server_running = False # usa @property
         self._server_quitting = False
@@ -322,41 +321,37 @@ class ServerStatusWatcher():
             self.server, 'server_running'))
 
     def _watch_quit(self):
-        server_really_quit = False
+        done_quit = False
 
-        if self._responder is not None:
-            self._responder.disable()
-            if self.notified:
-                def quit_func(msg, *_):
-                    nonlocal server_really_quit
-                    if msg[1] == '/quit':
-                        if self._responder is not None:
-                            self._responder.enable()
-                        server_really_quit = True
-                        quit_watcher.free()
-                        self._perform_actions('quit', 'on_complete')
+        if self.notified:
+            def quit_func(msg, *_):
+                nonlocal done_quit
+                if msg[1] == '/quit':
+                    done_quit = True
+                    quit_watcher.free()
+                    self._perform_actions('quit', 'on_complete')
 
-                quit_watcher = rdf.OSCFunc(
-                    quit_func, '/done', self.server.addr)
+            quit_watcher = rdf.OSCFunc(
+                quit_func, '/done', self.server.addr)
 
-                def quit_timeout_func():
-                    if not server_really_quit:
-                        if self.unresponsive:
-                            _logger.warning(
-                                f"Server '{self.server.name}' "
-                                "remained unresponsive during quit")
-                        else:
-                            _logger.warning(
-                                f"Server '{self.server.name}' failed to"
-                                f"quit after {self._timeout} seconds")
-                        # // don't accumulate quit-watchers
-                        # // if /done doesn't come back
-                        quit_watcher.free()
-                        if self._responder is not None:
-                            self._responder.disable()
-                        self._perform_actions('quit', 'on_failure')
+            def quit_timeout_func():
+                if not done_quit:
+                    if self.unresponsive:
+                        _logger.warning(
+                            f"Server '{self.server.name}' "
+                            "remained unresponsive during quit")
+                    else:
+                        _logger.warning(
+                            f"Server '{self.server.name}' failed to"
+                            f"quit after {self._timeout} seconds")
+                    # // don't accumulate quit-watchers
+                    # // if /done doesn't come back
+                    quit_watcher.free()
+                    if self._responder is not None:
+                        self._responder.disable()
+                    self._perform_actions('quit', 'on_failure')
 
-                clk.AppClock.sched(self._timeout, quit_timeout_func)
+            clk.AppClock.sched(self._timeout, quit_timeout_func)
 
     def _unregister(self):
         self._stop_alive_thread()

@@ -300,14 +300,16 @@ class OscTcpInteface(OscInterface):
                 if len(data) == 0:
                     self._is_connected = False
                     break
+                packet = oli.OscPacket(data)
+                for timed_msg in packet.messages:
+                    msg = [timed_msg.message.address, *timed_msg.message.params]
+                    _libsc3.main._osc_interface.recv(
+                        self._socket.getpeername(), timed_msg.time, *msg)
             except OSError as e:
-                _logger.error(f'{str(self)}: {str(e)}')
+                if self._run_thread:  # Log for not intentional disconnects.
+                    _logger.error(f'{str(self)}: {str(e)}')
+                self._is_connected = False
                 break
-            packet = oli.OscPacket(data)
-            for timed_msg in packet.messages:
-                msg = [timed_msg.message.address, *timed_msg.message.params]
-                _libsc3.main._osc_interface.recv(
-                    self._socket.getpeername(), timed_msg.time, *msg)
 
     def try_connect(self, target, timeout=3, on_complete=None, on_failure=None):
         def tcp_connect_func():
@@ -331,11 +333,11 @@ class OscTcpInteface(OscInterface):
         stm.Routine.run(tcp_connect_func, clk.AppClock)
 
     def disconnect(self):
+        self._run_thread = False
+        self._tcp_thread = None
         self._socket.shutdown(socket.SHUT_RDWR)
         self._is_connected = False  # Is sync.
         self._socket.close()  # OSError if underlying error.
-        self._run_thread = False
-        self._tcp_thread = None
         atexit.unregister(self.disconnect)
 
     def send(self, msg, _=None):

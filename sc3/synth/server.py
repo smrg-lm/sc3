@@ -883,10 +883,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             fn.value(on_complete, self)
 
         def _on_failure():
-            if self.addr.proto == 'tcp':
-                self.addr.disconnect()
             self._status_watcher._server_quitting = False
-            _atexit.unregister(self._quit_atexit)
             fn.value(on_failure, self)
 
         if watch_shutdown and self._status_watcher.unresponsive:

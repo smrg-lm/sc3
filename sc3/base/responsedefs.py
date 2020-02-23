@@ -357,11 +357,11 @@ class OSCFunc(AbstractResponderFunc):
                 cls._trace_func = cls._trace_func_hide_status
             else:
                 cls._trace_func = cls._trace_func_show_status
-            _libsc3.main._osc_interface.add_recv_func(cls._trace_func)
+            _libsc3.main.add_osc_recv_func(cls._trace_func)
             sac.CmdPeriod.add(cls.__on_cmd_period, cls)
             cls._trace_running = True
         elif cls._trace_running:
-            _libsc3.main._osc_interface.remove_recv_func(cls._trace_func)
+            _libsc3.main.remove_osc_recv_func(cls._trace_func)
             sac.CmdPeriod.remove(cls.__on_cmd_period)
             cls._trace_running = False
 

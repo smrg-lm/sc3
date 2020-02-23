@@ -1,16 +1,12 @@
 """Clock.sc"""
 
 import logging
-import heapq as _heapq
-import itertools as _itertools
-import threading as _threading
+import threading
 import time as _time
-import sys as _sys
-import inspect as _inspect
-import traceback as _traceback
-import math as _math
-import types as _types
-import weakref as _weakref
+import sys
+import traceback
+import math
+import weakref
 
 from ..base import utils as utl
 from ..base import main as _libsc3
@@ -18,7 +14,11 @@ from ..base import builtins as bi
 from ..base import functions as fn
 from ..base import systemactions as sac
 from ..base import model as mdl
+from . import _taskq as tsq
 from . import stream as stm
+
+
+__all__ = ['SystemClock', 'Scheduler', 'AppClock', 'Quant', 'TempoClock']
 
 
 _logger = logging.getLogger(__name__)
@@ -32,71 +32,7 @@ class ClockNotRunning(ClockError):
     pass
 
 
-# // Clocks for timing threads.
-
-class TaskQueue():
-    """
-    This class is an encapsulation of the algorithm found in heapq
-    documentation. heapq module in itself use the same principles as
-    SuperCollider's clocks implementation. TaskQueue is not thread safe.
-    """
-
-    _REMOVED = '<removed-task>'
-
-    def __init__(self):
-        self._init()
-
-    def _init(self):
-        self._queue = []
-        self._entry_finder = {}
-        self._counter = _itertools.count()
-        self._removed_counter = 0
-
-    def add(self, time, task):
-        'Add a new task or update the time of an existing task.'
-        if task in self._entry_finder:
-            self.remove(task)
-        count = next(self._counter)
-        entry = [time, count, task]
-        self._entry_finder[task] = entry
-        _heapq.heappush(self._queue, entry)
-
-    def remove(self, task):
-        'Remove an existing task. Raise KeyError if not found.'
-        entry = self._entry_finder.pop(task)
-        entry[-1] = type(self)._REMOVED
-        self._removed_counter += 1
-
-    def pop(self):
-        '''Remove and return the lowest time entry as a tuple (time, task).
-        Raise KeyError if empty.'''
-        while self._queue:
-            time, count, task = _heapq.heappop(self._queue)
-            if task is not type(self)._REMOVED:
-                del self._entry_finder[task]
-                return (time, task)
-            else:
-                self._removed_counter -= 1
-        raise KeyError('pop from an empty task queue')
-
-    def peek(self):
-        '''Return the lowest time entry as a tuple (time, task) without
-        removing it.'''
-        for i in range(len(self._queue)):  # Can have <removed-task>s first.
-            time, count, task = self._queue[i]
-            if task is not type(self)._REMOVED:
-                return (time, task)
-        raise KeyError('peek from an empty task queue')
-
-    def empty(self):
-        'Return True if queue is empty.'
-        return (len(self._queue) - self._removed_counter) == 0
-
-    def clear(self):
-        'Reset the queue to initial state (remove all tasks).'
-        self._init()
-
-    # NOTE: implementar __iter__ y copy()
+### Clocks for timing threads ###
 
 
 class Clock():
@@ -146,9 +82,9 @@ class MetaSystemClock(type):
     def __init__(cls, *_):
 
         def init_func(cls):
-            cls._task_queue = TaskQueue()
-            cls._sched_cond = _threading.Condition(_libsc3.main._main_lock)
-            cls._thread = _threading.Thread(
+            cls._task_queue = tsq.TaskQueue()
+            cls._sched_cond = threading.Condition(_libsc3.main._main_lock)
+            cls._thread = threading.Thread(
                 target=cls._run,
                 name=cls.__name__,
                 daemon=True)
@@ -180,8 +116,8 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         ) + cls._host_osc_offset
 
         # same every 20 secs
-        cls._resync_cond = _threading.Condition()
-        cls._resync_thread = _threading.Thread(
+        cls._resync_cond = threading.Condition()
+        cls._resync_thread = threading.Thread(
             target=cls._resync_thread_func,
             name=f'{cls.__name__}.resync')
         cls._resync_thread.daemon = True
@@ -349,7 +285,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                     except stm.StopStream:
                         pass
                     except Exception:
-                        _traceback.print_exception(*_sys.exc_info())  # Always recover.
+                        traceback.print_exception(*sys.exc_info())  # Always recover.
 
     # sclang methods
 
@@ -373,7 +309,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         with cls._sched_cond:
             seconds = _libsc3.main.current_tt.seconds
             seconds += delta
-            if seconds == _math.inf:
+            if seconds == math.inf:
                 return
             cls._sched_add(seconds, item)
 
@@ -381,7 +317,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
     def sched_abs(cls, time, item):
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
-        if time == _math.inf:
+        if time == math.inf:
             return
         with cls._sched_cond:
             cls._sched_add(time, item)
@@ -405,7 +341,7 @@ class Scheduler():
         self._beats = _libsc3.main.current_tt.beats
         self._seconds = 0.0
         # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al querer comparar tasks, hacer que '<' devuelva el id del objeto
-        self.queue = TaskQueue()
+        self.queue = tsq.TaskQueue()
         self._expired = []
 
     def _wakeup(self, item):
@@ -418,7 +354,7 @@ class Scheduler():
         except stm.StopStream:
             pass
         except Exception:
-            _traceback.print_exception(*_sys.exc_info())
+            traceback.print_exception(*sys.exc_info())
 
     def play(self, task):
         self.sched(0, task)
@@ -494,10 +430,10 @@ class MetaAppClock(type):
     def __init__(cls, *_):
 
         def init_func(cls):
-            cls._sched_cond = _threading.Condition(_libsc3.main._main_lock)
-            cls._tick_cond = _threading.Condition()
+            cls._sched_cond = threading.Condition(_libsc3.main._main_lock)
+            cls._tick_cond = threading.Condition()
             cls._scheduler = Scheduler(cls, drift=True, recursive=False)
-            cls._thread = _threading.Thread(
+            cls._thread = threading.Thread(
                 target=cls._run,
                 name=cls.__name__,
                 daemon=True)
@@ -563,12 +499,12 @@ class AppClock(Clock, metaclass=MetaAppClock):
     # Acá podría ir todo dentro de sched(), ergo sum chin pum: cls.tick()
 
 
-class ClockScheduler(_threading.Thread):
+class ClockScheduler(threading.Thread):
     def __init__(self):
-        self._sched_cond = _threading.Condition(_libsc3.main._main_lock)
-        self.queue = TaskQueue()
+        self._sched_cond = threading.Condition(_libsc3.main._main_lock)
+        self.queue = tsq.TaskQueue()
         self.prev_elapsed_time = 0.0 # NOTE: para volver en tiempo atrás en StopStream con el tiempo previo del scheduler (no de la rutina como en rt!), ver abajo.
-        _threading.Thread.__init__(self)
+        threading.Thread.__init__(self)
         self.daemon = True
         self.start()
 
@@ -585,7 +521,7 @@ class ClockScheduler(_threading.Thread):
                     if not self.queue.empty():
                         next_time = self.queue.peek()[0]
                     else:
-                        next_time = _math.inf
+                        next_time = math.inf
                     clock_task.run(time, next_time)
                     self._sched_cond.wait()
                     if not self._run_sched:
@@ -631,7 +567,7 @@ class ClockTask():
         except stm.StopStream:
             _libsc3.main.update_logical_time(self.scheduler.prev_elapsed_time) # NOTE: No es el tiempo de la rutina sino del scheduler en este caso, prev_time podía ser el tiempo previo de otra rutina!
         except Exception:
-            _traceback.print_exception(*_sys.exc_info())
+            traceback.print_exception(*sys.exc_info())
 
     def notify_scheduler(self):
         with self.scheduler._sched_cond:
@@ -717,7 +653,7 @@ class Quant():
 
 class MetaTempoClock(type):
     def __init__(cls, *_):
-        cls._all = _weakref.WeakSet()
+        cls._all = weakref.WeakSet()
 
         def init_func(cls):
             cls.default = cls()
@@ -772,12 +708,12 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         type(self)._all.add(self)
 
         if _libsc3.main.mode == _libsc3.main.RT:
-            self._task_queue = TaskQueue()
+            self._task_queue = tsq.TaskQueue()
         else:
             self._clock_task = None
-        self._sched_cond = _threading.Condition(_libsc3.main._main_lock)
+        self._sched_cond = threading.Condition(_libsc3.main._main_lock)
 
-        self._thread = _threading.Thread(
+        self._thread = threading.Thread(
             target=self._run,
             name=f'{type(self).__name__} id: {id(self)}',
             daemon=True)
@@ -856,7 +792,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                     _libsc3.main.update_logical_time(
                         self.beats2secs(prev_beat))
                 except Exception:
-                    _traceback.print_exception(*_sys.exc_info())
+                    traceback.print_exception(*sys.exc_info())
 
     def stop(self):
         # prStop -> prTempoClock_Free -> StopReq -> StopAndDelete -> Stop
@@ -881,7 +817,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             clock._sched_cond = None
 
         # StopReq
-        stop_thread = _threading.Thread(
+        stop_thread = threading.Thread(
             target=stop_func,
             args=(self,),
             name=f'{type(self).__name__}.stop_thread id: {id(self)}',
@@ -1027,7 +963,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 seconds = _libsc3.main.current_tt.seconds
                 beats = self.secs2beats(seconds)
             beats += delta
-            if beats == _math.inf:
+            if beats == math.inf:
                 return
             self._sched_add(beats, item)
 
@@ -1037,7 +973,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             raise ClockNotRunning(self)
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
-        if beat == _math.inf:
+        if beat == math.inf:
             return
         with self._sched_cond:
             self._sched_add(beat, item)

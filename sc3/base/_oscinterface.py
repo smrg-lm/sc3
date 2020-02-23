@@ -121,7 +121,8 @@ class OscInterface(ABC):
                     msg_builder.add_arg(0)
                 elif isinstance(arg[0], str):
                     msg_builder.add_arg(self._build_msg(arg).dgram)
-                elif isinstance(arg[0], (int, float, type(None))):
+                elif isinstance(arg[0], (int, float, type(None)))\
+                and len(arg) > 1 and isinstance(arg[1], list):
                     msg_builder.add_arg(self._build_bundle(arg).dgram)
                 else:
                     raise oli.OscMessageBuildError(

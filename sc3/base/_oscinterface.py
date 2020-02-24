@@ -231,7 +231,8 @@ class OscUdpInterface(OscInterface):
         self._server_thread.daemon = True
         self._server_thread.start()
         self._running = True
-        atexit.register(self.stop)
+        _libsc3.main._atexitq.add(
+            _libsc3.main._atexitprio.NETWORKING + 1, self.stop)
 
     def stop(self):
         if not self._running:
@@ -240,7 +241,7 @@ class OscUdpInterface(OscInterface):
         self._server = None
         self._running = False
         self._server_thread = None
-        atexit.unregister(self.stop)
+        _libsc3.main._atexitq.remove(self.stop)
 
     def running(self):
         return self._running
@@ -286,7 +287,8 @@ class OscTcpInteface(OscInterface):
             target=self._tcp_run, name=str(self))
         self._tcp_thread.daemon = True
         self._tcp_thread.start()
-        atexit.register(self.disconnect)
+        _libsc3.main._atexitq.add(
+            _libsc3.main._atexitprio.NETWORKING, self.disconnect)
 
     def _tcp_run(self):
         self._run_thread = True
@@ -339,7 +341,7 @@ class OscTcpInteface(OscInterface):
         self._socket.shutdown(socket.SHUT_RDWR)
         self._is_connected = False  # Is sync.
         self._socket.close()  # OSError if underlying error.
-        atexit.unregister(self.disconnect)
+        _libsc3.main._atexitq.remove(self.disconnect)
 
     def send(self, msg, _=None):
         self._socket.send(msg.size.to_bytes(4, 'big'))

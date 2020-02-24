@@ -692,7 +692,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             def _on_complete(server):
                 self._status_watcher._server_registering = False
                 fn.value(on_complete, self)
-                _atexit.register(self._unregister_atexit)
+                _libsc3.main._atexitq.add(
+                    _libsc3.main._atexitprio.SERVERS, self._unregister_atexit)
 
             def _on_failure(server):
                 if self.addr.proto == 'tcp':
@@ -727,7 +728,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                     self.addr.disconnect()
                 self._status_watcher._server_unregistering = False
                 fn.value(on_complete, self)
-                _atexit.unregister(self._unregister_atexit)
+                _libsc3.main._atexitq.remove(self._unregister_atexit)
 
             def _on_failure(server):
                 self._status_watcher._server_unregistering = False
@@ -764,7 +765,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             server._status_watcher._server_booting = False
             server._boot_init()
             fn.value(on_complete, server)
-            _atexit.register(self._quit_atexit)
+            _libsc3.main._atexitq.add(
+                _libsc3.main._atexitprio.SERVERS, self._quit_atexit)
 
         def _on_failure(server):
             if self.addr.proto == 'tcp':
@@ -836,9 +838,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             event = _threading.Event()
             set_func = lambda: event.set()
             self.quit(set_func, set_func)
-            event.wait(0.2)  # _MainThread, set_func runs in AppClock thread.
-            # *** BUG: PUEDE NO DESBLOQUEAR SI APPCLOCK DAEMON SE LIBERA ANTES.
-            # *** BUG: VER SI SE PUEDE AJUSTAR EL ORDEN EN VEZ DE USAR TIMEOUT.
+            event.wait(5)  # _MainThread, set_func runs in AppClock thread.
 
     def reboot(self, func=None, on_failure=None):
         # // func is evaluated when server is off.
@@ -879,7 +879,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             if self.addr.proto == 'tcp':
                 self.addr.disconnect()
             self._status_watcher._server_quitting = False
-            _atexit.unregister(self._quit_atexit)
+            _libsc3.main._atexitq.remove(self._quit_atexit)
             fn.value(on_complete, self)
 
         def _on_failure():

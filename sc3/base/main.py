@@ -1,11 +1,13 @@
 """Kernel.sc & Main.sc"""
 
+import enum
 import threading
 import atexit
 import time
 import random
 import sys
 
+from ..seq import _taskq as tsq
 from ..seq import stream as stm
 from ..seq import clock as clk
 from . import platform as plf
@@ -27,6 +29,17 @@ class Process(type):
     RT = 0
     NRT = 1
 
+    class _atexitprio(enum.IntEnum):
+        ''' Library predefined _atexitq priority numbers.'''
+        USER = 0
+        SERVERS = 500
+        PLATFORM = 700
+        CLOCKS = 800
+        NETWORKING = 900
+
+    _atexitq = tsq.TaskQueue()
+    '''Functions registered in atexit with order by priority numbers.'''
+
     def __init__(cls, name, bases, dict):
         cls._main_lock = threading.RLock()
         cls._switch_cond = threading.Condition(cls._main_lock)
@@ -47,6 +60,7 @@ class Process(type):
         else:
             raise RuntimeError('platform not defined')
         cls._platform._startup()
+        cls._atexitq.add(cls._atexitprio.PLATFORM, cls.platform._shutdown)
 
     def _init_rt(cls):
         # In sclang these two are the same clock, it obtains time_since_epoch
@@ -131,15 +145,9 @@ class Process(type):
         ...
 
     def shutdown(cls):
-        cls.platform._shutdown()
-        # TODO: VER: PyrLexer shutdownLibrary, ahí llama sched_stop de SystemClock (acá) y TempoClock stop all entre otras cosas.
-        # TODO: sched_stop tiene join, no se puede usasr con atexit?
-        #cls._run_thread = False
-        # BUG: no me acuerdo cuál era el problema con atexit y los locks, una solución es demonizarlas.
-        # with cls._main_lock:
-        #     cls._main_lock.notify_all()
-        #cls._thread.join()
-        # BUG: probablemente tenga que hacer lo mismo con todos los relojes.
+        while not cls._atexitq.empty():
+            cls._atexitq.pop()[1]()
+        atexit.unregister(cls.shutdown)
 
     def add_osc_recv_func(cls, func):
         cls._osc_interface.add_recv_func(func)

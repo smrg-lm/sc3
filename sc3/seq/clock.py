@@ -90,6 +90,8 @@ class MetaSystemClock(type):
                 daemon=True)
             cls._thread.start()
             cls._sched_init()
+            _libsc3.main._atexitq.add(
+                _libsc3.main._atexitprio.CLOCKS, cls._sched_stop)
 
         utl.ClassLibrary.add(cls, init_func)
 
@@ -119,8 +121,8 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         cls._resync_cond = threading.Condition()
         cls._resync_thread = threading.Thread(
             target=cls._resync_thread_func,
-            name=f'{cls.__name__}.resync')
-        cls._resync_thread.daemon = True
+            name=f'{cls.__name__}.resync',
+            daemon=True)
         cls._resync_thread.start()
 
     @classmethod
@@ -184,12 +186,6 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                 ) + cls._host_osc_offset
 
     @classmethod
-    def _sched_cleanup(cls): # L265
-        with cls._resync_cond:
-            cls._run_resync = False
-            cls._resync_cond.notify()
-
-    @classmethod
     def elapsed_time_to_osc(cls, elapsed: float) -> int:  # int64
         return int(
             elapsed * cls._SECONDS_TO_OSC
@@ -218,19 +214,19 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
             cls._sched_cond.notify_all()  # Call with acquired lock.
 
     @classmethod
-    def _sched_stop(cls):  # Shouldn't be stopped.
+    def _sched_stop(cls):
+        if not cls._run_sched:
+            return
         with cls._sched_cond:
-            cls._sched_cleanup()
-            if cls._run_sched:
-                cls._run_sched = False
-                cls._sched_cond.notify_all()
-
-    @classmethod
-    def sched_clear(cls):  # L387, called by schedClearUnsafe() with gLangMutex
-        with cls._sched_cond:
-            if cls._run_sched:
-                cls._task_queue.clear()
-                cls._sched_cond.notify_all()
+            with cls._resync_cond:
+                if cls._run_resync:
+                    cls._run_resync = False
+                    cls._resync_cond.notify()
+            cls._task_queue.clear()
+            cls._run_sched = False
+            cls._sched_cond.notify_all()
+        cls._resync_thread.join()
+        cls._thread.join()
 
     @classmethod
     def _run(cls):
@@ -438,6 +434,8 @@ class MetaAppClock(type):
                 name=cls.__name__,
                 daemon=True)
             cls._thread.start()
+            _libsc3.main._atexitq.add(
+                _libsc3.main._atexitprio.CLOCKS + 1, cls._stop)
 
         utl.ClassLibrary.add(cls, init_func)
 
@@ -485,10 +483,13 @@ class AppClock(Clock, metaclass=MetaAppClock):
             return cls._scheduler.queue.peek()[0]
 
     @classmethod
-    def _stop(cls):  # Shouldn't be stopped.
+    def _stop(cls):
+        if not cls._run_sched:
+            return
         with cls._tick_cond:
             cls._run_sched = False
             cls._tick_cond.notify()
+        cls._thread.join()
 
     # NOTE: Este comentario es un recordatorio.
     # def _sched_notify(cls):
@@ -507,6 +508,8 @@ class ClockScheduler(threading.Thread):
         threading.Thread.__init__(self)
         self.daemon = True
         self.start()
+        _libsc3.main._atexitq.add(
+            _libsc3.main._atexitprio.CLOCKS + 3, self.stop)
 
     def run(self):
         self._run_sched = True
@@ -533,9 +536,14 @@ class ClockScheduler(threading.Thread):
             self._sched_cond.notify()
 
     def stop(self):
+        if not self._run_sched:
+            return
         with self._sched_cond:
+            self.queue.clear()
             self._run_sched = False
             self._sched_cond.notify()
+        # self.join() # Who calls???
+        _libsc3.main._atexitq.remove(self.stop)
 
 
 class ClockTask():
@@ -718,6 +726,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             name=f'{type(self).__name__} id: {id(self)}',
             daemon=True)
         self._thread.start()
+        _libsc3.main._atexitq.add(
+            _libsc3.main._atexitprio.CLOCKS + 2, self._stop)
 
     def _run(self):
         with self._sched_cond:
@@ -800,29 +810,27 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         if not self.running():
             _logger.debug(f'{self} is not running')
             return
-
-        # StopAndDelete
-        def stop_func(clock):
-            # Stop
-            with clock._sched_cond: # lock_guard
-                clock._run_sched = False # NOTE: son daemon y se liberan solas cuando terminan sin join.
-                type(clock)._all.remove(clock)
-                clock._sched_cond.notify_all() # NOTE: en TempoClock::Stop, es notify_all
-            # *** BUG: No estoy seguro de si en C++ notify_all notifica a todas
-            # *** BUG: las condiciones sobre el mismo lock. En Python no funciona
-            # *** BUG: así y clock._sched_cond trabaja sobre un solo hilo.
-            # *** BUG: Pero también puede ser que notifique varias veces a
-            # *** BUG: la misma condición por los distintos wait? Desconocimiento.
-            clock._thread = None
-            clock._sched_cond = None
-
         # StopReq
         stop_thread = threading.Thread(
-            target=stop_func,
-            args=(self,),
+            target=self._stop,
             name=f'{type(self).__name__}.stop_thread id: {id(self)}',
             daemon=True)
         stop_thread.start()
+        _libsc3.main._atexitq.remove(self._stop)
+
+    def _stop(self):
+        # StopAndDelete
+        # Stop
+        if not self._run_sched:
+            return
+        with self._sched_cond:
+            self._task_queue.clear()
+            type(self)._all.remove(self)
+            self._run_sched = False
+            self._sched_cond.notify_all()  # In TempoClock::Stop is notify_all
+        self._thread.join()
+        self._thread = None
+        self._sched_cond = None
 
     # def __del__(self):
     #     # BUG: self needs to be stoped to be gc collected because is in

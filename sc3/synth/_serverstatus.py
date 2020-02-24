@@ -329,6 +329,7 @@ class ServerStatusWatcher():
                 if msg[1] == '/quit':
                     done_quit = True
                     quit_watcher.free()
+                    _logger.info(f"'{self.server.name}': quit done")
                     self._perform_actions('quit', 'on_complete')
 
             quit_watcher = rdf.OSCFunc(

@@ -5,6 +5,9 @@ import logging.handlers
 import atexit
 
 
+__version__ = '0.6.0'
+
+
 ### Configure logger ###
 
 # https://docs.python.org/3/howto/logging-cookbook.html#dealing-with-handlers-that-block

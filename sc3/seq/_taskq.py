@@ -1,6 +1,7 @@
 
 import heapq
 import itertools
+import math
 
 
 __all__ = ['TaskQueue']
@@ -56,16 +57,33 @@ class TaskQueue():
                 self._removed_counter -= 1
         raise KeyError('pop from an empty task queue')
 
-    def peek(self):
+    def peek(self, smallest=True):
         '''
-        Return the lowest prio entry as a tuple (prio, task) without
+        Return the lowest/highest prio entry as a tuple (prio, task) without
         removing it.
         '''
-        for i in range(len(self._queue)):  # Can have <removed-task>s first.
-            prio, count, task = self._queue[i]
-            if task is not type(self)._REMOVED:
+        if self._queue:
+            if smallest:
+                prio, count, task = heapq.nsmallest(
+                    1, self._queue, key=self._small_key)[0]
+            else:
+                prio, count, task = heapq.nlargest(
+                    1, self._queue, key=self._large_key)[0]
+            if task is not self._REMOVED:
                 return (prio, task)
         raise KeyError('peek from an empty task queue')
+
+    def _small_key(self, item):
+        if item[2] is type(self)._REMOVED:
+            return [math.inf] * 2
+        else:
+            return item[:2]
+
+    def _large_key(self, item):
+        if item[2] is type(self)._REMOVED:
+            return [-math.inf] * 2
+        else:
+            return item[:2]
 
     def empty(self):
         '''Return True if queue is empty.'''
@@ -75,4 +93,12 @@ class TaskQueue():
         '''Reset the queue to initial state (remove all tasks).'''
         self._init()
 
-    # NOTE: implementar __iter__ y copy()
+    def __iter__(self):
+        # FIXME: Returns a generator but creates the whole list first.
+        queue = heapq.nsmallest(len(self._queue), self._queue)
+        for prio, count, task in queue:
+            if task is not type(self)._REMOVED:
+                yield (prio, task)
+
+    # def __copy__(self):
+    #     ...

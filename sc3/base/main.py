@@ -80,6 +80,8 @@ class Process(type):
         cls._nrt_time_of_initialization = 0.0
         cls._create_main_thread('nrt')
         cls._clock_scheduler = clk.ClockScheduler()
+        cls._osc_interface = osci.OscNrtInterface()
+        cls._osc_interface.init()
 
     def _create_main_thread(cls, prefix):
         # PyrInterpreter3 L157 newPyrProcess y PyrPrimitive initPyrThread.
@@ -190,7 +192,7 @@ class Process(type):
             cls.main_tt.seconds = now
         elif seconds > now:
             raise TimeException(
-                "logical time can't be set in the future of physical time")
+                "logical time can't be set to the future of physical time")
         else:
             cls.main_tt.seconds = seconds
 

@@ -1,21 +1,26 @@
 
 from abc import ABC, abstractmethod
+import logging
 import threading
 import atexit
 import errno
 import struct
 import socket
-import logging
+import time
+import subprocess
 
 from ..seq import clock as clk
 from ..seq import stream as stm
+from ..seq import _taskq as tsq
+from ..synth import server as srv
 from . import main as _libsc3
 from . import netaddr as nad
 from . import _osclib as oli
 from . import functions as fn
+from . import platform as plt
 
 
-__all__ = ['OscUdpInterface', 'OscTcpInteface']
+__all__ = ['OscUdpInterface', 'OscTcpInterface', 'OscNrtInterface']
 
 
 _logger = logging.getLogger(__name__)
@@ -168,6 +173,11 @@ class OscInterface(ABC):
     def __str__(self):
         return f'{type(self).__name__} port {self._port}'
 
+
+    ### *** SI SE BORRAN ESTOS MÉTODOS POR SER ESPECÍFICOS DE CASA SUBCLASE
+    ### *** HAY QUE TENER REVISAR EL USO DE POLIMORFISMO. LOS NOMBRES DE NRT
+    ### *** NO ESTÁN DECIDIDOS AÚN.
+
     ### UDP Interface ###
 
     def start(self):
@@ -196,6 +206,15 @@ class OscInterface(ABC):
 
     @property
     def is_connected(self):
+        pass
+
+
+    ### NRT Interface ###
+
+    def init(self):
+        pass
+
+    def finish(self):
         pass
 
 
@@ -358,3 +377,122 @@ class OscTcpInterface(OscInterface):
     def _send(self, msg, _=None):  # override
         self._socket.send(msg.size.to_bytes(4, 'big'))
         self._socket.send(msg.dgram)
+
+
+class OscNrtInterface(OscInterface):
+    def __init__(self):
+        self._port = None
+        self._port_range = None
+        self._socket = None
+        self._recv_functions = None
+        self.proto = None
+
+    def init(self):
+        self._osc_score = OscScore()
+
+    def finish(self):  # close?
+        self._osc_score.finish()
+
+    def add_recv_func(self, func):  # override
+        pass  # Exception?
+
+    def remove_recv_func(self, func):  # override
+        pass  # Exception?
+
+    def recv(self, addr, time, *msg):  # override
+        pass  # Exception?
+
+    def send_msg(self, target, *args):  # override
+        # In NRT all messages are bundles at current time.
+        self.send_bundle(target, 0.0, list(args))
+
+    def send_bundle(self, target, time, *args):  # override
+        if time is not None:
+            time += _libsc3.main.current_tt.seconds
+            time = int(time * clk.SystemClock._SECONDS_TO_OSC)
+        self._osc_score.add([time, *args])
+
+    def _send(self, msg, target):
+        pass
+
+
+class OscScore():
+    class _Entry():
+        def __init__(self, bndl, msg):
+            self.bndl = bndl
+            self.msg = msg
+            # *** BUG: necesita definir __eq__ y __hash__ en base a estos
+            # *** BUG: parámetros para que sea único para remove, el problema
+            # *** BUG: son las listas de los bndls.
+
+    def __init__(self):
+        self._scoreq = tsq.TaskQueue()
+        self._lst_score = []
+        self._raw_score = bytearray()
+        self._finished = False
+        self.add([int(0), ["/g_new", 1, 0, 0]])  # Root node.
+
+    @property
+    def duration(self):
+        return self._scoreq.peek(False)[0] * clk.SystemClock._OSC_TO_SECONDS
+
+    def add(self, bndl):
+        if self._finished:
+            raise Exception('already finished score')
+        msg = _libsc3.main._osc_interface._build_bundle(bndl)  # Raises Exception.
+        msg = msg.size.to_bytes(4, 'big') + msg.dgram
+        self._scoreq.add(bndl[0], type(self)._Entry(bndl, msg))
+
+    def finish(self, time):
+        if self._finished:
+            return
+        self.add(  # Dummy cmd.
+            [int(time * clk.SystemClock._SECONDS_TO_OSC), ['/c_set', 0, 0]])
+        for _, entry in self._scoreq:
+            self._lst_score.append(entry.bndl)
+            self._raw_score.extend(entry.msg)
+        self._finished = True
+
+    def write(self, path):
+        if not self._finished:
+            self.finish(self.duration)
+        with open(path, 'wb') as file:
+            file.write(self._raw_score)
+
+    def render(self, path=None, input_file=None, server=None,
+               on_complete=None, on_failure=None):
+        if self._finished:
+            self.finish(self.duration + 1)
+
+        osc_file = plt.Platform.tmp_dir
+        osc_file /= 'SC_' + time.strftime('%Y%m%d_%H%M%S') + '.osc'
+        self.write(osc_file)
+
+        server = srv.Server.default if server is None else server
+        cmd = [server.options.program]
+        cmd.extend(
+            server.options.options_list(None, osc_file, input_file, path))
+
+        self._render_proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=1,
+            universal_newlines=True)
+
+        def render_wait_thread():
+            self._render_proc.wait()
+            exit_code = self._render_proc.poll()
+            if exit_code == 0:
+                clk.defer(lambda: fn.value(on_complete, path))
+            else:
+                _logger.error(
+                    f'render process exited with exit code {exit_code}')
+                clk.defer(lambda: fn.value(on_failure, exit_code))
+
+        t = threading.Thread(
+            target=render_wait_thread,
+            name=f'{type(self).__name__}.render_wait id: {id(self)}')
+        t.daemon = True
+        t.start()

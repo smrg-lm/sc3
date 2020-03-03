@@ -272,7 +272,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                     if isinstance(task, stm.TimeThread):
                         task.next_beat = None
                     try:
-                        _libsc3.main.update_logical_time(sched_time) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
+                        _libsc3.main.update_logical_time(sched_time)
                         delta = task.__awake__(sched_time, sched_time, cls)
                         if isinstance(delta, (int, float))\
                         and not isinstance(delta, bool):
@@ -334,9 +334,8 @@ class Scheduler():
         self._drift = drift
         self.recursive = recursive
         # init
-        self._beats = _libsc3.main.current_tt.beats
+        self._beats = 0.0 
         self._seconds = 0.0
-        # BUG, TODO: PriorityQueue intenta comparar el siguiente valor de la tupla si dos son iguales y falla al querer comparar tasks, hacer que '<' devuelva el id del objeto
         self.queue = tsq.TaskQueue()
         self._expired = []
 
@@ -504,7 +503,6 @@ class ClockScheduler(threading.Thread):
     def __init__(self):
         self._sched_cond = threading.Condition(_libsc3.main._main_lock)
         self.queue = tsq.TaskQueue()
-        self.prev_elapsed_time = 0.0 # NOTE: para volver en tiempo atrás en StopStream con el tiempo previo del scheduler (no de la rutina como en rt!), ver abajo.
         threading.Thread.__init__(self)
         self.daemon = True
         self.start()
@@ -521,14 +519,7 @@ class ClockScheduler(threading.Thread):
                         return
                 while not self.queue.empty():
                     time, clock_task = self.queue.pop()
-                    if not self.queue.empty():
-                        next_time = self.queue.peek()[0]
-                    else:
-                        next_time = math.inf
-                    clock_task.run(time, next_time)
-                    self._sched_cond.wait()
-                    if not self._run_sched:
-                        return
+                    clock_task._wakeup(time)
 
     def add(self, time, clock_task):
         with self._sched_cond:
@@ -556,30 +547,17 @@ class ClockTask():
         else:
             RuntimeError('ClockScheduler is not running')
 
-    def run(self, time, next_time): # NOTE: se llama desde el loop de scheduler
-        with self.clock._sched_cond:
-            self.time = time
-            self.next_time = next_time
-            self.clock._clock_task = self
-            self.clock._sched_cond.notify()
-
-    def wakeup(self): # NOTE: se llama desde el loop de clock, con el lock
+    def _wakeup(self, time):
         try:
-            _libsc3.main.update_logical_time(self.time)
-            delta = self.task.__awake__(self.clock.secs2beats(self.time),
-                                        self.time, self.clock)
+            _libsc3.main.update_logical_time(time)
+            delta = self.task.__awake__(
+                self.clock.secs2beats(time), time, self.clock)
             if isinstance(delta, (int, float)) and not isinstance(delta, bool):
-                self.scheduler.prev_elapsed_time = self.time # NOTE: tiene que ir acá, si la rutina devuelve una valor que no hace avanzar el tiempo (p.e. 'hang') no cambia el tiempo previo.
-                self.time = self.time + self.clock.beats2secs(delta)
-                self.scheduler.add(self.time, self)
+                self.scheduler.add(time + self.clock.beats2secs(delta), self)
         except stm.StopStream:
-            _libsc3.main.update_logical_time(self.scheduler.prev_elapsed_time) # NOTE: No es el tiempo de la rutina sino del scheduler en este caso, prev_time podía ser el tiempo previo de otra rutina!
+            pass
         except Exception:
             traceback.print_exception(*sys.exc_info())
-
-    def notify_scheduler(self):
-        with self.scheduler._sched_cond:
-            self.scheduler._sched_cond.notify()
 
 
 ### Quant.sc ###
@@ -693,19 +671,13 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         tempo = tempo or 1.0  # tempo=0 is invalid too.
         if tempo < 0.0:
             raise ValueError(f'invalid tempo {tempo}')
-        beats = beats or 0.0
-        if _libsc3.main.mode == _libsc3.main.RT:
-            if seconds is None:
-                seconds = _libsc3.main.current_tt.seconds # *** BUG: revisar, puede estar mal, en los test nrt no funciona.
-        else:
-            seconds = 0.0 # *** BUG: NO ENTIENDO SI ESTO ESTÁ ES ASÍ PARA NRT POR QUÉ FUNCIONA EN RT (SI ES QUE FUNCIONA).
 
         # TempoClock::TempoClock()
         self._tempo = tempo
         self._beat_dur = 1.0 / tempo
-        self._base_seconds = seconds
-        self._base_beats = beats
-        self._beats = 0.0 # NOTE: Se necesita inicializado para prev_beat (el tiempo previo de la rutina en caso de StopIteration)
+        self._base_seconds = seconds or 0.0
+        self._base_beats = beats or 0.0
+        self._beats = 0.0  # Needed by prev_beat
 
         # init luego de prStart
         self._beats_per_bar = 4.0
@@ -715,94 +687,74 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         self.permanent = False
         type(self)._all.add(self)
 
-        if _libsc3.main.mode == _libsc3.main.RT:
-            self._task_queue = tsq.TaskQueue()
-        else:
-            self._clock_task = None
+        self._task_queue = tsq.TaskQueue()
         self._sched_cond = threading.Condition(_libsc3.main._main_lock)
 
-        self._thread = threading.Thread(
-            target=self._run,
-            name=f'{type(self).__name__} id: {id(self)}',
-            daemon=True)
-        self._thread.start()
-        _libsc3.main._atexitq.add(
-            _libsc3.main._atexitprio.CLOCKS + 2, self._stop)
+        if _libsc3.main.mode == _libsc3.main.NRT:
+            self._thread = None
+        else:
+            self._thread = threading.Thread(
+                target=self._run,
+                name=f'{type(self).__name__} id: {id(self)}',
+                daemon=True)
+            self._thread.start()
+            _libsc3.main._atexitq.add(
+                _libsc3.main._atexitprio.CLOCKS + 2, self._stop)
 
     def _run(self):
+        self._run_sched = True
+
         with self._sched_cond:
-            if _libsc3.main.mode == _libsc3.main.RT:
-                self._rt_run()
-            else:
-                self._nrt_run()
+            while True:
+                # // wait until there is something in scheduler
+                while self._task_queue.empty():
+                    self._sched_cond.wait()
+                    if not self._run_sched:
+                        return
 
-    def _nrt_run(self):
-        self._run_sched = True
+                # // wait until an event is ready
+                elapsed_beats = 0
+                while not self._task_queue.empty():
+                    elapsed_beats = self.elapsed_beats()
+                    qpeek = self._task_queue.peek()
+                    if elapsed_beats >= qpeek[0]:
+                        break
+                    sched_secs = self.beats2secs(qpeek[0])
+                    # NOTE: I think there is no need for this clock to be
+                    # monotonic and sclang may or may not be working this way,
+                    # is less complicated here to use just elapsed_time.
+                    # I leave previous code commented by now (this should be
+                    # the same).
+                    # sched_point = _libsc3.main._time_of_initialization + sched_secs
+                    # self._sched_cond.wait(sched_point - _time.time())
+                    self._sched_cond.wait(
+                        sched_secs - _libsc3.main.elapsed_time())
+                    if not self._run_sched:
+                        return
 
-        while True:
-            while self._clock_task is None:
-                self._sched_cond.wait()
-                if not self._run_sched:
-                    return
-            self._clock_task.wakeup()
-            self._clock_task.notify_scheduler() # NOTE: Siempre noficia, aunque no reprograme.
-            self._sched_cond.wait()
-            if not self._run_sched:
-                return
-
-    def _rt_run(self):
-        self._run_sched = True
-
-        while True:
-            # // wait until there is something in scheduler
-            while self._task_queue.empty():
-                self._sched_cond.wait()
-                if not self._run_sched:
-                    return
-
-            # // wait until an event is ready
-            elapsed_beats = 0
-            while not self._task_queue.empty():
-                elapsed_beats = self.elapsed_beats()
-                qpeek = self._task_queue.peek()
-                if elapsed_beats >= qpeek[0]:
-                    break
-                sched_secs = self.beats2secs(qpeek[0])
-                # NOTE: I think there is no need for this clock to be
-                # monotonic and sclang may or may not be working this way,
-                # is less complicated here to use just elapsed_time.
-                # I leave previous code commented for now (this should be the same).
-                # sched_point = _libsc3.main._time_of_initialization + sched_secs
-                # self._sched_cond.wait(sched_point - _time.time())
-                self._sched_cond.wait(sched_secs - _libsc3.main.elapsed_time())
-                if not self._run_sched:
-                    return
-
-            # // perform all events that are ready
-            while not self._task_queue.empty()\
-            and elapsed_beats >= self._task_queue.peek()[0]:
-                item = self._task_queue.pop()
-                prev_beat = self._beats
-                self._beats = item[0] # NOTE: setea mBeats, la propiedad de la clase, SystemClock usa la variable sched_time
-                task = item[1]
-                if isinstance(task, stm.TimeThread):
-                    task.next_beat = None
-                try:
-                    _libsc3.main.update_logical_time(
-                        self.beats2secs(self._beats)) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
-                    # runAwakeMessage NOTE: que se llama con la preparación previa de la pila del intérprete
-                    delta = task.__awake__(self._beats,
-                                           self.beats2secs(self._beats),
-                                           self)
-                    if isinstance(delta, (int, float))\
-                    and not isinstance(delta, bool):
-                        time = self._beats + delta
-                        self._sched_add(time, task)
-                except stm.StopStream:
-                    _libsc3.main.update_logical_time(
-                        self.beats2secs(prev_beat))
-                except Exception:
-                    traceback.print_exception(*sys.exc_info())
+                # // perform all events that are ready
+                while not self._task_queue.empty()\
+                and elapsed_beats >= self._task_queue.peek()[0]:
+                    item = self._task_queue.pop()
+                    prev_beat = self._beats
+                    self._beats = item[0]
+                    task = item[1]
+                    if isinstance(task, stm.TimeThread):
+                        task.next_beat = None
+                    try:
+                        _libsc3.main.update_logical_time(
+                            self.beats2secs(self._beats))
+                        delta = task.__awake__(
+                            self._beats, self.beats2secs(self._beats), self)
+                        if isinstance(delta, (int, float))\
+                        and not isinstance(delta, bool):
+                            time = self._beats + delta
+                            self._sched_add(time, task)
+                    except stm.StopStream:
+                        _libsc3.main.update_logical_time(
+                            self.beats2secs(prev_beat))
+                    except Exception:
+                        traceback.print_exception(*sys.exc_info())
 
     def stop(self):
         # prStop -> prTempoClock_Free -> StopReq -> StopAndDelete -> Stop
@@ -943,7 +895,11 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def _sched_add(self, beats, task):
         # TempoClock::Add
-        if _libsc3.main.mode == _libsc3.main.RT:
+        if _libsc3.main.mode == _libsc3.main.NRT:
+            if isinstance(task, stm.TimeThread):
+                task.next_beat = beats
+            ClockTask(beats, self, task, _libsc3.main._clock_scheduler)
+        else:
             if self._task_queue.empty():
                 prev_beat = -1e10
             else:
@@ -953,10 +909,6 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 task.next_beat = beats
             if self._task_queue.peek()[0] != prev_beat:
                 self._sched_cond.notify()
-        else:
-            if isinstance(task, stm.TimeThread):
-                task.next_beat = beats
-            ClockTask(beats, self, task, _libsc3.main._clock_scheduler)
 
     def sched(self, delta, item):
         # _TempoClock_Sched
@@ -1093,7 +1045,10 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         return self.beats - self.bars2beats(self.bar())
 
     def running(self):
-        return self._thread is not None and self._thread.is_alive()
+        if _libsc3.main.mode == _libsc3.main.NRT:
+            return True
+        else:
+            return self._thread is not None and self._thread.is_alive()
 
 
 def defer(item, delta=None):

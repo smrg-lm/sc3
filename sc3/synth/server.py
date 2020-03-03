@@ -7,6 +7,7 @@ import atexit as _atexit
 import logging as _logging
 import os as _os
 import pathlib as _pathlib
+import time as _time
 
 from ..base import main as _libsc3
 from ..base import utils as utl
@@ -115,7 +116,7 @@ class ServerOptions():
         self.hw_device_name = Defaults.HW_DEVICE_NAME.default
         self.hw_buffer_size = Defaults.HW_BUFFER_SIZE.default
         self.sample_rate = Defaults.SAMPLE_RATE.default
-        self.nrt = Defaults.NRT.default
+        # self.nrt = Defaults.NRT.default  # See options_list
         self.verbose = Defaults.VERBOSE.default
 
         # Supernova only.
@@ -138,22 +139,47 @@ class ServerOptions():
         self.rec_channels = 2
         self.rec_buf_size = None
 
-    def options_list(self, port=57110):
+    def options_list(self, port, osc_file=None, input_file=None,
+                     output_file=None):
         o = []
 
-        if self.protocol == 'tcp':
-            o.extend([Defaults.TCP_PORT.flag, str(port)])
+        if port is None:
+            o.append(Defaults.NRT.flag)
+            if osc_file is None:
+                raise ValueException('osc_file must be supplied for nrt')
+            o.append(str(osc_file))
+            input_file = '_' if input_file is None else str(input_file)
+            o.append(input_file)
+            if output_file is None:
+                # TODO: Method in Platform for name generation. See Recorder & Buffer.
+                output_file = plt.Platform.recording_dir
+                output_file.mkdir(exist_ok=True)
+                output_file = str(output_file / 'SC_')
+                output_file += _time.strftime('%Y%m%d_%H%M%S')
+                output_file += '.' + self.rec_header_format
+            else:
+                output_file = str(output_file)
+            o.append(output_file)
+            o.append(self.sample_rate or '44100')  # No default SR for NRT.
+            o.append(self.rec_header_format)
+            o.append(self.rec_sample_format)
         else:
-            o.extend([Defaults.UDP_PORT.flag, str(port)])
+            if self.protocol == 'tcp':
+                o.extend([Defaults.TCP_PORT.flag, str(port)])
+            else:
+                o.extend([Defaults.UDP_PORT.flag, str(port)])
 
-        if self.bind_address != Defaults.BIND_ADDRESS.default:
-            o.extend([Defaults.BIND_ADDRESS.flag, str(self.bind_address)])
-        if self.max_logins != Defaults.MAX_LOGINS.default:
-            o.extend([Defaults.MAX_LOGINS.flag, str(self.max_logins)])
-        if self.password != Defaults.PASSWORD.default:
-            o.extend([Defaults.PASSWORD.flag, str(self.password)])
-        if self.zeroconf != Defaults.ZEROCONF.default:
-            o.extend([Defaults.ZEROCONF.flag, str(int(self.zeroconf))])
+            if self.bind_address != Defaults.BIND_ADDRESS.default:
+                o.extend([Defaults.BIND_ADDRESS.flag, str(self.bind_address)])
+            if self.max_logins != Defaults.MAX_LOGINS.default:
+                o.extend([Defaults.MAX_LOGINS.flag, str(self.max_logins)])
+            if self.password != Defaults.PASSWORD.default:
+                o.extend([Defaults.PASSWORD.flag, str(self.password)])
+            if self.zeroconf != Defaults.ZEROCONF.default:
+                o.extend([Defaults.ZEROCONF.flag, str(int(self.zeroconf))])
+
+            if self.sample_rate != Defaults.SAMPLE_RATE.default:
+                o.extend([Defaults.SAMPLE_RATE.flag, str(self.sample_rate)])
 
         if self.restricted_path != Defaults.RESTRICTED_PATH.default:
             o.extend([Defaults.RESTRICTED_PATH.flag, str(self.restricted_path)])
@@ -193,10 +219,7 @@ class ServerOptions():
             o.extend([Defaults.HW_DEVICE_NAME.flag, str(self.hw_device_name)])
         if self.hw_buffer_size != Defaults.HW_BUFFER_SIZE.default:
             o.extend([Defaults.HW_BUFFER_SIZE.flag, str(self.hw_buffer_size)])
-        if self.sample_rate != Defaults.SAMPLE_RATE.default:
-            o.extend([Defaults.SAMPLE_RATE.flag, str(self.sample_rate)])
-        if self.nrt != Defaults.NRT.default:
-            o.append(Defaults.NRT.flag)
+
         if self.verbose != Defaults.VERBOSE.default:
             o.extend([Defaults.VERBOSE.flag, str(self.verbose)])
 

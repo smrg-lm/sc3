@@ -201,6 +201,7 @@ class OscUdpInterface(OscInterface):
         self._server = None
         self._server_thread = None
         self._running = False
+        self.proto = 'udp'
 
     @property
     def socket(self):
@@ -260,6 +261,7 @@ class OscTcpInteface(OscInterface):
         self._tcp_thread = None
         self._run_thread = False
         self._is_connected = False
+        self.proto = 'tcp'
 
     def bind(self):
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

@@ -29,8 +29,7 @@ class NetAddr():
         self._hostname = hostname
         self._port = port
         self._target = (hostname, port)
-        self._proto = 'udp'
-        self._osc_interface = _libsc3.main._osc_interface
+        self._tcp_interface = None
 
     @property
     def hostname(self):
@@ -46,7 +45,7 @@ class NetAddr():
 
     @property
     def proto(self):
-        return self._proto
+        return self._osc_interface.proto
 
     @property
     def is_local(self):
@@ -56,6 +55,10 @@ class NetAddr():
     def local_end_point(self):  # bind_addr
         if self._osc_interface.socket:
             return type(self)(*self._osc_interface.socket.getsockname())
+
+    @property
+    def _osc_interface(self):
+        return self._tcp_interface or _libsc3.main._osc_interface
 
     # @classmethod
     # def local_addr(cls):  # local_end_point?
@@ -84,21 +87,20 @@ class NetAddr():
         # Async.
         if self.is_connected:
             self.disconnect()
-        if self._proto == 'udp':
-            self._proto = 'tcp'
-        self._osc_interface = osci.OscTcpInteface(
+        self._tcp_interface = osci.OscTcpInterface(
             local_port or self.lang_port() + 1, port_range)
-        self._osc_interface.bind()
-        self._osc_interface.try_connect(
+        self._tcp_interface.bind()
+        self._tcp_interface.try_connect(
             self._target, timeout, on_complete, on_failure)
 
     def disconnect(self):
         # Sync.
-        self._osc_interface.disconnect()
+        self._tcp_interface.disconnect()
+        self._tcp_interface = None
 
     @property
     def is_connected(self):
-        return self._osc_interface.is_connected
+        return self._tcp_interface and self._tcp_interface.is_connected
 
 
     # @classmethod

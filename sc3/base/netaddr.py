@@ -3,7 +3,6 @@
 import ipaddress
 import socket
 
-from ..seq import clock as clk
 from ..seq import stream as stm
 from . import main as _libsc3
 from . import utils as utl
@@ -116,9 +115,6 @@ class NetAddr():
         self._osc_interface.send_msg(self._target, *args)
 
     def send_bundle(self, time, *args):
-        if time is not None:
-            time += _libsc3.main.current_tt.seconds
-            time = clk.SystemClock.elapsed_time_to_osc(time)
         self._osc_interface.send_bundle(self._target, time, *args)
 
     # def send_clumped_bundles(self, time, *args):

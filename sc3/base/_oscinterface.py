@@ -92,7 +92,7 @@ class OscInterface(ABC):
         bundles. Empty strings are sent unchanged.
         '''
         msg = self._build_msg(list(args))
-        self.send(msg, target)
+        self._send(msg, target)
 
     def send_bundle(self, target, time, *args):
         '''
@@ -102,16 +102,19 @@ class OscInterface(ABC):
         If time is negative it will be substracted from elapsed time and be
         an already late timetag (no check for sign).
         '''
+        if time is not None:
+            time += _libsc3.main.current_tt.seconds
+            time = clk.SystemClock.elapsed_time_to_osc(time)
         bndl = self._build_bundle([time, *args])
-        self.send(bndl, target)
+        self._send(bndl, target)
 
     @abstractmethod
-    def send(self, msg, target):
+    def _send(self, msg, target):
         pass
 
     def _build_msg(self, arg_list):  # ['/path', arg1, arg2, ..., argN]
-        msg_builder = oli.OscMessageBuilder(arg_list.pop(0))
-        for arg in arg_list:
+        msg_builder = oli.OscMessageBuilder(arg_list[0])
+        for arg in arg_list[1:]:
             if arg is None:
                 msg_builder.add_arg(0)
             elif isinstance(arg, bool):
@@ -139,8 +142,9 @@ class OscInterface(ABC):
         return msg_builder.build()
 
     def _build_bundle(self, arg_list):  # [time, ['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
-        bndl_builder = oli.OscBundleBuilder(arg_list.pop(0) or oli.IMMEDIATELY)  # Only None is IMMEDIATELY, zero can't reach this stage through addr.send_bundle.
-        for arg in arg_list:
+        timetag = oli.IMMEDIATELY if arg_list[0] is None else arg_list[0]
+        bndl_builder = oli.OscBundleBuilder(timetag)
+        for arg in arg_list[1:]:
             if isinstance(arg[0], str):
                 bndl_builder.add_content(self._build_msg(arg))
             elif isinstance(arg[0], (int, float, type(None))):
@@ -161,6 +165,8 @@ class OscInterface(ABC):
         bndl = _build_bundle(arg_list)  # *** BUG: el problema es no estar construyendo el atado dos veces igual.
         return bndl.size  # *** BUG: este método está demás, hay que hacer todo en quién llama y guardar el bndl.
 
+    def __str__(self):
+        return f'{type(self).__name__} port {self._port}'
 
     ### UDP Interface ###
 
@@ -247,13 +253,13 @@ class OscUdpInterface(OscInterface):
     def running(self):
         return self._running
 
-    def send(self, msg, target):
+    def _send(self, msg, target):  # override
         self._server.socket.sendto(msg.dgram, target)
 
 
-class OscTcpInteface(OscInterface):
+class OscTcpInterface(OscInterface):
     '''
-    OSC client over TCP. OscTcpInteface instances aren't reusable.
+    OSC client over TCP. OscTcpInterface instances aren't reusable.
     '''
 
     def __init__(self, port=57120, port_range=10):
@@ -345,13 +351,10 @@ class OscTcpInteface(OscInterface):
         self._socket.close()  # OSError if underlying error.
         _libsc3.main._atexitq.remove(self.disconnect)
 
-    def send(self, msg, _=None):
-        self._socket.send(msg.size.to_bytes(4, 'big'))
-        self._socket.send(msg.dgram)
-
     @property
     def is_connected(self):
         return self._is_connected
 
-    def __str__(self):
-        return f'{type(self).__name__} port {self._port}'
+    def _send(self, msg, _=None):  # override
+        self._socket.send(msg.size.to_bytes(4, 'big'))
+        self._socket.send(msg.dgram)

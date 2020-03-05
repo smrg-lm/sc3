@@ -9,7 +9,7 @@ import glob # sclang usa glob y glob se encarga de '*' (que no lista los archivo
 from ..base import utils as utl
 from ..base import systemactions as sac
 from ..base import model as mdl
-from . import _global as _gl
+from ..base import main as _libsc3
 from . import ugen as ugn
 from . import ugens as ugns
 from . import server as srv
@@ -145,7 +145,7 @@ class SynthDesc():
 
     # // synthdef ver 2
     def read_synthdef2(self, stream, keep_def=False):
-        with _gl.def_build_lock:
+        with _libsc3.main._def_build_lock:
             try:
                 self.inputs = []
                 self.outputs = []
@@ -157,7 +157,7 @@ class SynthDesc():
                 self.name = str(aux_string, 'ascii') # getPascalString 03
 
                 self.sdef = sdf.SynthDef.dummy(self.name) # BUG: Object:prNew es objeto vacío, dummy, y se va llenando acá pero no se puede llamar a __init__ porque este llama a _build
-                _gl.current_synthdef = self.sdef
+                _libsc3.main._current_synthdef = self.sdef
 
                 num_constants = struct.unpack('>i', stream.read(4))[0] # getInt32
                 aux_f = stream.read(num_constants * 4) # read FloatArray 01
@@ -216,7 +216,7 @@ class SynthDesc():
 
                 self.make_msg_func()  # *** NOTE: aún tiene que llamar para setear _has_gate. Y realiza comprobaciones que son independientes de la función en sí.
             finally:
-                _gl.current_synthdef = None
+                _libsc3.main._current_synthdef = None
 
     def read_ugen_spec(self, stream): # TODO
         raise NotImplementedError('read_ugen_spec format version 1 not implemented')

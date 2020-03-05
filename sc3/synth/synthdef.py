@@ -10,7 +10,7 @@ from ..base import utils as utl
 from ..base import platform as plf
 from ..base import systemactions as sac
 from ..base import functions as fn
-from . import _global as _gl
+from ..base import main as _libsc3
 from . import ugen as ugn
 from . import server as srv
 from . import synthdesc as sdc
@@ -80,7 +80,7 @@ class SynthDef(metaclass=MetaSynthDef):
         self.metadata = metadata or dict()
         self.desc = None
 
-        # self._controls = None  # init_build, is set by ugens using _gl.current_synthdef
+        # self._controls = None  # init_build, is set by ugens using _libsc3.main._current_synthdef
         self._control_names = []
         self._all_control_names = []
         self._control_index = 0
@@ -98,23 +98,23 @@ class SynthDef(metaclass=MetaSynthDef):
         self._build(graph_func, rates or [], prepend_args or [])
 
     def _build(self, graph_func, rates, prepend_args):
-        with _gl.def_build_lock:
+        with _libsc3.main._def_build_lock:
             try:
-                _gl.current_synthdef = self
+                _libsc3.main._current_synthdef = self
                 self._init_build()
                 self._build_ugen_graph(graph_func, rates, prepend_args)
                 self._finish_build()
                 self.func = graph_func
-                _gl.current_synthdef = None
+                _libsc3.main._current_synthdef = None
             except Exception as e:
-                _gl.current_synthdef = None
+                _libsc3.main._current_synthdef = None
                 raise e
 
     # L53
     @classmethod
     def wrap(cls, func, rates=None, prepend_args=None): # TODO: podría ser, además, un decorador en Python pero para usar dentro de una @synthdef o graph_func
-        if _gl.current_synthdef is not None:
-            return _gl.current_synthdef._build_ugen_graph(
+        if _libsc3.main._current_synthdef is not None:
+            return _libsc3.main._current_synthdef._build_ugen_graph(
                 func, rates or [], prepend_args or [])
         else:
             raise Exception('SynthDef wrap should be called inside '

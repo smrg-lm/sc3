@@ -3,7 +3,7 @@
 from . import infougens as ifu
 from .. import ugen as ugn
 from .. import _graphparam as gpp
-from .. import _global as _gl
+from ...base import main as _libsc3
 from ...base import utils as utl
 
 
@@ -161,10 +161,10 @@ class LocalBuf(ugn.WidthFirstUGen):
 
     @classmethod
     def _new1(cls, rate, *args):  # override
-        max_local_bufs = _gl.current_synthdef._max_local_bufs
+        max_local_bufs = _libsc3.main._current_synthdef._max_local_bufs
         if max_local_bufs is None:
             max_local_bufs = MaxLocalBufs.new()
-            _gl.current_synthdef._max_local_bufs = max_local_bufs
+            _libsc3.main._current_synthdef._max_local_bufs = max_local_bufs
         max_local_bufs.increment()
         obj = cls()
         obj._rate = rate

@@ -1,7 +1,6 @@
 """FFT.sc"""
 
 from .. import ugen as ugn
-from .. import _global as _gl
 from . import fftunpacking as ffu
 from . import infougens as ifu
 

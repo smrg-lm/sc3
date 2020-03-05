@@ -3,8 +3,8 @@
 import logging
 
 from ...base import utils as utl
+from ...base import main as _libsc3
 from .. import ugen as ugn
-from .. import _global as _gl
 from .. import _graphparam as gpp
 
 
@@ -50,7 +50,7 @@ class Control(AbstractControl):
 
     @classmethod
     def names(cls, names):
-        synthdef = _gl.current_synthdef
+        synthdef = _libsc3.main._current_synthdef
         index = synthdef._control_index
         names = utl.as_list(names)
         for i, name in enumerate(names):
@@ -96,7 +96,7 @@ class AudioControl(AbstractControl):
 
     @classmethod
     def names(cls, names):
-        synthdef = _gl.current_synthdef
+        synthdef = _libsc3.main._current_synthdef
         index = synthdef._control_index
         names = utl.as_list(names)
         for i, name in enumerate(names):

@@ -8,7 +8,7 @@ import logging
 from ..base import utils as utl
 from ..base import builtins as bi
 from ..base import functions as fn
-from . import _global as _gl
+from ..base import main as _libsc3
 from . import _specialindex as _si
 from . import _graphparam as gpp
 
@@ -254,7 +254,7 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
         self._inputs = ()  # Always tuple.
         self._rate = 'audio'
         # atributos de instancia privados
-        self._synthdef = None # es _gl.current_synthdef luego de _add_to_synth
+        self._synthdef = None  # is _libsc3.main._current_synthdef after _add_to_synth
         self._synth_index = -1  # Order in built graph.
         self._output_index = 0 # Is property in OutputProxy, used by UGen.writeInputSpec and SynthDesc.readUGenSpec se obtiene de las inputs.
         self._special_index = 0 # Server op index.
@@ -570,7 +570,7 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
 
     # L287
     def _add_to_synth(self):
-        self._synthdef = _gl.current_synthdef
+        self._synthdef = _libsc3.main._current_synthdef
         if self._synthdef is not None:
             self._synthdef._add_ugen(self)
 
@@ -937,7 +937,7 @@ class OutputProxy(UGen):
         return self  # Must return self.
 
     def _add_to_synth(self):  # override # OutputProxy no se agrega a sí con _add_ugen, por lo tanto no se puebla con _init_topo_sort y no se guarda en _antecedents. _init_topo_sort comprueba if isinstance(input, OutputProxy): y agrega source_ugen
-        self._synthdef = _gl.current_synthdef
+        self._synthdef = _libsc3.main._current_synthdef
 
     def _dump_name(self):  # override
         return self.source_ugen._dump_name() + '['\
@@ -961,7 +961,7 @@ class OutputProxy(UGen):
 
 class WidthFirstUGen(UGen):  # Was in fft.py
     def _add_to_synth(self):
-        self._synthdef = _gl.current_synthdef
+        self._synthdef = _libsc3.main._current_synthdef
         if self._synthdef is not None:
             self._synthdef._add_ugen(self)
             self._synthdef._width_first_ugens.append(self)

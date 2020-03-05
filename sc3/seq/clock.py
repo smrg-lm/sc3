@@ -334,7 +334,7 @@ class Scheduler():
         self._drift = drift
         self.recursive = recursive
         # init
-        self._beats = 0.0 
+        self._beats = 0.0
         self._seconds = 0.0
         self.queue = tsq.TaskQueue()
         self._expired = []

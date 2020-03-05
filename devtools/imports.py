@@ -6,13 +6,12 @@ automático, podría ser que ya haya alguna librería así.
 
 
 imp_data = {
-    '_global': [],
     '_specialindex': [],
     'builtins': ['functions'],
     'clock': ['main', 'thread', 'builtins'],
     'engine': ['builtins'],
     'functions': ['builtins'],
-    'inout': ['ugens', '_global', 'utils'],
+    'inout': ['ugens', 'utils'],
     'line': ['ugens'],
     'main': ['server', 'clock', 'thread', 'oscserver', 'responsedefs'],
     'model': [],
@@ -25,11 +24,11 @@ imp_data = {
     'server': ['main', 'utils', 'netaddr', 'model', 'engine', 'synthdef', 'clock', 'systemactions', 'serverstatus', 'responsedefs', 'thread'],
     'serverstatus': ['clock', 'model', 'thread', 'systemactions', 'responsedefs'],
     'stream': ['functions'],
-    'synthdef': ['inout', '_global', 'utils', 'ugens', 'systemactions', 'server', 'platform', 'synthdesc'],
-    'synthdesc': ['_global', 'inout', 'utils', 'ugens', 'server', 'systemactions', 'synthdef'],
+    'synthdef': ['inout', 'utils', 'ugens', 'systemactions', 'server', 'platform', 'synthdesc'],
+    'synthdesc': ['inout', 'utils', 'ugens', 'server', 'systemactions', 'synthdef'],
     'systemactions': [],
     'thread': ['clock', 'main', 'stream'],
-    'ugens': ['functions', '_global', 'utils'], #, 'node'], # BUG: no puede importar node, ver ugens
+    'ugens': ['functions', 'utils'], #, 'node'], # BUG: no puede importar node, ver ugens
     'utils': []
 }
 

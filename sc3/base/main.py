@@ -41,10 +41,20 @@ class Process(type):
     '''Functions registered in atexit with order by priority numbers.'''
 
     def __init__(cls, name, bases, dict):
+        # Main library lock.
         cls._main_lock = threading.RLock()
+
+        # Mode switch lock.
         cls._switch_cond = threading.Condition(cls._main_lock)
         cls._mode = None
+
+        # Main TimeThread random generator.
         cls._rgen = random.Random()
+
+        # SynthDef graph build's global state.
+        cls._current_synthdef = None
+        cls._def_build_lock = threading.Lock()
+
         cls._init_platform()
         atexit.register(cls.shutdown)
 

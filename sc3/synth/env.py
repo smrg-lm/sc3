@@ -4,7 +4,7 @@ import copy
 import operator
 
 from . import _graphparam as gpp
-from . import _global as _gl
+from ..base import main as _libsc3
 from ..base import utils as utl
 from ..base import builtins as bi
 
@@ -153,7 +153,7 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
 
     def circle(self, last_time=0.0, last_curve='lin'):
         # // Connect releaseNode (or end) to first node of envelope.
-        if _gl.current_synthdef is None:
+        if _libsc3.main._current_synthdef is None:
             raise Exception('circle can only be used within graph functions')
         first_0_then_1 = xxx.Latch.kr(1.0, xxx.Impulse.kr(0.0))  # BUG: not defined
         if self.release_node is None:

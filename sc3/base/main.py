@@ -15,7 +15,7 @@ from . import _oscinterface as osci
 from . import utils as utl
 
 
-__all__ = ['main']
+__all__ = ['main', 'RtMain', 'NrtMain']
 
 
 class TimeException(ValueError):
@@ -26,9 +26,6 @@ class TimeException(ValueError):
 
 
 class Process(type):
-    RT = 0
-    NRT = 1
-
     class _atexitprio(enum.IntEnum):
         ''' Library predefined _atexitq priority numbers.'''
         USER = 0
@@ -46,7 +43,6 @@ class Process(type):
 
         # Mode switch lock.
         cls._switch_cond = threading.Condition(cls._main_lock)
-        cls._mode = None
 
         # Main TimeThread random generator.
         cls._rgen = random.Random()
@@ -72,72 +68,16 @@ class Process(type):
         cls._platform._startup()
         cls._atexitq.add(cls._atexitprio.PLATFORM, cls.platform._shutdown)
 
-    def _init_rt(cls):
-        # In sclang these two are the same clock, it obtains time_since_epoch
-        # as gHostStartNanos = duration_cast<nanoseconds>
-        # (hrTimeOfInitialization.time_since_epoch()).count().
-        # I think is not important for these reference points to be sampled at
-        # the same time because main.elapsed_time() == 0 is in logic relation
-        # to main._rt_time_of_initialization. Comment to be removed later if
-        # true.
-        cls._rt_time_of_initialization = time.time()  # time_since_epoch
-        cls._rt_perf_counter_time_of_initialization = time.perf_counter()  # monotonic clock.
-        cls._create_main_thread('rt')
-        cls._osc_interface = osci.OscUdpInterface()
-        cls._osc_interface.start()
-
-    def _init_nrt(cls):
-        cls._nrt_time_of_initialization = 0.0
-        cls._create_main_thread('nrt')
-        cls._clock_scheduler = clk.ClockScheduler()
-        cls._osc_interface = osci.OscNrtInterface()
-        cls._osc_interface.init()
-
-    def _create_main_thread(cls, prefix):
+    def _create_main_thread(cls):
         # PyrInterpreter3 L157 newPyrProcess y PyrPrimitive initPyrThread.
-        main_tt = stm.TimeThread.__new__(stm.TimeThread)
-        main_tt.parent = None
-        main_tt.func = None
-        main_tt.state = stm.TimeThread.State.Init
-        main_tt._thread_player = None
-        main_tt._beats = 0.0  # Only for main_tt.
-        main_tt._seconds = 0.0
-        main_tt._rgen = cls._rgen
-
-        main_vname = '_' + prefix + '_main_tt'
-        curr_vname = '_' + prefix + '_current_tt'
-        setattr(cls, main_vname, main_tt)
-        setattr(cls, curr_vname, getattr(cls, main_vname))
-
-    def rt(cls):
-        '''Sets the library in rt mode.'''
-        if not hasattr(cls, '_rt_time_of_initialization'):
-            cls._init_rt()
-        with cls._switch_cond:
-            cls._time_of_initialization = cls._rt_time_of_initialization
-            cls.main_tt = cls._rt_main_tt
-            cls.current_tt = cls.main_tt
-            setattr(cls, 'elapsed_time', cls._rt_elapsed_time)
-            setattr(cls, 'update_logical_time', cls._rt_update_logical_time)
-            cls._mode = cls.RT
-
-    def nrt(cls):
-        '''Sets the library in nrt mode.'''
-        # *** BUG: nrt no va a funcionar con las clases que llaman a
-        # *** BUG: SystemClock directamente, por ejemplo Event.
-        if not hasattr(cls, '_nrt_time_of_initialization'):
-            cls._init_nrt()
-        with cls._switch_cond:
-            cls._time_of_initialization = cls._nrt_time_of_initialization
-            cls.main_tt = cls._nrt_main_tt
-            cls.current_tt = cls.main_tt  # *** BUG: see no reset case.
-            setattr(cls, 'elapsed_time', cls._nrt_elapsed_time)
-            setattr(cls, 'update_logical_time', cls._nrt_update_logical_time)
-            cls._mode = cls.NRT
-
-    @property
-    def mode(cls):
-        return cls._mode
+        cls.main_tt = stm.TimeThread.__new__(stm.TimeThread)
+        cls.main_tt.parent = None
+        cls.main_tt.func = None
+        cls.main_tt.state = stm.TimeThread.State.Init
+        cls.main_tt._thread_player = None
+        cls.main_tt._beats = 0.0  # Only for main_tt.
+        cls.main_tt._seconds = 0.0
+        cls.main_tt._rgen = cls._rgen
 
     @property
     def rgen(cls):
@@ -167,23 +107,44 @@ class Process(type):
     def remove_osc_recv_func(cls, func):
         cls._osc_interface.remove_recv_func(func)
 
-    def _rt_elapsed_time(cls) -> float:
+    def elapsed_time(cls):
+        pass
+
+    def update_logical_time(cls, seconds=None):
+        pass
+
+
+### Main.sc ###
+
+
+class RtMain(metaclass=Process):
+    @classmethod
+    def _init(cls):
+        # In sclang these two are the same clock, it obtains time_since_epoch
+        # as gHostStartNanos = duration_cast<nanoseconds>
+        # (hrTimeOfInitialization.time_since_epoch()).count().
+        # I think is not important for these reference points to be sampled at
+        # the same time because main.elapsed_time() == 0 is in logic relation
+        # to main._time_of_initialization. Comment to be removed later if
+        # true.
+        cls._time_of_initialization = time.time()  # time_since_epoch
+        cls._perf_counter_time_of_initialization = time.perf_counter()  # monotonic clock.
+        cls._create_main_thread()
+        cls._osc_interface = osci.OscUdpInterface()
+        cls._osc_interface.start()
+
+        with cls._switch_cond:  # ******************************* BORRAR/CAMBIAR
+            cls.current_tt = cls.main_tt
+
+    @classmethod
+    def elapsed_time(cls):
         '''Physical time since library initialization.'''
         # *elapsedTime _ElapsedTime
         # Returns the more accurate clock time minus _time_of_initialization.
-        return time.perf_counter() - cls._rt_perf_counter_time_of_initialization
+        return time.perf_counter() - cls._perf_counter_time_of_initialization
 
-    def _nrt_elapsed_time(cls) -> float:
-        '''Physical time is main_Thread.seconds in nrt.'''
-        return float(cls.main_tt.seconds)
-
-    def monotonic_clock_time(cls) -> float:
-        # # *monotonicClockTime _monotonicClockTime
-        # monotonic_clock::now().time_since_epoch(), don't know where
-        # is used, on linux is hdclock es time.perf_counter().
-        return time.monotonic()
-
-    def _rt_update_logical_time(cls, seconds=None):
+    @classmethod
+    def update_logical_time(cls, seconds=None):
         # // When code is run from the code editor, the command line, or in
         # // response to OSC and MIDI messages, the main Thread's logical time
         # // is set to the current physical time (see Process: *elapsedTime).
@@ -206,22 +167,37 @@ class Process(type):
         else:
             cls.main_tt.seconds = seconds
 
-    def _nrt_update_logical_time(cls, seconds=None):
+
+class NrtMain(metaclass=Process):
+    @classmethod
+    def _init(cls):
+        cls._time_of_initialization = 0.0
+        cls._create_main_thread()
+        cls._clock_scheduler = clk.ClockScheduler()
+        cls._osc_interface = osci.OscNrtInterface()
+        cls._osc_interface.init()
+
+        with cls._switch_cond:  # ******************************* BORRAR/CAMBIAR
+            cls.current_tt = cls.main_tt  # *** BUG: see no reset case.
+
+    @classmethod
+    def elapsed_time(cls):
+        '''Physical time is main_Thread.seconds in nrt.'''
+        return float(cls.main_tt.seconds)
+
+    @classmethod
+    def update_logical_time(cls, seconds=None):
         if seconds is None:
             return
         else:
             cls.main_tt.seconds = seconds
 
 
-### Main.sc ###
-
-
-class main(metaclass=Process):
-    pass
-
-
 ### After import's compile-time initialization ###
 
 
-main.rt()
-utl.ClassLibrary.init()
+main = RtMain
+main._init()
+utl.ClassLibrary.init()  # Los threads de los relojes, la variable global 's', default tempo clock, server y synthdesclib.
+                         # late_imports se inicializan desde este init también.
+                         # Las funciones _atexitq también son importantes según qué registren.

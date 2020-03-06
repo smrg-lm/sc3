@@ -690,9 +690,11 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         self._task_queue = tsq.TaskQueue()
         self._sched_cond = threading.Condition(_libsc3.main._main_lock)
 
-        if _libsc3.main.mode == _libsc3.main.NRT:
+        if _libsc3.main is _libsc3.NrtMain:
+            self._mode = 'nrt'
             self._thread = None
         else:
+            self._mode = 'rt'
             self._thread = threading.Thread(
                 target=self._run,
                 name=f'{type(self).__name__} id: {id(self)}',
@@ -700,6 +702,10 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             self._thread.start()
             _libsc3.main._atexitq.add(
                 _libsc3.main._atexitprio.CLOCKS + 2, self._stop)
+
+    @property
+    def mode(self):
+        return self._mode
 
     def _run(self):
         self._run_sched = True
@@ -895,7 +901,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def _sched_add(self, beats, task):
         # TempoClock::Add
-        if _libsc3.main.mode == _libsc3.main.NRT:
+        if self.mode == 'nrt':
             if isinstance(task, stm.TimeThread):
                 task.next_beat = beats
             ClockTask(beats, self, task, _libsc3.main._clock_scheduler)
@@ -1045,7 +1051,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         return self.beats - self.bars2beats(self.bar())
 
     def running(self):
-        if _libsc3.main.mode == _libsc3.main.NRT:
+        if self.mode == 'nrt':
             return True
         else:
             return self._thread is not None and self._thread.is_alive()

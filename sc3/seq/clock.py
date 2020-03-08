@@ -549,11 +549,13 @@ class ClockTask():
 
     def _wakeup(self, time):
         try:
+            if isinstance(self.task, stm.TimeThread):
+                self.task.next_beat = None
             _libsc3.main.update_logical_time(time)
-            delta = self.task.__awake__(
-                self.clock.secs2beats(time), time, self.clock)
+            beats = self.clock.secs2beats(time)
+            delta = self.task.__awake__(beats, time, self.clock)
             if isinstance(delta, (int, float)) and not isinstance(delta, bool):
-                self.scheduler.add(time + self.clock.beats2secs(delta), self)
+                self.scheduler.add(self.clock.beats2secs(beats + delta), self)
         except stm.StopStream:
             pass
         except Exception:

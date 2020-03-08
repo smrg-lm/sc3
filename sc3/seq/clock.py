@@ -822,6 +822,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # setTempoAtBeat(newTempo, this.beats) -> prTempoClock_SetTempoAtBeat
         if not self.running():
             raise ClockNotRunning(self)
+        if value == 0.0:
+            raise ValueError("tempo can't be zero")
         if self._tempo < 0.0: # BUG: NO ES CLARO: usa _tempo (mTempo), que puede ser negativo mediante etempo y en ese caso no deja setear acá, ES RARO.
             raise ValueError(
                 "cannot set tempo from this method. "
@@ -847,6 +849,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # _TempoClock_SetTempoAtTime
         if not self.running():
             raise ClockNotRunning(self)
+        if value == 0.0:
+            raise ValueError("tempo can't be zero")
         # TempoClock::SetTempoAtTime
         seconds = _libsc3.main.elapsed_time()
         self._base_beats = self.secs2beats(seconds)

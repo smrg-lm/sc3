@@ -5,7 +5,6 @@ import threading
 import time as _time
 import sys
 import traceback
-import math
 import weakref
 
 from ..base import utils as utl
@@ -305,7 +304,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         with cls._sched_cond:
             seconds = _libsc3.main.current_tt.seconds
             seconds += delta
-            if seconds == math.inf:
+            if seconds == bi.inf:
                 return
             cls._sched_add(seconds, item)
 
@@ -313,7 +312,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
     def sched_abs(cls, time, item):
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
-        if time == math.inf:
+        if time == bi.inf:
             return
         with cls._sched_cond:
             cls._sched_add(time, item)
@@ -931,7 +930,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 seconds = _libsc3.main.current_tt.seconds
                 beats = self.secs2beats(seconds)
             beats += delta
-            if beats == math.inf:
+            if beats == bi.inf:
                 return
             self._sched_add(beats, item)
 
@@ -941,7 +940,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             raise ClockNotRunning(self)
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
-        if beat == math.inf:
+        if beat == bi.inf:
             return
         with self._sched_cond:
             self._sched_add(beat, item)

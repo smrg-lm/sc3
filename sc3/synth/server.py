@@ -37,6 +37,10 @@ __all__ = ['s', 'Server', 'ServerOptions']
 _logger = _logging.getLogger(__name__)
 
 
+s = None
+'''Default server global variable.'''
+
+
 class Defaults(enum.Enum):
     UDP_PORT = ('-u', None)  # mutex -t, opt int
     TCP_PORT = ('-t', None)  # mutex -u, opt int

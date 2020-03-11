@@ -18,6 +18,10 @@ from . import utils as utl
 __all__ = ['main', 'RtMain', 'NrtMain']
 
 
+main = None
+'''Default main class global variable set by sc3.init().'''
+
+
 class TimeException(ValueError):
     pass
 
@@ -191,13 +195,3 @@ class NrtMain(metaclass=Process):
             return
         else:
             cls.main_tt.seconds = seconds
-
-
-### After import's compile-time initialization ###
-
-
-main = RtMain
-main._init()
-utl.ClassLibrary.init()  # Los threads de los relojes, la variable global 's', default tempo clock, server y synthdesclib.
-                         # late_imports se inicializan desde este init también.
-                         # Las funciones _atexitq también son importantes según qué registren.

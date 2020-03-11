@@ -34,41 +34,35 @@ class ClockNotRunning(ClockError):
 ### Clocks for timing threads ###
 
 
-class Clock():
-    @classmethod
+class MetaClock(type):
     def play(cls, task):
         cls.sched(0, task)
 
-    @classmethod
-    def seconds(cls): # seconds es el *tiempo lógico* de cada thread
+    @property
+    def seconds(cls):
         return _libsc3.main.current_tt.seconds
 
     # // tempo clock compatibility
-    @classmethod
+
+    @property
     def beats(cls):
         return _libsc3.main.current_tt.seconds
 
-    @classmethod
     def beats2secs(cls, beats):
         return beats
 
-    @classmethod
     def secs2beats(cls, secs):
         return secs
 
-    @classmethod
     def beats2bars(cls):
         return 0
 
-    @classmethod
     def bars2beats(cls):
         return 0
 
-    @classmethod
-    def time_to_next_beat(cls):
+    def time_to_next_beat(cls, quant=1.0):
         return 0
 
-    @classmethod
     def next_time_on_grid(cls, quant=1, phase=0):
         if quant == 0:
             return cls.beats() + phase
@@ -77,7 +71,11 @@ class Clock():
         return bi.roundup(cls.beats() - bi.mod(phase, quant), quant) + phase
 
 
-class MetaSystemClock(type):
+class Clock(metaclass=MetaClock):
+    pass
+
+
+class MetaSystemClock(MetaClock):
     def __init__(cls, *_):
 
         def init_func(cls):
@@ -420,7 +418,7 @@ class Scheduler():
         self._beats = self._clock.secs2beats(value)
 
 
-class MetaAppClock(type):
+class MetaAppClock(MetaClock):
     def __init__(cls, *_):
 
         def init_func(cls):
@@ -638,7 +636,7 @@ class Quant():
 # NOTE: contraposición al tiempo lógico. La base temporal es el tempo.
 
 
-class MetaTempoClock(type):
+class MetaTempoClock(MetaClock):
     def __init__(cls, *_):
         cls._all = weakref.WeakSet()
 

@@ -35,8 +35,19 @@ class ClockNotRunning(ClockError):
 
 
 class MetaClock(type):
+    _pure_nrt = False  # Must be set by sub metaclasses in __init__.
+
     def play(cls, task):
         cls.sched(0, task)
+
+    @property
+    def mode(cls):
+        if cls._pure_nrt:
+            return _libsc3.main.NRT_MODE
+        elif _libsc3.main is _libsc3.RtMain:
+            return _libsc3.main.RT_MODE
+        else:
+            return _libsc3.main.NRT_MODE
 
     @property
     def seconds(cls):
@@ -79,16 +90,20 @@ class MetaSystemClock(MetaClock):
     def __init__(cls, *_):
 
         def init_func(cls):
-            cls._task_queue = tsq.TaskQueue()
-            cls._sched_cond = threading.Condition(_libsc3.main._main_lock)
-            cls._thread = threading.Thread(
-                target=cls._run,
-                name=cls.__name__,
-                daemon=True)
-            cls._thread.start()
-            cls._sched_init()
-            _libsc3.main._atexitq.add(
-                _libsc3.main._atexitprio.CLOCKS, cls._sched_stop)
+            if _libsc3.main is _libsc3.RtMain:
+                cls._task_queue = tsq.TaskQueue()
+                cls._sched_cond = threading.Condition(_libsc3.main._main_lock)
+                cls._thread = threading.Thread(
+                    target=cls._run,
+                    name=cls.__name__,
+                    daemon=True)
+                cls._thread.start()
+                cls._sched_init()
+                _libsc3.main._atexitq.add(
+                    _libsc3.main._atexitprio.CLOCKS, cls._sched_stop)
+            else:
+                cls._pure_nrt = True
+                cls._elapsed_osc_offset = 0.0
 
         utl.ClassLibrary.add(cls, init_func)
 
@@ -284,7 +299,9 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
     @classmethod
     def clear(cls):
-        with cls._sched_cond: # BUG: VER SI USA COND!
+        if cls.mode == _libsc3.main.NRT_MODE:
+            return
+        with cls._sched_cond:
             item = None
             # BUG: NO SÉ QUE ESTABA PENSANDO CUANOD HICE ESTE, FALTA:
             # BUG: queue es thisProcess.prSchedulerQueue, VER!
@@ -299,12 +316,20 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
     def sched(cls, delta, item):
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
-        with cls._sched_cond:
+        if cls.mode == _libsc3.main.NRT_MODE:
+            # See note in TempoClock sched.
             seconds = _libsc3.main.current_tt.seconds
             seconds += delta
             if seconds == bi.inf:
                 return
-            cls._sched_add(seconds, item)
+            ClockTask(seconds, cls, item, _libsc3.main._clock_scheduler)
+        else:
+            with cls._sched_cond:
+                seconds = _libsc3.main.current_tt.seconds
+                seconds += delta
+                if seconds == bi.inf:
+                    return
+                cls._sched_add(seconds, item)
 
     @classmethod
     def sched_abs(cls, time, item):
@@ -312,8 +337,11 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
             item = fn.Function(item)
         if time == bi.inf:
             return
-        with cls._sched_cond:
-            cls._sched_add(time, item)
+        if cls.mode == _libsc3.main.NRT_MODE:
+            ClockTask(time, cls, item, _libsc3.main._clock_scheduler)
+        else:
+            with cls._sched_cond:
+                cls._sched_add(time, item)
 
     # L542 y L588 setea las prioridades 'rt' para mac o linux, es un parámetro de los objetos Thread
     # ver qué hace std::move(thread)
@@ -364,6 +392,8 @@ class Scheduler():
         self._sched_add(delta, item)
 
     def sched_abs(self, time, item):
+        if not hasattr(item, '__awake__'):
+            item = fn.Function(item)
         self.queue.add(time, item)
 
     def clear(self):
@@ -422,16 +452,19 @@ class MetaAppClock(MetaClock):
     def __init__(cls, *_):
 
         def init_func(cls):
-            cls._sched_cond = threading.Condition(_libsc3.main._main_lock)
-            cls._tick_cond = threading.Condition()
-            cls._scheduler = Scheduler(cls, drift=True, recursive=False)
-            cls._thread = threading.Thread(
-                target=cls._run,
-                name=cls.__name__,
-                daemon=True)
-            cls._thread.start()
-            _libsc3.main._atexitq.add(
-                _libsc3.main._atexitprio.CLOCKS + 1, cls._stop)
+            if _libsc3.main is _libsc3.RtMain:
+                cls._sched_cond = threading.Condition(_libsc3.main._main_lock)
+                cls._tick_cond = threading.Condition()
+                cls._scheduler = Scheduler(cls, drift=True, recursive=False)
+                cls._thread = threading.Thread(
+                    target=cls._run,
+                    name=cls.__name__,
+                    daemon=True)
+                cls._thread.start()
+                _libsc3.main._atexitq.add(
+                    _libsc3.main._atexitprio.CLOCKS + 1, cls._stop)
+            else:
+                cls._pure_nrt = True
 
         utl.ClassLibrary.add(cls, init_func)
 
@@ -458,17 +491,27 @@ class AppClock(Clock, metaclass=MetaAppClock):
 
     @classmethod
     def clear(cls):
-        cls._scheduler.clear()
+        if cls.mode == _libsc3.main.NRT_MODE:
+            return
+        else:
+            cls._scheduler.clear()
 
     @classmethod
     def sched(cls, delta, item):
-        with cls._sched_cond:
-            cls._scheduler.sched(delta, item)
-        with cls._tick_cond:
-            cls._tick_cond.notify() # cls.tick() pasada a run
+        if cls.mode == _libsc3.main.NRT_MODE:
+            if not hasattr(item, '__awake__'):
+                item = fn.Function(item)
+            ClockTask(delta, cls, item, _libsc3.main._clock_scheduler)
+        else:
+            with cls._sched_cond:
+                cls._scheduler.sched(delta, item)
+            with cls._tick_cond:
+                cls._tick_cond.notify() # cls.tick() pasada a run
 
     @classmethod
     def tick(cls):
+        if cls.mode == _libsc3.main.NRT_MODE:
+            return
         tmp = _libsc3.main.current_tt.clock
         _libsc3.main.current_tt.clock = cls # BUG: supongo que porque puede que scheduler evalue una Routine con play/run? Debe ser para defer. Igual no me cierra del todo, pero también porque sclang tiene un bug con los relojes heredados.
         cls._scheduler.seconds = _libsc3.main.elapsed_time()
@@ -686,14 +729,10 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         self.permanent = False
         type(self)._all.add(self)
 
-        self._task_queue = tsq.TaskQueue()
-        self._sched_cond = threading.Condition(_libsc3.main._main_lock)
-
-        if _libsc3.main is _libsc3.NrtMain:
-            self._mode = 'nrt'
-            self._thread = None
-        else:
-            self._mode = 'rt'
+        if _libsc3.main is _libsc3.RtMain:
+            self._pure_nrt = False
+            self._task_queue = tsq.TaskQueue()
+            self._sched_cond = threading.Condition(_libsc3.main._main_lock)
             self._thread = threading.Thread(
                 target=self._run,
                 name=f'{type(self).__name__} id: {id(self)}',
@@ -701,10 +740,17 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             self._thread.start()
             _libsc3.main._atexitq.add(
                 _libsc3.main._atexitprio.CLOCKS + 2, self._stop)
+        else:
+            self._pure_nrt = True
 
     @property
     def mode(self):
-        return self._mode
+        if self._pure_nrt:
+            return _libsc3.main.NRT_MODE
+        elif _libsc3.main is _libsc3.RtMain:
+            return _libsc3.main.RT_MODE
+        else:
+            return _libsc3.main.NRT_MODE
 
     def _run(self):
         self._run_sched = True
@@ -763,6 +809,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     def stop(self):
         # prStop -> prTempoClock_Free -> StopReq -> StopAndDelete -> Stop
+        if self.mode == _libsc3.main.NRT_MODE:
+            return
         # prTempoClock_Free
         if not self.running():
             _logger.debug(f'{self} is not running')
@@ -835,11 +883,14 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         self._base_seconds = self.beats2secs(beats)
         self._base_beats = beats
         self._tempo = value
-        self._beat_dur = 1.0 / value
-        with self._sched_cond:
-            self._sched_cond.notify() # NOTE: es notify_one en C++
+        self._beat_dur = 1.0 / self._tempo
         # en tempo_
         mdl.NotificationCenter.notify(self, 'tempo')
+        if self.mode == _libsc3.main.NRT_MODE:
+            return
+        else:
+            with self._sched_cond:
+                self._sched_cond.notify() # NOTE: es notify_one en C++
 
     # // for setting the tempo at the current elapsed time.
     def etempo(self, value):
@@ -854,11 +905,14 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         self._base_beats = self.secs2beats(seconds)
         self._base_seconds = seconds
         self._tempo = value
-        self._beat_dur = 1 / value
-        with self._sched_cond:
-            self._sched_cond.notify() # NOTE: es notify_one en C++
+        self._beat_dur = 1.0 / self._tempo
         # etempo_
         mdl.NotificationCenter.notify(self, 'tempo')
+        if self.mode == _libsc3.main.NRT_MODE:
+            return
+        else:
+            with self._sched_cond:
+                self._sched_cond.notify() # NOTE: es notify_one en C++
 
     def beat_dur(self):
         # _TempoClock_BeatDur
@@ -888,36 +942,44 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # _TempoClock_SetBeats
         if not self.running():
             raise ClockNotRunning(self)
-        with self._sched_cond:
-            seconds = _libsc3.main.current_tt.seconds # BUG: revisar en C++ las veces que obtiene beats o seconds de &g->thread que es current_tt
-            # TempoClock::SetAll # NOTE: _TempoClock_SetAll no se usa en sclang, creo que no están bien nombrasdos SetAll (para setea beats), SetTempoAtTime (para setea etempo) y SetTempoAtBeat (para setear tempo)
-            self._base_seconds = seconds
-            self._base_beats = value
-            #self._tempo = self._tempo # NOTE: la llamada a SetAll es clock->SetAll(clock->mTempo, beats, seconds)
-            self._beat_dur = 1.0 / self._tempo
+        seconds = _libsc3.main.current_tt.seconds
+        self._base_seconds = seconds
+        self._base_beats = value
+        self._beat_dur = 1.0 / self._tempo
+        if self.mode == _libsc3.main.NRT_MODE:
+            return
+        else:
             with self._sched_cond:
                 self._sched_cond.notify() # NOTE: es notify_one en C++
 
     @property
-    def seconds(self): # NOTE: definido solo como getter es thisThread.seconds, en TimeThread es property, acá también por consistencia?
+    def seconds(self):
         return _libsc3.main.current_tt.seconds
 
     def _sched_add(self, beats, task):
         # TempoClock::Add
-        if self.mode == 'nrt':
-            if isinstance(task, stm.TimeThread):
-                task.next_beat = beats
-            ClockTask(beats, self, task, _libsc3.main._clock_scheduler)
+        if self._task_queue.empty():
+            prev_beat = -1e10
         else:
-            if self._task_queue.empty():
-                prev_beat = -1e10
-            else:
-                prev_beat = self._task_queue.peek()[0]
-            self._task_queue.add(beats, task)
-            if isinstance(task, stm.TimeThread):
-                task.next_beat = beats
-            if self._task_queue.peek()[0] != prev_beat:
-                self._sched_cond.notify()
+            prev_beat = self._task_queue.peek()[0]
+        self._task_queue.add(beats, task)
+        if isinstance(task, stm.TimeThread):
+            task.next_beat = beats
+        if self._task_queue.peek()[0] != prev_beat:
+            self._sched_cond.notify()  # *** BUG: usa notify poruqe se llama anidado, cambiar.
+
+    def _sched_add_nrt(self, beats, task):
+        if isinstance(task, stm.TimeThread):
+            task.next_beat = beats
+        ClockTask(beats, self, task, _libsc3.main._clock_scheduler)
+
+    def _calc_sched_beats(self, delta):
+        if _libsc3.main.current_tt.clock is self:
+            beats = _libsc3.main.current_tt.beats
+        else:
+            seconds = _libsc3.main.current_tt.seconds
+            beats = self.secs2beats(seconds)
+        return beats + delta
 
     def sched(self, delta, item):
         # _TempoClock_Sched
@@ -925,16 +987,24 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             raise ClockNotRunning(self)
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
-        with self._sched_cond:
-            if _libsc3.main.current_tt.clock is self:
-                beats = _libsc3.main.current_tt.beats
-            else:
-                seconds = _libsc3.main.current_tt.seconds
-                beats = self.secs2beats(seconds)
-            beats += delta
+        # NOTE: Code is complicated because the lock. In RT the lock prevents
+        # to calculate a time here and then, because threading, to excecute
+        # a greater time element from the queue before this one is added. To
+        # leave a real lock as dummy is no an option because is a system
+        # resource, if was a fake lock wouldn't be clear. Also, _sched_add
+        # needs to be called already locked because is used from outside and
+        # within the _run loop.
+        if self.mode == _libsc3.main.NRT_MODE:
+            beats = self._calc_sched_beats(delta)
             if beats == bi.inf:
                 return
-            self._sched_add(beats, item)
+            self._sched_add_nrt(beats, item)
+        else:
+            with self._sched_cond:
+                beats = self._calc_sched_beats(delta)
+                if beats == bi.inf:
+                    return
+                self._sched_add(beats, item)
 
     def sched_abs(self, beat, item):
         # _TempoClock_SchedAbs
@@ -944,13 +1014,18 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             item = fn.Function(item)
         if beat == bi.inf:
             return
-        with self._sched_cond:
-            self._sched_add(beat, item)
+        if self.mode == _libsc3.main.NRT_MODE:
+            self._sched_add_nrt(beat, item)
+        else:
+            with self._sched_cond:
+                self._sched_add(beat, item)
 
     def clear(self, release_nodes=True):
         # // flag tells EventStreamPlayers that CmdPeriod
         # // is removing them, so nodes are already freed
         # clear -> prClear -> _TempoClock_Clear -> TempoClock::Clear
+        if self.mode == _libsc3.main.NRT_MODE:
+            return
         if self.running():  # and self._run_sched:  # NOTE: _run_sched check was needed?
             item = None
             with self._sched_cond:
@@ -1054,7 +1129,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         return self.beats - self.bars2beats(self.bar())
 
     def running(self):
-        if self.mode == 'nrt':
+        if self.mode == _libsc3.main.NRT_MODE:
             return True
         else:
             return self._thread is not None and self._thread.is_alive()

@@ -30,6 +30,9 @@ class TimeException(ValueError):
 
 
 class Process(type):
+    RT_MODE = 0
+    NRT_MODE = 1
+
     class _atexitprio(enum.IntEnum):
         ''' Library predefined _atexitq priority numbers.'''
         USER = 0

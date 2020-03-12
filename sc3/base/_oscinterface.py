@@ -443,15 +443,20 @@ class OscScore():
         msg = msg.size.to_bytes(4, 'big') + msg.dgram
         self._scoreq.add(bndl[0], type(self)._Entry(bndl, msg))
 
-    def finish(self, time):
+    def finish(self, time, on_complete=None):
         if self._finished:
             return
-        self.add(  # Dummy cmd.
-            [int(time * clk.SystemClock._SECONDS_TO_OSC), ['/c_set', 0, 0]])
-        for _, entry in self._scoreq:
-            self._lst_score.append(entry.bndl)
-            self._raw_score.extend(entry.msg)
-        self._finished = True
+
+        def finish_task():
+            self.add(  # Dummy cmd.
+                [int(time * clk.SystemClock._SECONDS_TO_OSC), ['/c_set', 0, 0]])
+            for _, entry in self._scoreq:
+                self._lst_score.append(entry.bndl)
+                self._raw_score.extend(entry.msg)
+            self._finished = True
+            fn.value(on_complete, self)
+
+        clk.SystemClock.sched_abs(time, finish_task)  # Add to queue, abs time.
 
     def write(self, path):
         if not self._finished:
@@ -482,6 +487,7 @@ class OscScore():
             universal_newlines=True)
 
         def render_wait_thread():
+            # clk.defer is used so code is excecuted within _main_lock.
             self._render_proc.wait()
             exit_code = self._render_proc.poll()
             if exit_code == 0:

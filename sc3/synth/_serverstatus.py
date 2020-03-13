@@ -24,7 +24,7 @@ class ServerStatusWatcher():
     def __init__(self, server):
         self.server = server
 
-        self.notified = False
+        self._notified = False
 
         self._max_logins = None
 
@@ -37,7 +37,7 @@ class ServerStatusWatcher():
 
         self._responder = None
 
-        self.has_booted = False
+        self._has_booted = False
         self._server_booting = False
         self._server_quitting = False
         self._server_registering = False
@@ -62,14 +62,17 @@ class ServerStatusWatcher():
         return self._max_logins or self.server.options.max_logins
 
     @property
-    def server_running(self):
-        return self.has_booted and self.notified
+    def has_booted(self):
+        return self._has_booted
 
-    @server_running.setter
-    def server_running(self, value):
+    @property
+    def server_running(self):
+        return self._has_booted and self._notified
+
+    def _set_server_running(self, value):
         if value != self.server_running:
             self._unresponsive = False
-            self.has_booted = value
+            self._has_booted = value
             if not value:
                 sac.ServerQuit.run(self.server)
                 self.server._disconnect_shared_memory()
@@ -78,7 +81,7 @@ class ServerStatusWatcher():
                 clk.defer(lambda: mdl.NotificationCenter.notify(
                     self.server, 'did_quit')) # BUG: ver comentario en sclang
                 if not self.server.is_local:
-                    self.notified = False
+                    self._notified = False
 
     @property
     def unresponsive(self):
@@ -160,7 +163,7 @@ class ServerStatusWatcher():
     def _add_responder(self):
         if self._responder is None:
             def status_func(msg, *_):
-                if not self.notified:
+                if not self._notified:
                     self._send_notify_request(True)
                 self._alive = True
                 cmd, one, self.num_ugens, self.num_synths, self.num_groups,\
@@ -199,7 +202,7 @@ class ServerStatusWatcher():
                     self._handle_login_done(new_client_id, new_max_logins)
                 self._finalize_register_done()
             elif self._server_unregistering:
-                self.notified = False
+                self._notified = False
                 _logger.info(f"'{self.server.name}': unregistration done")
                 self._perform_actions('unregister', 'on_complete')
             else:
@@ -265,18 +268,18 @@ class ServerStatusWatcher():
             # raise Exception(  # gives an uncaught exception in a fork.
             _logger.warning(f"'{self.server.name}': failed to register")
         self._stop_alive_thread()
-        self.notified = False
+        self._notified = False
 
     # // final actions needed to finish booting
     def _finalize_boot_done(self):
         # // this needs to be forked so that ServerBoot and ServerTree
-        # // will definitely run before notified is true.
+        # // will definitely run before _notified is true.
         def finalize_boot_task():
             sac.ServerBoot.run(self.server)
             yield from self.server.sync()
             self.server.init_tree()  # forks
             yield from self.server.sync()
-            self.notified = True
+            self._notified = True
             self._perform_actions('boot', 'on_complete')
             mdl.NotificationCenter.notify(self.server, 'server_running')  # NOTE: esta notificación la hace en varios lugares cuando cambia el estado de running no cuando running es True.
 
@@ -286,7 +289,7 @@ class ServerStatusWatcher():
         def finalize_register_task():
             # sac.ServerBoot.run(self.server)  # *** VER SI VA O NO.
             yield from self.server.sync()
-            self.notified = True
+            self._notified = True
             self._perform_actions('register', 'on_complete')
 
         stm.Routine.run(finalize_register_task, clk.AppClock)
@@ -296,7 +299,7 @@ class ServerStatusWatcher():
             clk.defer(lambda: mdl.NotificationCenter.notify(
                 self.server, 'bundling'))
         elif running:
-            self.server_running = True
+            self._set_server_running(True)
             self.unresponsive = False
             self._really_dead_count = self.pings_before_dead
         else:
@@ -311,9 +314,9 @@ class ServerStatusWatcher():
         else:
             self._perform_actions('quit', 'on_complete')
         # Only changes flags affected when quitting.
-        self.server_running = False # usa @property
+        self._set_server_running(False)
         self._server_quitting = False
-        self.notified = False
+        self._notified = False
         self._max_logins = None
         # // server.changed(\serverRunning) should be deferred in dependants!
         # // just in case some don't, defer here to avoid gui updates breaking.
@@ -323,7 +326,7 @@ class ServerStatusWatcher():
     def _watch_quit(self):
         done_quit = False
 
-        if self.notified:
+        if self._notified:
             def quit_func(msg, *_):
                 nonlocal done_quit
                 if msg[1] == '/quit':
@@ -358,8 +361,8 @@ class ServerStatusWatcher():
         self._stop_alive_thread()
         self._send_notify_request(False)
         # Same as _quit, only unregistration flags change.
-        self.server_running = False # usa @property
-        self.notified = False
+        self._set_server_running(False)
+        self._notified = False
         self._max_logins = None
         # // server.changed(\serverRunning) should be deferred in dependants!
         # // just in case some don't, defer here to avoid gui updates breaking.

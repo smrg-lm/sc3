@@ -8,6 +8,7 @@ import struct
 import socket
 import time
 import subprocess
+import sys
 
 from ..seq import clock as clk
 from ..seq import stream as stm
@@ -478,11 +479,12 @@ class OscScore():
         cmd.extend(
             server.options.options_list(None, osc_file, input_file, path))
 
+        # TODO: A more elaborate monitoring and handling like Server.
         self._render_proc = subprocess.Popen(
             cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdin=subprocess.PIPE,  # DEVNULL?
+            stdout=sys.stdout,
+            stderr=sys.stderr,
             bufsize=1,
             universal_newlines=True)
 

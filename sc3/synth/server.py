@@ -164,7 +164,8 @@ class ServerOptions():
             else:
                 output_file = str(output_file)
             o.append(output_file)
-            o.append(self.sample_rate or '44100')  # No default SR for NRT.
+            # No default SR for NRT.
+            o.append(str(self.sample_rate) if self.sample_rate else '44100')
             o.append(self.rec_header_format)
             o.append(self.rec_sample_format)
         else:

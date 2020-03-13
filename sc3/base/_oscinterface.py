@@ -408,9 +408,10 @@ class OscNrtInterface(OscInterface):
         self.send_bundle(target, 0.0, list(args))
 
     def send_bundle(self, target, time, *args):  # override
-        if time is not None:
-            time += _libsc3.main.current_tt.seconds
-            time = int(time * clk.SystemClock._SECONDS_TO_OSC)
+        if time is None:
+            time = 0.0  # IMMEDIATELY is not needed in nrt.
+        time += _libsc3.main.current_tt.seconds
+        time = int(time * clk.SystemClock._SECONDS_TO_OSC)
         self._osc_score.add([time, *args])
 
     def _send(self, msg, target):

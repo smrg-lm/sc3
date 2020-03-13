@@ -369,6 +369,15 @@ class ServerStatusWatcher():
         clk.defer(lambda: mdl.NotificationCenter.notify(
             self.server, 'server_running'))
 
+    def _boot_nrt(self):
+        if not self._has_booted:
+            self._has_booted = True
+            # sac.ServerBoot.run(self.server)  # Problems.
+
+    def _quit_nrt(self):
+        if self._has_booted:
+            self._has_booted = False
+            # sac.ServerQuit.run(self.server)
 
     ### Utilities ###
 

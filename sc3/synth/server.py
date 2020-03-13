@@ -649,7 +649,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             target.node_id, *node_list)
 
     def sync(self, condition=None, bundle=None, latency=None):
-        yield from self.addr.sync(condition, bundle, latency)
+        if _libsc3.main is _libsc3.NrtMain:
+            yield 0  # *** NOTE: Depends on Condition implementation.
+        else:
+            yield from self.addr.sync(condition, bundle, latency)
 
 
     ### Network message bundling ###
@@ -775,6 +778,13 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             # _logger.info(f"server '{self.name}' requested id unregistration")
 
     def boot(self, register=True, on_complete=None, on_failure=None):
+        if _libsc3.main is _libsc3.NrtMain:
+            if self._status_watcher.server_running\
+            or self._status_watcher.unresponsive:
+                _logger.error("can't use an rt server in nrt")
+            self._status_watcher._boot_nrt()
+            return
+
         if self._status_watcher.unresponsive:
             _logger.info(f"server '{self.name}' unresponsive, rebooting...")
             self.quit(watch_shutdown=False)
@@ -869,6 +879,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             event.wait(5)  # _MainThread, set_func runs in AppClock thread.
 
     def reboot(self, func=None, on_failure=None):
+        if _libsc3.main is _libsc3.NrtMain:
+            _logger.warning("can't reboot a nrt server")
+            return
+
         # // func is evaluated when server is off.
         if not self.is_local:
             _logger.info("can't reboot a remote server")
@@ -891,6 +905,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         return self._server_process.running()
 
     def quit(self, watch_shutdown=True, on_complete=None, on_failure=None):
+        if _libsc3.main is _libsc3.NrtMain:
+            self._status_watcher._quit_nrt()
+            return
+
         # if server is not running or is running but unresponsive.
         if not self._status_watcher.server_running\
         or self._status_watcher.unresponsive:

@@ -71,7 +71,8 @@ class Recorder():
     def record(self, path=None, bus=None, num_channels=None,
                node=None, duration=None):
         if self._server._status_watcher.unresponsive\
-        or not self._server._status_watcher.server_running: # Was if_not_running.
+        or not self._server._status_watcher.server_running:
+            _logger.error(f"server '{self.server.name}' is not running")
             return
         bus = bus if bus is not None else 0
         self._bus = gpp.node_param(bus)._as_control_input()
@@ -158,6 +159,9 @@ class Recorder():
             _logger.warning('not recording')
 
     def prepare(self, path=None, num_channels=None):
+        if not self._server._status_watcher.server_running:
+            _logger.error(f"server '{self.server.name}' is not running")
+            return
         if self.rec_buf_size is None:
             if self._server.options.rec_buf_size is None:
                 n = self._server._status_watcher.sample_rate

@@ -719,7 +719,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         self._beat_dur = 1.0 / tempo
         self._base_seconds = seconds or 0.0
         self._base_beats = beats or 0.0
-        self._beats = 0.0  # Needed by prev_beat
+        self._beats = 0.0
 
         # init luego de prStart
         self._beats_per_bar = 4.0
@@ -787,23 +787,23 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 while not self._task_queue.empty()\
                 and elapsed_beats >= self._task_queue.peek()[0]:
                     item = self._task_queue.pop()
-                    prev_beat = self._beats
                     self._beats = item[0]
                     task = item[1]
                     if isinstance(task, stm.TimeThread):
                         task.next_beat = None
                     try:
+                        print('*** update form tempo loop')
                         _libsc3.main.update_logical_time(
                             self.beats2secs(self._beats))
                         delta = task.__awake__(
                             self._beats, self.beats2secs(self._beats), self)
                         if isinstance(delta, (int, float))\
                         and not isinstance(delta, bool):
+                            print('*** reprogram form tempo loop')
                             time = self._beats + delta
                             self._sched_add(time, task)
                     except stm.StopStream:
-                        _libsc3.main.update_logical_time(
-                            self.beats2secs(prev_beat))
+                        pass
                     except Exception:
                         traceback.print_exception(*sys.exc_info())
 

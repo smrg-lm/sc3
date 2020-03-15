@@ -326,22 +326,14 @@ class Routine(TimeThread, Stream):
         return obj
 
     def play(self, clock=None, quant=None):
-        '''el argumento clock pordía soportar un string además de un objeto
-        clock, 'clojure', para el reloj en que se creó el objeto Routine,
-        'parent' para el reloj de la rutina desde la que se llama a play y
-        'default' para TempoClock.default (global), pero hay que comprobar
-        que en la creación o antes de llamar a play no se haya seteado
-        un reloj 'custom'. El reloj no se puede cambiar una vez que se llamó
-        a run o play.'''
-        clock = clock or _libsc3.main.current_tt.clock # BUG: perooooooo! esto no es así en sclang! es self.clock que el el reloj de la creación del objeto
+        # When clock is None there are some options:
+        # clock is 'parent' by global clojure as defined in TimeThread.__init__.
+        # clock is 'parent' at play time (current version differs from sclang).
+        # clock is TempoClock.default (sclang version).
+        # clock is set after __init__ and before play (needs a flag to check).
+        clock = clock or _libsc3.main.current_tt.clock
         self.clock = clock
-        if isinstance(self.clock, clk.TempoClock):
-            self.clock.play(self, quant) # clk.Quant.as_quant(quant)) # NOTE: no se necesita porque lo crea TempoClock.play
-        else:
-            self.clock.play(self)
-        # NOTE: no estoy retornando self a propósito, ver si conviene que
-        # NOTE: solor retornen self los métodos play que devuelven una rutina
-        # NOTE: creada a partir de otro objeto, por ejemplo, Pattern.
+        self.clock.play(self, quant)
 
     @property
     def clock(self):
@@ -576,10 +568,7 @@ class PauseStream(Stream):
                 self.waiting = False
                 mdl.NotificationCenter.notify(self, 'playing')
 
-        if isinstance(self.clock, clk.TempoClock):
-            self.clock.play(pause_stream_play, quant) # clk.Quant.as_quant(quant)) NOTE: no se necesita porque lo crea TempoClock.play
-        else:
-            self.clock.play(pause_stream_play)
+        self.clock.play(pause_stream_play, quant)
         mdl.NotificationCenter.notify(self, 'user_played')
         return self
 
@@ -826,10 +815,7 @@ class EventStreamPlayer(PauseStream):
                 self.waiting = False
                 mdl.NotificationCenter.notify(self, 'playing')
 
-        if isinstance(self.clock, clk.TempoClock):
-            self.clock.play(event_stream_play, quant)
-        else:
-            self.clock.play(event_stream_play)
+        self.clock.play(event_stream_play, quant)
         mdl.NotificationCenter.notify(self, 'user_played')
         return self
 

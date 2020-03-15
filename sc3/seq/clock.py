@@ -37,7 +37,8 @@ class ClockNotRunning(ClockError):
 class MetaClock(type):
     _pure_nrt = False  # Must be set by sub metaclasses in __init__.
 
-    def play(cls, task):
+    def play(cls, task, quant=None):
+        # Unused quant (needed for tempo clock compatibility).
         cls.sched(0, task)
 
     @property

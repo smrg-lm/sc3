@@ -2,6 +2,7 @@
 
 import inspect
 import enum
+import threading
 import random
 import logging
 
@@ -174,53 +175,23 @@ class NAryOpStream(Stream):
 ### Thread.sc ###
 
 
-class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, pero acá puede haber herencia múltiple. Además, me puse poético con el nombre.
-    # ./lang/LangSource/PyrKernel.h: enum { tInit, tStart, tReady, tRunning, tSleeping, tSuspended, tDone };
-    # ./lang/LangSource/PyrKernel.h: struct PyrThread : public PyrObjectHdr
-    State = enum.Enum('State', ['Init', 'Running', 'Suspended', 'Done']) # NOTE: tStart, tReady y tSleeping no se usan en ninguna parte
+class TimeThread():
+    State = enum.Enum('State', ['Init', 'Running', 'Suspended', 'Done'])
 
     def __init__(self, func):
-        # _Thread_Init -> prThreadInit -> initPyrThread
         if not inspect.isfunction(func):
-            raise TypeError('Thread func arg is not a function')
+            raise TypeError('TimeThread argument is not a function')
 
-        # BUG: ver test_clock_thread.scd, estos valores no tienen efecto porque
-        # se sobreescribe el reloj por TempoClock.default en Stream:play
-        # y Routine:run vuelve a escribir SystemClock (cuando ya lo hizo en
-        # PyrPrimitive). La única manera de usar el reloj heredado es llamando a next.
-        self._beats = _libsc3.main.current_tt.beats
-        self._seconds = _libsc3.main.current_tt.seconds # ojo que tienen setters porque son dependientes...
-
-        # BUG: ver qué pasa con terminalValue <nextBeat, <>endBeat, <>endValue;
-        # se usan en la implementación a bajo nivel de los relojes.
-
+        self.parent = None
         self.func = func
         self.state = self.State.Init
-        if _libsc3.main.current_tt.clock is None: # BUG: si mainThread siempre devuelve SystemClock y siempre es curThread por defecto, esta comprobación es necesaria?
-            self._clock = clk.SystemClock
-        else:
-            self._clock = _libsc3.main.current_tt.clock
-
-        # NOTA: No guarda la propiedad <parent cuando crea el thread, es
-        # &g->thread que la usa para setear beats y seconds pero no la guarda,
-        # la setea luego en algún lugar, con el cambio de contexto, supongo,
-        # y tiene valor solo mientras la rutina está en ejecución. Ver test_clock_thread.scd
-        self.parent = None
-        self.state = self.State.Init
+        self._state_cond = threading.Condition(threading.RLock())
+        # _seconds need alias to avoid
+        # _MainTimeThread getter in Routine.next().
+        self._m_seconds = 0.0
+        self._clock = None
         self._thread_player = None
         self._rgen = _libsc3.main.current_tt.rgen
-
-        # para Routine
-        self._iterator = None # se inicializa luego de la excepción
-        self._last_value = None
-        self._sentinel = object()
-        self._terminal_value = self._sentinel
-
-        # NOTE: No se usan entornos como en sclang, a lo sumo se podrían pasar diccionarios.
-        # self.environment = current_Environment # acá llama al slot currentEnvironment de Object y lo setea al del hilo
-        # NOTE: acá setea nowExecutingPath de la instancia de Process (Main), no va acá.
-        # if(g->process) { // check we're not just starting up
-        #     slotCopy(&thread->executingPath,&g->process->nowExecutingPath);
 
     def __copy__(self):
         return self
@@ -229,40 +200,12 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
         return self
 
     @property
-    def clock(self): # NOTE: mainThread clock (SystemClock) no se puede cambiar. Esto es distinto en sclang que define el setter en esta clase pero solo lo usa Routine.
-        return clk.SystemClock
+    def _seconds(self):
+        return self._m_seconds
 
-    @clock.setter
-    def clock(self, value):
-        pass  # NOTE: Needed for polymorphism, overriden by Routine.
-
-    @property
-    def seconds(self):
-        # NOTE: En la documentación de Thread:
-        # // When code is run from the code editor, the command line, or in
-        # // response to OSC and MIDI messages, the main Thread's logical
-        # // time is set to the current physical time (see Process: *elapsedTime).
-        # NOTE: En Python es cada vez que se requiere el tiempo de una ruitna.
-        if _libsc3.main.current_tt is _libsc3.main.main_tt:  # *** TODO: test possible calls combinations
-            _libsc3.main.update_logical_time()
-        return self._seconds
-
-    @seconds.setter
-    def seconds(self, seconds):
-        self._seconds = seconds
-        self._beats = self.clock.secs2beats(seconds)
-
-    @property
-    def beats(self):
-        # NOTE: Ver seconds arriba.
-        if _libsc3.main.current_tt is _libsc3.main.main_tt:  # *** TODO: test possible calls combinations
-            _libsc3.main.update_logical_time()
-        return self._beats
-
-    @beats.setter
-    def beats(self, beats):
-        self._beats = beats
-        self._seconds = self.clock.beats2secs(beats)
+    @_seconds.setter
+    def _seconds(self, seconds):
+        self._m_seconds = seconds
 
     @property
     def is_playing(self):
@@ -280,7 +223,7 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
                 return self
 
     @thread_player.setter
-    def thread_player(self, player): # BUG: se usa en Stream.sc que no está implementada
+    def thread_player(self, player):
         self._thread_player = player
 
     @property
@@ -306,19 +249,51 @@ class TimeThread(): #(Stream): # BUG: hereda de Stream por Routine y no la usa, 
     # *primitiveError
     # *primitiveErrorString
 
-    # Estos métodos no son necesarios porque no estamos herendando de Stream
-    # // these make Thread act like an Object not like Stream.
-    # next { ^this }
-    # value { ^this }
-    # valueArray { ^this }
-
     # TODO: ver pickling
     # storeOn { arg stream; stream << "nil"; }
     # archiveAsCompileString { ^true }
     # checkCanArchive { "cannot archive Threads".warn }
 
 
+class _MainTimeThread(TimeThread):
+    def __init__(self):  # override
+        self.parent = None
+        self.func = None
+        self.state = self.State.Init
+        self._m_seconds = 0.0
+        self._clock = None
+        self._thread_player = None
+
+    @property
+    def _seconds(self):  # override
+        # _MainThread set the current physical time when this
+        # property is invoked and then spreads to child routines.
+        _libsc3.main.update_logical_time()
+        return self._m_seconds
+
+    @_seconds.setter
+    def _seconds(self, seconds):
+        self._m_seconds = seconds
+
+    @property
+    def rgen(self):  # override
+        return _libsc3.main._rgen
+
+    def rand_seed(self, x):  # override
+        pass
+
+
 class Routine(TimeThread, Stream):
+    def __init__(self, func):
+        super().__init__(func)
+        self._iterator = None
+        self._last_value = None
+        self._sentinel = object()
+        self._terminal_value = self._sentinel
+
+        # <nextBeat, <>endBeat, <>endValue are used
+        # low level in clocks, only for PauseStream?
+
     @classmethod
     def run(cls, func, clock=None, quant=None):
         obj = cls(func)
@@ -326,109 +301,90 @@ class Routine(TimeThread, Stream):
         return obj
 
     def play(self, clock=None, quant=None):
-        # When clock is None there are some options:
-        # clock is 'parent' by global clojure as defined in TimeThread.__init__.
-        # clock is 'parent' at play time (current version differs from sclang).
-        # clock is TempoClock.default (sclang version).
-        # clock is set after __init__ and before play (needs a flag to check).
-        clock = clock or _libsc3.main.current_tt.clock
-        self.clock = clock
-        self.clock.play(self, quant)
-
-    @property
-    def clock(self):
-        return self._clock
-
-    @clock.setter
-    def clock(self, clock):
-        self._clock = clock
-        self._beats = clock.secs2beats(self.seconds)
+        clock = clock or clk.SystemClock
+        clock.play(self, quant)
 
     def next(self, inval=None):
-        # _RoutineAlwaysYield (y Done)
-        if self.state == self.State.Done:
-            if self._terminal_value is self._sentinel:
-                raise StopStream('Routine stopped')
-            else:
-                return self._terminal_value
-
-        # prRoutineResume
-        self.parent = _libsc3.main.current_tt
-        _libsc3.main.current_tt = self
-        self.seconds = self.parent.seconds
-        self.state = self.State.Running
-
-        try:
-            # TODO: Reproducir test_concurrente.scd cuando implemente TempoClock.
-            if self._iterator is None:
-                if len(inspect.signature(self.func).parameters) == 0:
-                    self._iterator = self.func()
+        with self._state_cond:
+            # _RoutineAlwaysYield (y Done)
+            if self.state == self.State.Done:
+                if self._terminal_value is self._sentinel:
+                    raise StopStream('Routine stopped')
                 else:
-                    self._iterator = self.func(inval)
-                if inspect.isgenerator(self._iterator):
-                    self._last_value = next(self._iterator)
-                else:
-                    raise AlwaysYield()
+                    return self._terminal_value
+
+            self.parent = _libsc3.main.current_tt
+            _libsc3.main.current_tt = self
+            if self._clock:
+                self._m_seconds = self.parent._m_seconds
             else:
-                self._last_value = self._iterator.send(inval)
-            self.state = self.State.Suspended
-        except StopStream as e:
-            self._iterator = None
-            self._last_value = None
-            self.state = self.State.Done
+                self._m_seconds = self.parent._seconds
+
+            try:
+                self.state = self.State.Running
+                if self._iterator is None:
+                    if len(inspect.signature(self.func).parameters) == 0:
+                        self._iterator = self.func()
+                    else:
+                        self._iterator = self.func(inval)
+                    if inspect.isgenerator(self._iterator):
+                        self._last_value = next(self._iterator)
+                    else:
+                        raise AlwaysYield()
+                else:
+                    self._last_value = self._iterator.send(inval)
+                self.state = self.State.Suspended
+            except StopStream as e:
+                self._iterator = None
+                self._last_value = None
+                self._clock = None
+                self.state = self.State.Done
+                return self._last_value
+            except StopIteration as e:
+                self._iterator = None
+                self._last_value = None
+                self._clock = None
+                self.state = self.State.Done
+                raise StopStream from e
+            except YieldAndReset as e:
+                self._iterator = None
+                self.state = self.State.Init
+                self._last_value = e.value
+            except AlwaysYield as e:
+                self._iterator = None
+                self._terminal_value = e.terminal_value
+                self.state = self.State.Done
+                self._last_value = self._terminal_value
+            finally:
+                _libsc3.main.current_tt = self.parent
+                self.parent = None
+
             return self._last_value
-        except StopIteration as e:
-            self._iterator = None
-            self._last_value = None
-            self.state = self.State.Done
-            raise StopStream from e
-        except YieldAndReset as e:
-            self._iterator = None
-            self.state = self.State.Init
-            self._last_value = e.value
-        except AlwaysYield as e:
-            self._iterator = None
-            self._terminal_value = e.terminal_value
-            self.state = self.State.Done
-            self._last_value = self._terminal_value
-        finally:
-            _libsc3.main.current_tt = self.parent
-            self.parent = None
-
-        return self._last_value
 
     def reset(self):
-        if self is _libsc3.main.current_tt: # Running
-            raise YieldAndReset()
-        else:
-            self._iterator = None
-            self.state = self.State.Init
+        with self._state_cond:
+            if self.state == self.State.Running:
+                raise YieldAndReset()
+            else:
+                self._iterator = None
+                self.state = self.State.Init
 
-    # stop -> prStop -> _RoutineStop
     def stop(self):
-        if self is _libsc3.main.current_tt: # Running
-            raise StopStream()
-        else:
-            self.state = self.State.Done
-
-    # // resume, next, value, run are synonyms
-    # next, ver arriba
-    # value
-    # resume
-    # run (de instancia, no va)
-
-    # valueArray se define como ^this.value(inval), opuesto a Stream valueArray que no recibe inval... BUG del tipo desprolijidad? o hay una razón?
+        with self._state_cond:
+            if self.state == self.State.Running:
+                raise StopStream()
+            else:
+                self._iterator = None
+                self._last_value = None
+                self._clock = None
+                self.state = self.State.Done
 
     # p ^Prout(func)
     # storeArgs
     # storeOn
 
-    # // PRIVATE
-
     def __awake__(self, beats, seconds, clock):
         return self.next(beats)
-
-    # prStart
 
 
 # decorator syntax
@@ -487,19 +443,17 @@ class Condition():
 
     def signal(self):
         if self.test:
-            time = _libsc3.main.current_tt.seconds
             tmp_wtt = self._waiting_threads
             self._waiting_threads = []
             for tt in tmp_wtt:
-                tt.clock.sched(0, tt)
+                tt._clock.sched(0, tt)
 
     def unhang(self):
         # // ignore the test, just resume all waiting threads
-        time = _libsc3.main.current_tt.seconds
         tmp_wtt = self._waiting_threads
         self._waiting_threads = []
         for tt in tmp_wtt:
-            tt.clock.sched(0, tt)
+            tt._clock.sched(0, tt)
 
 
 class FlowVar():
@@ -539,7 +493,7 @@ class PauseStream(Stream):
     def __init__(self, stream, clock=None):
         self._stream = None
         self.original_stream = stream
-        self.clock = clock or clk.TempoClock.default # BUG: implementar TempoClock
+        self.clock = clock or clk.SystemClock
         self.next_beat = None
         self.stream_has_ended = False
         self.waiting = False # NOTE: era isWaiting, así es más pytónico.
@@ -555,10 +509,10 @@ class PauseStream(Stream):
             return self # NOTE: sclang retorna self porque los Patterns devuelven la Routine que genéra este método.
         if reset:
             self.reset()
-        self.clock = clock or self.clock or clk.TempoClock.default
+        self.clock = clock or self.clock or clk.SystemClock
         self.stream_has_ended = False
         self.refresh() # //_stream = originalStream;
-        self._stream.clock = self.clock
+        self._stream._clock = self.clock  # BUG: threading.
         self.waiting = True # // make sure that accidental play/stop/play sequences don't cause memory leaks
         self.era = sac.CmdPeriod.era
 
@@ -628,8 +582,6 @@ class PauseStream(Stream):
             raise StopStream('stream finished') from e # BUG: tal vez deba descartar e? (no hacer raise from o poner raise fuera de try/except)
 
     def __awake__(self, beats, seconds, clock):
-        if self._stream: # NOTE: nil.beats = beats -> nil en sclang, stop() setea stream a nil. StopStream DEBE ser llamado desde next por consistencia lógica aunque en este caso es redundante.
-            self._stream.beats = beats
         return self.next(beats)
 
     @property
@@ -800,7 +752,7 @@ class EventStreamPlayer(PauseStream):
             return self
         if reset:
             self.reset()
-        self.clock = clock or self.clock or clk.TempoClock.default
+        self.clock = clock or self.clock or clk.SystemClock
         self.stream_has_ended = False
         self._stream = self.original_stream
         self._stream.clock = self.clock

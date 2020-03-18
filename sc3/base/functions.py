@@ -592,6 +592,7 @@ class Function(AbstractFunction):
             self._nargs = len(parameters)
             self._kwords = parameters.keys()
             self.func = func
+            self._clock = None  # Internal compatibility as Clock item.
         else:
             raise TypeError(
                 'Function wrapper only apply to user-defined functions')
@@ -601,7 +602,7 @@ class Function(AbstractFunction):
         return self.func(*args[:self._nargs], **kwargs)
 
     def __awake__(self, beats, seconds, clock):  # Function, Routine, PauseStream, (Nil, Object).
-        return self(beats, seconds, clock)
+        return self.func(*(beats, seconds, clock)[:self._nargs])
 
 
 # decorator syntax

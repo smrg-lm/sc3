@@ -75,11 +75,10 @@ class OscInterface(ABC):
             time: OSC timetag as 64bits unsigned integer.
             *msg: OSC message as address followed by values.
         '''
-        # _libsc3.main.update_logical_time()  # *** BUG: Clock.sched actualiza abajo, VER TIEMPO LÓGICO.
         addr = nad.NetAddr(addr[0], addr[1])
 
-        if time is None:
-            time = _libsc3.main.elapsed_time()  # *** BUG: VER TIEMPO LÓGICO, probar en sclang recibiendo desde una rutina con tempoclock.
+        if time is None or time == oli.IMMEDIATELY:
+            time = _libsc3.main.elapsed_time()
         else:
             time = clk.SystemClock.osc_to_elapsed_time(time)
 
@@ -87,7 +86,7 @@ class OscInterface(ABC):
             for func in self.recv_functions:
                 func(list(msg), time, addr, self.port)
 
-        clk.AppClock.sched(0, sched_func)  # *** BUG: SystemClock?
+        clk.SystemClock.sched(0, sched_func)  # Updates logical time.
 
     def send_msg(self, target, *args):
         '''
@@ -109,7 +108,7 @@ class OscInterface(ABC):
         an already late timetag (no check for sign).
         '''
         if time is not None:
-            time += _libsc3.main.current_tt.seconds
+            time += _libsc3.main.current_tt._seconds
             time = clk.SystemClock.elapsed_time_to_osc(time)
         bndl = self._build_bundle([time, *args])
         self._send(bndl, target)
@@ -410,7 +409,7 @@ class OscNrtInterface(OscInterface):
     def send_bundle(self, target, time, *args):  # override
         if time is None:
             time = 0.0  # IMMEDIATELY is not needed in nrt.
-        time += _libsc3.main.current_tt.seconds
+        time += _libsc3.main.current_tt._seconds
         time = int(time * clk.SystemClock._SECONDS_TO_OSC)
         self._osc_score.add([time, *args])
 

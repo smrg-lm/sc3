@@ -75,17 +75,6 @@ class Process(type):
         cls._platform._startup()
         cls._atexitq.add(cls._atexitprio.PLATFORM, cls.platform._shutdown)
 
-    def _create_main_thread(cls):
-        # PyrInterpreter3 L157 newPyrProcess y PyrPrimitive initPyrThread.
-        cls.main_tt = stm.TimeThread.__new__(stm.TimeThread)
-        cls.main_tt.parent = None
-        cls.main_tt.func = None
-        cls.main_tt.state = stm.TimeThread.State.Init
-        cls.main_tt._thread_player = None
-        cls.main_tt._beats = 0.0  # Only for main_tt.
-        cls.main_tt._seconds = 0.0
-        cls.main_tt._rgen = cls._rgen
-
     @property
     def rgen(cls):
         return cls.current_tt.rgen
@@ -136,7 +125,7 @@ class RtMain(metaclass=Process):
         # true.
         cls._time_of_initialization = time.time()  # time_since_epoch
         cls._perf_counter_time_of_initialization = time.perf_counter()  # monotonic clock.
-        cls._create_main_thread()
+        cls.main_tt = stm._MainTimeThread()
         cls._osc_interface = osci.OscUdpInterface()
         cls._osc_interface.start()
 
@@ -155,31 +144,31 @@ class RtMain(metaclass=Process):
         # // When code is run from the code editor, the command line, or in
         # // response to OSC and MIDI messages, the main Thread's logical time
         # // is set to the current physical time (see Process: *elapsedTime).
+        # Text above doesn't hold all true here, updates are done by clocks
+        # when data is received but can't capture code before excecution,
+        # wouldn't be prudent. Routines are required to get logical time.
         # // When code scheduled on a Clock is run, the main Thread's logical
         # // time is set to the time the code was scheduled for. Child Threads
         # // inherit logical time from their parents - whenever a Thread
         # // (Routine) is started or resumed, its logical time is set to that
         # // of the parent Thread.
-        # This is an internal library interface function meant to be general,
-        # although could be less efficient for clocks.
         now = cls.elapsed_time()
         if seconds is None:
-            # This case is the update when queried from main_tt, clocks check
-            # if the call satisfies the condition current_tt is cls.main_tt
-            # and *logical time* is set to *physical time*.
-            cls.main_tt.seconds = now
+            # Logical time is set to physical time.
+            cls.main_tt._seconds = now
         elif seconds > now:
             raise TimeException(
                 "logical time can't be set to the future of physical time")
         else:
-            cls.main_tt.seconds = seconds
+            # Logical time is set to current sched time by clocks.
+            cls.main_tt._seconds = seconds
 
 
 class NrtMain(metaclass=Process):
     @classmethod
     def _init(cls):
         cls._time_of_initialization = 0.0
-        cls._create_main_thread()
+        cls.main_tt = stm._MainTimeThread()
         cls._clock_scheduler = clk.ClockScheduler()
         cls._osc_interface = osci.OscNrtInterface()
         cls._osc_interface.init()

@@ -52,13 +52,13 @@ class MetaClock(type):
 
     @property
     def seconds(cls):
-        return _libsc3.main.current_tt.seconds
+        return _libsc3.main.current_tt._seconds
 
     # // tempo clock compatibility
 
     @property
     def beats(cls):
-        return _libsc3.main.current_tt.seconds
+        return _libsc3.main.current_tt._seconds
 
     def beats2secs(cls, beats):
         return beats
@@ -317,16 +317,17 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
     def sched(cls, delta, item):
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
+        item._clock = cls
         if cls.mode == _libsc3.main.NRT_MODE:
             # See note in TempoClock sched.
-            seconds = _libsc3.main.current_tt.seconds
+            seconds = _libsc3.main.current_tt._seconds
             seconds += delta
             if seconds == bi.inf:
                 return
             ClockTask(seconds, cls, item, _libsc3.main._clock_scheduler)
         else:
             with cls._sched_cond:
-                seconds = _libsc3.main.current_tt.seconds
+                seconds = _libsc3.main.current_tt._seconds
                 seconds += delta
                 if seconds == bi.inf:
                     return
@@ -336,6 +337,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
     def sched_abs(cls, time, item):
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
+        item._clock = cls
         if time == bi.inf:
             return
         if cls.mode == _libsc3.main.NRT_MODE:
@@ -367,8 +369,6 @@ class Scheduler():
 
     def _wakeup(self, item):
         try:
-            # NOTE: Parece correcto el comportamiento, se debe actualizar en wakeup o en awake, acá los estoy haciendo antes pero el tiempo lógico es el mismo que se le pasa a awake.
-            _libsc3.main.update_logical_time(self._seconds) # NOTE: cada vez que algo es programado se actualiza el tiempo lógico de mainThread al tiempo programado.
             delta = item.__awake__(self._beats, self._seconds, self._clock)
             if isinstance(delta, (int, float)) and not isinstance(delta, bool):
                 self._sched_add(delta, item)
@@ -380,31 +380,39 @@ class Scheduler():
     def play(self, task):
         self.sched(0, task)
 
-    def _sched_add(self, delta, item): # delta no puede ser None
+    def _sched_add(self, delta, item):
         if self._drift:
             from_time = _libsc3.main.elapsed_time()
         else:
-            from_time = self.seconds = _libsc3.main.current_tt.seconds # BUG: SINCORNIZANDO CON CURRENT_THREAD FUNCIONA BIEN (AGREGADO), PERO NO LE VEO SENTIDO.
+            from_time = self.seconds = _libsc3.main.current_tt._seconds
         self.queue.add(from_time + delta, item)
 
     def sched(self, delta, item):
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
+        item._clock = self._clock
+        if delta is None:
+            delta = 0.0
+        if delta == bi.inf:
+            return
         self._sched_add(delta, item)
 
     def sched_abs(self, time, item):
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
+        item._clock = self._clock
+        if time == bi.inf:
+            return
         self.queue.add(time, item)
 
     def clear(self):
         item = None
         while not self.queue.empty():
-            item = self.queue.pop() # NOTE: vacía la cola sacando las Routine, PauseStream o Function
-            if isinstance(item, stm.PauseStream): # NOTE: (PauseStream, stm.EventStreamPlayer)): son los único que definen el método siguiente.
-                item.removed_from_scheduler() # NOTE: cambié el orden, en sclang primero se llama a este método y luego se vacía la cola.
+            item = self.queue.pop()
+            if isinstance(item, stm.PauseStream):
+                item.removed_from_scheduler()  # NOTE: cambié el orden, en sclang primero se llama a este método y luego se vacía la cola.
 
-    def empty(self): # pythonique
+    def empty(self):
         return self.queue.empty()
 
     def advance(self, delta):
@@ -420,9 +428,9 @@ class Scheduler():
             self._seconds = value
             self._beats = self._clock.secs2beats(value)
             return
-        self._seconds = self.queue.peek()[0] # NOTE: usa los atributos por el cierre de wakeup
+        self._seconds = self.queue.peek()[0]
         if self.recursive:
-            while self._seconds <= value: # seconds no puede ser None, sí la primera iteración es igual valor.
+            while self._seconds <= value:
                 self._beats = self._clock.secs2beats(self._seconds)
                 self._wakeup(self.queue.pop()[1])
                 if self.queue.empty():
@@ -480,12 +488,10 @@ class AppClock(Clock, metaclass=MetaAppClock):
         seconds = None
         while True:
             with cls._sched_cond:
-                seconds = cls.tick()  # First tick for free, returns None
+                seconds = cls._tick()  # First tick for free, returns None
                 if isinstance(seconds, (int, float))\
                 and not isinstance(seconds, bool):
                     seconds = seconds - cls._scheduler.seconds  # tick returns abstime (elapsed)
-                else:
-                    seconds = None
             with cls._tick_cond:  # many notify one wait
                 cls._tick_cond.wait(seconds)  # if seconds is None waits for notify
             if not cls._run_sched: return
@@ -502,23 +508,23 @@ class AppClock(Clock, metaclass=MetaAppClock):
         if cls.mode == _libsc3.main.NRT_MODE:
             if not hasattr(item, '__awake__'):
                 item = fn.Function(item)
+            item._clock = self
+            if delta == bi.inf:
+                return
             ClockTask(delta, cls, item, _libsc3.main._clock_scheduler)
         else:
             with cls._sched_cond:
                 cls._scheduler.sched(delta, item)
             with cls._tick_cond:
-                cls._tick_cond.notify() # cls.tick() pasada a run
+                cls._tick_cond.notify()
 
     @classmethod
-    def tick(cls):
+    def _tick(cls):
         if cls.mode == _libsc3.main.NRT_MODE:
-            return
-        tmp = _libsc3.main.current_tt.clock
-        _libsc3.main.current_tt.clock = cls # BUG: supongo que porque puede que scheduler evalue una Routine con play/run? Debe ser para defer. Igual no me cierra del todo, pero también porque sclang tiene un bug con los relojes heredados.
+            return None
         cls._scheduler.seconds = _libsc3.main.elapsed_time()
-        _libsc3.main.current_tt.clock = tmp
         if cls._scheduler.queue.empty():
-            return None # BUG: es un valor que se comprueba para saber si client::tick deja de llamarse a sí mismo.
+            return None  # check value for client::tick to stop calling itself.
         else:
             return cls._scheduler.queue.peek()[0]
 
@@ -537,7 +543,7 @@ class AppClock(Clock, metaclass=MetaAppClock):
     # En SC_TerminalClient _AppClock_SchedNotify es SC_TerminalClient::prScheduleChanged
     # que llama a la instancia del cliente (de sclang), que llama a su método
     # sendSignal(sig_sched) con la opción sig_sched que llama a SC_TerminalClient::tick
-    # Acá podría ir todo dentro de sched(), ergo sum chin pum: cls.tick()
+    # Acá podría ir todo dentro de sched(), ergo sum chin pum: cls._tick()
 
 
 class ClockScheduler(threading.Thread):
@@ -793,14 +799,12 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                     if isinstance(task, stm.TimeThread):
                         task.next_beat = None
                     try:
-                        print('*** update form tempo loop')
                         _libsc3.main.update_logical_time(
                             self.beats2secs(self._beats))
                         delta = task.__awake__(
                             self._beats, self.beats2secs(self._beats), self)
                         if isinstance(delta, (int, float))\
                         and not isinstance(delta, bool):
-                            print('*** reprogram form tempo loop')
                             time = self._beats + delta
                             self._sched_add(time, task)
                     except stm.StopStream:
@@ -931,19 +935,14 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     def beats(self):
         # _TempoClock_Beats
         # // returns the appropriate beats for this clock from any thread
-        if not self.running():
-            raise ClockNotRunning(self)
-        if _libsc3.main.current_tt.clock is self:
-            return _libsc3.main.current_tt.beats
-        else:
-            return self.secs2beats(_libsc3.main.current_tt.seconds)
+        return self.secs2beats(_libsc3.main.current_tt._seconds)
 
     @beats.setter
     def beats(self, value):
         # _TempoClock_SetBeats
         if not self.running():
             raise ClockNotRunning(self)
-        seconds = _libsc3.main.current_tt.seconds
+        seconds = _libsc3.main.current_tt._seconds
         self._base_seconds = seconds
         self._base_beats = value
         self._beat_dur = 1.0 / self._tempo
@@ -955,7 +954,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     @property
     def seconds(self):
-        return _libsc3.main.current_tt.seconds
+        return _libsc3.main.current_tt._seconds
 
     def _sched_add(self, beats, task):
         # TempoClock::Add
@@ -975,11 +974,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         ClockTask(beats, self, task, _libsc3.main._clock_scheduler)
 
     def _calc_sched_beats(self, delta):
-        if _libsc3.main.current_tt.clock is self:
-            beats = _libsc3.main.current_tt.beats
-        else:
-            seconds = _libsc3.main.current_tt.seconds
-            beats = self.secs2beats(seconds)
+        seconds = _libsc3.main.current_tt._seconds
+        beats = self.secs2beats(seconds)
         return beats + delta
 
     def sched(self, delta, item):
@@ -988,6 +984,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             raise ClockNotRunning(self)
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
+        item._clock = self
         # NOTE: Code is complicated because the lock. In RT the lock prevents
         # to calculate a time here and then, because threading, to excecute
         # a greater time element from the queue before this one is added. To
@@ -1013,6 +1010,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             raise ClockNotRunning(self)
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
+        item._clock = self
         if beat == bi.inf:
             return
         if self.mode == _libsc3.main.NRT_MODE:

@@ -179,11 +179,11 @@ class NrtMain(metaclass=Process):
     @classmethod
     def elapsed_time(cls):
         '''Physical time is main_Thread.seconds in nrt.'''
-        return float(cls.main_tt.seconds)
+        return float(cls.main_tt._seconds)
 
     @classmethod
     def update_logical_time(cls, seconds=None):
         if seconds is None:
             return
         else:
-            cls.main_tt.seconds = seconds
+            cls.main_tt._seconds = seconds

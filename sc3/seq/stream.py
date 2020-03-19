@@ -303,6 +303,9 @@ class Routine(TimeThread, Stream):
     def play(self, clock=None, quant=None):
         clock = clock or clk.SystemClock
         clock.play(self, quant)
+        # Pattern.play return the stream, maybe for API usage constency
+        # Stream.play should return self, but I'm not sure.
+        # return self
 
     def next(self, inval=None):
         with self._state_cond:
@@ -488,115 +491,88 @@ class FuncStream(Stream):
 # class CleanupStream(Stream): ... # TODO: no se usa en la librería de clases, creo, ver bien, no tiene documentación.
 
 
-# // PauseStream is a stream wrapper that can be started and stopped.
 class PauseStream(Stream):
-    def __init__(self, stream, clock=None):
-        self._stream = None
-        self.original_stream = stream
-        self.clock = clock or clk.SystemClock
-        self.next_beat = None
-        self.stream_has_ended = False
-        self.waiting = False # NOTE: era isWaiting, así es más pytónico.
-        self.era = 0
+    # // PauseStream is a stream wrapper that can be started and stopped.
+    def __init__(self, stream):
+        self._stream = stream
+        self._clock = None
+        self._next_beat = None
+        self._is_waiting = False
+        self._is_playing = False
+        self._era = 0
 
     @property
     def is_playing(self):
-        return self._stream is not None
+        return self._is_playing
 
     def play(self, clock=None, reset=False, quant=None):
-        if self._stream is not None:
-            _logger.info('already playing')
-            return self # NOTE: sclang retorna self porque los Patterns devuelven la Routine que genéra este método.
+        if self._is_playing:
+            return
+            # Pattern.play return the stream, maybe for API usage constency
+            # Stream.play should return self, but I'm not sure.
+            # return self
         if reset:
             self.reset()
-        self.clock = clock or self.clock or clk.SystemClock
-        self.stream_has_ended = False
-        self.refresh() # //_stream = originalStream;
-        self._stream._clock = self.clock  # BUG: threading.
-        self.waiting = True # // make sure that accidental play/stop/play sequences don't cause memory leaks
-        self.era = sac.CmdPeriod.era
+        self._stream.thread_player = self
+        self._clock = clock or self._clock or clk.SystemClock
+        self._stream._clock = self._clock  # BUG: threading.
+        self._is_waiting = True # // make sure that accidental play/stop/play sequences don't cause memory leaks
+        self._is_playing = True
+        self._era = sac.CmdPeriod.era
 
         def pause_stream_play():
-            if self.waiting and self.next_beat is None:
-                self.clock.sched(0, self)
-                self.waiting = False
+            if self._is_waiting and self._next_beat is None:
+                self._clock.sched(0, self)
+                self._is_waiting = False
                 mdl.NotificationCenter.notify(self, 'playing')
 
-        self.clock.play(pause_stream_play, quant)
+        self._clock.play(pause_stream_play, quant)
         mdl.NotificationCenter.notify(self, 'user_played')
-        return self
+        # Pattern.play return the stream, maybe for API usage constency
+        # Stream.play should return self, but I'm not sure.
+        # return self
 
     def reset(self):
-        self.original_stream.reset()
+        self._stream.reset()
 
     def stop(self):
-        save_stream = self.stream # NOTE: usa el getter
         self._stop()
+        with self._stream._state_cond:
+            if self._stream.state == self._stream.State.Running:
+                raise StopIteration()  # *** CHECK: StopStream() will not propagate from Routine.next to PauseStream.next and then above. Was AlwaysYield (nil.alwaysYield). # self._stream.stop()  #  Same, that's the why of alwaysYield, maybe not.
+            else:
+                self._stream.stop()
         mdl.NotificationCenter.notify(self, 'user_stopped')
-        if save_stream is _libsc3.main.current_tt:
-            self.always_yield()
 
     def _stop(self):
-        self._stream = None
-        self.waiting = False
+        self._is_playing = False
+        self._is_waiting = False
 
-    def removed_from_scheduler(self): # NOTE: removeD?
-        self.next_beat = None
+    def removed_from_scheduler(self):
+        self._next_beat = None
         self._stop()
         mdl.NotificationCenter.notify(self, 'stopped')
 
-    def stream_error(self):
-        self.removed_from_scheduler()
-        self.stream_has_ended = True
-
-    def was_stopped(self):
-        return ((not self.stream_has_ended and self._stream is None) # // stopped by clock or stop-message
-               or sac.CmdPeriod.era != self.era) # // stopped by cmd-period, after stream has ended
-
-    def can_pause(self):
-        return not self.stream_has_ended
-
     def pause(self):
-        self.stop()
+        self._stop()
+        mdl.NotificationCenter.notify(self, 'user_paused')
 
     def resume(self, clock=None, quant=None):
-        self.play(clock or self.clock, False, quant) # BUG: en sclang está al revés el or y no tiene lógica porque puede pasar nil
-
-    def refresh(self):
-        self.original_stream.thread_player = self # NOTE: threadPlayer en sclang lo definen Object (siempre es this, no se puede setear, esta clase redunda en lo mismo) y Thread (que cambia), acá lo define TimeThread como property y agrego la propiedad acá, es problema esto.
-        self._stream = self.original_stream # NOTE: va por separado porque en sclang method_(lala) devuelve this
-
-    def start(self, clock=None, quant=None):
-        self.play(clock, True, quant)
+        self.play(clock, False, quant)
 
     def next(self, inval=None):
         try:
-            if self._stream is None: # NOTE: self._stream puede ser nil por el check de abajo o tirar la excepción si finalizó, por eso se necesita esta comprobación, acá los stream no retornan None, tiran excepción.
-                raise StopStream('_stream is None')
-            next_time = self._stream.next(inval) # NOTE: tira StopStream
-            self.next_beat = inval + next_time # // inval is current logical beat
+            if not self._is_playing:
+                raise StopStream()
+            next_time = self._stream.next(inval)  # raises StopStream
+            self._next_beat = inval + next_time  # // inval is current logical beat
             return next_time
         except StopStream as e:
-            self.stream_has_ended = self._stream is not None
             self.removed_from_scheduler()
-            raise StopStream('stream finished') from e # BUG: tal vez deba descartar e? (no hacer raise from o poner raise fuera de try/except)
+        raise StopStream()
 
     def __awake__(self, beats, seconds, clock):
         return self.next(beats)
-
-    @property
-    def stream(self):
-        return self._stream
-
-    @stream.setter
-    def stream(self, value): # NOTE: OJO: No usa este setter en la implementación interna
-        self.original_stream.thread_player = None # // not owned any more
-        if value is not None:
-            value.thread_player = self
-        self.original_stream = value
-        if self._stream is not None:
-            self._stream = value
-            self.stream_has_ended = value is None
 
     @property
     def thread_player(self):
@@ -604,13 +580,13 @@ class PauseStream(Stream):
 
     @thread_player.setter
     def thread_player(self, value):
-        pass  # NOTE: Setter from Object in sclang does nothing, polymorphism (might be error prone), overriden by tt.
+        pass
 
 
-# // Task is a PauseStream for wrapping a Routine
 class Task(PauseStream):
-    def __init__(self, func, clock=None):
-        super().__init__(Routine(func), clock) # BUG: qué pasa si func llega a ser una rutina? qué error tira?
+    # // Task is a PauseStream for wrapping a Routine.
+    def __init__(self, func):
+        super().__init__(Routine(func))  # BUG: qué pasa si func llega a ser una rutina? qué error tira?
 
     # storeArgs # TODO: ver en general para la librería
 
@@ -671,7 +647,7 @@ class EventStreamCleanup():
             func(free_nodes)
         self.clear()
 
-    def clear(self): # NOTE: no usar para init, así es más claro.
+    def clear(self):
         self.functions = set()
 
 
@@ -691,15 +667,15 @@ class EventStreamPlayer(PauseStream):
     # // freeNodes is passed as false from
     # // TempoClock:cmdPeriod
     def removed_from_scheduler(self, free_nodes=True):
-        self.next_beat = None # BUG?
+        self._next_beat = None # BUG?
         self.cleanup.terminate(free_nodes)
         self._stop()
         mdl.NotificationCenter.notify(self, 'stopped')
 
     def _stop(self):
-        self._stream = None
-        self.next_beat = None # BUG? lo setea a nil acá y en el método de arriba que llama a este (no debería estar allá), además stop abajo es igual que arriba SALVO que eso haga que se detenga antes por alguna razón.
-        self.waiting = False
+        self._is_playing = False
+        self._is_waiting = False
+        self._next_beat = None # BUG? lo setea a nil acá y en el método de arriba que llama a este (no debería estar allá), además stop abajo es igual que arriba SALVO que eso haga que se detenga antes por alguna razón.
 
     def stop(self):
         self.cleanup.terminate()
@@ -716,60 +692,58 @@ class EventStreamPlayer(PauseStream):
     def unmute(self):
         self.mute_count -= 1
 
-    def can_pause(self):
-        return not self.stream_has_ended and len(self.cleanup.functions) == 0
-
     def next(self, in_time):
         return self.routine.next(in_time)
 
     def _next(self, in_time):
-        try: # BUG(s). Revisar next de PauseStream
-            if self._stream is None:
-                raise StopStream()
-            else:
-                out_event = self._stream.next(self.event.copy())
-                next_time = out_event.play_and_delta(self.cleanup, self.mute_count > 0)
-                # if (nextTime.isNil) { this.removedFromScheduler; ^nil }; # *** BUG ***
-                # BUG: para event.play_and_delta/event.delta, los patterns no van a devolver
-                # BUG: nil y setear la llave, van a tirar StopStream.
-                # BUG: Igualmente tampoco encuentro un caso que de nil en sclang,
-                # BUG: outEvent no puede ser nil porque comprueba, playAndDelta
-                # BUG: no parece que pueda retornar nil (según pruebas con Pbind, \delta, nil va al if, (delta: nil) es 0). VER _Event_Delta
-                self.next_beat = in_time + next_time # // inval is current logical beat
-                return next_time
+        try:
+            if not self._is_playing:
+                raise StopIteration()  # raise StopStream()  # *** CHECK.
+            out_event = self._stream.next(self.event.copy())  # raises StopStream
+            next_time = out_event.play_and_delta(self.cleanup, self.mute_count > 0)
+            # if (nextTime.isNil) { this.removedFromScheduler; ^nil };
+            # BUG: For event.play_and_delta/event.delta patterns won't return
+            # nil and set the key, they will raise StopStream. Equally I either
+            # can't find a case of nil sclang, outEvent can't return nil because
+            # it checks, playAndDelta don't seem to return nil. Tested with
+            # Pbind, \delta, nil goes to if, (delta: nil) is 0. See _Event_Delta.
+            self._next_beat = in_time + next_time  # // inval is current logical beat
+            return next_time
         except StopStream:
-            self.stream_has_ended = self._stream is not None
             self.cleanup.clear()
             self.removed_from_scheduler() # BUG? Hay algo raro, llama cleanup.clear() en la línea anterior, que borras las funciones de cleanup, pero luego llama a cleanup.terminate a través removed_from_scheduler en esta línea que evalúa las funciones que borró (no las evalúa)
-            raise StopStream() # NOTE: podría ir afuera
+        raise StopIteration()  # raise StopStream()  # *** CHECK.
 
     def as_event_stream_player(self): # BUG: VER: lo implementan Event, EventStreamPlayer, Pattern y Stream, parece protocolo.
         return self
 
     def play(self, clock=None, reset=False, quant=None):
-        if self._stream is not None:
-            _logger.info('already playing')
-            return self
+        if self._is_playing:
+            return
+            # Pattern.play return the stream, maybe for API usage constency
+            # Stream.play should return self, but I'm not sure.
+            # return self
         if reset:
             self.reset()
-        self.clock = clock or self.clock or clk.SystemClock
-        self.stream_has_ended = False
-        self._stream = self.original_stream
-        self._stream.clock = self.clock
-        self.waiting = True # // make sure that accidental play/stop/play sequences don't cause memory leaks
-        self.era = sac.CmdPeriod.era
+        self._clock = clock or self._clock or clk.SystemClock
+        self._stream._clock = self._clock
+        self._is_waiting = True # // make sure that accidental play/stop/play sequences don't cause memory leaks
+        self._is_playing = True
+        self._era = sac.CmdPeriod.era
         quant = clk.Quant.as_quant(quant) # NOTE: se necesita porque lo actualiza event.sync_with_quant
         self.event = self.event.sync_with_quant(quant) # NOTE: actualiza el evento y retorna una copia o actualiza el objeto Quant pasado.
 
         def event_stream_play():
-            if self.waiting and self.next_beat is None:
-                self.clock.sched(0, self)
-                self.waiting = False
+            if self._is_waiting and self._next_beat is None:
+                self._clock.sched(0, self)
+                self._is_waiting = False
                 mdl.NotificationCenter.notify(self, 'playing')
 
-        self.clock.play(event_stream_play, quant)
+        self._clock.play(event_stream_play, quant)
         mdl.NotificationCenter.notify(self, 'user_played')
-        return self
+        # Pattern.play return the stream, maybe for API usage constency
+        # Stream.play should return self, but I'm not sure.
+        # return self
 
 
 def stream(obj):

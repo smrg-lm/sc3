@@ -22,14 +22,14 @@ class StopStream(StopIteration):
 
 
 class YieldAndReset(Exception):
-    def __init__(self, value=None):
-        super().__init__()
-        self.value = value
+    def __init__(self, yield_value=None):
+        super().__init__()  # Doesn't stores yield_value in self.args.
+        self.yield_value = value
 
 
 class AlwaysYield(Exception):
     def __init__(self, terminal_value=None):
-        super().__init__()
+        super().__init__()  # Doesn't stores terminal_value in self.args.
         self.terminal_value = terminal_value
 
 
@@ -43,8 +43,11 @@ class Stream(fn.AbstractFunction): #, ABC):
         return self
 
     def __embed__(self, inval=None):
-        while True:
-            yield self.next(inval)
+        try:
+            while True:
+                yield self.next(inval)
+        except StopStream:
+            return
 
     def __next__(self):
         return self.next()
@@ -312,7 +315,7 @@ class Routine(TimeThread, Stream):
             # _RoutineAlwaysYield (y Done)
             if self.state == self.State.Done:
                 if self._terminal_value is self._sentinel:
-                    raise StopStream('Routine stopped')
+                    raise StopStream
                 else:
                     return self._terminal_value
 
@@ -337,22 +340,22 @@ class Routine(TimeThread, Stream):
                 else:
                     self._last_value = self._iterator.send(inval)
                 self.state = self.State.Suspended
-            except StopStream as e:
+            except StopStream:
                 self._iterator = None
                 self._last_value = None
                 self._clock = None
                 self.state = self.State.Done
-                return self._last_value
-            except StopIteration as e:
+                raise
+            except StopIteration:
                 self._iterator = None
                 self._last_value = None
                 self._clock = None
                 self.state = self.State.Done
-                raise StopStream from e
+                raise StopStream
             except YieldAndReset as e:
                 self._iterator = None
                 self.state = self.State.Init
-                self._last_value = e.value
+                self._last_value = e.yield_value
             except AlwaysYield as e:
                 self._iterator = None
                 self._terminal_value = e.terminal_value
@@ -367,7 +370,8 @@ class Routine(TimeThread, Stream):
     def reset(self):
         with self._state_cond:
             if self.state == self.State.Running:
-                raise YieldAndReset()
+                raise Exception(
+                    'Routine cannot reset itself except by YieldAndReset')
             else:
                 self._iterator = None
                 self.state = self.State.Init
@@ -375,7 +379,7 @@ class Routine(TimeThread, Stream):
     def stop(self):
         with self._state_cond:
             if self.state == self.State.Running:
-                raise StopStream()
+                raise StopStream
             else:
                 self._iterator = None
                 self._last_value = None
@@ -539,7 +543,7 @@ class PauseStream(Stream):
         self._stop()
         with self._stream._state_cond:
             if self._stream.state == self._stream.State.Running:
-                raise StopIteration()  # *** CHECK: StopStream() will not propagate from Routine.next to PauseStream.next and then above. Was AlwaysYield (nil.alwaysYield). # self._stream.stop()  #  Same, that's the why of alwaysYield, maybe not.
+                raise StopStream
             else:
                 self._stream.stop()
         mdl.NotificationCenter.notify(self, 'user_stopped')
@@ -563,13 +567,13 @@ class PauseStream(Stream):
     def next(self, inval=None):
         try:
             if not self._is_playing:
-                raise StopStream()
+                raise StopStream
             next_time = self._stream.next(inval)  # raises StopStream
             self._next_beat = inval + next_time  # // inval is current logical beat
             return next_time
         except StopStream as e:
             self.removed_from_scheduler()
-        raise StopStream()
+            raise
 
     def __awake__(self, beats, seconds, clock):
         return self.next(beats)
@@ -698,7 +702,7 @@ class EventStreamPlayer(PauseStream):
     def _next(self, in_time):
         try:
             if not self._is_playing:
-                raise StopIteration()  # raise StopStream()  # *** CHECK.
+                raise StopStream
             out_event = self._stream.next(self.event.copy())  # raises StopStream
             next_time = out_event.play_and_delta(self.cleanup, self.mute_count > 0)
             # if (nextTime.isNil) { this.removedFromScheduler; ^nil };
@@ -712,7 +716,7 @@ class EventStreamPlayer(PauseStream):
         except StopStream:
             self.cleanup.clear()
             self.removed_from_scheduler() # BUG? Hay algo raro, llama cleanup.clear() en la línea anterior, que borras las funciones de cleanup, pero luego llama a cleanup.terminate a través removed_from_scheduler en esta línea que evalúa las funciones que borró (no las evalúa)
-        raise StopIteration()  # raise StopStream()  # *** CHECK.
+            raise
 
     def as_event_stream_player(self): # BUG: VER: lo implementan Event, EventStreamPlayer, Pattern y Stream, parece protocolo.
         return self

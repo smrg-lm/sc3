@@ -1,5 +1,6 @@
 """Stream.sc"""
 
+from abc import ABC, abstractmethod
 import inspect
 import enum
 import threading
@@ -33,11 +34,17 @@ class AlwaysYield(Exception):
         self.terminal_value = terminal_value
 
 
-class Stream(fn.AbstractFunction): #, ABC):
-    ### iterator protocol ###
+class Stream(fn.AbstractFunction, ABC):
+    ### Iterator protocol ###
 
     def __iter__(self):
         return self
+
+    def __next__(self):
+        return self.next()
+
+
+    ### Stream protocol ###
 
     def __stream__(self):
         return self
@@ -49,31 +56,22 @@ class Stream(fn.AbstractFunction): #, ABC):
         except StopStream:
             return
 
-    def __next__(self):
-        return self.next()
+    @abstractmethod
+    def next(self, inval=None):
+        pass
 
-
-    #@abstractmethod # NOTE: la clase que se usa como Stream por defecto es Routine (hay otras)
-    def next(self, inval=None): # se define en Object y se sobreescribe con subclassResponsibility en Stream
-        raise NotImplementedError('Stream is an abstract class') # BUG: ver abc, ver que pasa lo mismo en Clock (__new__ o irá en __init__?)
-
-    # @property # BUG: ver si es realmente necesario definir esta propiedad
-    # def parent(self): # TODO: entiendo que esta propiedad, que no se puede declarar como atributo, es por parent de Thread
-    #     return None
 
     # def stream_arg(self): # BUG: se usa para Pcollect, Pselect, Preject, el método lo definen Object y Pattern también.
     #     return self
 
     def all(self, inval=None):
-        self.reset()
-        item = None
+        '''Same as list(stream) but with inval argument.'''
         lst = []
-        while True:
-            try:
-                item = self.next(inval)
-                lst.append(item)
-            except StopIteration:
-                break
+        try:
+            while True:
+                lst.append(self.next(inval))
+        except StopStream:
+            pass
         return lst
 
     # put
@@ -95,6 +93,9 @@ class Stream(fn.AbstractFunction): #, ABC):
     # collate # // ascending order merge of two streams # NOTE: usa interlace
     # <> # Pchain
 
+
+    ### AbstractFunction interface ###
+
     def _compose_unop(self, selector):
         return UnaryOpStream(selector, self)
 
@@ -107,6 +108,7 @@ class Stream(fn.AbstractFunction): #, ABC):
     def _compose_narop(self, selector, *args):
         args = [stream(x) for x in args]
         return NAryOpStream(selector, self, *args)
+
 
     # asEventStreamPlayer
     # play
@@ -471,8 +473,8 @@ class FlowVar():
 
     @property
     def value(self):
-        yield from self.condition.wait() # BUG: hace yield a la nada
-        return self._value
+        yield from self.condition.wait()  # *** BUG: hace yield a la nada, y es un descriptor.
+        return self._value  # *** BUG: y los generadores ignoran el valor de retorno.
 
     @value.setter
     def value(self, inval):
@@ -482,7 +484,7 @@ class FlowVar():
         self.condition.signal()
 
 
-### higher level abstractions ###
+### Higher level abstractions ###
 
 
 class FuncStream(Stream):
@@ -751,21 +753,33 @@ class EventStreamPlayer(PauseStream):
 
 
 def stream(obj):
+    '''Converts any object in a Stream.'''
+
     if hasattr(obj, '__stream__'):
         return obj.__stream__()
 
     def _(inval=None):
-        while True: # BUG: los Object son streams infinitos el problema es que no se comportan lo mismo con embedInStream, ahí son finitos, valores únicos.
+        while True:
             yield obj
+
     return Routine(_)
 
 
 def embed(obj, inval=None):
+    '''
+    Converts any object in a Stream and/or returns its embeddable form passing
+    inval to the `next` calls.
+    '''
+
     if hasattr(obj, '__embed__'):
         return obj.__embed__(inval)
-    if hasattr(obj, '__stream__') or hasattr(obj, '__iter__'):
-        return  stream(obj).__embed__(inval)
+    if hasattr(obj, '__stream__'):
+        return  obj.__stream__().__embed__(inval)
 
+    # Common objects are infinite streams returning themselves. However, when
+    # using embedInStream they become an unique value stream. Common objects
+    # ignore inval.
     def _(inval=None):
         yield obj
+
     return Routine(_).__embed__()

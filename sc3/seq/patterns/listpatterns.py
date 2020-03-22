@@ -17,8 +17,9 @@ class ListPattern(ptt.Pattern):
             self.lst = lst
             self.repeats = repeats
         else:
-            msg = "ListPattern '{}' requires a non empty collection"
-            raise ValueError(msg.format(type(self).__name__))
+            raise ValueError(
+                f"ListPattern '{type(self).__name__}' "
+                "requires a non empty collection")
 
     # copy # BUG: copia la lista lst
     # storeArgs # TODO

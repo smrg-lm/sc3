@@ -1,8 +1,8 @@
 
 from . clock import *
+from . stream import *
 # from . event import *
-from . pattern import *
-# from . patterns import *
 from . rest import *
 from . scale import *
-from . stream import *
+# from . pattern import *  # Done by patterns.
+from . patterns import *

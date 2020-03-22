@@ -1,5 +1,5 @@
 """
-Builtin UGen classes submodule.
+Builtin UGen classes package.
 """
 
 import importlib as _importlib
@@ -36,9 +36,9 @@ def install_ugens_module(name, package=None):
 def install_ugens_package(path, name):
     '''
     Call this function in the __init__.py file of an ugens package with
-    varaibles __path__ and __name__ as paramenters to make all classes available
-    to sc3.synth.ugens.installed_ugens. path and name used as arguments for
-    pkgutil.walk_packages().
+    varaibles __path__ and __name__ as paramenters to make all classes
+    available to sc3.synth.ugens.installed_ugens. path and name are used as
+    arguments for pkgutil.walk_packages().
     '''
     for module_info in _pkgutil.walk_packages(path, name + '.'):
         if module_info.name.split('.')[-1][0] == '_':

@@ -35,6 +35,11 @@ class AlwaysYield(Exception):
 
 
 class Stream(fn.AbstractFunction, ABC):
+    '''
+    Streams are iterator-generators compatible objects that implement an
+    specific interface to interact with clocks and patterns.
+    '''
+
     ### Iterator protocol ###
 
     def __iter__(self):
@@ -47,9 +52,14 @@ class Stream(fn.AbstractFunction, ABC):
     ### Stream protocol ###
 
     def __stream__(self):
+        '''Returns a Stream object, most likely a Routine.'''
         return self
 
     def __embed__(self, inval=None):
+        '''
+        Returns an embeddable Stream or generator-iterator that recursively
+        embeds cointained sub-streams.
+        '''
         try:
             while True:
                 yield self.next(inval)

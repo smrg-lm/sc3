@@ -197,8 +197,12 @@ class TimeThread():
         if not inspect.isfunction(func):
             raise TypeError('TimeThread argument is not a function')
 
-        self.parent = None
         self.func = func
+        self._func_has_inval = (  # Maybe it would be better to require the argument.
+            len(inspect.signature(self.func).parameters) == 1)
+        self._func_isgenfunc = inspect.isgeneratorfunction(self.func)
+
+        self.parent = None
         self.state = self.State.Init
         self._state_cond = threading.Condition(threading.RLock())
         # _seconds need alias to avoid
@@ -341,13 +345,17 @@ class Routine(TimeThread, Stream):
             try:
                 self.state = self.State.Running
                 if self._iterator is None:
-                    if len(inspect.signature(self.func).parameters) == 0:
-                        self._iterator = self.func()
-                    else:
-                        self._iterator = self.func(inval)
-                    if inspect.isgenerator(self._iterator):
+                    if self._func_isgenfunc:
+                        if self._func_has_inval:
+                            self._iterator = self.func(inval)
+                        else:
+                            self._iterator = self.func()
                         self._last_value = next(self._iterator)
                     else:
+                        if self._func_has_inval:
+                            self.func(inval)
+                        else:
+                            self.func()
                         raise AlwaysYield()
                 else:
                     self._last_value = self._iterator.send(inval)

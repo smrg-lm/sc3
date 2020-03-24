@@ -12,7 +12,7 @@ from .. import pattern as ptt
 
 class ListPattern(ptt.Pattern):
     def __init__(self, lst=None, repeats=1):
-        lst = lst or []
+        lst = list(lst)  # raises TypeError
         if len(lst) > 0:
             self.lst = lst
             self.repeats = repeats
@@ -31,15 +31,13 @@ class Pseq(ListPattern):
         self.offset = offset
 
     def __embed__(self, inval=None):
-        offset = self.offset # BUG: *** en el original llama a value (no a next).
-                             # BUG: *** puede ser que llame a value no porque sea un stream sino una función que
-                             # BUG: *** modifican el comportamiento de repeats y offset según los datos el evento.
-        # if (inval.eventAt('reverse') == true, { # BUG: TODO: No se si es bueno que el evento defina el comportamiento dle pattern.
-        repeats = self.repeats
-        lst = collections.deque(self.lst)
-        lst.rotate(offset) # TODO: tal vez usa wrapAt porque rotar es más costoso y genera un pico.
-        for i in range(repeats):
-            for item in lst:
+        # NOTE: Are sclang assignments in case the object is mutable?
+        # NOTE: review use of value in sclang.
+        # if (inval.eventAt('reverse') == true, { # Not good.
+        for i in range(self.repeats):
+            for item in self.lst[self.offset:]:
+                inval = yield from stm.embed(item, inval)
+            for item in self.lst[:self.offset]:
                 inval = yield from stm.embed(item, inval)
 
     # storeArgs # TODO

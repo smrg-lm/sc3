@@ -10,36 +10,22 @@ _logger = logging.getLogger(__name__)
 
 
 class Pattern(fn.AbstractFunction):
-    # // concatenate Patterns
-    # ++
-    # // compose Patterns
-    # <>
+    ### Iterable protocol ###
 
     def __iter__(self):
         return self.__stream__()
 
-    def __stream__(self): # es asStream
-        def _(inval=None): # NOTE: Stream es el pattern iterator
-            yield from self.__embed__(inval)
-        _.__name__ = type(self).__name__ + '_stream_gf' # e.g. Pseq_stream_gf
-        _.__qualname__ += _.__name__
-        return stm.Routine(_)
 
-    def __embed__(self, inval=None): # NOTE: es embedInStream para Stream sin la funcionalidad del yield from que se define en __stream__
-        print('*** usa Pattern __embed__')
+    ### Stream protocol ###
+
+    def __stream__(self):
+        return stm.PatternValueStream(self)
+
+    def __embed__(self, inval=None):
         yield from self.__stream__().__embed__(inval)
 
-    def play(self, clock=None, proto_event=None, quant=None):
-        return self.as_event_stream_player(proto_event).play(clock, False, quant)
 
-    def as_event_stream_player(self, proto_event=None):
-        return stm.EventStreamPlayer(self.__stream__(), proto_event)
-
-    # stream_args
-    # do
-    # collect
-    # select
-    # reject
+    ### AbstractFunction interface ###
 
     def _compose_unop(self, selector):
         return Punop(selector, self)
@@ -53,6 +39,22 @@ class Pattern(fn.AbstractFunction):
     def _compose_narop(self, selector, *args):
         return Pnarop(selector, self, *args)
 
+
+    def play(self, clock=None, proto_event=None, quant=None):
+        return self.as_event_stream_player(proto_event).play(clock, False, quant)
+
+    def as_event_stream_player(self, proto_event=None):
+        return stm.EventStreamPlayer(self.__stream__(), proto_event)
+
+    # stream_args
+    # do
+    # collect
+    # select
+    # reject
+    #
+    # ++ // concatenate Patterns
+    # <> // compose Patterns
+    #
     # mtranspose
     # ctranspose
     # gtranspose
@@ -97,12 +99,10 @@ class Punop(Pattern):
         self.selector = selector
         self.a = a
 
-    def __stream__(self): # BUG: no entiendo cuándo se usan estos métodos si anulan __embed__
-        print('*** convierte Punop en UnaryOpStream')
+    def __stream__(self):
         return stm.UnaryOpStream(self.selector, stm.stream(self.a))
 
     def __embed__(self, inval=None):
-        print('*** usa Punop __embed__')
         stream = stm.stream(self.a)
         outval = None
         while True:
@@ -119,14 +119,8 @@ class Pbinop(Pattern):
         self.b = b
 
     def __stream__(self):
-        print('*** convierte Pbinop en BinaryOpStream')
         return stm.BinaryOpStream(
-            self.selector,
-            stm.stream(self.a),
-            stm.stream(self.b)
-        )
-
-    # BUG: ver por qué no define __embed__ acá o por qué los define en los otros dos.
+            self.selector, stm.stream(self.a), stm.stream(self.b))
 
     # storeOn
 
@@ -138,12 +132,10 @@ class Pnarop(Pattern): # BUG: nombre cambiado
         self.args = args
 
     def __stream__(self):
-        print('*** convierte Pnarop en NAryOpStream')
         args = [stm.stream(x) for x in self.args]
         return stm.NAryOpStream(self.selector, stm.stream(self.a), *args)
 
     def __embed__(self, inval=None):
-        print('*** usa Pnarop __embed__')
         stream_a = stm.stream(self.a)
         stream_lst = [stm.stream(x) for x in self.args]
         while True:

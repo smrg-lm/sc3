@@ -57,8 +57,8 @@ class Stream(fn.AbstractFunction, ABC):
 
     def __embed__(self, inval=None):
         '''
-        Returns an embeddable Stream or generator-iterator that recursively
-        embeds cointained sub-streams.
+        Returns generator-iterator that recursively embeds cointained
+        sub-streams.
         '''
         try:
             while True:
@@ -770,34 +770,63 @@ class EventStreamPlayer(PauseStream):
         # return self
 
 
+class SingleValueStream(Stream):
+    def __init__(self, value):
+        self.value = value
+
+
+    ### Iterator protocol ###
+
+    def __next__(self):
+        return self.value
+
+
+    ### Stream protocol ###
+
+    def __embed__(self, inval=None):
+        # Common objects are infinite streams returning themselves. However,
+        # when using embedInStream they become an unique value stream.
+        yield self.value
+
+    def next(self, inval=None):
+        return self.value
+
+
+class PatternValueStream(Stream):
+    def __init__(self, pattern):
+        self.pattern = pattern
+        self._stream = None
+
+
+    ### Stream protocol ###
+
+    def next(self, inval=None):
+        try:
+            if self._stream is None:
+                self._stream = self.pattern.__embed__(inval)
+                return next(self._stream)
+            else:
+                return self._stream.send(inval)
+        except StopIteration:
+            raise StopStream
+
+
 def stream(obj):
     '''Converts any object in a Stream.'''
 
     if hasattr(obj, '__stream__'):
         return obj.__stream__()
-
-    def _(inval=None):
-        while True:
-            yield obj
-
-    return Routine(_)
+    else:
+        return SingleValueStream(obj)
 
 
 def embed(obj, inval=None):
     '''
-    Converts any object in a Stream and/or returns its embeddable form passing
+    Converts any object in a Stream and returns its embeddable form passing
     inval to the `next` calls.
     '''
 
     if hasattr(obj, '__embed__'):
         return obj.__embed__(inval)
-    if hasattr(obj, '__stream__'):
-        return  obj.__stream__().__embed__(inval)
-
-    # Common objects are infinite streams returning themselves. However, when
-    # using embedInStream they become an unique value stream. Common objects
-    # ignore inval.
-    def _(inval=None):
-        yield obj
-
-    return Routine(_).__embed__()
+    else:
+        return SingleValueStream(obj).__embed__(inval)

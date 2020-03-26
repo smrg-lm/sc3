@@ -187,6 +187,36 @@ class NAryOpStream(Stream):
     # storeOn # TODO
 
 
+class FunctionStream(Stream):  # Was FuncStream
+    # Functions could use StopStream as sclang nil but is not nice.
+    def __init__(self, next_func, reset_func=None, data=None):
+        self.next_func = next_func
+        self._next_nargs = len(inspect.signature(self.next_func).parameters)
+        self.reset_func = reset_func or (lambda data: None)
+        self._reset_nargs = len(inspect.signature(self.reset_func).parameters)
+        self.data = data
+
+    def next(self, inval=None):
+        # return fn.value(self.next_func, inval, self.data)  # Not cheap.
+        # return self.next_func(inval, self.data)  # Mandatory
+        if self._next_nargs > 1:
+            return self.next_func(inval, self.data)
+        elif self._next_nargs > 0:
+            return self.next_func(inval)
+        else:
+            return self.next_func()
+
+    def reset(self):
+        # fn.value(self.reset_func, self.data)  # Not cheap.
+        # self.reset_func(self.data)  # Mandatory.
+        if self._reset_nargs > 0:
+            self.reset_func(self.data)
+        else:
+            self.reset_func()
+
+    # storeArgs
+
+
 ### Thread.sc ###
 
 
@@ -503,10 +533,6 @@ class FlowVar():
 
 
 ### Higher level abstractions ###
-
-
-class FuncStream(Stream):
-    ... # TODO
 
 
 # class OneShotStream(Stream): ... # TODO: ver para qué sirve, la única referencia está en Object:iter, no está documentada.

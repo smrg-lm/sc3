@@ -150,7 +150,15 @@ class Pnarop(Pattern): # BUG: nombre cambiado
 
 
 class Pfunc(Pattern):
-    ...
+    def __init__(self, next_func, reset_func=None, data=None):
+        self.next_func = next_func
+        self.reset_func = reset_func
+        self.data = data
+
+    def __stream__(self):
+        return stm.FunctionStream(self.next_func, self.reset_func, self.data)
+
+    # storeArgs
 
 
 class Prout(Pattern):

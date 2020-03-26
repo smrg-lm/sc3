@@ -178,12 +178,14 @@ class Pevent(Pattern):
 class Pbind(Pattern):
     def __init__(self, *args):
         if len(args) % 2 != 0:
-            raise TypeError('Pbind should have even number of args')
+            raise ValueError('Pbind should have even number of args')
         self.pattern_pairs = args
 
-    def __embed__(self, in_event=None):
+    def __stream__(self):
+        return stm.PatternEventStream(self)
+
+    def __embed__(self, inevent=None):
         event = None
-        #saw_none = False # BUG: en sclang, no se usa.
         stream_pairs = list(self.pattern_pairs)
         stop = len(stream_pairs)
 
@@ -191,30 +193,26 @@ class Pbind(Pattern):
             stream_pairs[i] = stm.stream(stream_pairs[i])
 
         while True:
-            if in_event is None:
-                return # NOTE: es next quién tira la excepción
-            event = in_event.copy()
+            if inevent is None:
+                return
+            event = inevent.copy()
             for i in range(0, stop, 2):
                 name = stream_pairs[i]
                 stream = stream_pairs[i + 1]
-                try:
-                    stream_out = stream.next(event)
-                except stm.StopStream:
-                    return in_event # NOTE: ver.
+                stream_out = stream.next(event)  # raises StopStream
                 if isinstance(name, (list, tuple)):
-                    if isinstance(stream_out, (list, tuple))\
-                    and len(name) > len(stream_out)\
-                    or not isinstance(stream_out, (list, tuple)):
+                    if not isinstance(stream_out, (list, tuple))\
+                    or isinstance(stream_out, (list, tuple))\
+                    and len(name) > len(stream_out):
                         _logger.warning(
                             'the pattern is not providing enough '
                             f'values to assign to the key set: {name}')
-                        return in_event
+                        return  # inevent  # sclang also ignores return value.
                     for i, key in enumerate(name):
                         event[key] = stream_out[i]
                 else:
                     event[name] = stream_out
-            in_event = yield event
-
+            inevent = yield event
 
     # storeArgs # TODO
 

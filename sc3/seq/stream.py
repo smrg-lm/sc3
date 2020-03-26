@@ -591,7 +591,7 @@ class PauseStream(Stream):
             next_time = self._stream.next(inval)  # raises StopStream
             self._next_beat = inval + next_time  # // inval is current logical beat
             return next_time
-        except StopStream as e:
+        except StopStream:
             self.removed_from_scheduler()
             raise
 
@@ -807,6 +807,21 @@ class PatternValueStream(Stream):
                 return next(self._stream)
             else:
                 return self._stream.send(inval)
+        except StopIteration:
+            raise StopStream
+
+
+class PatternEventStream(PatternValueStream):
+    ### Stream protocol ###
+
+    def next(self, inevent=None):
+        try:
+            inevent = dict() if inevent is None else inevent  # *** TODO: Default type, it might end up being dict.
+            if self._stream is None:
+                self._stream = self.pattern.__embed__(inevent)
+                return next(self._stream)
+            else:
+                return self._stream.send(inevent)
         except StopIteration:
             raise StopStream
 

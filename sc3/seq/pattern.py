@@ -1,6 +1,7 @@
 """Patterns.sc"""
 
 import logging
+import inspect
 
 from ..base import functions as fn
 from . import stream as stm
@@ -162,11 +163,48 @@ class Pfunc(Pattern):
 
 
 class Prout(Pattern):
-    ...
+    def __init__(self, func):
+        self.func = func
+        self._func_has_inval = (  # See note in TimeThread.__init__. Sync code.
+            len(inspect.signature(self.func).parameters) > 0)
+        self._func_isgenfunc = inspect.isgeneratorfunction(self.func)
+
+    def __stream__(self):
+        return stm.Routine(self.func)
+
+    def __embed__(self, inval=None):
+        if self._func_isgenfunc:
+            if self._func_has_inval:
+                iterator = self.func(inval)
+            else:
+                iterator = self.func()
+            yield next(iterator)
+            while True:
+                yield iterator.send(inval)
+        else:
+            if self._func_has_inval:
+                self.func(inval)
+            else:
+                self.func()
+
+    # storeArgs
 
 
 class Pfuncn(Pattern):
-    ...
+    def __init__(self, func, repeats=1):
+        self.func = func
+        self._func_has_inval = (  # See note in TimeThread.__init__. Sync code.
+            len(inspect.signature(self.func).parameters) > 0)
+        self.repeats = repeats
+
+    def __embed__(self, inval=None):
+        for i in range(self.repeats):
+            if self._func_has_inval:
+                yield self.func(inval)
+            else:
+                yield self.func()
+
+    # storeArgs
 
 
 # BUG: ver su utilidad, qué diferencia hay

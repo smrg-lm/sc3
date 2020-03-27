@@ -229,7 +229,7 @@ class TimeThread():
 
         self.func = func
         self._func_has_inval = (  # Maybe it would be better to require the argument.
-            len(inspect.signature(self.func).parameters) == 1)
+            len(inspect.signature(self.func).parameters) > 0)
         self._func_isgenfunc = inspect.isgeneratorfunction(self.func)
 
         self.parent = None

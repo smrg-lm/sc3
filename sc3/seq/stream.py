@@ -647,38 +647,41 @@ def task(func):
 
 
 ### EventStreamCleanup.sc ###
-# // Cleanup functions are passed a flag.
-# // The flag is set false if nodes have already been freed by CmdPeriod
-# // This caused a minor change to TempoClock:clear and TempoClock:cmdPeriod
+
+
 class EventStreamCleanup():
+    # // Cleanup functions are passed a flag. The flag is set false if nodes
+    # // have already been freed by CmdPeriod. This caused a minor change to
+    # // TempoClock:clear and TempoClock:cmdPeriod
+
     def __init__(self):
-        self.functions = set() # // cleanup functions from child streams and parent stream
+        # // cleanup functions from child streams and parent stream
+        self.functions = set()
 
     def add_function(self, event, func):
         if isinstance(event, dict):
             self.functions.add(func)
             if 'add_to_cleanup' not in event:
-                event.add_to_cleanup = []
-            event.add_to_cleanup.append(func)
+                event['add_to_cleanup'] = []
+            event['add_to_cleanup'].append(func)
 
     def add_node_cleanup(self, event, func):
         if isinstance(event, dict):
             self.functions.add(func)
             if 'add_to_node_cleanup' not in event:
-                event.add_to_node_cleanup = []
-            event.add_to_node_cleanup.append(func)
+                event['add_to_node_cleanup'] = []
+            event['add_to_node_cleanup'].append(func)
 
     def update(self, event):
         if isinstance(event, dict):
             if 'add_to_node_cleanup' in event:
-                self.functions.update(event.add_to_node_cleanup)
+                self.functions.update(event['add_to_node_cleanup'])
             if 'add_to_cleanup' in event:
-                self.functions.update(event.add_to_cleanup)
+                self.functions.update(event['add_to_cleanup'])
             if 'remove_from_cleanup' in event:
-                for item in event.remove_from_cleanup:
+                for item in event['remove_from_cleanup']:
                     self.functions.discard(item)
-            print('*** ver por qué EventStreamCleanup.update retorna el argumento event (además inalterado)')
-            return event # TODO: Why?
+        return event
 
     def exit(self, event, free_nodes=True):
         if isinstance(event, dict):
@@ -686,11 +689,10 @@ class EventStreamCleanup():
             for func in self.functions:
                 func(free_nodes)
             if 'remove_from_cleanup' not in event:
-                event.remove_from_cleanup = [] # NOTE: es necesario porque hace reasignación del array como si creara uno nuevo, por eso entiendo que es un array también.
-            event.remove_from_cleanup.extend(self.functions)
+                event['remove_from_cleanup'] = []
+            event['remove_from_cleanup'].extend(self.functions)
             self.clear()
-            print('*** ver por qué EventStreamCleanup.exit retorna el argumento event (aunque acá sí alterado)')
-            return event
+        return event
 
     def terminate(self, free_nodes=True):
         for func in self.functions:
@@ -704,7 +706,7 @@ class EventStreamCleanup():
 class EventStreamPlayer(PauseStream):
     def __init__(self, stream, event=None):
         super().__init__(stream)
-        self.event = event or evt.Event.default() # BUG: tal vez debería ser una property de clase? o que todos los default sean funciones (SIMPLIFICA EL CÓDIGO) o propiedades. Pero Event *default crea un nuevo evento cada vez.
+        self.event = event or dict()  # *** BUG: evt.Event.default
         self.mute_count = 0
         self.cleanup = EventStreamCleanup()
 

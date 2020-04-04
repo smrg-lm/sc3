@@ -820,6 +820,40 @@ class SingleValueStream(Stream):
         return self.value
 
 
+class EventValueStream(SingleValueStream):
+    ### Iterator protocol ###
+
+    def __next__(self):
+        # Object.composeEvent
+        return self.value.copy()
+
+
+    ### Stream protocol ###
+
+    def __embed__(self, inevent=None):
+        # Dictionary.embedInStream
+        # func = self.value.get('embed', None)
+        # if func is not None:
+        #     yield from func(self.value, inevent)
+        if inevent is None:
+            return (yield self.value)
+        else:
+            inevent = inevent.copy()
+            inevent.update(self.value)
+            return (yield inevent)
+
+    def next(self, inevent=None):
+        # Event.next
+        if inevent is None:
+            # Object.composeEvent
+            return self.value.copy()
+        else:
+            # Environment.composeEvent
+            inevent = inevent.copy()
+            inevent.update(self.value)
+            return inevent
+
+
 class PatternValueStream(Stream):
     def __init__(self, pattern):
         self.pattern = pattern
@@ -844,7 +878,7 @@ class PatternEventStream(PatternValueStream):
 
     def next(self, inevent=None):
         try:
-            inevent = dict() if inevent is None else inevent  # *** TODO: Default type, it might end up being dict.
+            inevent = dict() if inevent is None else inevent  # *** BUG: evt.Event.default
             if self._stream is None:
                 self._stream = self.pattern.__embed__(inevent)
                 return next(self._stream)
@@ -860,7 +894,10 @@ def stream(obj):
     if hasattr(obj, '__stream__'):
         return obj.__stream__()
     else:
-        return SingleValueStream(obj)
+        if isinstance(obj, dict):
+            return EventValueStream(obj)
+        else:
+            return SingleValueStream(obj)
 
 
 def embed(obj, inval=None):
@@ -872,4 +909,7 @@ def embed(obj, inval=None):
     if hasattr(obj, '__embed__'):
         return obj.__embed__(inval)
     else:
-        return SingleValueStream(obj).__embed__(inval)
+        if isinstance(obj, dict):
+            return EventValueStream(obj).__embed__(inval)
+        else:
+            return SingleValueStream(obj).__embed__(inval)

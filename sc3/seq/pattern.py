@@ -24,7 +24,7 @@ class Pattern(fn.AbstractFunction):
         return stm.PatternValueStream(self)
 
     def __embed__(self, inval=None):
-        yield from self.__stream__().__embed__(inval)
+        return (yield from self.__stream__().__embed__(inval))
 
 
     ### AbstractFunction interface ###
@@ -106,10 +106,11 @@ class Punop(Pattern):
 
     def __embed__(self, inval=None):
         stream = stm.stream(self.a)
-        outval = None
         while True:
-            outval = stream.next(inval)
-            inval = yield self.selector(outval)
+            try:
+                inval = yield self.selector(stream.next(inval))
+            except StopStream:
+                return inval
 
     # storeOn
 
@@ -123,6 +124,8 @@ class Pbinop(Pattern):
     def __stream__(self):
         return stm.BinaryOpStream(
             self.selector, stm.stream(self.a), stm.stream(self.b))
+        # NOTE: See BinaryOpXStream implementation options. Class is not
+        # defined.
 
     # storeOn
 
@@ -139,11 +142,15 @@ class Pnarop(Pattern): # BUG: nombre cambiado
 
     def __embed__(self, inval=None):
         stream_a = stm.stream(self.a)
+        # NOTE: See omitted optimization.
         stream_lst = [stm.stream(x) for x in self.args]
         while True:
-            a = stream_a.next(inval)
-            args = [x.next(inval) for x in stream_lst]
-            inval = yield self.selector(a, *args)
+            try:
+                a = stream_a.next(inval)
+                args = [x.next(inval) for x in stream_lst]
+                inval = yield self.selector(a, *args)
+            except StopStream:
+                return inval
 
     # storeOn
 
@@ -179,14 +186,17 @@ class Prout(Pattern):
                 iterator = self.func(inval)
             else:
                 iterator = self.func()
-            yield next(iterator)
-            while True:
-                yield iterator.send(inval)
+            try:
+                yield next(iterator)
+                while True:
+                    yield iterator.send(inval)
+            except StopIteration as e:
+                return e.value  # Contains generator function's return value.
         else:
             if self._func_has_inval:
-                self.func(inval)
+                return self.func(inval)
             else:
-                self.func()
+                return self.func()
 
     # storeArgs
 
@@ -201,9 +211,10 @@ class Pfuncn(Pattern):
     def __embed__(self, inval=None):
         for i in range(self.repeats):
             if self._func_has_inval:
-                yield self.func(inval)
+                inval = yield self.func(inval)
             else:
-                yield self.func()
+                inval = yield self.func()
+        return inval
 
     # storeArgs
 
@@ -272,12 +283,15 @@ class Pbind(Pattern):
 
         while True:
             if inevent is None:
-                return
+                return  # Equivalent to ^nil.yield.
             event = inevent.copy()
             for i in range(0, stop, 2):
                 name = stream_pairs[i]
                 stream = stream_pairs[i + 1]
-                stream_out = stream.next(event)  # raises StopStream
+                try:
+                    stream_out = stream.next(event)
+                except StopStream:
+                    return inevent
                 if isinstance(name, (list, tuple)):
                     if not isinstance(stream_out, (list, tuple))\
                     or isinstance(stream_out, (list, tuple))\
@@ -285,7 +299,7 @@ class Pbind(Pattern):
                         _logger.warning(
                             'the pattern is not providing enough '
                             f'values to assign to the key set: {name}')
-                        return  # inevent  # sclang also ignores return value.
+                        return inevent
                     for i, key in enumerate(name):
                         event[key] = stream_out[i]
                 else:

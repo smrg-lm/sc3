@@ -39,6 +39,7 @@ class Pseq(ListPattern):
                 inval = yield from stm.embed(item, inval)
             for item in self.lst[:self.offset]:
                 inval = yield from stm.embed(item, inval)
+        return inval
 
     # storeArgs # TODO
 

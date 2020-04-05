@@ -62,9 +62,9 @@ class Stream(fn.AbstractFunction, ABC):
         '''
         try:
             while True:
-                yield self.next(inval)
+                inval = yield self.next(inval)
         except StopStream:
-            return
+            return inval
 
     @abstractmethod
     def next(self, inval=None):
@@ -162,6 +162,10 @@ class BinaryOpStream(Stream):
         self.b.reset()
 
     # storeOn # TODO
+
+
+# NOTE: See BinaryOpXStream implementation options. Is not possible to
+# implemente without a special function operation.
 
 
 class NAryOpStream(Stream):
@@ -814,7 +818,7 @@ class SingleValueStream(Stream):
     def __embed__(self, inval=None):
         # Common objects are infinite streams returning themselves. However,
         # when using embedInStream they become an unique value stream.
-        yield self.value
+        return (yield self.value)
 
     def next(self, inval=None):
         return self.value

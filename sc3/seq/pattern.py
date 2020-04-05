@@ -109,7 +109,7 @@ class Punop(Pattern):
         while True:
             try:
                 inval = yield self.selector(stream.next(inval))
-            except StopStream:
+            except stm.StopStream:
                 return inval
 
     # storeOn
@@ -149,7 +149,7 @@ class Pnarop(Pattern): # BUG: nombre cambiado
                 a = stream_a.next(inval)
                 args = [x.next(inval) for x in stream_lst]
                 inval = yield self.selector(a, *args)
-            except StopStream:
+            except stm.StopStream:
                 return inval
 
     # storeOn
@@ -258,7 +258,7 @@ class Pevent(Pattern):
         while True:
             try:
                 inval = yield stream.next(self.event)
-            except StopStream:
+            except stm.StopStream:
                 return inval
 
     # storeArgs
@@ -290,7 +290,7 @@ class Pbind(Pattern):
                 stream = stream_pairs[i + 1]
                 try:
                     stream_out = stream.next(event)
-                except StopStream:
+                except stm.StopStream:
                     return inevent
                 if isinstance(name, (list, tuple)):
                     if not isinstance(stream_out, (list, tuple))\

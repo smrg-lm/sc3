@@ -2,6 +2,7 @@
 
 import logging
 import inspect
+import copy
 
 from ..base import functions as fn
 from . import stream as stm
@@ -214,11 +215,42 @@ class Pfuncn(Pattern):
 
 
 class Pchain(Pattern):
-    ...
+    def __init__(self, *patterns):
+        self.patterns = list(patterns)
+
+    def chain(self, pattern):  # <>  # *** NOTE: Maybe a function like stm.stream.
+        return type(self)(*self.patterns, pattern)
+
+    def __embed__(self, inval=None):
+        cleanup = stm.EventStreamCleanup()
+        streams = [stm.stream(p) for p in reversed(self.patterns)]
+        while True:
+            inevent = copy.copy(inval)
+            for stream in streams:
+                try:
+                    inevent = stream.next(inevent)
+                except stm.StopStream:
+                    return cleanup.exit(inval)
+            cleanup.update(inevent)
+            inval = yield inevent
+
+    # storeOn
 
 
 class Pevent(Pattern):
-    ...
+    def __init__(self, pattern, event=None):
+        self.pattern = pattern
+        self.event = event or dict()  # *** BUG: Event.default
+
+    def __embed__(self, inval):
+        stream = stm.stream(self.pattern)
+        while True:
+            try:
+                inval = yield stream.next(self.event)
+            except StopStream:
+                return inval
+
+    # storeArgs
 
 
 class Pbind(Pattern):

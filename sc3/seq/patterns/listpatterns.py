@@ -116,25 +116,3 @@ class Pslide(ListPattern):
 
 class Pwalk(ListPattern):
     ...
-
-
-### Ppar.sc ###
-
-
-# TODO: es un ListPattern, pero es exclusivamente para event streams,
-# tampoco es que haya otra forma, Ptuple tal vez, se necesita delta.
-# En este sentido actúa como un conjunto de elementos específico (listas).
-class Ppar(ListPattern):
-    ...
-
-
-class Ptpar(Ppar):
-    ...
-
-
-class Pgpar(Ppar):
-    ...
-
-
-class Pgtpar(Pgpar):
-    ...

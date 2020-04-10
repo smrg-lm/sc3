@@ -152,6 +152,7 @@ class PitchKeys(EventKeys):
 
 class DurationKeys(EventKeys):
     _default_keys = {
+        'delta': None,
         'sustain': None,
         'dur': 1.0,
         'legato': 0.8,
@@ -163,6 +164,12 @@ class DurationKeys(EventKeys):
         # 'strum': 0.0,
         # 'strum_ends_together': False
     }
+
+    def _delta(self):
+        if 'delta' in self:
+            return self['delta']
+        else:
+            return self('dur') * self('stretch')
 
     def _sustain(self):
         if 'sustain' in self:

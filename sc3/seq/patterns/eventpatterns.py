@@ -87,34 +87,26 @@ class Pevent(ptt.Pattern):
 
 
 class Pbind(ptt.Pattern):
-    def __init__(self, *args):
-        if len(args) % 2 != 0:
-            raise ValueError('Pbind should have even number of args')
-        self.pattern_pairs = args
+    def __init__(self, *args, **kwargs):
+        self.dict = dict(*args, **kwargs)
 
     def __stream__(self):
         return stm.PatternEventStream(self)
 
     def __embed__(self, inevent=None):
         event = None
-        stream_pairs = list(self.pattern_pairs)
-        stop = len(stream_pairs)
-
-        for i in range(1, stop, 2):
-            stream_pairs[i] = stm.stream(stream_pairs[i])
+        stream_dict = {k: stm.stream(v) for k, v in self.dict.items()}
 
         while True:
             if inevent is None:
                 return  # Equivalent to ^nil.yield.
             event = inevent.copy()
-            for i in range(0, stop, 2):
-                name = stream_pairs[i]
-                stream = stream_pairs[i + 1]
+            for name, stream in stream_dict.items():
                 try:
                     stream_out = stream.next(event)
                 except stm.StopStream:
                     return inevent
-                if isinstance(name, (list, tuple)):
+                if isinstance(name, tuple):
                     if not isinstance(stream_out, (list, tuple))\
                     or isinstance(stream_out, (list, tuple))\
                     and len(name) > len(stream_out):

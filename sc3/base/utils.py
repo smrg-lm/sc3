@@ -336,7 +336,7 @@ def clump(lst, n):
 def gen_cclumps(l, n=1):
     '''return n items as pairsDo does (with n=2) for iteration, cclump stands
     for complete clump, it discards possible non full clump at the end'''
-    return (l[i:i + n] for i in range(0, len(l), n) if len(l[i:i + n]) == n)
+    return (l[i:i + n] for i in range(0, len(l) - (n - 1), n))
 
 
 # para doAdjacentPairs, de Python Itertools Recipes: https://docs.python.org/3/library/itertools.html#itertools-recipes

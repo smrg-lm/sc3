@@ -6,6 +6,8 @@ import copy
 from ...base import functions as fn
 from .. import stream as stm
 from .. import pattern as ptt
+from .. import _taskq as tsq
+from .. import event as evt
 from . import listpatterns as lsp
 
 
@@ -135,11 +137,49 @@ class PmonoArtic(Pmono):
 
 
 class Ppar(lsp.ListPattern):
-    ...
+    def __embed__(self, inevent):
+        # assn?
+        queue = tsq.TaskQueue()
+        for _ in range(self.repeats):
+            now = 0.0
+            self._init_streams(queue)
+            # // If first event not at time zero.
+            if not queue.empty():
+                nexttime = queue.peek()[0]
+                if nexttime > 0.0:
+                    outevent = evt.silent(nexttime, inevent)
+                    inevent = yield outevent
+                    now = nexttime
+            while not queue.empty():
+                try:
+                    stream = queue.pop()[1]
+                    outevent = stream.next(inevent)
+                    # // Requeue stream.
+                    queue.add(now + float(outevent('delta')), stream)
+                    nexttime = queue.peek()[0]
+                    outevent['delta'] = nexttime - now
+                    inevent = yield outevent
+                    now = nexttime
+                except stm.StopStream:  # next
+                    if not queue.empty():
+                        # // That child stream ended, so rest until next one.
+                        nexttime = queue.peek()[0]
+                        outevent = evt.silent(nexttime - now, inevent)
+                        inevent = yield outevent
+                        now = nexttime
+                    else:
+                        queue.clear()
+            return inevent
+
+    def _init_streams(self, queue):
+        for pattern in self.lst:
+            queue.add(0.0, stm.stream(pattern))
 
 
 class Ptpar(Ppar):
-    ...
+    def _init_streams(self, queue):
+        for i in range(0, len(self.lst) - 1, 2):  # gen_cclumps(lst, 2)
+            queue.add(self.lst[i], stm.stream(self.lst[i + 1]))
 
 
 class Pgpar(Ppar):

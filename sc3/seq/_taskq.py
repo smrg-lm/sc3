@@ -60,7 +60,7 @@ class TaskQueue():
     def peek(self, smallest=True):
         '''
         Return the lowest/highest prio entry as a tuple (prio, task) without
-        removing it.
+        removing it. Raise KeyError if empty.
         '''
         if self._queue:
             if smallest:

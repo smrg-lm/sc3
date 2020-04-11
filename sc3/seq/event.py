@@ -3,11 +3,28 @@ Event.sc attempt no. 3. No multichannel expasion.
 '''
 
 from ..base import builtins as bi
+from ..base import operand as opd
 from ..synth import server as srv
 from ..synth import synthdesc as sdc
 from ..synth import node as nod
 from ..synth import _graphparam as gpp
 from . import scale as scl
+
+
+### Rest ###
+
+
+class Rest(opd.Operand):
+    def __init__(self, value=1.0):
+        super().__init__(value)
+
+    def __bool__(self):
+        # unwrapBoolean
+        return self.value
+
+    # In sclang: \, \r, \rest, Rest and Rest() are rest values for any
+    # key stream, also (type: \rest) and (isRest: true) at event level.
+    # SEE: "event support" with asControlInput, playAndDelta & isRest.
 
 
 ### Event Keys ###

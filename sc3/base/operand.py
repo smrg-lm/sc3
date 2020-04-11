@@ -50,5 +50,15 @@ class Operand(fn.AbstractFunction):
     def __repr__(self):
         return f'{type(self).__name__}({repr(self.value)})'
 
+
+    def __int__(self):
+        return int(self.value)
+
+    def __float__(self):
+        return float(self.value)
+
+    def __str__(self):
+        return str(self.value)
+
     # printOn
     # storeOn

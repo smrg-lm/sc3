@@ -27,6 +27,21 @@ class Rest(opd.Operand):
     # SEE: "event support" with asControlInput, playAndDelta & isRest.
 
 
+def silent(dur=1.0, inevent=None):
+    if inevent is None:
+        inevent = dict()  # *** BUG: Event.new, parent: defaultParentEvent
+    else:
+        inevent = inevent.copy()
+    inevent['delta'] = dur * inevent.get('stretch', 1.0)
+    inevent['dur'] = dur if isinstance(dur, Rest) else Rest(dur)
+    return inevent
+
+
+def is_rest(inevent):
+    return (inevent.get('type') == 'rest' or
+            any(isinstance(value, Rest) for value in inevent.values()))
+
+
 ### Event Keys ###
 
 
@@ -183,6 +198,7 @@ class DurationKeys(EventKeys):
     }
 
     def _delta(self):
+        # NOTE: Cast from Rest is done externally (explicit).
         if 'delta' in self:
             return self['delta']
         else:

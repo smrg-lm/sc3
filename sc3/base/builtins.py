@@ -65,9 +65,15 @@ class scbuiltin():
                         return func(a, *b)
                     except TypeError:
                         pass
-            raise TypeError(f"scbuiltin '{func.__name__}' function is not "
-                            f"supported between types '{type(a).__name__}' "
-                            f"and '{type(b).__name__}'")
+            if len(b) > 0:
+                raise TypeError(
+                    f"scbuiltin '{func.__name__}' function is not "
+                    f"supported between types '{type(a).__name__}' "
+                    f"and '{type(*b).__name__}'")
+            else:
+                raise TypeError(
+                    f"scbuiltin '{func.__name__}' function is not "
+                    f"supported for type '{type(a).__name__}' ")
 
         scbuiltin_.__name__ = func.__name__  # used to obtain special_index.
         scbuiltin_.__qualname__ += func.__name__
@@ -84,7 +90,8 @@ class scbuiltin():
                 except TypeError:
                     pass
             raise TypeError(f"scbuiltin '{func.__name__}' function is not "
-                            f"supported for type '{type(x).__name__}'")
+                            f"supported for type '{type(x).__name__}' "
+                            f"with parameteres {args}")
 
         scbuiltin_.__name__ = func.__name__  # used to obtain special_index.
         scbuiltin_.__qualname__ += func.__name__
@@ -99,7 +106,7 @@ class scbuiltin():
 def rand(x):
     # *** TODO: See the actual implementations.
     if type(x) is float:
-        return x * _libsc3.main.rgen.random()
+        return _libsc3.main.rgen.random() * x
     elif type(x) is int:
         if x >= 1:
             return _libsc3.main.rgen.randrange(0, x, 1)
@@ -107,37 +114,109 @@ def rand(x):
             return _libsc3.main.rgen.randrange(0, x, -1)
         else:
             return 0
-    raise ValueError(f'non float or int type for rand: {type(x).__name__}')
+    raise TypeError
 
 @scbuiltin.unop
 def rand2(x):
-    ...
+    if type(x) is float:
+        return _libsc3.main.rgen.random() * x * 2 - x  # random.uniform
+    elif type(x) is int:
+        if x >= 0:
+            return _libsc3.main.rgen.randint(-x, x)
+        else:
+            return _libsc3.main.rgen.randint(x, -x)
+    raise TypeError
 
 @scbuiltin.unop
 def linrand(x):
-    ...
+    if type(x) is float:
+        a = _libsc3.main.rgen.random()
+        b = _libsc3.main.rgen.random()
+        return min(a, b) * x
+    elif type(x) is int:
+        if x >= 1:
+            a = _libsc3.main.rgen.randrange(0, x, 1)
+            b = _libsc3.main.rgen.randrange(0, x, 1)
+            return min(a, b)
+        elif x <= -1:
+            a = _libsc3.main.rgen.randrange(0, x, -1)
+            b = _libsc3.main.rgen.randrange(0, x, -1)
+            return min(a, b)
+        else:
+            return 0
+    raise TypeError
 
 @scbuiltin.unop
 def bilinrand(x):
-    ...
+    if type(x) is float:
+        a = _libsc3.main.rgen.random()
+        b = _libsc3.main.rgen.random()
+        return a - b
+    elif type(x) is int:
+        if x >= 1:
+            a = _libsc3.main.rgen.randrange(0, x, 1)
+            b = _libsc3.main.rgen.randrange(0, x, 1)
+            return a - b
+        elif x <= -1:
+            a = _libsc3.main.rgen.randrange(0, x, -1)
+            b = _libsc3.main.rgen.randrange(0, x, -1)
+            return a - b
+        else:
+            return 0
+    raise TypeError
 
 @scbuiltin.unop
 def sum3rand(x):
-    ...
+    # // Larry Polansky's poor man's gaussian generator.
+    return ((_libsc3.main.rgen.random() + _libsc3.main.rgen.random() +
+            _libsc3.main.rgen.random() - 1.5) * 0.666666667 * x)
 
 @scbuiltin.unop
 def coin(x):
-    ...
+    if type(x) is float:  # sclang Float method.
+        return _libsc3.main.rgen.random() < x
+    elif type(x) is int:  # sclang SimpleNumber behaviour.
+        if x == 0:
+            return False
+        else:
+            return True
+    raise TypeError
 
 @scbuiltin.binop
 def rrand(a, b):
-    ...
+    if type(a) is float or type(b) is float:
+        return a + _libsc3.main.rgen.random() * (b - a)
+    elif type(a) is type(b) is int:
+        if a <= b:
+            if b - a >= 1:
+                return _libsc3.main.rgen.randrange(a, b, 1)
+            else:
+                return a
+        else:
+            return _libsc3.main.rgen.randrange(a, b, -1)
+    raise TypeError
 
 @scbuiltin.binop
-def exprand(a, b):
-    ...
+def exprand(a, b):  # exprandrng
+    return a * exp(log(b / a) * _libsc3.main.rgen.random())
 
 # Don't have special index.
+
+@scbuiltin.binop
+def xrand(x, exclude=0):
+    if type(x) is type(exclude) is int:
+        return mod(exclude + rand(x - 1) + 1, x);
+    raise TypeError
+
+@scbuiltin.binop
+def xrand2(x, exclude=0):
+    if type(x) is float:
+        return rand2(x)
+    elif type(x) is type(exclude) is int:
+        res = rand(x * 2) - x
+        return x if res == exclude else res
+    raise TypeError
+
 # list choose/wchoose
 
 

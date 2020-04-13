@@ -1,5 +1,12 @@
 """SC_InlineUnaryOp.h, SC_InlineBinaryOp.h"""
 
+# Note: Functions in this module are quite slow. They are Python
+# implementations of sc server opcodes to obtain special index symbols and
+# conform AbstractFunction interface. A few are also wrappers to match
+# sclang's behaviour too (e.g. mod and random functions). They will need to be
+# optimized along with events, patterns and streams. However, when running the
+# library on pypy all unoptimized code at least matches sclang.
+
 import math
 import builtins
 

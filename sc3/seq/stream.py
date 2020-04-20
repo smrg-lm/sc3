@@ -12,7 +12,7 @@ from ..base import functions as fn
 from ..base import model as mdl
 from ..base import systemactions as sac
 from . import clock as clk
-# from . import event as evt  # cyclic
+from . import event as evt
 
 
 _logger = logging.getLogger(__name__)

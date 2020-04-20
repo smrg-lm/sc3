@@ -1,6 +1,9 @@
 '''
-Event.sc attempt no. 3. No multichannel expasion.
+Event.sc attempt 3.1. No multichannel expasion.
 '''
+
+import types
+import sys
 
 from ..base import builtins as bi
 from ..base import operand as opd
@@ -45,53 +48,101 @@ def is_rest(inevent):
 ### Event Keys ###
 
 
+class keyfunction():
+    '''Decorator class as mark for instance methods that become keys.'''
+
+    def __init__(self, func):
+        self.func = func
+
+
+class _PrepareDict(dict):
+    '''
+    Especial dictionary to collect attributes and methods. It allows
+    to repeat names but classes can't have public value-attributes.
+    '''
+
+    def __init__(self):
+        super().__setitem__('default_values', dict())
+        super().__setitem__('default_functions', dict())
+
+    def __setitem__(self, key, value):
+        if key.startswith('_') or isinstance(value, types.FunctionType):
+            super().__setitem__(key, value)
+        elif isinstance(value, keyfunction):
+            self['default_functions'][key] = value.func
+        else:
+            self['default_values'][key] = value
+
+
 class MetaEventKeys(type):
-    def __init__(cls, name, bases, _):
+    def __prepare__(name, args):
+        return _PrepareDict()
+
+    def __init__(cls, name, bases, cls_dict):
+        default_values = dict()
+        default_functions = dict()
+        if name == 'EventKeys':
+            return
         for base in reversed(bases):
-            # To avoid defining _default_keys = {} but redundantly
-            # copies and then overrides the first base _default_keys.
-            # cls._default_keys = cls._default_keys.copy()
+            if base is EventKeys:
+                break
             if isinstance(base, MetaEventKeys):
-                cls._default_keys.update(base._default_keys)
+                default_values.update(base.default_values)
+                default_functions.update(base.default_functions)
+        for key, value in cls.default_values.items():
+            default_values[sys.intern(key)] = value
+        for key, value in cls.default_functions.items():
+            default_functions[sys.intern(key)] = value
+        cls.default_values = default_values
+        cls.default_functions = default_functions
 
 
 class EventKeys(dict, metaclass=MetaEventKeys):
-    _default_keys = {}  # Definition is mandatory for each subclass.
+    _EMPTY = object()
 
-    def __call__(self, key):
+    def __call__(self, key, *args):
         try:
-            return getattr(self, '_' + key)()
-        except AttributeError:
-            pass
-        try:
-            # Inline. Not using type(self) because takes even more time.
-            return self.get(key, self._default_keys[key])
+            return self.default_functions[key](self, *args)
         except KeyError:
             pass
-        raise ValueError(f"not evaluable key '{key}'")
+        try:
+            value = self._EMPTY
+            value = self[key]
+        except KeyError:
+            pass
+        try:
+            return self.default_values[key]
+        except KeyError:
+            pass
+
+        if value is self._EMPTY:
+            raise KeyError(key)
+        if callable(value):
+            return value(self, *args)
+        else:
+            return value
 
 
 class PitchKeys(EventKeys):
-    _default_keys = {
-        'freq': bi.midicps(60),
-        'detune': 0.0,
-        'harmonic': 1.0,
+    freq = bi.midicps(60)
+    detune = 0.0
+    harmonic = 1.0
 
-        'midinote': 60,
-        'ctranspose': 0.0,
+    midinote = 60
+    ctranspose = 0.0
 
-        'degree': 0,
-        'mtranspose': 0,
-        'gtranspose': 0.0,
-        'octave': 5.0,
-        'root': 0.0,
-        'scale': scl.Scale([0, 2, 4, 5, 7, 9, 11])
-    }
+    degree = 0
+    mtranspose = 0
+    gtranspose = 0.0
+    octave = 5.0
+    root = 0.0
+    scale =scl.Scale([0, 2, 4, 5, 7, 9, 11])
 
     def _detuned_freq(self):
         return self('freq') * self('harmonic') + self('detune')
 
-    def _freq(self):
+    @keyfunction
+    def freq(self):
         if 'freq' in self:
             return self['freq']
         elif 'midinote' in self:
@@ -99,7 +150,7 @@ class PitchKeys(EventKeys):
         elif 'degree' in self:
             return self._freq_from_degree()
         else:
-            return self._default_keys['freq']
+            return self.default_values['freq']
 
     def _freq_from_midinote(self):
         return bi.midicps(self._transposed_midinote())
@@ -114,7 +165,8 @@ class PitchKeys(EventKeys):
     def _transposed_midinote(self):
         return self('midinote') + self('ctranspose')
 
-    def _midinote(self):
+    @keyfunction
+    def midinote(self):
         if 'midinote' in self:
             return self['midinote']
         elif 'degree' in self:
@@ -122,7 +174,7 @@ class PitchKeys(EventKeys):
         elif 'freq' in self:
             return self._midinote_from_freq()
         else:
-            return self._default_keys['midinote']
+            return self.default_values['midinote']
 
     def _midinote_from_freq(self):
         return bi.cpsmidi(self._detuned_freq())
@@ -139,7 +191,8 @@ class PitchKeys(EventKeys):
         ret = ret / scale.spo() + self('octave') - 5.0
         return ret
 
-    def _degree(self):
+    @keyfunction
+    def degree(self):
         if 'degree' in self:
             return self['degree']
         elif 'freq' in self:
@@ -147,7 +200,7 @@ class PitchKeys(EventKeys):
         elif 'midinote' in self:
             return self._degree_from_midinote()
         else:
-            return self._default_keys['degree']
+            return self.default_values['degree']
 
     def _degree_from_freq(self):
         return self._midinote_to_degree(bi.cpsmidi(self._detuned_freq()))
@@ -183,28 +236,28 @@ class PitchKeys(EventKeys):
 
 
 class DurationKeys(EventKeys):
-    _default_keys = {
-        'delta': None,
-        'sustain': None,
-        'dur': 1.0,
-        'legato': 0.8,
-        'stretch': 1.0,
+    delta = None
+    sustain = None
+    dur = 1.0
+    legato = 0.8
+    stretch = 1.0
 
-        # 'tempo': None,
-        # 'lag': 0.0,
+    # tempo = None
+    # lag = 0.0
 
-        # 'strum': 0.0,
-        # 'strum_ends_together': False
-    }
+    # strum = 0.0
+    # strum_ends_together = False
 
-    def _delta(self):
+    @keyfunction
+    def delta(self):
         # NOTE: Cast from Rest is done externally (explicit).
         if 'delta' in self:
             return self['delta']
         else:
             return self('dur') * self('stretch')
 
-    def _sustain(self):
+    @keyfunction
+    def sustain(self):
         if 'sustain' in self:
             return self['sustain']
         else:
@@ -214,16 +267,15 @@ class DurationKeys(EventKeys):
 
 
 class AmplitudeKeys(EventKeys):
-    _default_keys = {
-        'amp': 0.1,
-        'db': -20,
-        'velocity': 12,  # 0.1amp == -20dB == 12vel, linear mapping (-42.076dB range for velocity)
+    amp = 0.1
+    db = -20
+    velocity = 12  # 0.1amp == -20dB == 12vel, linear mapping (-42.076dB range for velocity)
 
-        'pan': 0.0,
-        'trig': 0.5,  # Why was?
-    }
+    pan = 0.0
+    trig = 0.5   # Why was?
 
-    def _amp(self):
+    @keyfunction
+    def amp(self):
         if 'amp' in self:
             return self['amp']
         elif 'db' in self:
@@ -231,12 +283,13 @@ class AmplitudeKeys(EventKeys):
         elif 'velocity' in self:
             return self._amp_from_velocity()
         else:
-            return self._default_keys['amp']
+            return self.default_values['amp']
 
     def _amp_from_velocity(self):
         return self['velocity'] / 127
 
-    def _db(self):
+    @keyfunction
+    def db(self):
         if 'db' in self:
             return self['db']
         elif 'amp' in self:
@@ -244,12 +297,13 @@ class AmplitudeKeys(EventKeys):
         elif 'velocity' in self:
             return self._db_from_velocity()
         else:
-            return self._default_keys['db']
+            return self.default_values['db']
 
     def _db_from_velocity(self):
         return bi.ampdb(self._amp_from_velocity())
 
-    def _velocity(self):
+    @keyfunction
+    def velocity(self):
         if 'velocity' in self:
             return self['velocity']
         elif 'amp' in self:
@@ -257,7 +311,7 @@ class AmplitudeKeys(EventKeys):
         elif 'db' in self:
             return self._velocity_from_db()
         else:
-            return self._default_keys['velocity']
+            return self.default_values['velocity']
 
     def _velocity_from_amp(self):
         return int(127 * self['amp'])
@@ -267,26 +321,29 @@ class AmplitudeKeys(EventKeys):
 
 
 class ServerKeys(EventKeys):
-    _default_keys = {
-        'server': srv.Server.default,
-        'latency': None,
-        'node_id': None,
-        'group': None,
-        'synth_lib': sdc.SynthDescLib.default, # None,  # BUG: Was global_.
-        'synth_desc': None,
-        'out': 0,
-        'add_action': 'addToHead',
-        'msg_params': None,
-        'instrument': 'default',
-        'variant': None,
-        'has_gate': True,  # // assume SynthDef has gate
-        'send_gate': None,  # // sendGate == false turns off releases
-        'args': ('freq', 'amp', 'pan', 'trig'), # // for 'type' 'set'
-        'lag': 0,
-        'timing_offset': 0
-    }
+    server = None
+    latency = None
+    node_id = None
+    group = None
+    synth_lib = None
+    synth_desc = None
+    out = 0
+    add_action = 'addToHead'
+    msg_params = None
+    instrument = 'default'
+    variant = None
+    has_gate = True  # // assume SynthDef has gate
+    send_gate = None  # // sendGate == false turns off releases
+    args = ('freq', 'amp', 'pan', 'trig')  # // for 'type' 'set'
+    lag = 0
+    timing_offset = 0
 
-    def _group(self):
+    @keyfunction
+    def server(self):
+        return srv.Server.default
+
+    @keyfunction
+    def group(self):
         # BUG: *** en NodeEvents.sc está definido como:
         # BUG: *** this.parent = Event.parentEvents[\groupEvent] y retorna self.
         # BUG: *** PERO SÍ SE LLAMA LA LLAVE CON e[\group] O ~group en 'note'!
@@ -295,7 +352,12 @@ class ServerKeys(EventKeys):
         else:
             return self('server').default_group.node_id
 
-    def _send_gate(self):
+    @keyfunction
+    def synth_lib(self):
+        return sdc.SynthDescLib.default  # BUG: Was global_.
+
+    @keyfunction
+    def send_gate(self):
         if 'send_gate' in self:
             return self['send_gate']
         else:
@@ -325,7 +387,7 @@ class ServerKeys(EventKeys):
                     control_names = desc.control_names  # *** BUG: No realiza los checkeos que hace SynthDesc.make_msg_func.
                 msg_params = []
                 for arg in control_names:
-                    if arg in self or arg in self._default_keys:
+                    if arg in self or arg in self.default_values:
                         msg_params.extend([arg, self(arg)])
                 self['msg_params'] = msg_params
                 return msg_params
@@ -373,9 +435,7 @@ class ServerKeys(EventKeys):
 
 
 class NoteEvent(PitchKeys, AmplitudeKeys, DurationKeys, ServerKeys):  # TODO...
-    _default_keys = {
-        'is_playing': False
-    }
+    is_playing = False
 
     def play(self):  # NOTE: No server parameter.
         self['freq'] = self._detuned_freq()  # Before _get_msg_params.
@@ -386,7 +446,7 @@ class NoteEvent(PitchKeys, AmplitudeKeys, DurationKeys, ServerKeys):  # TODO...
         self['node_id'] = id = server.next_node_id()
         add_action = nod.Node.action_number_for(self('add_action'))
         self['group'] = group = gpp.node_param(
-            self._group())._as_control_input() # *** NOTE: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido? VER PERORATA ABAJO EN GRAIN
+            self('group'))._as_control_input() # *** NOTE: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido? VER PERORATA ABAJO EN GRAIN
 
         bndl = ['/s_new', instrument_name, id, add_action, group]
         bndl.extend(param_list)
@@ -394,8 +454,8 @@ class NoteEvent(PitchKeys, AmplitudeKeys, DurationKeys, ServerKeys):  # TODO...
 
         # *** BUG: socket.sendto and/or threading mixin use too much cpu.
         server.send_bundle(server.latency, bndl)  # *** NO USA LA LLAVE LATENCY, NO SÉ PARA QUÉ ESTARÁ.
-        if self._send_gate():
+        if self('send_gate'):
             server.send_bundle(
-                server.latency + self._sustain(), ['/n_set', id, 'gate', 0])
+                server.latency + self('sustain'), ['/n_set', id, 'gate', 0])
 
         self['is_playing'] = True

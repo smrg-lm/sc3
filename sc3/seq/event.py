@@ -75,7 +75,8 @@ class _PrepareDict(dict):
 
 
 class MetaEventKeys(type):
-    def __prepare__(name, args):
+    @classmethod
+    def __prepare__(meta_cls, cls_name, args, **kwargs):
         return _PrepareDict()
 
     def __init__(cls, name, bases, cls_dict):

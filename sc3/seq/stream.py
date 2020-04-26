@@ -710,7 +710,7 @@ class EventStreamCleanup():
 class EventStreamPlayer(PauseStream):
     def __init__(self, stream, event=None):
         super().__init__(stream)
-        self.event = event or dict()  # *** BUG: evt.Event.default
+        self.event = event or evt.event()
         self.mute_count = 0
         self.cleanup = EventStreamCleanup()
 
@@ -882,7 +882,7 @@ class PatternEventStream(PatternValueStream):
 
     def next(self, inevent=None):
         try:
-            inevent = dict() if inevent is None else inevent  # *** BUG: evt.Event.default
+            inevent = evt.event() if inevent is None else inevent
             if self._stream is None:
                 self._stream = self.pattern.__embed__(inevent)
                 return next(self._stream)

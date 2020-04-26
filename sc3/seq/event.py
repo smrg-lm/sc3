@@ -1,5 +1,5 @@
 '''
-Event.sc attempt 3.1. No multichannel expasion.
+Event.sc attempt 3.2. No multichannel expasion.
 '''
 
 import types
@@ -12,6 +12,9 @@ from ..synth import synthdesc as sdc
 from ..synth import node as nod
 from ..synth import _graphparam as gpp
 from . import scale as scl
+
+
+__all__ = ['event', 'new_event', 'Rest', 'silent', 'is_rest']
 
 
 ### Rest ###
@@ -32,7 +35,7 @@ class Rest(opd.Operand):
 
 def silent(dur=1.0, inevent=None):
     if inevent is None:
-        inevent = dict()  # *** BUG: Event.new, parent: defaultParentEvent
+        inevent = event()
     else:
         inevent = inevent.copy()
     inevent['delta'] = dur * inevent.get('stretch', 1.0)
@@ -74,20 +77,38 @@ class _PrepareDict(dict):
             self['default_values'][key] = value
 
 
-class MetaEventKeys(type):
+class MetaEventDict(type):
+    _event_types = dict()
+
     @classmethod
     def __prepare__(meta_cls, cls_name, args, **kwargs):
-        return _PrepareDict()
+        pd = _PrepareDict()
+        if 'partial_events' in kwargs:
+            # Inherit non-key object attributes.
+            dk = ('default_values', 'default_functions')
+            for pe in kwargs['partial_events']:
+                ed = vars(pe)
+                keys = ed.keys() - dk
+                for k in keys:
+                    if k.startswith('__'):
+                        pass
+                    else:
+                        pd[k] = ed[k]
+        return pd
 
-    def __init__(cls, name, bases, cls_dict):
+    def __init__(cls, name, bases, cls_dict, partial_events=None):
         default_values = dict()
         default_functions = dict()
-        if name == 'EventKeys':
+        if name == 'EventDict':
             return
+        if partial_events is not None:
+            for pe in partial_events:  # reversed?
+                default_values.update(pe.default_values)
+                default_functions.update(pe.default_functions)
         for base in reversed(bases):
-            if base is EventKeys:
+            if base is EventDict:
                 break
-            if isinstance(base, MetaEventKeys):
+            if isinstance(base, MetaEventDict):
                 default_values.update(base.default_values)
                 default_functions.update(base.default_functions)
         for key, value in cls.default_values.items():
@@ -96,10 +117,20 @@ class MetaEventKeys(type):
             default_functions[sys.intern(key)] = value
         cls.default_values = default_values
         cls.default_functions = default_functions
+        if 'type' in cls.default_values\
+        and cls.default_values['type'] is not None:
+            cls._event_types[cls.default_values['type']] = cls
+
+    @property
+    def types(cls):
+        return tuple(cls._event_types.keys())
 
 
-class EventKeys(dict, metaclass=MetaEventKeys):
+class EventDict(dict, metaclass=MetaEventDict):
     _EMPTY = object()
+
+    def __init_subclass__(cls, partial_events=None, **kwargs):
+        super().__init_subclass__(**kwargs)
 
     def __call__(self, key, *args):
         try:
@@ -124,7 +155,47 @@ class EventKeys(dict, metaclass=MetaEventKeys):
             return value
 
 
-class PitchKeys(EventKeys):
+def new_event(name, values=None, functions=None,
+              bases=None, partial_events=None):
+    def init_defaults(ns):
+        if values is not None:
+            for k, v in values.items():
+                ns[k] = v
+        if functions is not None:
+            for k, v in functions.items():
+                if not isinstance(v, types.FunctionType):
+                    raise ValueError(f'{v} is not FunctionType')
+                ns[k] = keyfunction(v)
+
+    if bases is None:
+        bases = (EventDict,)
+    if partial_events is None:
+        partial_events = {'partial_events': ()}
+    else:
+        partial_events = {'partial_events': partial_events}
+    return types.new_class(name, bases, partial_events, init_defaults)
+
+
+class event(EventDict):
+    _default_type = 'note'
+
+    def __new__(cls, *args, **kwargs):
+        if 'type' in kwargs:
+            return cls._event_types[kwargs['type']](*args, **kwargs)
+        elif len(args) > 0 and 'type' in args[0]:
+            return cls._event_types[args[0]['type']](*args, **kwargs)
+        else:
+            return cls._event_types[cls._default_type](*args, **kwargs)
+
+
+### Partial Events ###
+
+
+class PartialEvent(EventDict):
+    pass
+
+
+class PitchKeys(PartialEvent):
     freq = bi.midicps(60)
     detune = 0.0
     harmonic = 1.0
@@ -236,7 +307,7 @@ class PitchKeys(EventKeys):
             return (key - a) / div + index - 1 + degree_root
 
 
-class DurationKeys(EventKeys):
+class DurationKeys(PartialEvent):
     delta = None
     sustain = None
     dur = 1.0
@@ -267,7 +338,7 @@ class DurationKeys(EventKeys):
     # *** Behaviour is still missing for some keys.
 
 
-class AmplitudeKeys(EventKeys):
+class AmplitudeKeys(PartialEvent):
     amp = 0.1
     db = -20
     velocity = 12  # 0.1amp == -20dB == 12vel, linear mapping (-42.076dB range for velocity)
@@ -321,7 +392,7 @@ class AmplitudeKeys(EventKeys):
         return int(127 * bi.dbamp(self['db']))
 
 
-class ServerKeys(EventKeys):
+class ServerKeys(PartialEvent):
     server = None
     latency = None
     node_id = None
@@ -422,20 +493,14 @@ class ServerKeys(EventKeys):
 
 ### Event Types ###
 
-# PartialEvent es EventKeys.
-# PlayerEvent es un event keys según sclang, que define el comportamiento de la llave 'play' según EventType, y esto sería DefaultEvent
-# PlayerEvent puede evaluar distintos EventTypes, EventType define play.
-# PlayerEvent además es un EventKeys que depende de otros EventKeys, necesita muchas llaves.
-# PlayerEvent puede pasarse a la categoría de DefaultEvent (en vez de este).
-# Sobre todo porque GroupEvent y SynthEvent definen play_func (en sclang todo es play), están al mismo nivel que playerevent con respecto a esto.
 
-# EventTypes deberían agrupar solo las llaves que necesitan para play.
-
-# Creo que lo correcto sería el EventType que es quién necesita las llaves para play.
-# NOTE: Pensar más por el lado de lenguaje declarativo.
+class EventType(EventDict):
+    pass
 
 
-class NoteEvent(PitchKeys, AmplitudeKeys, DurationKeys, ServerKeys):  # TODO...
+class NoteEvent(EventType, partial_events=(
+        PitchKeys, AmplitudeKeys, DurationKeys, ServerKeys)):  # TODO...
+    type = 'note'
     is_playing = False
 
     def play(self):  # NOTE: No server parameter.

@@ -75,7 +75,7 @@ class Pchain(ptt.Pattern):
 class Pevent(ptt.Pattern):
     def __init__(self, pattern, event=None):
         self.pattern = pattern
-        self.event = event or dict()  # *** BUG: Event.default
+        self.event = event or evt.event()
 
     def __embed__(self, inval):
         stream = stm.stream(self.pattern)
@@ -154,6 +154,7 @@ class Ppar(lsp.ListPattern):
                 try:
                     stream = queue.pop()[1]
                     outevent = stream.next(inevent)
+                    outevent = evt.event(outevent)  # as_event
                     # // Requeue stream.
                     queue.add(now + float(outevent('delta')), stream)
                     nexttime = queue.peek()[0]

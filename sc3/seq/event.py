@@ -142,13 +142,11 @@ class EventDict(dict, metaclass=MetaEventDict):
             value = self[key]
         except KeyError:
             pass
-        try:
-            return self.default_values[key]
-        except KeyError:
-            pass
-
         if value is self._EMPTY:
-            raise KeyError(key)
+            try:
+                return self.default_values[key]
+            except KeyError:
+                raise
         if callable(value):
             return value(self, *args)
         else:

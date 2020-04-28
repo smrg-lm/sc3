@@ -2,6 +2,7 @@
 
 import collections
 
+from ...base import utils as utl
 from .. import stream as stm
 from .. import pattern as ptt
 
@@ -34,7 +35,7 @@ class Pseq(ListPattern):
         # NOTE: Are sclang assignments in case the object is mutable?
         # NOTE: review use of value in sclang.
         # if (inval.eventAt('reverse') == true, { # Not good.
-        for i in range(self.repeats):
+        for _ in utl.counter(self.repeats):
             for item in self.lst[self.offset:]:
                 inval = yield from stm.embed(item, inval)
             for item in self.lst[:self.offset]:

@@ -1,5 +1,6 @@
 """From Patterns.sc"""
 
+from ...base import utils as utl
 from ...base import builtins as bi
 from .. import stream as stm
 from .. import pattern as ptt
@@ -16,17 +17,15 @@ class Pseries(ptt.Pattern):
         self.length = length
 
     def __embed__(self, inval):
-        counter = 0
         cur = self.start  # value makes the pattern object to keep state
         length = self.length  # if the parameter is a stream.
         step_stream = stm.stream(self.step)
         outval = stepval = None
-        while counter < length:
+        for _ in utl.counter(length):
             try:
                 stepval = step_stream.next(inval)
                 outval = cur
                 cur += stepval
-                counter += 1
                 inval = yield outval
             except stm.StopStream:
                 return inval
@@ -43,17 +42,15 @@ class Pgeom(ptt.Pattern):
         self.length = length
 
     def __embed__(self, inval):
-        counter = 0
         cur = self.start
         length = self.length
         grow_stream = stm.stream(self.grow)
         outval = growval = None
-        while counter < length:
+        for _ in utl.counter(length):
             try:
                 growval = grow_stream.next(inval)
                 outval = cur
                 cur *= growval
-                counter += 1
                 inval = yield outval
             except stm.StopStream:
                 return inval
@@ -70,7 +67,6 @@ class Pbrown(ptt.Pattern):
         self.length = length
 
     def __embed__(self, inval):
-        counter = 0
         lo_stream = stm.stream(self.lo)
         hi_stream = stm.stream(self.hi)
         step_stream = stm.stream(self.step)
@@ -79,13 +75,12 @@ class Pbrown(ptt.Pattern):
             hival = hi_stream.next(inval)
             stepval = step_stream.next(inval)
             current = bi.rrand(loval, hival)
-            while counter < self.length:
+            for _ in utl.counter(self.length):
                 loval = lo_stream.next(inval)
                 hival = hi_stream.next(inval)
                 stepval = step_stream.next(inval)
                 current = bi.fold(
                     self._calc_next(current, stepval), loval, hival)
-                counter += 1
                 inval = yield current
         except stm.StopStream:
             return inval
@@ -109,15 +104,13 @@ class Pwhite(ptt.Pattern):
         self.length = length
 
     def __embed__(self, inval):
-        counter = 0
         lo_stream = stm.stream(self.lo)
         hi_stream = stm.stream(self.hi)
         hival = loval = None
-        while counter < self.length:
+        for _ in utl.counter(self.length):
             try:
                 loval = lo_stream.next(inval)
                 hival = hi_stream.next(inval)
-                counter += 1
                 inval = yield bi.rrand(loval, hival)
             except StopStream:
                 return inval

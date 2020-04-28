@@ -2,7 +2,8 @@
 Utility classes and functions from sclang style.
 """
 
-import itertools as _itertools
+import itertools
+import math
 import operator
 import logging
 import importlib
@@ -69,6 +70,14 @@ class UniqueID():  # *** BUG: use itertools.count (in main?) instead.
     def next(cls):
         cls._id += 1
         return cls._id
+
+
+def counter(stop):
+    '''Possibly infinite counter, range replacement for patterns.'''
+    if stop == math.inf:
+        return itertools.count()
+    else:
+        return range(stop)
 
 
 # Lists
@@ -342,7 +351,7 @@ def gen_cclumps(l, n=1):
 # para doAdjacentPairs, de Python Itertools Recipes: https://docs.python.org/3/library/itertools.html#itertools-recipes
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
-    a, b = _itertools.tee(iterable)
+    a, b = itertools.tee(iterable)
     next(b, None)
     return zip(a, b)
 
@@ -368,7 +377,7 @@ def lace(lst, size=None):
     if size is None:
         return [x for sub in zip(*lst) for x in sub]
     else:
-        gen = _itertools.cycle(x for sub in zip(*lst) for x in sub)
+        gen = itertools.cycle(x for sub in zip(*lst) for x in sub)
         return [next(gen) for _ in range(0, size)]
 
 

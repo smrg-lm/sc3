@@ -152,6 +152,12 @@ class EventDict(dict, metaclass=MetaEventDict):
         else:
             return value
 
+    def __copy__(self):
+        return self.copy()
+
+    def copy(self):
+        return type(self)(self)
+
 
 def new_event(name, values=None, functions=None,
               bases=None, partial_events=None):

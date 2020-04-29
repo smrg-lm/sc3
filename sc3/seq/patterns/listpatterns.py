@@ -45,9 +45,14 @@ class Pseq(ListPattern):
     # storeArgs # TODO
 
 
-# Es una variante de Pseq que cuenta por item en lugar de por lista
 class Pser(Pseq):
-    ...
+    def __embed__(self, inval=None):
+        offset = self.offset
+        length = len(self.lst)
+        for i in utl.counter(self.repeats):
+            item = self.lst[(i + offset) % length]
+            inval = yield from stm.embed(item, inval)
+        return inval
 
 
 class Pshuf(ListPattern):

@@ -3,6 +3,7 @@
 import inspect
 
 from ..base import functions as fn
+from ..base import utils as utl
 from . import event as evt
 from . import stream as stm
 
@@ -208,7 +209,7 @@ class Pfuncn(Pattern):
         self.repeats = repeats
 
     def __embed__(self, inval=None):
-        for i in range(self.repeats):
+        for i in utl.counter(self.repeats):
             if self._func_has_inval:
                 inval = yield self.func(inval)
             else:

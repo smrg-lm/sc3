@@ -3,6 +3,7 @@
 import inspect
 
 from ..base import functions as fn
+from . import event as evt
 from . import stream as stm
 
 
@@ -37,11 +38,14 @@ class Pattern(fn.AbstractFunction):
         return Pnarop(selector, self, *args)
 
 
-    def play(self, clock=None, proto_event=None, quant=None):
-        return self.as_event_stream_player(proto_event).play(clock, False, quant)
+    def play(self, clock=None, proto=None, quant=None):
+        proto = evt.event() if proto is None else evt.event(proto)
+        stream = stm.EventStreamPlayer(self.__stream__(), proto)
+        stream.play(clock, False, quant)
+        return stream
 
-    def as_event_stream_player(self, proto_event=None):
-        return stm.EventStreamPlayer(self.__stream__(), proto_event)
+    # def _as_event_stream_player(self, proto_event=None):
+    #     return stm.EventStreamPlayer(self.__stream__(), proto_event)
 
     # stream_args
     # do

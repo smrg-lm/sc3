@@ -755,8 +755,8 @@ class EventStreamPlayer(PauseStream):
         try:
             if not self._is_playing:
                 raise StopStream
-            out_event = self._stream.next(self.event.copy())  # raises StopStream
-            next_time = out_event.play_and_delta(self.cleanup, self.mute_count > 0)
+            outevent = self._stream.next(self.event.copy())  # raises StopStream
+            next_time = self._play_and_delta(outevent)
             # if (nextTime.isNil) { this.removedFromScheduler; ^nil };
             # BUG: For event.play_and_delta/event.delta patterns won't return
             # nil and set the key, they will raise StopStream. Equally I either
@@ -770,8 +770,15 @@ class EventStreamPlayer(PauseStream):
             self.removed_from_scheduler() # BUG? Hay algo raro, llama cleanup.clear() en la línea anterior, que borras las funciones de cleanup, pero luego llama a cleanup.terminate a través removed_from_scheduler en esta línea que evalúa las funciones que borró (no las evalúa)
             raise
 
-    def as_event_stream_player(self): # BUG: VER: lo implementan Event, EventStreamPlayer, Pattern y Stream, parece protocolo.
-        return self
+    def _play_and_delta(self, outevent):  # Was Event.playAndDelta.
+        if self.mute_count > 0:
+            outevent['type'] = 'rest'
+        self.cleanup.update(outevent)
+        outevent.play()
+        return outevent('delta')
+
+    # def _as_event_stream_player(self):
+    #     return self
 
     def play(self, clock=None, reset=False, quant=None):
         if self._is_playing:
@@ -781,13 +788,20 @@ class EventStreamPlayer(PauseStream):
             # return self
         if reset:
             self.reset()
+
         self._clock = clock or self._clock or clk.SystemClock
         self._stream._clock = self._clock
         self._is_waiting = True # // make sure that accidental play/stop/play sequences don't cause memory leaks
         self._is_playing = True
         self._era = sac.CmdPeriod.era
-        quant = clk.Quant.as_quant(quant) # NOTE: se necesita porque lo actualiza event.sync_with_quant
-        self.event = self.event.sync_with_quant(quant) # NOTE: actualiza el evento y retorna una copia o actualiza el objeto Quant pasado.
+
+        # synchWithQuant is used here only. See note in Event.sc.
+        quant = clk.Quant.as_quant(quant)  # Also needs a copy, or quant is disposable?
+        if quant.timing_offset is None:
+            quant.timing_offset = self.event('timing_offset')
+        else:
+            self.event = self.event.copy()
+            self.event['timing_offset'] = quant.timing_offset
 
         def event_stream_play():
             if self._is_waiting and self._next_beat is None:

@@ -498,8 +498,12 @@ class ServerKeys(PartialEvent):
 ### Event Types ###
 
 
-class EventType(EventDict):
-    pass
+class EventType(EventDict):  # *** TODO: And PlayerEvent.
+    # type = None
+    # is_playing = False
+
+    def play(self):
+        pass
 
 
 class NoteEvent(EventType, partial_events=(

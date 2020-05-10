@@ -7,22 +7,22 @@ from .. import _graphparam as gpp
 
 class Line(ugn.UGen):
     @classmethod
-    def ar(cls, start=0.0, end=1.0, dur=1.0, mul=1.0, add=0.0, done_action=0):
-        return cls._multi_new('audio', start, end, dur, done_action).madd(mul, add)
+    def ar(cls, start=0.0, end=1.0, dur=1.0, done_action=0):
+        return cls._multi_new('audio', start, end, dur, done_action)
 
     @classmethod
-    def kr(cls, start=0.0, end=1.0, dur=1.0, mul=1.0, add=0.0, done_action=0):
-        return cls._multi_new('control', start, end, dur, done_action).madd(mul, add)
+    def kr(cls, start=0.0, end=1.0, dur=1.0, done_action=0):
+        return cls._multi_new('control', start, end, dur, done_action)
 
 
 class XLine(ugn.UGen):
     @classmethod
-    def ar(cls, start=1.0, end=2.0, dur=1.0, mul=1.0, add=0.0, done_action=0):
-        return cls._multi_new('audio', start, end, dur, done_action).madd(mul, add)
+    def ar(cls, start=1.0, end=2.0, dur=1.0, done_action=0):
+        return cls._multi_new('audio', start, end, dur, done_action)
 
     @classmethod
-    def kr(cls, start=1.0, end=2.0, dur=1.0, mul=1.0, add=0.0, done_action=0):
-        return cls._multi_new('control', start, end, dur, done_action).madd(mul, add)
+    def kr(cls, start=1.0, end=2.0, dur=1.0, done_action=0):
+        return cls._multi_new('control', start, end, dur, done_action)
 
 
 class LinExp(ugn.PureUGen):

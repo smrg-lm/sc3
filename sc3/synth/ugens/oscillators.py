@@ -7,94 +7,90 @@ from . import noise as nse
 from . import pan
 
 
-# *** TODO: Break it all now that is possible:
-# https://github.com/supercollider/supercollider/issues/4382#issuecomment-482380391
-
-
 class Osc(ugn.PureUGen):
     @classmethod
-    def ar(cls, bufnum, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', bufnum, freq, phase).madd(mul, add)
+    def ar(cls, bufnum, freq=440.0, phase=0.0):
+        return cls._multi_new('audio', bufnum, freq, phase)
 
     @classmethod
-    def kr(cls, bufnum, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', bufnum, freq, phase).madd(mul, add)
+    def kr(cls, bufnum, freq=440.0, phase=0.0):
+        return cls._multi_new('control', bufnum, freq, phase)
 
 
 class SinOsc(ugn.PureUGen):
     @classmethod
-    def ar(cls, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', freq, phase).madd(mul, add)
+    def ar(cls, freq=440.0, phase=0.0):
+        return cls._multi_new('audio', freq, phase)
 
     @classmethod
-    def kr(cls, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', freq, phase).madd(mul, add)
+    def kr(cls, freq=440.0, phase=0.0):
+        return cls._multi_new('control', freq, phase)
 
 
 class SinOscFB(ugn.PureUGen):
     @classmethod
-    def ar(cls, freq=440.0, feedback=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', freq, feedback).madd(mul, add)
+    def ar(cls, freq=440.0, feedback=0.0):
+        return cls._multi_new('audio', freq, feedback)
 
     @classmethod
-    def kr(cls, freq=440.0, feedback=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', freq, feedback).madd(mul, add)
+    def kr(cls, freq=440.0, feedback=0.0):
+        return cls._multi_new('control', freq, feedback)
 
 
 class OscN(ugn.PureUGen):
     @classmethod
-    def ar(cls, bufnum, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', bufnum, freq, phase).madd(mul, add)
+    def ar(cls, bufnum, freq=440.0, phase=0.0):
+        return cls._multi_new('audio', bufnum, freq, phase)
 
     @classmethod
-    def kr(cls, bufnum, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', bufnum, freq, phase).madd(mul, add)
+    def kr(cls, bufnum, freq=440.0, phase=0.0):
+        return cls._multi_new('control', bufnum, freq, phase)
 
 
 class VOsc(ugn.PureUGen):
     @classmethod
-    def ar(cls, bufpos, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', bufpos, freq, phase).madd(mul, add)
+    def ar(cls, bufpos, freq=440.0, phase=0.0):
+        return cls._multi_new('audio', bufpos, freq, phase)
 
     @classmethod
-    def kr(cls, bufpos, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', bufpos, freq, phase).madd(mul, add)
+    def kr(cls, bufpos, freq=440.0, phase=0.0):
+        return cls._multi_new('control', bufpos, freq, phase)
 
 
 class VOsc3(ugn.PureUGen):
     @classmethod
-    def ar(cls, bufpos, freq1=110.0, freq2=220.0, freq3=440.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', bufpos, freq1, freq2, freq3).madd(mul, add)
+    def ar(cls, bufpos, freq1=110.0, freq2=220.0, freq3=440.0):
+        return cls._multi_new('audio', bufpos, freq1, freq2, freq3)
 
     @classmethod
-    def kr(cls, bufpos, freq1=110.0, freq2=220.0, freq3=440.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', bufpos, freq1, freq2, freq3).madd(mul, add)
+    def kr(cls, bufpos, freq1=110.0, freq2=220.0, freq3=440.0):
+        return cls._multi_new('control', bufpos, freq1, freq2, freq3)
 
 
 class COsc(ugn.PureUGen):
     @classmethod
-    def ar(cls, bufnum, freq=440.0, beats=0.5, mul=1.0, add=0.0):
-        return cls._multi_new('audio', bufnum, freq, beats).madd(mul, add)
+    def ar(cls, bufnum, freq=440.0, beats=0.5):
+        return cls._multi_new('audio', bufnum, freq, beats)
 
     @classmethod
-    def kr(cls, bufnum, freq=440.0, beats=0.5, mul=1.0, add=0.0):
-        return cls._multi_new('control', bufnum, freq, beats).madd(mul, add)
+    def kr(cls, bufnum, freq=440.0, beats=0.5):
+        return cls._multi_new('control', bufnum, freq, beats)
 
 
 class Formant(ugn.PureUGen):
     @classmethod
-    def ar(cls, fundfreq=440.0, formfreq=1760.0, bwfreq=880.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', fundfreq, formfreq, bwfreq).madd(mul, add)
+    def ar(cls, fundfreq=440.0, formfreq=1760.0, bwfreq=880.0):
+        return cls._multi_new('audio', fundfreq, formfreq, bwfreq)
 
 
 class LFSaw(ugn.PureUGen):
     @classmethod
-    def ar(cls, freq=440.0, iphase=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', freq, iphase).madd(mul, add)
+    def ar(cls, freq=440.0, iphase=0.0):
+        return cls._multi_new('audio', freq, iphase)
 
     @classmethod
-    def kr(cls, freq=440.0, iphase=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', freq, iphase).madd(mul, add)
+    def kr(cls, freq=440.0, iphase=0.0):
+        return cls._multi_new('control', freq, iphase)
 
 
 class LFPar(LFSaw):
@@ -129,12 +125,12 @@ class LFGauss(ugn.UGen):
 
 class LFPulse(ugn.PureUGen):
     @classmethod
-    def ar(cls, freq=440.0, iphase=0.0, width=0.5, mul=1.0, add=0.0):
-        return cls._multi_new('audio', freq, iphase, width).madd(mul, add)
+    def ar(cls, freq=440.0, iphase=0.0, width=0.5):
+        return cls._multi_new('audio', freq, iphase, width)
 
     @classmethod
-    def kr(cls, freq=440.0, iphase=0.0, width=0.5, mul=1.0, add=0.0):
-        return cls._multi_new('control', freq, iphase, width).madd(mul, add)
+    def kr(cls, freq=440.0, iphase=0.0, width=0.5):
+        return cls._multi_new('control', freq, iphase, width)
 
     @classmethod
     def signal_range(cls):
@@ -143,22 +139,22 @@ class LFPulse(ugn.PureUGen):
 
 class VarSaw(ugn.PureUGen):
     @classmethod
-    def ar(cls, freq=440.0, iphase=0.0, width=0.5, mul=1.0, add=0.0):
-        return cls._multi_new('audio', freq, iphase, width).madd(mul, add)
+    def ar(cls, freq=440.0, iphase=0.0, width=0.5):
+        return cls._multi_new('audio', freq, iphase, width)
 
     @classmethod
-    def kr(cls, freq=440.0, iphase=0.0, width=0.5, mul=1.0, add=0.0):
-        return cls._multi_new('control', freq, iphase, width).madd(mul, add)
+    def kr(cls, freq=440.0, iphase=0.0, width=0.5):
+        return cls._multi_new('control', freq, iphase, width)
 
 
 class Impulse(ugn.PureUGen):
     @classmethod
-    def ar(cls, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', freq, phase).madd(mul, add)
+    def ar(cls, freq=440.0, phase=0.0):
+        return cls._multi_new('audio', freq, phase)
 
     @classmethod
-    def kr(cls, freq=440.0, phase=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', freq, phase).madd(mul, add)
+    def kr(cls, freq=440.0, phase=0.0):
+        return cls._multi_new('control', freq, phase)
 
     @classmethod
     def signal_range(self):
@@ -167,12 +163,12 @@ class Impulse(ugn.PureUGen):
 
 class SyncSaw(ugn.PureUGen):
     @classmethod
-    def ar(cls, sync_freq=440.0, saw_freq=440.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', sync_freq, saw_freq).madd(mul, add)
+    def ar(cls, sync_freq=440.0, saw_freq=440.0):
+        return cls._multi_new('audio', sync_freq, saw_freq)
 
     @classmethod
-    def kr(cls, sync_freq=440.0, saw_freq=440.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', sync_freq, saw_freq).madd(mul, add)
+    def kr(cls, sync_freq=440.0, saw_freq=440.0):
+        return cls._multi_new('control', sync_freq, saw_freq)
 
 
 # TPulse
@@ -180,12 +176,12 @@ class SyncSaw(ugn.PureUGen):
 
 class Index(ugn.PureUGen):
     @classmethod
-    def ar(cls, bufnum, input=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', bufnum, input).madd(mul, add)
+    def ar(cls, bufnum, input=0.0):
+        return cls._multi_new('audio', bufnum, input)
 
     @classmethod
-    def kr(cls, bufnum, input=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', bufnum, input).madd(mul, add)
+    def kr(cls, bufnum, input=0.0):
+        return cls._multi_new('control', bufnum, input)
 
 
 class WrapIndex(Index):
@@ -210,12 +206,12 @@ class IndexL(Index):
 
 class DegreeToKey(ugn.PureUGen):
     @classmethod
-    def ar(cls, bufnum, input=0.0, octave=12.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', bufnum, input, octave).madd(mul, add)
+    def ar(cls, bufnum, input=0.0, octave=12.0):
+        return cls._multi_new('audio', bufnum, input, octave)
 
     @classmethod
-    def kr(cls, bufnum, input=0.0, octave=12.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', bufnum, input, octave).madd(mul, add)
+    def kr(cls, bufnum, input=0.0, octave=12.0):
+        return cls._multi_new('control', bufnum, input, octave)
 
 
 class Select(ugn.PureUGen):

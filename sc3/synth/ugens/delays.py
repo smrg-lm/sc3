@@ -6,12 +6,12 @@ from .. import _graphparam as gpp
 
 class Delay1(ugn.PureUGen):
     @classmethod
-    def ar(cls, input=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', input).madd(mul, add)  # NOTE: No gpp.ugen_param(input)._as_audio_rate_input().
+    def ar(cls, input=0.0):
+        return cls._multi_new('audio', input)  # NOTE: No gpp.ugen_param(input)._as_audio_rate_input().
 
     @classmethod
-    def kr(cls, input=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', input).madd(mul, add)
+    def kr(cls, input=0.0):
+        return cls._multi_new('control', input)
 
 
 class Delay2(Delay1):
@@ -22,17 +22,13 @@ class Delay2(Delay1):
 
 class DelayN(ugn.PureUGen):
     @classmethod
-    def ar(cls, input=0.0, max_delay_time=0.2, delay_time=0.2,
-           mul=1.0, add=0.0):
+    def ar(cls, input=0.0, max_delay_time=0.2, delay_time=0.2):
         input = gpp.ugen_param(input)._as_audio_rate_input()
-        return cls._multi_new('audio', input, max_delay_time,
-                              delay_time).madd(mul, add)
+        return cls._multi_new('audio', input, max_delay_time, delay_time)
 
     @classmethod
-    def kr(cls, input=0.0, max_delay_time=0.2, delay_time=0.2,
-           mul=1.0, add=0.0):
-        return cls._multi_new('control', input, max_delay_time,
-                              delay_time).madd(mul, add)
+    def kr(cls, input=0.0, max_delay_time=0.2, delay_time=0.2):
+        return cls._multi_new('control', input, max_delay_time, delay_time)
 
 
 class DelayL(DelayN):
@@ -45,17 +41,15 @@ class DelayC(DelayN):
 
 class CombN(ugn.PureUGen):
     @classmethod
-    def ar(cls, input=0.0, max_delay_time=0.2, delay_time=0.2, decay_time=0.2,
-           mul=1.0, add=0.0):
+    def ar(cls, input=0.0, max_delay_time=0.2, delay_time=0.2, decay_time=0.2):
         input = gpp.ugen_param(input)._as_audio_rate_input()
-        return cls._multi_new('audio', input, max_delay_time,
-                              delay_time, decay_time).madd(mul, add)
+        return cls._multi_new(
+            'audio', input, max_delay_time, delay_time, decay_time)
 
     @classmethod
-    def kr(cls, input=0.0, max_delay_time=0.2, delay_time=0.2, decay_time=0.2,
-           mul=1.0, add=0.0):
-        return cls._multi_new('control', input, max_delay_time,
-                              delay_time, decay_time).madd(mul, add)
+    def kr(cls, input=0.0, max_delay_time=0.2, delay_time=0.2, decay_time=0.2):
+        return cls._multi_new(
+            'control', input, max_delay_time, delay_time, decay_time)
 
 
 class CombL(CombN):
@@ -82,13 +76,13 @@ class AllpassC(CombN):
 
 class BufDelayN(ugn.UGen):
     @classmethod
-    def ar(cls, buf=0, input=0.0, delay_time=0.2, mul=1.0, add=0.0):
+    def ar(cls, buf=0, input=0.0, delay_time=0.2):
         input = gpp.ugen_param(input)._as_audio_rate_input()
-        return cls._multi_new('audio', buf, input, delay_time).madd(mul, add)
+        return cls._multi_new('audio', buf, input, delay_time)
 
     @classmethod
-    def kr(cls, buf=0, input=0.0, delay_time=0.2, mul=1.0, add=0.0):
-        return cls._multi_new('control', buf, input, delay_time).madd(mul, add)
+    def kr(cls, buf=0, input=0.0, delay_time=0.2):
+        return cls._multi_new('control', buf, input, delay_time)
 
 
 class BufDelayL(BufDelayN):
@@ -101,10 +95,9 @@ class BufDelayC(BufDelayN):
 
 class BufCombN(ugn.UGen):
     @classmethod
-    def ar(cls, buf=0, input=0.0, delay_time=0.2, decay_time=1.0,
-           mul=1.0, add=0.0):
+    def ar(cls, buf=0, input=0.0, delay_time=0.2, decay_time=1.0):
         input = gpp.ugen_param(input)._as_audio_rate_input()
-        return cls._multi_new('audio', buf, input, delay_time).madd(mul, add)
+        return cls._multi_new('audio', buf, input, delay_time)
 
 
 class BufCombL(BufCombN):
@@ -143,11 +136,9 @@ class DelTapWr(ugn.UGen):
 
 class DelTapRd(ugn.UGen):
     @classmethod
-    def ar(cls, buf=0, phase=0.0, delay_time=0.2, interp=1, mul=1.0, add=0.0):
-        return cls._multi_new('audio', buf, phase, delay_time,
-                              interp).madd(mul, add)
+    def ar(cls, buf=0, phase=0.0, delay_time=0.2, interp=1):
+        return cls._multi_new('audio', buf, phase, delay_time, interp)
 
     @classmethod
-    def kr(cls, buf=0, phase=0.0, delay_time=0.2, interp=1, mul=1.0, add=0.0):
-        return cls._multi_new('control', buf, phase, delay_time,
-                              interp).madd(mul, add)
+    def kr(cls, buf=0, phase=0.0, delay_time=0.2, interp=1):
+        return cls._multi_new('control', buf, phase, delay_time, interp)

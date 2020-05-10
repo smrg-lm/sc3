@@ -143,21 +143,21 @@ class TWindex(ugn.UGen):
 
 class WhiteNoise(ugn.UGen):
     @classmethod
-    def ar(cls, mul=1.0, add=0.0):
+    def ar(cls):
         # // Support this idiom from SC2.
         if isinstance(mul, list):
             lst = [cls._multi_new('audio') for _ in range(len(mul))]
-            return ugn.ChannelList(lst).madd(mul, add)
+            return ugn.ChannelList(lst)
         else:
-            return cls._multi_new('audio').madd(mul, add)
+            return cls._multi_new('audio')
 
     @classmethod
-    def kr(cls, mul=1.0, add=0.0):
+    def kr(cls):
         if isinstance(mul, list):
             lst = [cls._multi_new('control') for _ in range(len(mul))]
-            return ugn.ChannelList(lst).madd(mul, add)
+            return ugn.ChannelList(lst)
         else:
-            return cls._multi_new('control').madd(mul, add)
+            return cls._multi_new('control')
 
 
 class BrownNoise(WhiteNoise):
@@ -181,22 +181,22 @@ class GrayNoise(WhiteNoise):
 
 class Crackle(ugn.UGen):
     @classmethod
-    def ar(cls, chaos_param=1.5, mul=1.0, add=0.0):
-        return cls._multi_new('audio', chaos_param).madd(mul, add)
+    def ar(cls, chaos_param=1.5):
+        return cls._multi_new('audio', chaos_param)
 
     @classmethod
-    def kr(cls, chaos_param=1.5, mul=1.0, add=0.0):
-        return cls._multi_new('control', chaos_param).madd(mul, add)
+    def kr(cls, chaos_param=1.5):
+        return cls._multi_new('control', chaos_param)
 
 
 class Logistic(ugn.UGen):
     @classmethod
-    def ar(cls, chaos_param=3.0, freq=1000.0, init=0.5, mul=1.0, add=0.0):
-        return cls._multi_new('audio', chaos_param, freq, init).madd(mul, add)
+    def ar(cls, chaos_param=3.0, freq=1000.0, init=0.5):
+        return cls._multi_new('audio', chaos_param, freq, init)
 
     @classmethod
-    def kr(cls, chaos_param=3.0, freq=1000.0, init=0.5, mul=1.0, add=0.0):
-        return cls._multi_new('control', chaos_param, freq, init).madd(mul, add)
+    def kr(cls, chaos_param=3.0, freq=1000.0, init=0.5):
+        return cls._multi_new('control', chaos_param, freq, init)
 
 
 # Rossler, commented ugen.
@@ -204,12 +204,12 @@ class Logistic(ugn.UGen):
 
 class LFNoise0(ugn.UGen):
     @classmethod
-    def ar(cls, freq=500.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', freq).madd(mul, add)
+    def ar(cls, freq=500.0):
+        return cls._multi_new('audio', freq)
 
     @classmethod
-    def kr(cls, freq=500.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', freq).madd(mul, add)
+    def kr(cls, freq=500.0):
+        return cls._multi_new('control', freq)
 
 
 class LFNoise1(LFNoise0):
@@ -242,12 +242,12 @@ class LFDClipNoise(LFNoise0):
 
 class Hasher(ugn.UGen):
     @classmethod
-    def ar(cls, input=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', input).madd(mul, add)
+    def ar(cls, input=0.0):
+        return cls._multi_new('audio', input)
 
     @classmethod
-    def kr(cls, input=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', input).madd(mul, add)
+    def kr(cls, input=0.0):
+        return cls._multi_new('control', input)
 
     def _check_inputs(self):
         if self.rate == 'audio':
@@ -258,22 +258,22 @@ class Hasher(ugn.UGen):
 
 class MantissaMask(ugn.UGen):
     @classmethod
-    def ar(cls, input=0.0, bits=3, mul=1.0, add=0.0):
-        return cls._multi_new('audio', input, bits).madd(mul, add)
+    def ar(cls, input=0.0, bits=3):
+        return cls._multi_new('audio', input, bits)
 
     @classmethod
-    def kr(cls, input=0.0, bits=3, mul=1.0, add=0.0):
-        return cls._multi_new('control', input, bits).madd(mul, add)
+    def kr(cls, input=0.0, bits=3):
+        return cls._multi_new('control', input, bits)
 
 
 class Dust(ugn.UGen):
     @classmethod
-    def ar(cls, density=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', density).madd(mul, add)
+    def ar(cls, density=0.0):
+        return cls._multi_new('audio', density)
 
     @classmethod
-    def kr(cls, density=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', density).madd(mul, add)
+    def kr(cls, density=0.0):
+        return cls._multi_new('control', density)
 
     @classmethod
     def signal_range(cls):  # override
@@ -282,9 +282,9 @@ class Dust(ugn.UGen):
 
 class Dust2(ugn.UGen):
     @classmethod
-    def ar(cls, density=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('audio', density).madd(mul, add)
+    def ar(cls, density=0.0):
+        return cls._multi_new('audio', density)
 
     @classmethod
-    def kr(cls, density=0.0, mul=1.0, add=0.0):
-        return cls._multi_new('control', density).madd(mul, add)
+    def kr(cls, density=0.0):
+        return cls._multi_new('control', density)

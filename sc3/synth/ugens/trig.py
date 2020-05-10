@@ -224,6 +224,8 @@ class PeakFollower(ugn.UGen):
 
 
 class Pitch(ugn.MultiOutUGen):
+    _default_rate = 'control'
+
     @classmethod
     def kr(cls, input=0.0, init_freq=440.0, min_freq=60.0, max_freq=4000.0,
            exec_freq=100.0, max_bins_per_octave=16, median=1,

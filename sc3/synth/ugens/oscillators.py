@@ -238,7 +238,7 @@ class Select(ugn.PureUGen):
 # Pseudo UGens don't return instances of themselves but of another subclass
 # of UGen, ChannelList or (maybe) optimizations (UGenParameter scalar types).
 
-class SelectX():  # Pseudo UGen.
+class SelectX(ugn.PseudoUGen):
     @classmethod
     def _new1(cls, rate, which, lst, wrap):  # wrap was never implemented (needs to be a proper UGen)
         selector = cls._method_selector_for_rate(rate)
@@ -268,13 +268,13 @@ class SelectX():  # Pseudo UGen.
         return pan.XFade2
 
 
-class LinSelectX(SelectX):  # Pseudo UGen.
+class LinSelectX(SelectX):
     @classmethod
     def _crossfade_class(cls):
         return pan.LinXFade2
 
 
-class SelectXFocus():  # Pseudo UGen.
+class SelectXFocus(ugn.PseudoUGen):
     @classmethod
     def new(cls, which, lst, focus=1, wrap=False):
         if wrap:
@@ -309,7 +309,7 @@ class Vibrato(ugn.PureUGen):
                               rate_variation, depth_variation, iphase, trig)
 
 
-class TChoose(): # Pseudo UGen.
+class TChoose(ugn.PseudoUGen):
     @classmethod
     def ar(cls, trig, lst):
         self._check_empty_list(lst)
@@ -325,7 +325,7 @@ class TChoose(): # Pseudo UGen.
             raise ValueError("TChoose: lst can't be empty")
 
 
-class TWChoose(): # Pseudo UGen.
+class TWChoose(ugn.PseudoUGen):
     @classmethod
     def ar(cls, trig, lst, weights, normalize=0):
         return Select.ar(nse.TWindex.ar(trig, weights, normalize), lst)

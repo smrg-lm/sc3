@@ -4,6 +4,8 @@ from .. import ugen as ugn
 
 
 class InfoUGenBase(ugn.UGen):
+    _default_rate = 'scalar'
+
     @classmethod
     def ir(cls):
         return cls._multi_new('scalar')
@@ -68,6 +70,8 @@ class NumRunningSynths(InfoUGenBase):
 
 
 class BufInfoUGenBase(ugn.UGen):
+    _default_rate = 'control'
+
     @classmethod
     def kr(cls, bufnum):
         return cls._multi_new('control', bufnum)

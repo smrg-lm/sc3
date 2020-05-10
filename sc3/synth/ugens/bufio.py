@@ -121,7 +121,7 @@ class ScopeOut(ugn.UGen):
         return 0.0
 
     @classmethod
-    def ar(cls, input_list, bufnum=0):
+    def kr(cls, input_list, bufnum=0):
         self._multi_new('control', bufnum, *utl.as_list(input_list))
         return 0.0
 
@@ -137,7 +137,7 @@ class ScopeOut2(ugn.UGen):
         return 0.0
 
     @classmethod
-    def ar(cls, input_list, scope_num=0, max_frames=4096, scope_frames=None):
+    def kr(cls, input_list, scope_num=0, max_frames=4096, scope_frames=None):
         if scope_frames is None:
             scope_frames = max_frames
         self._multi_new(
@@ -166,8 +166,7 @@ class LocalBuf(ugn.WidthFirstUGen):
             max_local_bufs = MaxLocalBufs.new()
             _libsc3.main._current_synthdef._max_local_bufs = max_local_bufs
         max_local_bufs.increment()
-        obj = cls()
-        obj._rate = rate
+        obj = cls._create_ugen_object(rate)
         obj._add_to_synth()
         return obj._init_ugen(*args, max_local_bufs)
 
@@ -204,6 +203,8 @@ class LocalBuf(ugn.WidthFirstUGen):
 
 
 class MaxLocalBufs(ugn.UGen):
+    _default_rate = None
+
     @classmethod
     def new(cls):
         return cls._multi_new('scalar', 0)

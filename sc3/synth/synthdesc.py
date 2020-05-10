@@ -255,7 +255,7 @@ class SynthDesc():
             else:
                 ugen = self.sdef._children[ugen_index]
                 if isinstance(ugen, ugn.MultiOutUGen):
-                    input = ugen.channels[output_index]
+                    input = ugen._channels[output_index]
                 else:
                     input = ugen
             ugen_inputs.append(input)
@@ -286,7 +286,7 @@ class SynthDesc():
                 self.controls[i + special_index].rate = rate
         else:
             if issubclass(ugen_class, scio.AbstractIn):
-                add_io(self.inputs, len(ugen.channels))
+                add_io(self.inputs, len(ugen._channels))
             elif issubclass(ugen_class, scio.AbstractOut):
                 add_io(self.outputs, ugen._num_audio_channels())
             # else:

@@ -14,11 +14,11 @@ class Pan2(ugn.MultiOutUGen):
 
     def _init_ugen(self, *inputs):  # override
         self._inputs = inputs
-        self.channels = ugn.ChannelList([
+        self._channels = ugn.ChannelList([
             ugn.OutputProxy.new(self.rate, self, 0),
             ugn.OutputProxy.new(self.rate, self, 1)
         ])
-        return self.channels # NOTE: RECORDAR: las ugens retornan self en _init_ugen que es método de interfaz, pero las output ugens retornan self.channels (o _init_outputs que retorna self.channels)
+        return self._channels # NOTE: RECORDAR: las ugens retornan self en _init_ugen que es método de interfaz, pero las output ugens retornan self._channels (o _init_outputs que retorna self._channels)
 
     def _check_inputs(self):  # override
         return self._check_n_inputs(1)
@@ -39,13 +39,13 @@ class Pan4(ugn.MultiOutUGen):
 
     def _init_ugen(self, *inputs):  # override
         self._inputs = inputs
-        self.channels = ugn.ChannelList([
+        self._channels = ugn.ChannelList([
             ugn.OutputProxy.new(self.rate, self, 0),
             ugn.OutputProxy.new(self.rate, self, 1),
             ugn.OutputProxy.new(self.rate, self, 2),
             ugn.OutputProxy.new(self.rate, self, 3)
         ])
-        return self.channels
+        return self._channels
 
     def _check_inputs(self):  # override
         return self._check_n_inputs(1)
@@ -62,11 +62,11 @@ class Balance2(ugn.MultiOutUGen):
 
     def _init_ugen(self, *inputs):  # override
         self._inputs = inputs
-        self.channels = ugn.ChannelList([
+        self._channels = ugn.ChannelList([
             ugn.OutputProxy.new(self.rate, self, 0),
             ugn.OutputProxy.new(self.rate, self, 1)
         ])
-        return self.channels
+        return self._channels
 
     def _check_inputs(self):  # override
         return self._check_n_inputs(2)
@@ -83,11 +83,11 @@ class Rotate2(ugn.MultiOutUGen):
 
     def _init_ugen(self, *inputs):  # override
         self._inputs = inputs
-        self.channels = ugn.ChannelList([
+        self._channels = ugn.ChannelList([
             ugn.OutputProxy.new(self.rate, self, 0),
             ugn.OutputProxy.new(self.rate, self, 1)
         ])
-        return self.channels
+        return self._channels
 
     def _check_inputs(self):  # override
         return self._check_n_inputs(2)
@@ -104,13 +104,13 @@ class PanB(ugn.MultiOutUGen):
 
     def _init_ugen(self, *inputs):  # override
         self._inputs = inputs
-        self.channels = ugn.ChannelList([
+        self._channels = ugn.ChannelList([
             ugn.OutputProxy.new(self.rate, self, 0),
             ugn.OutputProxy.new(self.rate, self, 1),
             ugn.OutputProxy.new(self.rate, self, 2),
             ugn.OutputProxy.new(self.rate, self, 3)
         ])
-        return self.channels
+        return self._channels
 
     def _check_inputs(self):  # override
         return self._check_n_inputs(1)
@@ -127,12 +127,12 @@ class PanB2(ugn.MultiOutUGen):
 
     def _init_ugen(self, *inputs):  # override
         self._inputs = inputs
-        self.channels = ugn.ChannelList([
+        self._channels = ugn.ChannelList([
             ugn.OutputProxy.new(self.rate, self, 0),
             ugn.OutputProxy.new(self.rate, self, 1),
             ugn.OutputProxy.new(self.rate, self, 2)
         ])
-        return self.channels
+        return self._channels
 
     def _check_inputs(self):  # override
         return self._check_n_inputs(1)
@@ -149,12 +149,12 @@ class BiPanB2(ugn.MultiOutUGen):
 
     def _init_ugen(self, *inputs):  # override
         self._inputs = inputs
-        self.channels = ugn.ChannelList([
+        self._channels = ugn.ChannelList([
             ugn.OutputProxy.new(self.rate, self, 0),
             ugn.OutputProxy.new(self.rate, self, 1),
             ugn.OutputProxy.new(self.rate, self, 2)
         ])
-        return self.channels
+        return self._channels
 
     def _check_inputs(self):  # override
         return self._check_n_inputs(2)
@@ -171,11 +171,11 @@ class DecodeB2(ugn.MultiOutUGen):
 
     def _init_ugen(self, num_channels, *inputs):  # override
         self._inputs = inputs
-        self.channels = ugn.ChannelList([
+        self._channels = ugn.ChannelList([
             ugn.OutputProxy.new(self.rate, self, i)
             for i in range(num_channels)
         ])
-        return self.channels
+        return self._channels
 
     def _check_inputs(self):  # override
         return self._check_n_inputs(3)
@@ -196,11 +196,11 @@ class PanAz(ugn.MultiOutUGen):
 
     def _init_ugen(self, num_channels, *inputs):  # override
         self._inputs = inputs
-        self.channels = ugn.ChannelList([
+        self._channels = ugn.ChannelList([
             ugn.OutputProxy.new(self.rate, self, i)
             for i in range(num_channels)
         ])
-        return self.channels
+        return self._channels
 
     def _check_inputs(self):  # override
         return self._check_n_inputs(1)

@@ -4,6 +4,8 @@ from .. import ugen as ugn
 
 
 class RandSeed(ugn.WidthFirstUGen):
+    _default_rate = 'scalar'
+
     @classmethod
     def ar(cls, trig=0.0, seed=56789):
         cls._multi_new('audio', trig, seed)
@@ -21,6 +23,8 @@ class RandSeed(ugn.WidthFirstUGen):
 
 
 class RandID(ugn.WidthFirstUGen):
+    _default_rate = 'scalar'
+
     # // Choose which random number generator to use for this synth.
     @classmethod
     def kr(cls, id=0):
@@ -35,6 +39,8 @@ class RandID(ugn.WidthFirstUGen):
 
 class Rand(ugn.UGen):
     # // Uniform distribution.
+    _default_rate = None
+
     @classmethod
     def new(cls, lo=0.0, hi=1.0):
         return cls._multi_new('scalar', lo, hi)
@@ -42,6 +48,8 @@ class Rand(ugn.UGen):
 
 class IRand(ugn.UGen):
     # // Uniform distribution of integers.
+    _default_rate = None
+
     @classmethod
     def new(cls, lo=0, hi=127):
         return cls._multi_new('scalar', lo, hi)
@@ -70,6 +78,8 @@ class TIRand(ugn.UGen):
 
 
 class LinRand(ugn.UGen):
+    _default_rate = None
+
     # // Linear distribution.
     # // if minmax <= 0 then skewed towards lo.
     # // else skewed towards hi.
@@ -84,6 +94,8 @@ class NRand(ugn.UGen):
     # // n = 2 : triangular distribution
     # // n = 3 : smooth hump
     # // as n increases, distribution converges towards gaussian.
+    _default_rate = None
+
     @classmethod
     def new(cls, lo=0.0, hi=0.0, n=0):
         return cls._multi_new('scalar', lo, hi, n)
@@ -91,6 +103,8 @@ class NRand(ugn.UGen):
 
 class ExpRand(ugn.UGen):
     # // Exponential distribution.
+    _default_rate = None
+
     @classmethod
     def new(cls, lo=0.01, hi=1.0):
         return cls._multi_new('scalar', lo, hi)

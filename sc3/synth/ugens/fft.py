@@ -20,9 +20,11 @@ class FFT(ffu.PV_ChainUGen):
 
 
 class IFFT(ugn.WidthFirstUGen):
-    @classmethod
-    def new(cls, buffer, wintype=0, winsize=0):
-        return cls.ar(buffer, wintype, winsize)
+    _default_rate = 'audio'
+
+    # @classmethod
+    # def new(cls, buffer, wintype=0, winsize=0):
+    #     return cls.ar(buffer, wintype, winsize)
 
     @classmethod
     def ar(cls, buffer, wintype=0, winsize=0):

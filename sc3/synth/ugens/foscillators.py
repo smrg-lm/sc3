@@ -44,8 +44,7 @@ class Klang(ugn.UGen):
             phases = [0.0] * size
         spec = [freqs, amps, phases]
         spec = utl.flat(utl.flop(spec))
-        obj = cls()
-        obj._rate = rate
+        obj = cls._create_ugen_object(rate)
         obj._add_to_synth()
         return obj._init_ugen(freq_scale, freq_offset, *spec)
 
@@ -56,7 +55,7 @@ class Klang(ugn.UGen):
         return 1  # One less than sclang.
 
 
-class DynKlang(ugn.UGen):  # Pseudo UGen.
+class DynKlang(ugn.PseudoUGen):
     @classmethod
     def ar(cls, spec, freq_scale=1.0, freq_offset=0.0):
         return cls._multi_new('audio', spec, freq_scale, freq_offset)
@@ -103,8 +102,7 @@ class Klank(ugn.UGen):
             times = [1.0] * size
         spec = [freqs, amps, times]
         spec = utl.flat(utl.flop(spec))
-        obj = cls()
-        obj._rate = rate
+        obj = cls._create_ugen_object(rate)
         obj._add_to_synth()
         return obj._init_ugen(
             input, freq_scale, freq_offset, decay_scale, *spec)
@@ -116,7 +114,7 @@ class Klank(ugn.UGen):
         return 1  # One less than sclang.
 
 
-class DynKlank(ugn.UGen):  # Pseudo UGen.
+class DynKlank(ugn.PseudoUGen):
     @classmethod
     def ar(cls, spec, input, freq_scale=1.0, freq_offset=0.0, decay_scale=1.0):
         return cls._multi_new('audio', spec, input, freq_scale,

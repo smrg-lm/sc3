@@ -6,6 +6,8 @@ from .. import env as env
 
 
 class Done(ugn.UGen):
+    _default_rate = 'control'
+
     NONE = 0
     PAUSE_SELF = 1
     FREE_SELF = 2
@@ -28,39 +30,43 @@ class Done(ugn.UGen):
         return cls._multi_new('control', src)
 
 
-class FreeSelf(ugn.UGen):
+class NodeControlUGen(ugn.UGen):
+    _default_rate = 'control'
+
+
+class FreeSelf(NodeControlUGen):
     @classmethod
     def kr(cls, input):
         cls._multi_new('control', input)
         return input
 
 
-class PauseSelf(ugn.UGen):
+class PauseSelf(NodeControlUGen):
     @classmethod
     def kr(cls, input):
         cls._multi_new('control', input)
         return input
 
 
-class FreeSelfWhenDone(ugn.UGen):
+class FreeSelfWhenDone(NodeControlUGen):
     @classmethod
     def kr(cls, src):
         return cls._multi_new('control', src)
 
 
-class PauseSelfWhenDone(ugn.UGen):
+class PauseSelfWhenDone(NodeControlUGen):
     @classmethod
     def kr(cls, src):
         return cls._multi_new('control', src)
 
 
-class Pause(ugn.UGen):
+class Pause(NodeControlUGen):
     @classmethod
     def kr(cls, gate, id):
         return cls._multi_new('control', gate, id)
 
 
-class Free(ugn.UGen):
+class Free(NodeControlUGen):
     @classmethod
     def kr(cls, trig, id):
         return cls._multi_new('control', trig, id)
@@ -93,8 +99,7 @@ class EnvGen(ugn.UGen):
 
     @classmethod
     def _new1(cls, rate, *args):
-        obj = cls()
-        obj._rate = rate
+        obj = cls._create_ugen_object(rate)
         obj._add_to_synth()
         args = list(args)
         envelope = args.pop()
@@ -108,6 +113,8 @@ class EnvGen(ugn.UGen):
 
 
 class Linen(ugn.UGen):
+    _default_rate = 'control'
+
     @classmethod
     def kr(cls, gate=1.0, attack_time=0.01, sus_level=1.0,
            release_time=1.0, done_action=0):

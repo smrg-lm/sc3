@@ -39,10 +39,10 @@ class StereoConvolution2L(ugn.MultiOutUGen):
 
     def _init_ugen(self, *inputs):  # override
         self._inputs = inputs
-        self.channels = ugn.ChannelList(
+        self._channels = ugn.ChannelList(
             [ugn.OutputProxy.new(self.rate, self, 0),
              ugn.OutputProxy.new(self.rate, self, 1)])
-        return self.channels
+        return self._channels
 
 
 class Convolution3(ugn.UGen):
@@ -73,6 +73,7 @@ class PV_ConformalMap(ffu.PV_ChainUGen):
 
 
 class PV_JensenAndersen(ffu.PV_ChainUGen):
+    # *** Not sure why this is ar, see _add_to_synth and prefix name.
     # // Jensen andersen inspired FFT feature detector.
     @classmethod
     def ar(cls, buf, propsc=0.25, prophfe=0.25, prophfc=0.25, propsf=0.25,
@@ -82,6 +83,7 @@ class PV_JensenAndersen(ffu.PV_ChainUGen):
 
 
 class PV_HainsworthFoote(ffu.PV_ChainUGen):
+    # *** Not sure why this is ar, _add_to_synth and prefix name.
     @classmethod
     def ar(cls, buf, proph=0.0, propf=0.0, threshold=1.0, wait_time=0.04):
         return cls._multi_new('audio', buf, proph, propf, threshold, wait_time)

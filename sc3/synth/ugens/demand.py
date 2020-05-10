@@ -79,6 +79,8 @@ class DemandEnvGen(ugn.UGen):
 
 
 class DUGen(ugn.UGen):
+    _default_rate = 'demand'
+
     # // Some n-ary op special cases.
 
     def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
@@ -101,31 +103,31 @@ class DUGen(ugn.UGen):
 
 class Dseries(DUGen):
     @classmethod
-    def new(cls, start=1, step=1, length=bi.inf):
+    def dr(cls, start=1, step=1, length=bi.inf):
         return cls._multi_new('demand', length, start, step)
 
 
 class Dgeom(DUGen):
     @classmethod
-    def new(cls, start=1, grow=1, length=bi.inf):
+    def dr(cls, start=1, grow=1, length=bi.inf):
         return cls._multi_new('demand', length, start, grow)
 
 
 class Dbufrd(DUGen):
     @classmethod
-    def new(cls, bufnum=0, phase=0.0, loop=1.0):
+    def dr(cls, bufnum=0, phase=0.0, loop=1.0):
         return cls._multi_new('demand', bufnum, phase, loop)
 
 
 class Dbufwr(DUGen):
     @classmethod
-    def new(cls, input=0.0, bufnum=0, phase=0.0, loop=1.0):
+    def dr(cls, input=0.0, bufnum=0, phase=0.0, loop=1.0):
         return cls._multi_new('demand', bufnum, phase, input, loop)
 
 
 class ListDUGen(DUGen):
     @classmethod
-    def new(cls, lst, repeats=1):
+    def dr(cls, lst, repeats=1):
         return cls._multi_new('demand', repeats, *utl.as_list(lst))
 
 
@@ -151,7 +153,7 @@ class Dxrand(ListDUGen):
 
 class Dwrand(DUGen):
     @classmethod
-    def new(cls, lst, weights, repeats=1):
+    def dr(cls, lst, weights, repeats=1):
         size = len(lst)
         weights = utl.extend(weights, size, 0.0)
         return cls._multi_new('demand', repeats, size, *weights, *lst)
@@ -159,7 +161,7 @@ class Dwrand(DUGen):
 
 class Dswitch1(DUGen):
     @classmethod
-    def new(cls, lst, index):
+    def dr(cls, lst, index):
         return cls._multi_new('demand', index, *lst)
 
 
@@ -169,7 +171,7 @@ class Dswitch(Dswitch1):
 
 class Dwhite(DUGen):
     @classmethod
-    def new(cls, lo=0.0, hi=1.0, length=bi.inf):
+    def dr(cls, lo=0.0, hi=1.0, length=bi.inf):
         return cls._multi_new('demand', length, lo, hi)
 
 
@@ -179,7 +181,7 @@ class Diwhite(Dwhite):
 
 class Dbrown(DUGen):
     @classmethod
-    def new(cls, lo=0.0, hi=1.0, step=0.01, length=bi.inf):
+    def dr(cls, lo=0.0, hi=1.0, step=0.01, length=bi.inf):
         return cls._multi_new('demand', length, lo, hi, step)
 
 
@@ -189,41 +191,42 @@ class Dibrown(Dbrown):
 
 class Dstutter(DUGen):
     @classmethod
-    def new(cls, n, input):
+    def dr(cls, n, input):
         return cls._multi_new('demand', n, input)
 
 
 class Dconst(DUGen):
     @classmethod
-    def new(cls, sum, input, tolerance=0.001):
+    def dr(cls, sum, input, tolerance=0.001):
         return cls._multi_new('demand', sum, input, tolerance)
 
 
 class Dreset(DUGen):
     @classmethod
-    def new(cls, input, reset=0.0):
+    def dr(cls, input, reset=0.0):
         return cls._multi_new('demand', input, reset)
 
 
 class Dpoll(DUGen):
     @classmethod
-    def new(cls, input, label=None, run=1, trig_id=-1):
+    def dr(cls, input, label=None, run=1, trig_id=-1):
         return cls._multi_new('demand', input, label, run, trig_id)
 
     @classmethod
     def _new1(cls, rate, input, label, run, trig_id):  # override
         label = label or f'DemandUGen({type(input).__name__})'
         label = [int(x) for x in bytes(label, 'utf-8')]  # *** TODO: sc ascii method, sclang uses signed values, see Poll.
-        obj = cls()
-        obj._rate = rate
+        obj = cls._create_ugen_object(rate)
         obj._add_to_synth()
         return obj._init_ugen(input, trig_id, run, len(label), *label)
 
 
-class Dunique(ugn.UGen):  # Pseudo UGen.
+class Dunique(ugn.PseudoUGen):
+    _default_rate = 'demand'
+
     @classmethod
-    def new(cls, source, max_buffer_size=1024, protected=True):
-        obj = cls()
+    def dr(cls, source, max_buffer_size=1024, protected=True):
+        obj = cls._create_ugen_object('demand')
         obj._init(source, max_buffer_size, protected)
         return obj
 

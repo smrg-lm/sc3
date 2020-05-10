@@ -34,8 +34,7 @@ class Poll(ugn.UGen):
         if isinstance(trig, (int, float)):
             selector = ocl.Impulse._method_selector_for_rate(rate)
             trig = getattr(ocl.Impulse, selector)(trig, 0)
-        obj = cls()
-        obj._rate = rate
+        obj = cls._create_ugen_object(rate)
         obj._add_to_synth()
         return obj._init_ugen(trig, input, trig_id, len(label), *label)
 

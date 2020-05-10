@@ -187,8 +187,7 @@ class VarLag(Filter):
                 trig += Changed.kr(time)
             return getattr(egn.EnvGen, selector)(env, trig)
         else:
-            obj = cls()
-            obj._rate = rate
+            obj = cls._create_ugen_object(rate)
             obj._add_to_synth()
             return obj._init_ugen(input, time, start)
 

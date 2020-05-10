@@ -44,6 +44,8 @@ class AbstractControl(ugn.MultiOutUGen):
 
 
 class Control(AbstractControl):
+    _default_rate = 'control'
+
     def __init__(self):
         super().__init__()
         self.values = []
@@ -210,6 +212,8 @@ class LocalIn(AbstractIn):
 
 
 class LagIn(AbstractIn):
+    _default_rate = 'control'
+
     @classmethod
     def kr(cls, bus=0, num_channels=1, lag=0.1):
         return cls._multi_new('control', num_channels, bus, lag)

@@ -38,7 +38,7 @@ class LinExp(ugn.PureUGen):
         return self._check_sr_as_first_input()
 
 
-class LinLin():  # Pseudo UGen.
+class LinLin(ugn.PseudoUGen):
     @classmethod
     def ar(cls, input=0.0, srclo=0.0, srchi=1.0, dstlo=1.0, dsthi=2.0):
         scale = (dsthi - dstlo) / (srchi - srclo)
@@ -139,7 +139,7 @@ class DC(ugn.PureMultiOutUGen):
         return self._init_outputs(len(inputs), self.rate)
 
 
-class Silent():  # Pseudo UGen.
+class Silent(ugn.PseudoUGen):
     @classmethod
     def ar(cls, num_channels=1):
         sig = DC.ar(0)

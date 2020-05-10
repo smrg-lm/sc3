@@ -240,29 +240,48 @@ class ChannelList(list, gpp.UGenSequence, fn.AbstractFunction):
         return f'ChannelList({super().__repr__()})'
 
 
-class UGen(gpp.UGenParameter, fn.AbstractFunction):
+class MetaUGen(type):
+    # Do not use within library.
+    def __call__(cls, *args, **kwargs):
+        if 'urate' in kwargs:
+            rate = kwargs.pop('urate')
+        else:
+            rate = cls._default_rate
+        rate = cls._method_selector_for_rate(rate)
+        return getattr(cls, rate)(*args, **kwargs)
+
+
+class UGen(gpp.UGenParameter, fn.AbstractFunction, metaclass=MetaUGen):
     '''
     Subclasses should not use __init__ to implement graph logic, interface
     methods are _new1, _multi_new, _multi_new_list, _init_ugen, _init_outputs
-    (from MultiOutUGen).
+    (from MultiOutUGen). UGen instances are created internally with
+    _create_ugen_object. This is because ugens build a graph with multichannel
+    expansion and optimizations so they might not return an instace object or
+    an instance of the same type.
     '''
 
     _valid_rates = {'audio', 'control', 'demand', 'scalar', None}  # Sum3 and Sum4 don't define rate before calling _multi_new_list
+    _default_rate = 'audio'
 
-    def __init__(self):  # Do not override.
-        super(gpp.UGenParameter, self).__init__(self)
-        self._inputs = ()  # Always tuple.
-        self._rate = 'audio'
+    @classmethod
+    def _create_ugen_object(cls, rate):
+        obj = cls.__new__(cls)
+        super(UGen, obj).__init__(obj)
+        obj._rate = rate
+        obj._inputs = ()  # Always tuple.
         # atributos de instancia privados
-        self._synthdef = None  # is _libsc3.main._current_synthdef after _add_to_synth
-        self._synth_index = -1  # Order in built graph.
-        self._output_index = 0 # Is property in OutputProxy, used by UGen.writeInputSpec and SynthDesc.readUGenSpec se obtiene de las inputs.
-        self._special_index = 0 # Server op index.
+        obj._synthdef = None  # is _libsc3.main._current_synthdef after _add_to_synth
+        obj._channels = []  # MultiOutUGen attribute initialization is related to _synth_index.
+        obj._synth_index = -1  # Order in built graph.
+        obj._output_index = 0  # Is property in OutputProxy, used by UGen.writeInputSpec and SynthDesc.readUGenSpec se obtiene de las inputs.
+        obj._special_index = 0  # Server op index.
         # topo sorting
-        self._antecedents = None #set() # estos sets los inicializa SynthDef _init_topo_sort, _antecedents lo transforma en lista luego, por eso los dejo en none.
-        self._descendants = None #list() # inicializa en set() y lo transforma en list() inmediatamente después de poblarlo
-        self._width_first_antecedents = [] # se inicializa con SynthDef _width_first_ugens[:] que es un array
+        obj._antecedents = None  # set() # estos sets los inicializa SynthDef _init_topo_sort, _antecedents lo transforma en lista luego, por eso los dejo en none.
+        obj._descendants = None  # list() # inicializa en set() y lo transforma en list() inmediatamente después de poblarlo
+        obj._width_first_antecedents = []  # se inicializa con SynthDef _width_first_ugens[:] que es un array
         # TODO: (sigue) tal vez convenga crea propiedades pero para esta clase sería mucho código.
+        return obj
 
     @property
     def rate(self):
@@ -283,8 +302,7 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
         expanded. It is called inside _multi_new_list, whenever a new single
         instance is needed.
         '''
-        obj = cls()
-        obj._rate = rate
+        obj = cls._create_ugen_object(rate)
         obj._add_to_synth()
         return obj._init_ugen(*args)
 
@@ -339,8 +357,7 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
 
     @classmethod
     def _new_from_desc(cls, rate, num_outputs, inputs, special_index):
-        obj = cls()
-        obj._rate = rate
+        obj = cls._create_ugen_object(rate)
         obj._inputs = tuple(inputs)
         obj._special_index = special_index
         return obj
@@ -640,20 +657,21 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
 
     @classmethod
     def _method_selector_for_rate(cls, rate):
-        if rate == 'audio':
+        if rate == 'audio' or rate == 'ar':
             if hasattr(cls, 'ar'):
                 return 'ar'
-        elif rate == 'control':
+        elif rate == 'control' or rate == 'kr':
             if hasattr(cls, 'kr'):
                 return 'kr'
-        elif rate == 'scalar':
+        elif rate == 'scalar' or rate == 'ir':
             if hasattr(cls, 'ir'):
                 return 'ir'
-            elif hasattr(cls, 'new'):
-                return 'new'
-        elif rate == 'demand':
+        elif rate == 'demand' or rate == 'dr':
             if hasattr(cls, 'dr'):
                 return 'dr'
+        elif rate is None:
+            if hasattr(cls, 'new'):
+                return 'new'
         # return None  # original behaviour
         raise AttributeError(f'{cls.__name__} has no {rate} rate constructor')
 
@@ -863,18 +881,14 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction):
         file.write(struct.pack('>i', self._output_index)) # putInt32
 
 
-# // UGen which has no side effect and can therefore be considered for
-# // a dead code elimination. Read access to buffers/busses are allowed.
 class PureUGen(UGen):
+    # // UGen which has no side effect and can therefore be considered for
+    # // a dead code elimination. Read access to buffers/busses are allowed.
     def _optimize_graph(self):  # override
         self._perform_dead_code_elimination()
 
 
 class MultiOutUGen(UGen):
-    def __init__(self):
-        self.channels = []  # Needed before super().__init__ for self._synth_index setter.
-        super().__init__()
-
     @property
     def _synth_index(self):
         return self.__synth_index
@@ -882,7 +896,7 @@ class MultiOutUGen(UGen):
     @_synth_index.setter
     def _synth_index(self, value):
         self.__synth_index = value
-        for output in self.channels:
+        for output in self._channels:
             output._synth_index = value
 
     @_synth_index.deleter
@@ -891,8 +905,7 @@ class MultiOutUGen(UGen):
 
     @classmethod
     def _new_from_desc(cls, rate, num_outputs, inputs, special_index=None):  # override
-        obj = cls()
-        obj._rate = rate
+        obj = cls._create_ugen_object(rate)
         obj._inputs = tuple(inputs)
         obj._init_outputs(num_outputs, rate)
         return obj
@@ -905,17 +918,17 @@ class MultiOutUGen(UGen):
         if num_channels is None or num_channels < 1:
             raise Exception(
                 f'{self.name}: wrong number of channels ({num_channels})')
-        self.channels = ChannelList(
+        self._channels = ChannelList(
             [OutputProxy.new(rate, self, i) for i in range(num_channels)])
         if num_channels == 1:
-            return self.channels[0]
-        return self.channels
+            return self._channels[0]
+        return self._channels
 
     def _num_outputs(self):  # override
-        return len(self.channels)
+        return len(self._channels)
 
     def _write_output_specs(self, file):  # override
-        for output in self.channels:
+        for output in self._channels:
             output._write_output_spec(file)
 
 
@@ -960,6 +973,10 @@ class OutputProxy(UGen):
 
 
 class WidthFirstUGen(UGen):  # Was in fft.py
+    _default_rate = None
+    # bufio.py uses new to create 'scalar'
+    # fft uses new to create 'control'
+
     def _add_to_synth(self):
         self._synthdef = _libsc3.main._current_synthdef
         if self._synthdef is not None:
@@ -1375,7 +1392,13 @@ class Sum4(UGen):
         return super()._new1(rate, *arg_list)
 
 
-class Mix():  # Pseudo UGen.
+class PseudoUGen(UGen):
+    # Base class to reinforce the interface. Pseudo UGens never
+    # return instances of themselves but of another UGen subclass.
+    pass
+
+
+class Mix(PseudoUGen):
     @classmethod
     def new(cls, lst):
         lst = utl.as_list(lst)

@@ -18,32 +18,37 @@ The idea is that you can write the same in Python as in sclang, with the same lo
 ```python
 from sc3.all import *
 
-# interactive shell run...
-
 s.boot()
 
-@synthdef.add()
+@synthdef
 def sine(freq=440, amp=0.1, gate=1):
-    sig = SinOsc.ar(freq) * amp
-    sig *= EnvGen.kr(Env.adsr(), gate, done_action=2)
-    Out.ar(0, sig.dup())
+    sig = SinOsc(freq) * amp
+    env = EnvGen(Env.adsr(), gate, done_action=2)
+    Out(0, (sig * env).dup())
 
 sine.dump_ugens()
+```
 
-# following lines are meant to be executed one by one as in interactive
-# session. Commands to the server are asynchronous actions that need a bit
-# of time for the resource to be available/changed.
+Wait for boot...
 
+```python
 n = Synth('sine')
+```
+```python
 n.set('amp', 0.05)
-n.set('freq', 220)
-
+```
+```python
+n.set('freq', 550)
+```
+```python
 s.query_tree(True)
-
+```
+```python
 n.release()
-# s.free_all()  # if something went wrong free all nodes.
-
-s.quit()  # stop server at the end of interactive session or just quit ipython.
+# s.free_all()  # If something went wrong free all nodes.
+```
+```python
+s.quit()  # Stop server at the end of interactive session or just quit ipython.
 ```
 
 Install

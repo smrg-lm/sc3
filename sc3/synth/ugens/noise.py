@@ -144,20 +144,11 @@ class TWindex(ugn.UGen):
 class WhiteNoise(ugn.UGen):
     @classmethod
     def ar(cls):
-        # // Support this idiom from SC2.
-        if isinstance(mul, list):
-            lst = [cls._multi_new('audio') for _ in range(len(mul))]
-            return ugn.ChannelList(lst)
-        else:
-            return cls._multi_new('audio')
+        return cls._multi_new('audio')
 
     @classmethod
     def kr(cls):
-        if isinstance(mul, list):
-            lst = [cls._multi_new('control') for _ in range(len(mul))]
-            return ugn.ChannelList(lst)
-        else:
-            return cls._multi_new('control')
+        return cls._multi_new('control')
 
 
 class BrownNoise(WhiteNoise):

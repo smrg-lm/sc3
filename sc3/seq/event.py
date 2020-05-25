@@ -127,30 +127,18 @@ class MetaEventDict(type):
 
 
 class EventDict(dict, metaclass=MetaEventDict):
-    _EMPTY = object()
-
     def __init_subclass__(cls, partial_events=None, **kwargs):
         super().__init_subclass__(**kwargs)
 
     def __call__(self, key, *args):
-        try:
+        if key in self.default_functions:
             return self.default_functions[key](self, *args)
-        except KeyError:
-            pass
-        try:
-            value = self._EMPTY
-            value = self[key]
-        except KeyError:
-            pass
-        if value is self._EMPTY:
-            try:
-                return self.default_values[key]
-            except KeyError:
-                raise
-        if callable(value):
-            return value(self, *args)
+        if not key in self:
+            return self.default_values[key]
+        if callable(self[key]):
+            return self[key](self, *args)
         else:
-            return value
+            return self[key]
 
     def __copy__(self):
         return self.copy()

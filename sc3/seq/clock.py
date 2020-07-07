@@ -72,7 +72,7 @@ class MetaClock(type):
     def bars2beats(cls):
         return 0
 
-    def time_to_next_beat(cls, quant=1.0):
+    def time_to_next_beat(cls, quant=1):
         return 0
 
     def next_time_on_grid(cls, quant=1, phase=0):
@@ -654,9 +654,7 @@ class Quant():
     # NOTE: confusos. Acá solo lo implemento en Quant, Clock y TempoClock.
     def next_time_on_grid(self, clock):
         return clock.next_time_on_grid(
-            self.quant,
-            (self.phase or 0) - (self.timing_offset or 0)
-        )
+            self.quant, (self.phase or 0) - (self.timing_offset or 0))
 
     # printOn
     # storeArgs
@@ -847,7 +845,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     #     # BUG: cyclic reference with target=_run.
     #     self.stop()
 
-    def play(self, task, quant=1):
+    def play(self, task, quant=None):
         quant = Quant.as_quant(quant)
         self.sched_abs(quant.next_time_on_grid(self), task)
 
@@ -1102,7 +1100,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         ) + self._base_bar_beat + phase
 
     # // logical time to next beat
-    def time_to_next_beat(self, quant=1.0):
+    def time_to_next_beat(self, quant=1):
         return Quant.as_quant(quant).next_time_on_grid(self) - self.beats
 
     def beats2bars(self, beats):

@@ -248,9 +248,9 @@ class OscUdpInterface(OscInterface):
                         f'[Errno {errno.EADDRINUSE}] Port range already '
                         f'in use: {self.port}-{self.port_range - 1}')
                     err.errno = errno.EADDRINUSE
-                    raise err
+                    raise err from e
                 else:
-                    raise e
+                    raise
         self._server_thread = threading.Thread(
             target=self._server.serve_forever,
             name=f'{type(self).__name__} port {self._port}')
@@ -303,9 +303,9 @@ class OscTcpInterface(OscInterface):
                         f'[Errno {errno.EADDRINUSE}] Port range already '
                         f'in use: {self.port}-{self.port_range - 1}')
                     err.errno = errno.EADDRINUSE
-                    raise err
+                    raise err from e
                 else:
-                    raise e
+                    raise
 
     def connect(self, target):
         self._socket.connect(target)  # Exception on failure.
@@ -356,7 +356,7 @@ class OscTcpInterface(OscInterface):
                     if e.errno == errno.EADDRNOTAVAIL:  # Happens when trying to register to the existing server after a boot() fail.
                         yield dt
                     else:
-                        raise e
+                        raise
             _logger.warning(f"{str(self)} couldn't establish connection")
             fn.value(on_failure, self)
 

@@ -267,9 +267,9 @@ class OSCMessageDispatcher(AbstractWrappingDispatcher):
         try:
             for func in self.active[msg[0]]:
                 fn.value(func, msg, time, addr, recv_port)
-        except KeyError as e:
+        except KeyError:
             if len(inspect.trace()) > 1: # *** BUG: (CAMBIADO) sigue solo si la excepción es del frame actual, este patrón se repite en Routine y Clock
-                raise e
+                raise
 
     def register(self):
         _libsc3.main.add_osc_recv_func(self) # thisProcess.addOSCRecvFunc(this)

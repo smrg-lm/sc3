@@ -106,9 +106,9 @@ class SynthDef(metaclass=MetaSynthDef):
                 self._finish_build()
                 self.func = graph_func
                 _libsc3.main._current_synthdef = None
-            except Exception as e:
+            except Exception:
                 _libsc3.main._current_synthdef = None
-                raise e
+                raise
 
     # L53
     @classmethod

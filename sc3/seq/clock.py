@@ -294,7 +294,10 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                     except stm.StopStream:
                         pass
                     except Exception:
-                        traceback.print_exception(*sys.exc_info())  # Always recover.
+                        # Always recover.
+                        _logger.error(
+                            ''.join(traceback.format_exception(
+                                *sys.exc_info(), -1)))
 
     # sclang methods
 
@@ -375,7 +378,9 @@ class Scheduler():
         except stm.StopStream:
             pass
         except Exception:
-            traceback.print_exception(*sys.exc_info())
+            _logger.error(
+                ''.join(traceback.format_exception(
+                    *sys.exc_info(), -1)))
 
     def play(self, task):
         self.sched(0, task)
@@ -606,7 +611,9 @@ class ClockTask():
         except stm.StopStream:
             pass
         except Exception:
-            traceback.print_exception(*sys.exc_info())
+            _logger.error(
+                ''.join(traceback.format_exception(
+                    *sys.exc_info(), -1)))
 
 
 ### Quant.sc ###
@@ -808,7 +815,9 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                     except stm.StopStream:
                         pass
                     except Exception:
-                        traceback.print_exception(*sys.exc_info())
+                        _logger.error(
+                            ''.join(traceback.format_exception(
+                                *sys.exc_info(), -1)))
 
     def stop(self):
         # prStop -> prTempoClock_Free -> StopReq -> StopAndDelete -> Stop

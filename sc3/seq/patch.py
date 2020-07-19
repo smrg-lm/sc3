@@ -21,8 +21,11 @@ Sequential programming was preferred to simplify side-effect actions such as
 resource instantiation and cleanup.
 """
 
+import logging
 import collections
 import itertools
+import sys
+import traceback
 
 from ..base import functions as fn
 from ..synth import node as nod
@@ -30,6 +33,9 @@ from ..synth import server as srv
 from . import clock as clk
 from . import stream as stm
 from . import _taskq as tsq
+
+
+_logger = logging.getLogger(__name__)
 
 
 class _UniqueList(list):
@@ -742,7 +748,7 @@ class Trace(RootBox):
 
     def __next__(self):
         value = self._graph._evaluate()
-        print(
+        _logger.info(
             f'{self._prefix}: <{type(self._graph).__name__}, '
             f'{hex(id(self._graph))}>, cycle: {self._patch._cycle}, '
             f'value: {value}')
@@ -997,14 +1003,15 @@ class Message():
 
 
 '''
+from logging import info  # to avoid a very annoying ipython bug.
 from sc3.all import *
 from sc3.seq.patch import *
 
 class FakeObject():
     def on(self, note, vel=63):
-        print('note on!', note, vel)
+        info(f'note on! {note}, {vel}')
     def off(self, note, vel=63):
-        print('note off!', note, vel)
+        info(f'note off! {note}, {vel}')
 
 @patch
 def test():
@@ -1045,7 +1052,9 @@ class Cleanup(Tidyner):
             try:
                 getattr(obj, method)(*args)
             except:
-                ... # _log
+                _logger.error(
+                    ''.join(traceback.format_exception(
+                        *sys.exc_info(), -1)))
 
 
 class CleanupFunction(Tidyner):
@@ -1059,7 +1068,9 @@ class CleanupFunction(Tidyner):
         try:
             self.func(*self.args)
         except:
-            ... # _log
+            _logger.error(
+                ''.join(traceback.format_exception(
+                    *sys.exc_info(), -1)))
 
 
 # Decorator syntax.

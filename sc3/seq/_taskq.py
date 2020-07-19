@@ -14,7 +14,7 @@ class TaskQueue():
     SuperCollider's clocks implementation. TaskQueue is not thread safe.
     """
 
-    _REMOVED = '<removed-task>'
+    class _REMOVED(): pass
 
     def __init__(self):
         self._init()

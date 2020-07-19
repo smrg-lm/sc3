@@ -167,31 +167,32 @@ class Patch():
             # Triggers are evaluated first each cycle (after yield).
             next_beat = next(trigger)  # Triggers are infinite.
             evaluables.append(self._Entry(
-                beat, next_beat, trigger, set(messages), set(roots)))
+                beat, next_beat, trigger, messages, roots))
 
             while not self._queue.empty()\
             and round(beat, 9) == round(self._queue.peek()[0], 9):  # Sincroniza pero introduce un error diferente, hay que ver si converge para el delta de cada trigger.
                 trigger, messages, roots = self._queue.pop()[1]
                 next_beat = next(trigger)
                 evaluables.append(self._Entry(
-                    beat, next_beat, trigger, set(messages), set(roots)))
+                    beat, next_beat, trigger, messages, roots))
 
             # Evaluation.
 
-            messages = set()
-            roots = set()
+            messages = _UniqueList()
+            roots = _UniqueList()
             for entry in evaluables:
-                messages.update(entry.messages)
-                roots.update(entry.roots)
+                messages.extend(entry.messages)
+                roots.extend(entry.roots)
 
             try:
-                self._evaluate_cycle(messages | roots)
+                self._evaluate_cycle(messages + roots)
             except StopIteration:
                 break
 
             for entry in evaluables:
                 if entry.trig._active\
-                and any(r._active for r in entry.messages | entry.roots):
+                and any(r._active\
+                        for r in set(entry.messages) | set(entry.roots)):
                     newmessages = tuple(m for m in entry.messages if m._active)
                     newroots = tuple(r for r in entry.roots if r._active)
                     self._queue.add(  # Tends to error/overflow by resolution.
@@ -995,7 +996,7 @@ class Message():
         pass
 
 
-''' fails, exec twice at start.
+'''
 from sc3.all import *
 from sc3.seq.patch import *
 

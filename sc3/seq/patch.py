@@ -587,17 +587,25 @@ class Event(BoxObject):
     def __init__(self, time, obj):
         super().__init__()
         self._obj = obj
+        self._time = time
+        self._before_reparent = True
         self._wait = time > 0.0
         if self._wait:
             self._trigger = _EventDelta(time)
             self._trigger._connect(self)
 
     def __next__(self):
-        if self._wait:
-            self._wait = False
-            return
-        self._obj._dyn_add_parent(self)
-        return self._obj._evaluate()
+        if self._before_reparent:
+            if self._wait:
+                self._wait = False
+                return
+            self._obj._dyn_add_parent(self)
+            self._before_reparent = False
+        try:
+            return self._obj._evaluate()
+        except StopIteration:
+            self._obj._dyn_remove_parent(self)
+            raise
 
 
 '''

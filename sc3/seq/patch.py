@@ -1307,6 +1307,37 @@ for _ in range(10): next(g)
 '''
 
 
+class Map(BoxObject):
+    def __init__(self, dct, tgg=None):
+        super().__init__(tgg)
+        self._params = dict()
+        for key, value in dct.items():
+            value = Value(value)
+            value._add_parent(self)
+            self._add_child(value)
+            self._params[key] = value
+
+    def __next__(self):
+        return {k: v._evaluate() for k, v in self._params.items()}
+
+
+'''
+from sc3.all import *
+from sc3.seq.patch import *
+
+@patch
+def t():
+    m = Map({
+        'instr': 'trombón',
+        'freq': Seq([100, 200, 300], tgg=Every(2)),
+        'amp': Value(0.1, tgg=Every(0.5))
+    })
+    Trace(m)
+
+p = t()
+'''
+
+
 class Seq(AbstractBox):
     def __init__(self, lst, repeat=1, tgg=None):
         super().__init__(tgg)

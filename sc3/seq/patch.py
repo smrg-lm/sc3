@@ -1271,7 +1271,18 @@ p = test()
 '''
 
 
-class Value(AbstractBox):
+class MetaValue(type):
+    def __call__(cls, value, tgg=None):
+        if isinstance(value, (TriggerObject, Message)):  #, RootBox)):
+            raise TypeError(f'{type(value).__name__} is not valid input')
+        if isinstance(value, BoxObject):
+            return value
+        obj = cls.__new__(cls, value, tgg)
+        obj.__init__(value, tgg)
+        return obj
+
+
+class Value(AbstractBox, metaclass=MetaValue):
     def __init__(self, value, tgg=None):
         super().__init__(tgg)
         self._value = value

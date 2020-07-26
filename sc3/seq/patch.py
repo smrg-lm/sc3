@@ -1170,7 +1170,7 @@ class If(AbstractBox):
 
     def _check_fork(self, *fork):
         for b in fork:
-            if isinstance(b, Outlet) or hasattr(b, '_get_roots')\
+            if (isinstance(b, Outlet) or hasattr(b, '_get_roots'))\
             and b._get_roots():
                 raise ValueError("true/false expressions can't contain roots")
 

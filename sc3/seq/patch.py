@@ -299,14 +299,14 @@ class BoxObject():
 
     def __init__(self, tgg=None, msg=None):
         self._active = True
-        self.__patch = Patch.current_patch
-        self.__prev_cycle = -1
-        self.__cache = self.__NOCACHE
-        self.__parents = _UniqueList()
-        self.__children = _UniqueList()
-        self.__roots = _UniqueList()
-        self.__messages = _UniqueList()
-        self.__triggers = _UniqueList()
+        self._patch = Patch.current_patch
+        self._prev_cycle = -1
+        self._cache = self.__NOCACHE
+        self._parents = _UniqueList()
+        self._children = _UniqueList()
+        self._roots = _UniqueList()
+        self._messages = _UniqueList()
+        self._triggers = _UniqueList()
         if tgg:
             tgg._connect(self)
         if msg:
@@ -334,15 +334,15 @@ class BoxObject():
             raise StopIteration
 
         try:
-            if self.__triggers:
+            if self._triggers:
                 if self._cached:
                     return self._cache
                 else:
                     ret = self._cache = next(self)
                     return ret
             else:
-                if self._patch._cycle > self.__prev_cycle:
-                    self.__prev_cycle = self._patch._cycle
+                if self._patch._cycle > self._prev_cycle:
+                    self._prev_cycle = self._patch._cycle
                     ret = self._cache = next(self)
                     return ret
                 else:
@@ -358,40 +358,25 @@ class BoxObject():
             self._active = False
 
     @property
-    def _patch(self):
-        return self.__patch
-
-    @property
-    def _cache(self):
-        return self.__cache
-
-    @_cache.setter
-    def _cache(self, value):
-        self.__cache = value
-
-    @property
     def _cached(self):
-        return self.__cache is not self.__NOCACHE
+        return self._cache is not self.__NOCACHE
 
     def _clear_cache(self):
-        self.__cache = self.__NOCACHE
-        for r in self.__parents:
+        self._cache = self.__NOCACHE
+        for r in self._parents:
             if r._cached:
                 r._clear_cache()
 
-    @property
-    def _parents(self):
-        return self.__parents
-
     def _add_parent(self, value):
-        self.__parents.append(value)
+        self._parents.append(value)
+        value._children.append(self)
 
     def _remove_parent(self, value):
-        self.__parents.remove(value)
+        self._parents.remove(value)
+        value._children.remove(self)
 
     def _dyn_add_parent(self, obj):
         self._add_parent(obj)
-        obj._add_child(self)
         for trigger in self._triggers:
             obj._patch._add_trigger(trigger)
         for message in self._messages:
@@ -406,83 +391,51 @@ class BoxObject():
             obj._patch._remove_message(message)
 
     @property
-    def _children(self):
-        return self.__children
-
-    def _add_child(self, value):
-        self.__children.append(value)
-
-    def _remove_child(self, value):
-        self.__children.remove(value)
-
-    @property
-    def _roots(self):
+    def _get_roots(self):
         # Outputs are searched towards the roots.
         ret = _UniqueList()
         for p in self._parents:
-            for r in p._roots:
+            for r in p._get_roots():
                 ret.append(r)
-        for r in self.__roots:
+        for r in self._roots:
             ret.append(r)
         return ret
 
-    def _add_root(self, value):
-        self.__roots.append(value)
-
-    def _remove_root(self, value):
-        self.__roots.remove(value)
-
-    @property
-    def _triggers(self):
-        return self.__triggers
-
-    def _add_trigger(self, value):
-        self.__triggers.append(value)
 
     def _remove_trigger(self, value):
-        self.__triggers.remove(value)
+        self._triggers.remove(value)
 
     def _get_triggers(self):
         # Triggers are searched towards the leaves.
         ret = _UniqueList()
-        for child in self.__children:
+        for child in self._children:
             ret.extend(child._get_triggers())
-        for message in self.__messages:
+        for message in self._messages:
             ret.extend(message._triggers)
-        if self.__triggers:
-            ret.extend(self.__triggers)
+        if self._triggers:
+            ret.extend(self._triggers)
         return ret
 
     def _get_triggered_objects(self):
         ret = _UniqueList()
-        for child in self.__children:
+        for child in self._children:
             ret.extend(child._get_triggered_objects())
-        if self.__triggers:
+        if self._triggers:
             ret.append(self)
-        for message in self.__messages:
+        for message in self._messages:
             if message._trigger:
                 ret.append(message)
         return ret
-
-    @property
-    def _messages(self):
-        return self.__messages
-
-    def _add_message(self, value):
-        self.__messages.append(value)
-
-    def _remove_message(self, value):
-        self.__messages.remove(value)
 
     def _get_msg_recv(self):
         return self
 
     def _get_messages(self):
         ret = _UniqueList()
-        for child in self.__children:
+        for child in self._children:
             ret.extend(child._get_messages())
-        if self.__messages:
-            ret.extend(self.__messages)
+        if self._messages:
+            ret.extend(self._messages)
         return ret
 
 
@@ -507,7 +460,7 @@ class TriggerObject():
     def _connect(self, obj):
         if not obj in self._objs:
             self._objs.append(obj)
-            obj._add_trigger(self)
+            obj._triggers.append(self)
 
     def _disconnect(self, obj):  # no useful?
         if obj in self._objs:
@@ -523,10 +476,10 @@ class TriggerObject():
         return [o for o in self._objs if isinstance(o, Message)]
 
     def _get_active_roots(self):
-        roots = set(r for b in self._boxes for r in b._roots if r._active)
+        roots = set(r for b in self._boxes for r in b._get_roots() if r._active)
         roots |= set(
             r for m in self._messages for o in m._objs\
-            for r in o._roots if r._active)
+            for r in o._get_roots() if r._active)
         return tuple(roots)
 
     def _get_active_messages(self):
@@ -626,13 +579,12 @@ class RootBox(BoxObject):
     def __init__(self, tgg=None, msg=None):
         super().__init__(tgg, msg)
         self._patch._roots.append(self)
-        self._add_root(self)  # Needed for triggers.
+        self._roots.append(self)  # Needed for triggers.
 
     def _add_input(self, value):
         if not isinstance(value, RootBox) and isinstance(value, BoxObject):
-            value._add_root(self)
+            value._roots.append(self)
             value._add_parent(self)
-            self._add_child(value)
         else:
             raise ValueError(f'{value} is invalid RootBox input')
 
@@ -642,7 +594,7 @@ class RootBox(BoxObject):
     #     self._active = False
     #     for trigger in self._triggers:
     #         # No other active root for this root's trigger.
-    #         if not any(r._active for o in trigger._objs for r in o._roots):
+    #         if not any(r._active for o in trigger._objs for r in o._get_roots()):
     #             trigger._active = False
 
 
@@ -677,7 +629,6 @@ class ValueList(BoxObject):
         self._len = len(lst)
         for obj in lst:
             obj._add_parent(self)
-            self._add_child(obj)
             self._lst.append(obj)
 
     def __next__(self):
@@ -935,7 +886,7 @@ class Message():
         self._active = True
         self._lst = lst
         self.__iterator = iter(lst)
-        self.__triggers = _UniqueList()
+        self._triggers = _UniqueList()
         tgg._connect(self)
         self._bang = bang
         self._objs = []
@@ -965,12 +916,12 @@ class Message():
     def _connect(self, obj):
         if not obj in self._objs:
             self._objs.append(obj)
-            obj._add_message(self)
+            obj._messages.append(self)
 
     def _disconnect(self, obj):  # no useful?
         if obj in self._objs:
             self._objs.remove(obj)
-            obj._remove_message(self)
+            obj._messages.remove(self)
 
 
     # Needed by _evaluate_cycle.
@@ -984,7 +935,7 @@ class Message():
 
     def _deactivate(self):
         self._active = False
-        for trigger in self.__triggers:
+        for trigger in self._triggers:
             # Disable the trigger if only connected to this message.
             if len(trigger._objs) == 1:
                 trigger._active = False
@@ -995,16 +946,6 @@ class Message():
 
 
     # Needed by triggers interface.
-
-    @property
-    def _triggers(self):
-        return self.__triggers
-
-    def _add_trigger(self, trigger):
-        self.__triggers.append(trigger)
-
-    def _remove_trigger(self, trigger):
-        self.__triggers.remove(trigger)
 
     def _clear_cache(self):
         pass
@@ -1033,12 +974,12 @@ p = test()
 
 class Tidyner():
     def __init__(self):
-        self.__patch = Patch.current_patch
-        self.__patch._cleaners.append(self)
+        self._patch = Patch.current_patch
+        self._patch._cleaners.append(self)
 
     @property
     def _patch(self):
-        return self.__patch
+        return self._patch
 
 
 class Cleanup(Tidyner):
@@ -1179,7 +1120,6 @@ class UnopBox(AbstractBox):
         self.selector = selector
         self.a = a
         a._add_parent(self)
-        self._add_child(a)
 
     def __next__(self):
         return self.selector(self.a._evaluate())
@@ -1194,7 +1134,6 @@ class BinopBox(AbstractBox):
         for obj in a, b:
             if isinstance(obj, BoxObject):
                 obj._add_parent(self)
-                self._add_child(obj)
 
     def __next__(self):
         a = self.a._evaluate() if isinstance(self.a, BoxObject) else self.a
@@ -1209,11 +1148,9 @@ class NaropBox(AbstractBox):
         self.a = a
         self.args = args
         a._add_parent(self)
-        self._add_child(a)
         for obj in args:
             if isinstance(obj, BoxObject):
                 obj._add_parent(self)
-                self._add_child(obj)
 
     def __next__(self):
         args = [obj._evaluate() if isinstance(obj, BoxObject)\
@@ -1230,11 +1167,11 @@ class If(AbstractBox):
         for obj in cond, true, false:  # inactive branch keeps running its own triggers.
             if isinstance(obj, BoxObject):
                 obj._add_parent(self)
-                self._add_child(obj)
 
     def _check_fork(self, *fork):
         for b in fork:
-            if isinstance(b, Outlet) or hasattr(b, '_roots') and b._roots:
+            if isinstance(b, Outlet) or hasattr(b, '_get_roots')\
+            and b._get_roots():
                 raise ValueError("true/false expressions can't contain roots")
 
     def __next__(self):
@@ -1322,7 +1259,6 @@ class Map(BoxObject):
         for key, value in dct.items():
             value = Value(value)
             value._add_parent(self)
-            self._add_child(value)
             self._params[key] = value
 
     def __next__(self):

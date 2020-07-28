@@ -157,7 +157,9 @@ class Patch():
             evaluables = []
             beat, (trigger, messages, roots) = self._queue.pop()
 
-            yield (beat - prev_beat) * self._tempo_scale
+            # round should sync sub-patches so they are evaluated always first
+            # at the same clock's queue time because play schedules them before.
+            yield round((beat - prev_beat) * self._tempo_scale, 9)
             if self.__stop:
                 break
             self._beat = beat

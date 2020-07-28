@@ -288,7 +288,7 @@ def test():
     Trace(res1, 'res1')
     Trace(res2, 'res2')
 
-t = test()
+t = test(play=False)
 print([out for out in t.roots])
 t.play()
 '''
@@ -390,7 +390,6 @@ class BoxObject():
         for message in self._messages:
             obj._patch._remove_message(message)
 
-    @property
     def _get_roots(self):
         # Outputs are searched towards the roots.
         ret = _UniqueList()
@@ -400,10 +399,6 @@ class BoxObject():
         for r in self._roots:
             ret.append(r)
         return ret
-
-
-    def _remove_trigger(self, value):
-        self._triggers.remove(value)
 
     def _get_triggers(self):
         # Triggers are searched towards the leaves.
@@ -465,7 +460,7 @@ class TriggerObject():
     def _disconnect(self, obj):  # no useful?
         if obj in self._objs:
             self._objs.remove(obj)
-            obj._remove_trigger(self)
+            obj._triggers.remove(self)
 
     @property
     def _boxes(self):
@@ -974,10 +969,6 @@ class Tidyner():
         self._patch = Patch.current_patch
         self._patch._cleaners.append(self)
 
-    @property
-    def _patch(self):
-        return self._patch
-
 
 class Cleanup(Tidyner):
     def __init__(self, lst, method=None, delay=None):
@@ -1094,6 +1085,8 @@ def test():
     target = If(seq < 5, Value(g), Value(h))
     Note(name=Value('ping'), freq=bi.midicps(seq + 60), target=target)
     Cleanup([g, h])
+
+# p = test()
 '''
 
 
@@ -1322,7 +1315,6 @@ def p1():
     Trace(a)  #, tgg=Trig(1))
 
 p = p1()
-p.play()
 '''
 
 

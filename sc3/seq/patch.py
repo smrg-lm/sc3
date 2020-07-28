@@ -58,6 +58,8 @@ class Patch():
     current_patch = None
 
     def __init__(self):
+        self._parent = Patch.current_patch
+        self._clock = None
         self._outlet = None
         self._roots = _UniqueList()
         self._triggers = _UniqueList()
@@ -88,10 +90,18 @@ class Patch():
     def play(self, clock=None, quant=None):
         if self._routine:
             return
+
         def patch_routine():
             yield from self._gen_function()
+
+        if self._parent:
+            if clock:
+                _logger.warning("Sub-patches inherit parent's clock.")
+            self._clock = self._parent._clock
+        else:
+            self._clock = clock or clk.SystemClock
         self._routine = stm.Routine(patch_routine)
-        self._routine.play(clock or clk.SystemClock, quant)  # SystemClock ignores quant.
+        self._routine.play(self._clock, quant)  # SystemClock ignores quant.
         # *** TODO: Routine could notify, or not.
 
     def stop(self):
@@ -248,7 +258,7 @@ class PatchFunction():
     def __init__(self, func):
         self.func = func
 
-    def __call__(self, *args, play=True, **kwargs):
+    def __call__(self, *args, play=True, clock=None, quant=None, **kwargs):
         try:
             # Patch puede ser context.
             new_patch = Patch()
@@ -258,7 +268,7 @@ class PatchFunction():
         finally:
             Patch.current_patch = prev_patch
         if play:
-            new_patch.play()
+            new_patch.play(clock, quant)
         return new_patch
 
 

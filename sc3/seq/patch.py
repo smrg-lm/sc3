@@ -691,7 +691,6 @@ def p1():
     Trace(a, tgg=Trig(1))
 
 p = p1()
-p.play()
 '''
 
 
@@ -799,8 +798,6 @@ def ping(freq=440, amp=0.1):
     env = EnvGen.kr(Env.perc(), done_action=Done.FREE_SELF)
     Out(0, (sig * env).dup())
 
-# después...
-
 @patch
 def test():
     freq = Seq([440, 480, 540, 580] * 2, tgg=Trig(1))
@@ -809,7 +806,7 @@ def test():
     note = Note(name=name, freq=freq, amp=amp)
     # Trig(3)._connect(note)
 
-p = test()
+# p = test()
 '''
 
 
@@ -850,7 +847,6 @@ def a():
 @patch
 def b():
     pa = a()
-    pa.play()
 
     freq = Inlet(pa)
     Trace(freq, 'Inlet', Trig(1))
@@ -859,10 +855,6 @@ def b():
     Trace(freq2, 'Seq B', Trig(1))
 
 pb = b()
-pb.play()
-# Hay el BUG de print en ipython, el timing de las rutinas no se altera
-# el problema es que retiene el la escritura a stdout (y luego tira
-# Exception None, además).
 '''
 
 
@@ -1044,6 +1036,7 @@ p = test()
 '''
 
 '''
+from logging import info
 from sc3.all import *
 from sc3.seq.patch import *
 
@@ -1064,7 +1057,7 @@ def test():
 
     @cleanup(delay=2)
     def tidyner():
-        print('free group')
+        info('free group')
         group.free()
 
 # p = test()
@@ -1317,6 +1310,22 @@ def p1():
         Seq([10, 20], tgg=Trig(2)),
         Seq([1000, 2000], tgg=Trig(1))
     ], tgg=Trig(4))
+    Trace(a)  #, tgg=Trig(1))
+
+p = p1()
+'''
+
+'''
+from sc3.all import *
+from sc3.seq.patch import *
+
+@patch
+def p1():
+    a = Seq([
+        Seq([1, 2], tgg=Trig(1)),
+        11, 22,  # Special case, no trigger in the chain, stops after 11.
+        Seq([1000, 2000], tgg=Trig(1))
+    ])
     Trace(a)  #, tgg=Trig(1))
 
 p = p1()

@@ -124,7 +124,6 @@ class Patch():
             self._neatq.add(neatobj.delay, neatobj)
 
     def _add_trigger(self, trigger):
-        # Method used for _dyn_add_parent too.
         if trigger in self._triggers:
             return
         self._triggers.append(trigger)
@@ -134,7 +133,6 @@ class Patch():
             self._beat + next(trigger), (trigger, messages, roots))
 
     def _remove_trigger(self, trigger):
-        # Method used for _dyn_add_parent too.
         if trigger not in self._triggers:
             return
         if not trigger._get_active_messages()\
@@ -201,14 +199,15 @@ class Patch():
                 break
 
             for entry in evaluables:
-                if entry.trig._active\
-                and any(r._active\
-                        for r in set(entry.messages) | set(entry.roots)):
-                    newmessages = tuple(m for m in entry.messages if m._active)
-                    newroots = tuple(r for r in entry.roots if r._active)
-                    self._queue.add(  # Tends to error/overflow by resolution.
+                if entry.trig._active:
+                    messages = entry.trig._get_active_messages()
+                    roots = entry.trig._get_active_roots()
+                    if not messages and not roots:
+                        continue
+                    # Time tends to error/overflow by resolution over time.
+                    self._queue.add(
                         entry.beat + entry.next_beat,
-                        (entry.trig, newmessages, newroots))
+                        (entry.trig, messages, roots))
 
             prev_beat = beat
 
@@ -372,28 +371,30 @@ class BoxObject():
             if r._cached:
                 r._clear_cache()
 
-    def _add_parent(self, value):
-        self._parents.append(value)
-        value._children.append(self)
+    def _add_parent(self, box, dyn=False):
+        self._parents.append(box)
+        box._children.append(self)
+        if isinstance(box, RootBox):
+            self._roots.append(box)
+            self._patch._roots.append(box)
+        if dyn:
+            for trigger in self._get_triggers():
+                self._patch._add_trigger(trigger)
+            for message in self._get_messages():
+                self._patch._add_message(message)
 
-    def _remove_parent(self, value):
-        self._parents.remove(value)
-        value._children.remove(self)
-
-    def _dyn_add_parent(self, obj):
-        self._add_parent(obj)
-        for trigger in self._triggers:
-            obj._patch._add_trigger(trigger)
-        for message in self._messages:
-            obj._patch._add_message(message)
-
-    def _dyn_remove_parent(self, obj):
-        self._remove_parent(obj)
-        obj._remove_child(self)
-        for trigger in self._triggers:
-            obj._patch._remove_trigger(trigger)
-        for message in self._messages:
-            obj._patch._remove_message(message)
+    def _remove_parent(self, box, dyn=False):
+        if dyn:
+            for trigger in self._get_triggers():
+                self._patch._remove_trigger(trigger)
+            for message in self._get_messages():
+                self._patch._remove_message(message)
+        self._parents.remove(box)
+        box._children.remove(self)
+        if isinstance(box, RootBox):
+            self._roots.remove(box)
+            if not box._children:
+                self._patch._roots.remove(box)
 
     def _get_roots(self):
         # Outputs are searched towards the roots.
@@ -527,15 +528,7 @@ p = test()
 class RootBox(BoxObject):
     def __init__(self, tgg=None, msg=None):
         super().__init__(tgg, msg)
-        self._patch._roots.append(self)
         self._roots.append(self)  # Needed for triggers.
-
-    def _add_input(self, value):
-        if not isinstance(value, RootBox) and isinstance(value, BoxObject):
-            value._roots.append(self)
-            value._add_parent(self)
-        else:
-            raise ValueError(f'{value} is invalid RootBox input')
 
     # def _deactivate(self):
     #     # Is redundant _evaluate_cycle checks not only active triggers but
@@ -555,7 +548,7 @@ class Outlet(RootBox):
             self._value = ValueList(value)
         elif not isinstance(value, ValueList):
             self._value = ValueList([value])
-        self._add_input(self._value)
+        self._value._add_parent(self)
 
     def __next__(self):
         return self._value._evaluate()
@@ -673,11 +666,11 @@ class Event(RootBox):
                 self._wait = False
                 return
             self._before_reparent = False
-            self._obj._dyn_add_parent(self)
+            self._obj._add_parent(self, True)
         try:
             return self._obj._evaluate()
         except StopIteration:
-            self._obj._dyn_remove_parent(self)
+            self._obj._remove_parent(self, True)
             raise
 
 
@@ -699,7 +692,7 @@ class Trace(RootBox):
         super().__init__(tgg, msg)
         self._graph = graph
         self._prefix = prefix or 'Trace'
-        self._add_input(graph)
+        self._graph._add_parent(self)
 
     def __next__(self):
         value = self._graph._evaluate()
@@ -730,8 +723,8 @@ class Tempo(RootBox):
     def __init__(self, bpm, tgg=None, msg=None):
         super().__init__(tgg, msg)
         self._bpm = bpm
-        self._hz = bpm / 60
-        self._add_input(self._hz)
+        self._hz = Value(bpm / 60)
+        self._hz._add_parent(self)
 
     def __next__(self):
         value = self._hz._evaluate()
@@ -765,10 +758,10 @@ class Note(RootBox):
         super().__init__()
         self._params = dict()
         for i, v in enumerate(args, 0):
-            self._add_input(v)
+            v._add_parent(self)
             self._params[i] = v
         for k, v in kwargs.items():
-            self._add_input(v)
+            v._add_parent(self)
             self._params[k] = v
 
     def __next__(self):
@@ -1283,12 +1276,12 @@ class Seq(AbstractBox):
             for obj in self._lst:
                 if isinstance(obj, BoxObject):
                     try:
-                        obj._dyn_add_parent(self)
+                        obj._add_parent(self, True)
                         while True:
                              yield obj._evaluate()
                     except StopIteration:
                         pass
-                    obj._dyn_remove_parent(self)
+                    obj._remove_parent(self, True)
                 else:
                     yield obj
 

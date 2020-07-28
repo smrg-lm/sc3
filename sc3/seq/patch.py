@@ -524,57 +524,6 @@ p = test()
 '''
 
 
-class _EventDelta(TriggerObject):
-    def __init__(self, time):
-        super().__init__()
-        self._delta = time
-
-    def __next__(self):
-        for obj in self._objs:
-            obj._clear_cache()
-        self._active = False
-        return self._delta
-
-
-class Event(BoxObject):
-    def __init__(self, time, obj):
-        super().__init__()
-        self._obj = obj
-        self._time = time
-        self._before_reparent = True
-        self._wait = time > 0.0
-        if self._wait:
-            self._trigger = _EventDelta(time)
-            self._trigger._connect(self)
-
-    def __next__(self):
-        if self._before_reparent:
-            if self._wait:
-                self._wait = False
-                return
-            self._obj._dyn_add_parent(self)
-            self._before_reparent = False
-        try:
-            return self._obj._evaluate()
-        except StopIteration:
-            self._obj._dyn_remove_parent(self)
-            raise
-
-
-'''
-from sc3.all import *
-from sc3.seq.patch import *
-
-@patch
-def p1():
-    a = Event(3, Seq([1, 2, 3, 4, 5], tgg=Trig(4)))
-    Trace(a, tgg=Trig(1))
-
-p = p1()
-p.play()
-'''
-
-
 class RootBox(BoxObject):
     def __init__(self, tgg=None, msg=None):
         super().__init__(tgg, msg)
@@ -695,6 +644,54 @@ def inlst():
 
 # outlst()
 inlst()
+'''
+
+
+class Event(RootBox):
+
+    class _EventDelta(TriggerObject):
+        def __init__(self, delta):
+            super().__init__()
+            self._delta = delta
+
+        def __next__(self):
+            for obj in self._objs:
+                obj._clear_cache()
+            self._active = False
+            return self._delta
+
+    def __init__(self, delta, obj):
+        super().__init__(tgg=self._EventDelta(delta))
+        self._delta = delta
+        self._obj = Value(obj)
+        self._before_reparent = True
+        self._wait = True
+
+    def __next__(self):
+        if self._before_reparent:
+            if self._wait:
+                self._wait = False
+                return
+            self._before_reparent = False
+            self._obj._dyn_add_parent(self)
+        try:
+            return self._obj._evaluate()
+        except StopIteration:
+            self._obj._dyn_remove_parent(self)
+            raise
+
+
+'''
+from sc3.all import *
+from sc3.seq.patch import *
+
+@patch
+def p1():
+    a = Event(3, Seq([1, 2, 3, 4, 5], tgg=Trig(4)))
+    Trace(a, tgg=Trig(1))
+
+p = p1()
+p.play()
 '''
 
 

@@ -115,9 +115,8 @@ class Patch():
 
     def _add_trigger(self, trigger):
         # Method used for _dyn_add_parent too.
-        if trigger in self._triggers and trigger._active:
+        if trigger in self._triggers:
             return
-        trigger._active = True
         self._triggers.append(trigger)
         messages = trigger._get_active_messages()
         roots = trigger._get_active_roots()
@@ -129,21 +128,15 @@ class Patch():
         if trigger not in self._triggers:
             return
         if not trigger._get_active_messages()\
-        or not trigger._get_active_roots():
+        and len(trigger._get_active_roots()) < 2:
             trigger._active = False  # Cancel in queue.
             self._triggers.remove(trigger)
 
     def _add_message(self, message):
         self._messages.append(message)
-        # Needed for _dyn_add_parent.
-        for trigger in message._triggers:
-            self._add_trigger(trigger)
 
     def _remove_message(self, message):
         self._messages.remove(message)
-        # Needed for _dyn_add_parent.
-        for trigger in message._triggers:
-            self._remove_trigger(trigger)
 
     def _gen_function(self):
         self._init_queue()

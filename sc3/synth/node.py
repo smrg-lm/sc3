@@ -255,7 +255,7 @@ class Node(gpp.NodeParameter):
         return group.move_node_to_tail_msg(self) # se implementa en AbstractGroup
 
     def order_nodes_msg(self, nodes):
-        msg = ['/n_before'] # 18 # BUG: en sclang, 18 es '/n_before', el comentario está mal. Revisar todos los números.
+        msg = ['/n_after'] # 19
         for first, to_move_after in utl.pairwise(nodes):
             msg.append(to_move_after.node_id)
             msg.append(first.node_id)

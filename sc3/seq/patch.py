@@ -918,12 +918,12 @@ class Message():
     def _deactivate(self):
         self._active = False
         for trigger in self._triggers:
-            # Disable the trigger if only connected to this message.
+            # Disable trigger if doesn't have other connection.
             if len(trigger._objs) == 1:
                 trigger._active = False
-            # Disable rootbox if only has this trigger.
+            # Disable rootbox if doesn't have other active triggers.
             for root in trigger._get_active_roots():
-                if len(root._get_triggers()) < 2:
+                if not any(t._active for t in root._get_triggers()):
                     root._active = False
 
 

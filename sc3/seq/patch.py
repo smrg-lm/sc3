@@ -124,7 +124,7 @@ class Patch():
             self._neatq.add(neatobj.delay, neatobj)
 
     def _add_trigger(self, trigger):
-        if trigger in self._triggers:
+        if trigger in self._triggers or not trigger._active:
             return
         self._triggers.append(trigger)
         messages = trigger._get_active_messages()
@@ -141,7 +141,8 @@ class Patch():
             self._triggers.remove(trigger)
 
     def _add_message(self, message):
-        self._messages.append(message)
+        if message._active:
+            self._messages.append(message)
 
     def _remove_message(self, message):
         self._messages.remove(message)
@@ -374,9 +375,8 @@ class BoxObject():
     def _add_parent(self, box, dyn=False):
         self._parents.append(box)
         box._children.append(self)
-        if isinstance(box, RootBox):
+        if isinstance(box, RootBox) and not box._replaced:
             self._roots.append(box)
-            self._patch._roots.append(box)
         if dyn:
             for trigger in self._get_triggers():
                 self._patch._add_trigger(trigger)
@@ -529,6 +529,21 @@ class RootBox(BoxObject):
     def __init__(self, tgg=None, msg=None):
         super().__init__(tgg, msg)
         self._roots.append(self)  # Needed for triggers.
+        self._patch._roots.append(self)
+        self._replaced = False
+
+    def _add_parent(self, box, dyn=False):
+        # Roots are replaced by other roots.
+        if isinstance(box, RootBox):
+            self._remove_from_roots()
+        super()._add_parent(box, dyn)
+
+    def _remove_from_roots(self):
+        self._roots.remove(self)
+        for child in self._children:
+            child._roots.remove(self)
+        self._patch._roots.remove(self)
+        self._replaced = True
 
     # def _deactivate(self):
     #     # Is redundant _evaluate_cycle checks not only active triggers but
@@ -657,21 +672,29 @@ class Event(RootBox):
         super().__init__(tgg=self._EventDelta(delta))
         self._delta = delta
         self._obj = Value(obj)
-        self._before_reparent = True
+        # Needs to remove because is going to replace it later.
+        if isinstance(self._obj, RootBox):
+            self._obj._remove_from_roots()
+        for message in self._obj._get_messages():
+            message._active = False
         self._wait = True
 
+    def _add_object(self):
+        # Messages also need initial evaluation. In this
+        # case it will be inside a root evaluation call.
+        messages = self._obj._get_messages()
+        messages = [m for m in messages if m not in self._patch._messages]
+        for m in messages: m._active = True
+        self._patch._evaluate_cycle(messages)
+        self._obj._add_parent(self, True)
+
     def __next__(self):
-        if self._before_reparent:
-            if self._wait:
-                self._wait = False
+        if self._wait:
+            if self._delta > self._patch._beat:
                 return
-            self._before_reparent = False
-            self._obj._add_parent(self, True)
-        try:
-            return self._obj._evaluate()
-        except StopIteration:
-            self._obj._remove_parent(self, True)
-            raise
+            self._wait = False
+            self._add_object()
+        return self._obj._evaluate()
 
 
 '''
@@ -684,6 +707,48 @@ def p1():
     Trace(a, tgg=Trig(1))
 
 p = p1()
+'''
+
+'''
+from sc3.all import *
+from sc3.seq.patch import *
+
+s.boot()
+
+@synthdef
+def ping(freq=440, amp=0.05):
+    sig = SinOsc(freq) * amp
+    env = EnvGen.kr(Env.perc(), done_action=Done.FREE_SELF)
+    Out(0, (sig * env).dup())
+
+@patch
+def test():
+    Event(2, Note(name=Value('ping'), freq=Seq([440, 550, 660], repeat=5, tgg=Trig(1.1))))
+    Event(4, Note(name=Value('ping'), freq=Seq([1220, 1230, 1320], repeat=4, tgg=Trig(1))))
+    Event(6, Note(name=Value('ping'), freq=Seq([350, 500, 750], repeat=5, tgg=Trig(3))))
+
+# p = test()
+'''
+
+'''
+from logging import info
+from sc3.all import *
+from sc3.seq.patch import *
+
+class FakeObject():
+    def on(self, note, vel=63):
+        info(f'note on! {note}, {vel}')
+    def off(self, note, vel=63):
+        info(f'note off! {note}, {vel}')
+
+@patch
+def test():
+    msg = Message(['on 60 16', 'on 72', 'off 60', 'off 72'], tgg=Trig(1))
+    box = Box(FakeObject(), msg=msg)
+    e = Event(5, box)
+    Trace(e)
+
+p = test()
 '''
 
 

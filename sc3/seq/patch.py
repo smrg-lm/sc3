@@ -585,6 +585,7 @@ class ValueList(BoxObject):
         self._lst = []
         self._len = len(lst)
         for obj in lst:
+            obj = Value(obj)
             obj._add_parent(self)
             self._lst.append(obj)
 
@@ -723,9 +724,9 @@ def ping(freq=440, amp=0.05):
 
 @patch
 def test():
-    Event(2, Note(name=Value('ping'), freq=Seq([440, 550, 660], repeat=5, tgg=Trig(1.1))))
-    Event(4, Note(name=Value('ping'), freq=Seq([1220, 1230, 1320], repeat=4, tgg=Trig(1))))
-    Event(6, Note(name=Value('ping'), freq=Seq([350, 500, 750], repeat=5, tgg=Trig(3))))
+    Event(2, Note(name='ping', freq=Seq([440, 550, 660], repeat=5, tgg=Trig(1.1))))
+    Event(4, Note(name='ping', freq=Seq([1220, 1230, 1320], repeat=4, tgg=Trig(1))))
+    Event(6, Note(name='ping', freq=Seq([350, 500, 750], repeat=5, tgg=Trig(3))))
 
 # p = test()
 '''
@@ -755,7 +756,7 @@ p = test()
 class Trace(RootBox):
     def __init__(self, graph, prefix=None, tgg=None, msg=None):
         super().__init__(tgg, msg)
-        self._graph = graph
+        self._graph = Value(graph)
         self._prefix = prefix or 'Trace'
         self._graph._add_parent(self)
 
@@ -823,9 +824,11 @@ class Note(RootBox):
         super().__init__()
         self._params = dict()
         for i, v in enumerate(args, 0):
+            v = Value(v)
             v._add_parent(self)
             self._params[i] = v
         for k, v in kwargs.items():
+            v = Value(v)
             v._add_parent(self)
             self._params[k] = v
 
@@ -860,8 +863,7 @@ def ping(freq=440, amp=0.1):
 def test():
     freq = Seq([440, 480, 540, 580] * 2, tgg=Trig(1))
     amp = Seq([0.01, 0.1] * 4)  #, tgg=Trig(0.4))
-    name = Value('ping')
-    note = Note(name=name, freq=freq, amp=amp)
+    note = Note(name='ping', freq=freq, amp=amp)
     # Trig(3)._connect(note)
 
 # p = test()
@@ -1111,7 +1113,7 @@ def test():
     group = Group()
     freq = Seq([60, 62, 64] * 20, tgg=Trig(5)).midicps()
     scale = Seq([1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7] * 40, tgg=Trig(7.1))
-    Note(name=Value('ping'), freq=freq * scale, target=Value(group))
+    Note(name='ping', freq=freq * scale, target=group)
 
     @cleanup(delay=2)
     def tidyner():
@@ -1138,8 +1140,8 @@ def test():
     g = Group()
     h = Group(g, add_action='addAfter')
     seq = Seq([0, 2, 4, 5, 7, 9, 11], repeat=100, tgg=Every(1))
-    target = If(seq < 5, Value(g), Value(h))
-    Note(name=Value('ping'), freq=bi.midicps(seq + 60), target=target)
+    target = If(seq < 5, g, h)
+    Note(name='ping', freq=bi.midicps(seq + 60), target=target)
     Cleanup([g, h])
 
 # p = test()
@@ -1164,7 +1166,7 @@ class UnopBox(AbstractBox):
     def __init__(self, selector, a):
         super().__init__()
         self.selector = selector
-        self.a = a
+        self.a = Value(a)
         a._add_parent(self)
 
     def __next__(self):
@@ -1175,15 +1177,14 @@ class BinopBox(AbstractBox):
     def __init__(self, selector, a, b):
         super().__init__()
         self.selector = selector
-        self.a = a
-        self.b = b
-        for obj in a, b:
-            if isinstance(obj, BoxObject):
-                obj._add_parent(self)
+        self.a = Value(a)
+        self.b = Value(b)
+        for obj in self.a, self.b:
+            obj._add_parent(self)
 
     def __next__(self):
-        a = self.a._evaluate() if isinstance(self.a, BoxObject) else self.a
-        b = self.b._evaluate() if isinstance(self.b, BoxObject) else self.b
+        a = self.a._evaluate()
+        b = self.b._evaluate()
         return self.selector(a, b)
 
 
@@ -1191,28 +1192,29 @@ class NaropBox(AbstractBox):
     def __init__(self, selector, a, *args):
         super().__init__()
         self.selector = selector
-        self.a = a
-        self.args = args
+        self.a = Value(a)
         a._add_parent(self)
+        self.args = []
         for obj in args:
-            if isinstance(obj, BoxObject):
-                obj._add_parent(self)
+            obj = Value(obj)
+            obj._add_parent(self)
+            self.args.append(obj)
 
     def __next__(self):
-        args = [obj._evaluate() if isinstance(obj, BoxObject)\
-                else obj for obj in self.args]
-        return self.selector(self.a(), *args)
+        args = [obj._evaluate() for obj in self.args]
+        return self.selector(self.a._evaluate(), *args)
 
 
 class If(AbstractBox):
     def __init__(self, cond, true, false):
         super().__init__()
-        self.cond = cond
+        self.cond = Value(cond)
+        true = Value(true)
+        false = Value(false)
         self._check_fork(true, false)
         self.fork = (true, false)
-        for obj in cond, true, false:  # inactive branch keeps running its own triggers.
-            if isinstance(obj, BoxObject):
-                obj._add_parent(self)
+        for obj in (self.cond, *self.fork):  # inactive branch keeps running its own triggers.
+            obj._add_parent(self)
 
     def _check_fork(self, *fork):
         for b in fork:
@@ -1221,13 +1223,9 @@ class If(AbstractBox):
                 raise ValueError("true/false expressions can't contain roots")
 
     def __next__(self):
-        cond = self.cond._evaluate() if isinstance(self.cond, BoxObject)\
-               else self.cond
+        cond = self.cond._evaluate()
         cond = int(not cond)
-        if isinstance(self.fork[cond], BoxObject):
-            return self.fork[cond]._evaluate()
-        else:
-            return self.fork[cond]
+        return self.fork[cond]._evaluate()
 
 
 '''
@@ -1237,9 +1235,9 @@ from sc3.seq.patch import *
 @patch
 def test():
     a = Seq([1, 2, 3, 4], tgg=Trig(1))
-    b = Value(0)
+    b = 0
     c = a + b
-    i = If(c > 2, Value(True), Value(False))
+    i = If(c > 2, True, False)
     Trace(i)
 
 g = test(play=False)._gen_function()
@@ -1394,16 +1392,12 @@ class FunctionBox(AbstractBox):
     def __init__(self, func, *args, tgg=None, **kwargs):
         super().__init__(tgg)
         self.func = func
-        self.args = args
-        self.kwargs = kwargs
-        for obj in (*args, *kwargs.values()):
-            if isinstance(obj, BoxObject):
-                obj._add_parent(self)
+        self.args = [Value(arg) for arg in args]
+        self.kwargs = {key: Value(value) for key, value in kwargs.items()}
+        for obj in (*self.args, *self.kwargs.values()):
+            obj._add_parent(self)
 
     def __next__(self):
-        args = [
-            x._evaluate() if isinstance(x, BoxObject) else x for x in self.args]
-        kwargs = {
-            key: value._evaluate() if isinstance(value, BoxObject) else value\
-                 for key, value in self.kwargs.items()}
+        args = [x._evaluate() for x in self.args]
+        kwargs = {key: value._evaluate() for key, value in self.kwargs.items()}
         return self.func(*args, **kwargs)

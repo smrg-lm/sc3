@@ -376,8 +376,6 @@ class SynthDef(metaclass=MetaSynthDef):
             # // This populates the _descendants and _antecedents.
             ugen._init_topo_sort()  # pong
         for ugen in reversed(self._children):
-            ugen._descendants = list(ugen._descendants)
-            ugen._descendants.sort(key=lambda x: x._synth_index)
             # // All ugens with no antecedents are made available.
             ugen._make_available()
 

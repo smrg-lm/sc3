@@ -815,7 +815,9 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction, metaclass=MetaUGen):
         self._make_available()
 
     def _arrange(self, out_stack):  # Name changed from schedule
-        for ugen in reversed(self._descendants): # Hace reverseDo _descendants la inicializa en SynthDef _init_topo_sort como set, la puebla, la transforma en lista y la ordena.
+        descendants = list(self._descendants)
+        descendants.sort(key=lambda x: x._synth_index)
+        for ugen in reversed(descendants):
             ugen._remove_antecedent(self)
         out_stack.append(self)
 
@@ -1287,21 +1289,19 @@ class BinaryOpUGen(BasicOpUGen):
         return None
 
     # L151
-    # OC: 'this' = old ugen being replaced
-    # replacement = this's replacement
-    # deletedUnit = auxiliary unit being removed, not replaced
+    # // OC: 'this' = old ugen being replaced
+    # // replacement = this's replacement
+    # // deletedUnit = auxiliary unit being removed, not replaced
     def _optimize_update_descendants(self, replacement, deleted_unit):
         for input in replacement.inputs:
             if isinstance(input, UGen):
                 if isinstance(input, OutputProxy):
                     input = input.source_ugen
-                desc = input._descendants
-                if desc is None: return # BUG, CREO QUE RESUELTO: add falla si desc es None, sclang reponde no haciendo nada.
-                desc.append(replacement)
-                if desc.count(self): # BUG, CREO QUE RESUELTO: remove falla si self no es descendiente, sclang reponde no haciendo nada.
-                    desc.remove(self)
-                if desc.count(deleted_unit): # BUG, CREO QUE RESUELTO: remove falla si deleted_unit no es descendiente, sclang reponde no haciendo nada.
-                    desc.remove(deleted_unit)
+                if input._descendants is None:
+                    return
+                input._descendants.add(replacement)
+                input._descendants.discard(self)
+                input._descendants.discard(deleted_unit)
 
     # L301
     def _constant_folding(self): # No sé si se usa este método, tal vez fue reemplazado porque está comentada la llamada arriba, pero no está comentado.

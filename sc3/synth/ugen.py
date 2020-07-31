@@ -1162,12 +1162,15 @@ class BinaryOpUGen(BasicOpUGen):
         if isinstance(a, BinaryOpUGen) and a.operator == '+'\
         and len(a._descendants) == 1:
             self._synthdef._remove_ugen(a)
-            replacement = Sum3.new(a.inputs[0], a.inputs[1], b) # .descendants_(descendants);
+            if a is b:  # Edge case fixed in supercollider/supercollider#5048
+                replacement = Sum4.new(
+                    a.inputs[0], a.inputs[0], a.inputs[1], a.inputs[1])
+            else:
+                replacement = Sum3.new(a.inputs[0], a.inputs[1], b)
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, a)
             return replacement
 
-        # Ídem b... lo único que veo es que retornan y que la función debería devolver un valor comprobable para luego retornoar.
         if isinstance(b, BinaryOpUGen) and b.operator == '+'\
         and len(b._descendants) == 1:
             self._synthdef._remove_ugen(b)

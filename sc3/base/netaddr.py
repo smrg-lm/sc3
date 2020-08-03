@@ -14,11 +14,16 @@ __all__ = ['NetAddr']  #, 'BundleNetAddr']
 
 
 class NetAddr():
-    # use_doubles = False # BUG: VER: era método de clase a primitiva. Lo único que hace es no convertir a float los doubles de sclang cuando se envía el dato en el código en c++, variable globa gUseDoubles. Y ajusta el tag osc correspondiente (d/f)
-    #                     # BUG: para pasar un 'f' hay que hacer una tupla (typetag, valor), lo mismo pasa con timetag e int, y con char, string, symbol. True, False, nil, infinitum no tiene traducción directa.
-    # broadcast_flag = False # BUG: VER: era propiedad de clase a primitiva. Funciona solo para udp gUDPport != 0, gUDPport->udpSocket.set_option(option, ec).
+    # use_doubles = False
+    # broadcast_flag = False
 
-    #__slots__ = ()
+    # From Wikipedia: "The field size sets a theoretical limit of 65,535 bytes
+    # (8 byte header + 65,527 bytes of data) for a UDP datagram. However the
+    # actual limit for the data length, which is imposed by the underlying
+    # IPv4 protocol, is 65,507 bytes (65,535 − 8 byte UDP header − 20 byte
+    # IP header)".
+    _MAX_UDP_DGRAM_SIZE = 65507
+    _SYNC_BNDL_DGRAM_SIZE = 36  # Size of bundle(latency, ['/sync', id]) dgram.
 
     def __init__(self, hostname, port):
         if hostname is None:
@@ -48,7 +53,7 @@ class NetAddr():
 
     @property
     def is_local(self):
-        return self.match_lang_ip(self._hostname)  # *** BUG? no sé por qué sclang calcula hostname con addr.asIPString que lo que hace es volver a hostsname...
+        return self.match_lang_ip(self._hostname)
 
     @property
     def local_end_point(self):  # bind_addr
@@ -59,17 +64,13 @@ class NetAddr():
     def _osc_interface(self):
         return self._tcp_interface or _libsc3.main._osc_interface
 
-    # @classmethod
-    # def local_addr(cls):  # local_end_point?
-    #     return cls('127.0.0.1', cls.lang_port())
-
     @staticmethod
     def lang_port():
         return _libsc3.main._osc_interface.port
 
     @staticmethod
     def match_lang_ip(ipstring):
-        #if ipaddress.IPv4Address(self._addr).is_loopback: # sclang compara solo con 127.0.0.1 como loopback
+        # if ipaddress.IPv4Address(self._addr).is_loopback:
         if ipstring == '127.0.0.1':
             return True
         addr_info = socket.getaddrinfo(socket.gethostname(), None)
@@ -130,17 +131,15 @@ class NetAddr():
             self.send_bundle(latency, ['/sync', id])
             yield from condition.wait()
         else:
-            # BUG: esto no está bien testeado, y acarreo el problema del tamaño exacto de los mensajes.
-            sync_size = _libsc3.main._osc_interface.msg_size(['/sync', utl.UniqueID.next()])  # *** msg_size dije que vuelva a NetAddr.
-            max_size = 65500 - sync_size # *** BUG: is max dgram size? Wiki: The field size sets a theoretical limit of 65,535 bytes (8 byte header + 65,527 bytes of data) for a UDP datagram. However the actual limit for the data length, which is imposed by the underlying IPv4 protocol, is 65,507 bytes (65,535 − 8 byte UDP header − 20 byte IP header).
-            if _libsc3.main._osc_interface.bundle_size(bundle) > max_size:
-                clumped_bundles = self.clump_bundle(bundle, max_size)
-                for item in clumped_bundles:
+            sync_size = self._SYNC_BNDL_DGRAM_SIZE
+            max_size = self._MAX_UDP_DGRAM_SIZE - sync_size
+            if self._calc_bndl_dgram_size(bundle) > max_size:
+                for item in self._clump_bundle(bundle, max_size):
                     id = self._make_sync_responder(condition)
                     item.append(['/sync', id])
                     self.send_bundle(latency, *item)
                     if latency is not None:
-                        latency += 1e-9 # nanoseconds
+                        latency += 1e-9  # One nanosecond later each.
                     yield from condition.wait()
             else:
                 id = self._make_sync_responder(condition)

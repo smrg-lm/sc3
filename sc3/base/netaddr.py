@@ -178,12 +178,12 @@ class NetAddr():
         clump = []
         acc_size = 16  # Bundle prefix + Timetag bytes.
         for s, e in elist:
-            acc_size += s
-            clump.append(e)
-            if acc_size >= size:
+            if acc_size + s >= size:
                 res.append(clump)
                 clump = []
                 acc_size = 16  # Bundle prefix + Timetag bytes.
+            acc_size += s
+            clump.append(e)
         if clump:
             res.append(clump)
         return res

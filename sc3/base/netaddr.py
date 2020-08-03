@@ -116,7 +116,14 @@ class NetAddr():
     def send_bundle(self, time, *args):
         self._osc_interface.send_bundle(self._target, time, *args)
 
-    # def send_clumped_bundles(self, time, *args):
+    def send_clumped_bundles(self, time, *args):
+        if self._calc_bndl_dgram_size(args) > self._MAX_UDP_DGRAM_SIZE:
+            for item in self._clump_bundle(args):
+                if time is not None:
+                    time += 1e-9  # One nanosecond later each.
+                self.send_bundle(time, *item)
+        else:
+            self.send_bundle(time, *args)
 
     def send_status_msg(self):
         self._osc_interface.send_msg(self._target, '/status')

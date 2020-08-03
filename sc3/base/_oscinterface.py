@@ -160,16 +160,6 @@ class OscInterface(ABC):
                     f'OSC message or bundle: {arg}')
         return bndl_builder.build()
 
-    # *** *** BUG: volver estos métodos a NetAddr de alguna manera.
-    def msg_size(self, arg_list): # ['/path', arg1, arg2, ..., argN]
-        msg = _build_msg(arg_list)  # *** BUG: el problema es no estar construyendo el mensaje dos veces igual.
-        return msg.size  # *** BUG: este método está demás, hay que hacer todo en quién llama y guardar el msg.
-
-    # *** BUG: ver _NetAddr_BundleSize
-    def bundle_size(self, arg_list): # [time, ['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
-        bndl = _build_bundle(arg_list)  # *** BUG: el problema es no estar construyendo el atado dos veces igual.
-        return bndl.size  # *** BUG: este método está demás, hay que hacer todo en quién llama y guardar el bndl.
-
     def __str__(self):
         return f'{type(self).__name__} port {self._port}'
 

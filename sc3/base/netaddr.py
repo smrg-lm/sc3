@@ -102,14 +102,12 @@ class NetAddr():
         return self._tcp_interface and self._tcp_interface.is_connected
 
 
-    # @classmethod
-    # def client_ip(cls):
-    #     ...  # BUG: este método no está definido en sclang, aunque debería?, supongo que tiene que retornar la dirección de ip, o en la red local, el problema es que no hay una sola y simple solución multiplataforma.
-               # BUG: ver las repuestas de abajo en: https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib
+    def has_bundle(self):
+        return False
 
-
-    # def send_raw(self, raw_bytes): # send a raw message without timestamp to the addr.
-    #     _libsc3.main._osc_interface.send_raw((self.hostname, self.port), raw_bytes)
+    # def send_raw(self, raw_bytes):
+    #     # send a raw message without timestamp to the addr.
+    #     self._osc_interface.send_raw(self._target, raw_bytes)
 
     def send_msg(self, *args):
         self._osc_interface.send_msg(self._target, *args)
@@ -121,6 +119,9 @@ class NetAddr():
 
     def send_status_msg(self):
         self._osc_interface.send_msg(self._target, '/status')
+
+    def recover(self):
+        return self
 
     def sync(self, condition=None, bundle=None, latency=None):
         condition = condition or stm.Condition()
@@ -160,37 +161,55 @@ class NetAddr():
         resp = rdf.OSCFunc(resp_func, '/synced', self)
         return id
 
-    # NOTE: Importante, lo usa para enviar paquetes muy grandes como stream,
-    # liblo tira error y no envía.
-    # *** BUG: revisar método en contexto, timetag y ver si se pueden procesar incrementalmente los sub msg/bndl.
-    def clump_bundle(self, msg_list, new_bundle_size): # msg_list siempre es un solo bundle [['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
-        ret = [[]]
-        clump_count = 0
-        acc_size = 0
-        aux = 0
-        for item in msg_list:
-            aux = _libsc3.main._osc_interface.msg_size(item)
-            if acc_size + aux > new_bundle_size: # BUG: 65500 es aproximado al límite del datagrama menos la envoltura ipv4, ver sync.
-                acc_size = aux
-                clump_count += 1
-                ret.append([])
-                ret[clump_count].append(item)
+    def _clump_bundle(self, elements, size=8192):
+        elist = []
+        for e in elements:
+            if isinstance(e[0], str):
+                elist.append((self._calc_msg_dgram_size(e), e))
             else:
-                acc_size += aux
-                ret[clump_count].append(item)
-        if len(ret[0]) == 0: ret.pop(0)
-        return ret
+                elist.append((self._calc_bndl_dgram_size(e), e))
+        res = []
+        clump = []
+        acc_size = 16  # Bundle prefix + Timetag bytes.
+        for s, e in elist:
+            acc_size += s
+            clump.append(e)
+            if acc_size >= size:
+                res.append(clump)
+                clump = []
+                acc_size = 16  # Bundle prefix + Timetag bytes.
+        if clump:
+            res.append(clump)
+        return res
 
-    # // Asymmetric: "that" may be nil or have nil port (wildcards)
-    # def matches(self, that): # TODO: no sé qué es esto.
+    def _calc_bndl_dgram_size(self, bndl):
+        # Argument bndl is the content without Timetag: [[], [], ...].
+        res = 16  # Bundle prefix + Timetag bytes.
+        for element in bndl:
+            res += 4  # Element size bytes.
+            if isinstance(element[0], str):  # message
+                res += self._calc_msg_dgram_size(element)
+            else:  # bundle
+                res += self._calc_bndl_dgram_size(bndl)
+        return res
 
-    # def ip(self): # TODO: ^addr.asIPString, addr es Integer as_ip_string(int), ver por dónde usa addr como entero.
+    def _calc_msg_dgram_size(self, msg):
+        res = self._strpad4(len(bytes(msg[0], 'ascii')))  # Address.
+        res += self._strpad4(len(msg[1:]) + 1)  # Type tag string.
+        for val in msg[1:]:
+            if isinstance(val, str):
+                res += self._strpad4(len(val))
+            elif isinstance(val, list):
+                # sc3 don't send osc arrays, they are msgs converted to blobs.
+                res += self._calc_msg_dgram_size(val) + 4  # Blob size bytes.
+            else:
+                res += 4  # Everything else (sent by sc3, no doubles).
+        return res
 
-    def has_bundle(self): # TODO: distingue de BundleNetAddr
-        return False
-
-    def recover(self): # TODO: VER: se usa en el homónimo de BundleNetAddr y en Server-cmdPeriod
-        return self
+    @staticmethod
+    def _strpad4(n):
+        # Pad to 4 or add null if mod is zero.
+        return n + 4 - (n & 3)
 
     def __eq__(self, other):
         if type(self) == type(other):

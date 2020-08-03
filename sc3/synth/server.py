@@ -657,7 +657,9 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     ### Network message bundling ###
 
-    # TODO...
+    def bind(self):
+        # with s.bind():
+        return nad.BundleNetAddr(self)
 
 
     ### Default group ###

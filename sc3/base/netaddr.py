@@ -10,7 +10,7 @@ from . import responsedefs as rdf
 from . import _oscinterface as osci
 
 
-__all__ = ['NetAddr']  #, 'BundleNetAddr']
+__all__ = ['NetAddr', 'BundleNetAddr']
 
 
 class NetAddr():
@@ -230,6 +230,87 @@ class NetAddr():
         return f"{type(self).__name__}('{self.hostname}', {self.port})"
 
 
-# BUG: hay que implementar para server
-# class BundleNetAddr(NetAddr):
-#     ...
+class BundleNetAddr(NetAddr):
+    # Important difference: This class is a context manager. forkIfNeeded
+    # can't be implemented, addr.sync() use it in sclang. Here sync calls are
+    # handled different doing yield from directly within the with statement.
+    # I don't see a significant difference with sending all sync messages
+    # together at the end.
+
+    class _SYNC_FLAG(): pass
+
+    def __init__(self, target, bundle=None, send=True):
+        if isinstance(target, NetAddr):
+            self._save_addr = addr
+            self._server = None
+        else:  # Assumes it's a Server to avoid the import.
+            self._save_addr = target.addr
+            self._server = target
+        super().__init__(self._save_addr._hostname, self._save_addr._port)
+        self._bundle = bundle or []
+        self._send = send
+        self._last_sync = -1
+
+    def has_bundle(self):
+        return True
+
+    # def send_raw(self, rawlst):
+
+    def send_msg(self, *args):
+        self._bundle.append(list(args))
+
+    def send_bundle(self, time, *args):
+        self._bundle.extend(list(args))  # Discard time.
+
+    def send_clumped_bundles(self, time, *args):
+        self._bundle.extend(args)  # Discard time.
+
+    def send_status_msg(self):
+        pass  # // Ignore status message.
+
+    def recover(self):
+        return self._save_addr
+
+    def sync(self, condition=None, bundle=None, latency=None):
+        if self._send:
+            self._send_last_bundle()
+            yield from self._save_addr.sync(None, bundle, latency)
+        self._last_sync = len(self._bundle)
+        self._bundle.append([self._SYNC_FLAG, bundle, latency])
+
+    def _send_last_bundle(self):
+        time = self._server.latency if self._server else None
+        bundle = self._bundle[self._last_sync+1:]
+        if bundle:
+            self._save_addr.send_clumped_bundles(time, *bundle)
+
+    def _split_bundles(self, time):
+        res = []
+        curr = [time]
+        for item in self._bundle:
+            if item[0] is self._SYNC_FLAG:
+                if item[1] is not None:
+                    curr.extend(item[1])
+                res.append(curr)
+                curr = [item[2]]
+            else:
+                curr.append(item)
+        res.append(curr)
+        return res
+
+    def get_bundle(self, time=None):
+        if self._last_sync == -1:
+            return [time, *self._bundle]
+        else:
+            return self._split_bundles(time)
+
+    def __enter__(self):
+        if self._server:
+            self._server._addr = self
+        # return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._server:
+            self._server._addr = self._save_addr
+        if exc_type is None and self._send:
+            self._send_last_bundle()

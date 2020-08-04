@@ -3,6 +3,9 @@
 import math
 
 
+__all__ = ['Scale', 'Tuning']
+
+
 class Scale(list): # BUG: Tuning es como un array en sc y Scale implementa la intefaz llamando a Tuning, pero no sé si conviene heredar de tuple/list acá, esto es todo provisorio para seguir con Event
     # TODO
 

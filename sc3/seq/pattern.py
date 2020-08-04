@@ -9,6 +9,9 @@ from . import pausestream as pst
 from . import event as evt
 
 
+__all__ = []
+
+
 class Pattern(fn.AbstractFunction):
     ### Iterable protocol ###
 

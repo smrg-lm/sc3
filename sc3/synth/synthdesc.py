@@ -17,6 +17,9 @@ from . import synthdef as sdf
 from .ugens import inout as scio
 
 
+__all__ = ['SynthDescLib']
+
+
 _logger = logging.getLogger(__name__)
 
 

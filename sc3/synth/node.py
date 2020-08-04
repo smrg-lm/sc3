@@ -13,6 +13,9 @@ from . import synthdesc as sdc
 from . import _graphparam as gpp
 
 
+__all__ = ['Group', 'ParGroup', 'Synth']
+
+
 _logger = logging.getLogger(__name__)
 
 

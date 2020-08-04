@@ -9,6 +9,9 @@ from ..base import clock as clk
 from . import event as evt
 
 
+__all__ = ['Task', 'task']
+
+
 _logger = logging.getLogger(__name__)
 
 

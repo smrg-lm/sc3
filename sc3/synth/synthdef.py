@@ -18,6 +18,9 @@ from .ugens import inout as scio
 from .ugens import fftunpacking as ffu
 
 
+__all__ = ['SynthDef', 'synthdef']
+
+
 _logger = logging.getLogger(__name__)
 
 

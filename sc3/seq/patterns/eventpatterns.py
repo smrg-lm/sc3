@@ -3,10 +3,11 @@
 import logging
 import copy
 
+from ...base import stream as stm
 from ...base import functions as fn
-from .. import stream as stm
+from ...base import _taskq as tsq
 from .. import pattern as ptt
-from .. import _taskq as tsq
+from .. import pausestream as pst
 from .. import event as evt
 from . import listpatterns as lsp
 
@@ -57,7 +58,7 @@ class Pchain(ptt.Pattern):
         return type(self)(*self.patterns, pattern)
 
     def __embed__(self, inval=None):
-        cleanup = stm.EventStreamCleanup()
+        cleanup = pst.EventStreamCleanup()
         streams = [stm.stream(p) for p in reversed(self.patterns)]
         while True:
             inevent = copy.copy(inval)
@@ -93,7 +94,7 @@ class Pbind(ptt.Pattern):
         self.dict = dict(*args, **kwargs)
 
     def __stream__(self):
-        return stm.PatternEventStream(self)
+        return pst.PatternEventStream(self)
 
     def __embed__(self, inevent=None):
         event = None

@@ -1,7 +1,7 @@
 """SystemActions.sc"""
 
 from ..synth import server as srv
-from ..seq import clock as clk
+from . import clock as clk
 from . import functions as fn
 
 

@@ -4,8 +4,8 @@ import logging
 import collections
 # import atexit
 
-from ..seq import clock as clk
-from ..seq import stream as stm
+from ..base import clock as clk
+from ..base import stream as stm
 from ..base import model as mdl
 from ..base import systemactions as sac
 from ..base import responsedefs as rdf

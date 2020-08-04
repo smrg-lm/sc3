@@ -10,10 +10,10 @@ import time
 import subprocess
 import sys
 
-from ..seq import clock as clk
-from ..seq import stream as stm
-from ..seq import _taskq as tsq
 from ..synth import server as srv
+from . import clock as clk
+from . import stream as stm
+from . import _taskq as tsq
 from . import main as _libsc3
 from . import netaddr as nad
 from . import _osclib as oli

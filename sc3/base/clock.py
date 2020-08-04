@@ -7,12 +7,12 @@ import sys
 import traceback
 import weakref
 
-from ..base import utils as utl
-from ..base import main as _libsc3
-from ..base import builtins as bi
-from ..base import functions as fn
-from ..base import systemactions as sac
-from ..base import model as mdl
+from . import utils as utl
+from . import main as _libsc3
+from . import builtins as bi
+from . import functions as fn
+from . import systemactions as sac
+from . import model as mdl
 from . import _taskq as tsq
 from . import stream as stm
 
@@ -221,8 +221,8 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         else:
             prev_time = cls._task_queue.peek()[0]
         cls._task_queue.add(secs, task)
-        if isinstance(task, stm.PauseStream):
-            task._next_beat = secs
+        # if isinstance(task, pst.PauseStream):
+        #     task._next_beat = secs
         if cls._task_queue.peek()[0] != prev_time:
             cls._sched_cond.notify_all()  # Call with acquired lock.
 
@@ -282,8 +282,8 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                     item = cls._task_queue.pop()
                     sched_time = item[0]
                     task = item[1]
-                    if isinstance(task, stm.PauseStream):
-                        task._next_beat = None
+                    # if isinstance(task, pst.PauseStream):
+                    #     task._next_beat = None
                     try:
                         _libsc3.main.update_logical_time(sched_time)
                         delta = task.__awake__(sched_time, sched_time, cls)
@@ -311,8 +311,8 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
             # BUG: queue es thisProcess.prSchedulerQueue, VER!
             while not cls._task_queue.empty():
                 item = cls._task_queue.pop()[1]
-                if isinstance(item, stm.PauseStream):
-                    item.removed_from_scheduler()
+                # if isinstance(item, pst.PauseStream):
+                #     item.removed_from_scheduler()
             cls._sched_cond.notify_all()
             # BUG: llama a prClear, VER!
 
@@ -414,8 +414,8 @@ class Scheduler():
         item = None
         while not self.queue.empty():
             item = self.queue.pop()
-            if isinstance(item, stm.PauseStream):
-                item.removed_from_scheduler()  # NOTE: cambié el orden, en sclang primero se llama a este método y luego se vacía la cola.
+            # if isinstance(item, pst.PauseStream):
+            #     item.removed_from_scheduler()  # NOTE: cambié el orden, en sclang primero se llama a este método y luego se vacía la cola.
 
     def empty(self):
         return self.queue.empty()
@@ -601,8 +601,8 @@ class ClockTask():
 
     def _wakeup(self, time):
         try:
-            if isinstance(self.task, stm.PauseStream):
-                self.task._next_beat = None
+            # if isinstance(self.task, pst.PauseStream):
+            #     self.task._next_beat = None
             _libsc3.main.update_logical_time(time)
             beats = self.clock.secs2beats(time)
             delta = self.task.__awake__(beats, time, self.clock)
@@ -801,8 +801,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                     item = self._task_queue.pop()
                     self._beats = item[0]
                     task = item[1]
-                    if isinstance(task, stm.PauseStream):
-                        task._next_beat = None
+                    # if isinstance(task, pst.PauseStream):
+                    #     task._next_beat = None
                     try:
                         _libsc3.main.update_logical_time(
                             self.beats2secs(self._beats))
@@ -970,14 +970,14 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         else:
             prev_beat = self._task_queue.peek()[0]
         self._task_queue.add(beats, task)
-        if isinstance(task, stm.PauseStream):
-            task._next_beat = beats
+        # if isinstance(task, pst.PauseStream):
+        #     task._next_beat = beats
         if self._task_queue.peek()[0] != prev_beat:
             self._sched_cond.notify()  # *** BUG: usa notify poruqe se llama anidado, cambiar.
 
     def _sched_add_nrt(self, beats, task):
-        if isinstance(task, stm.PauseStream):
-            task._next_beat = beats
+        # if isinstance(task, pst.PauseStream):
+        #     task._next_beat = beats
         ClockTask(beats, self, task, _libsc3.main._clock_scheduler)
 
     def _calc_sched_beats(self, delta):
@@ -1026,7 +1026,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             with self._sched_cond:
                 self._sched_add(beat, item)
 
-    def clear(self, release_nodes=True):
+    def clear(self):  #, release_nodes=True):  # Is here because PauseStream, domain interference, not good.
         # // flag tells EventStreamPlayers that CmdPeriod
         # // is removing them, so nodes are already freed
         # clear -> prClear -> _TempoClock_Clear -> TempoClock::Clear
@@ -1037,8 +1037,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             with self._sched_cond:
                 while not self._task_queue.empty():
                     item = self._task_queue.pop()[1] # de por sí PriorityQueue es thread safe, la implementación de SuperCollider es distinta, ver SystemClock*clear.
-                    if isinstance(item, stm.PauseStream):
-                        item.removed_from_scheduler(release_nodes)
+                    # if isinstance(item, pst.PauseStream):
+                    #     item.removed_from_scheduler(release_nodes)
                 self._sched_cond.notify() # NOTE: es notify_one en C++
 
     @property

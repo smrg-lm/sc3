@@ -1,7 +1,6 @@
 """From Patterns.sc"""
 
 
-from .. import stream as stm
 from .. import pattern as ptt
 
 

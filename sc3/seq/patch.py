@@ -27,12 +27,12 @@ import itertools
 import sys
 import traceback
 
+from ..base import clock as clk
+from ..base import _taskq as tsq
+from ..base import stream as stm
 from ..base import functions as fn
 from ..synth import node as nod
 from ..synth import server as srv
-from . import clock as clk
-from . import stream as stm
-from . import _taskq as tsq
 
 
 _logger = logging.getLogger(__name__)

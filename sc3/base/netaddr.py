@@ -3,7 +3,7 @@
 import ipaddress
 import socket
 
-from ..seq import stream as stm
+from . import stream as stm
 from . import main as _libsc3
 from . import utils as utl
 from . import responsedefs as rdf

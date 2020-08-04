@@ -17,8 +17,8 @@ from ..base import responsedefs as rdf
 from ..base import systemactions as sac
 from ..base import functions as fn
 from ..base import platform as plt
-from ..seq import stream as stm
-from ..seq import clock as clk
+from ..base import stream as stm
+from ..base import clock as clk
 from . import _engine as eng
 from . import synthdef as sdf
 from . import _serverstatus as sst

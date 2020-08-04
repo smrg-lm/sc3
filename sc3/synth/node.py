@@ -6,8 +6,8 @@ from ..base import utils as utl
 from ..base import responsedefs as rdf
 from ..base import functions as fn
 from ..base import model as mdl
-from ..seq import stream as stm
-from ..seq import clock as clk
+from ..base import stream as stm
+from ..base import clock as clk
 from . import server as srv
 from . import synthdesc as sdc
 from . import _graphparam as gpp

@@ -7,12 +7,11 @@ import time
 import random
 import sys
 
-from ..seq import _taskq as tsq
-from ..seq import stream as stm
-from ..seq import clock as clk
+from . import _taskq as tsq
 from . import platform as plf
+from . import stream as stm
 from . import _oscinterface as osci
-from . import utils as utl
+from . import clock as clk
 
 
 __all__ = ['main', 'RtMain', 'NrtMain']

@@ -3,7 +3,7 @@
 import collections
 
 from ...base import utils as utl
-from .. import stream as stm
+from ...base import stream as stm
 from .. import pattern as ptt
 
 

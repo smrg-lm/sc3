@@ -2,7 +2,7 @@
 
 from ...base import utils as utl
 from ...base import builtins as bi
-from .. import stream as stm
+from ...base import stream as stm
 from .. import pattern as ptt
 
 

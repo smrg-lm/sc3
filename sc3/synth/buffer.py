@@ -11,8 +11,8 @@ from ..base import functions as fn
 from ..base import platform as plt
 from ..base import builtins as bi
 from ..base import utils as utl
-from ..seq import stream as stm
-from ..seq import clock as clk
+from ..base import stream as stm
+from ..base import clock as clk
 from . import _graphparam as gpp
 from . import server as srv
 

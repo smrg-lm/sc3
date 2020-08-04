@@ -3,9 +3,10 @@
 import inspect
 
 from ..base import functions as fn
+from ..base import stream as stm
 from ..base import utils as utl
+from . import pausestream as pst
 from . import event as evt
-from . import stream as stm
 
 
 class Pattern(fn.AbstractFunction):
@@ -18,7 +19,7 @@ class Pattern(fn.AbstractFunction):
     ### Stream protocol ###
 
     def __stream__(self):
-        return stm.PatternValueStream(self)
+        return pst.PatternValueStream(self)
 
     def __embed__(self, inval=None):
         return (yield from self.__stream__().__embed__(inval))
@@ -41,12 +42,12 @@ class Pattern(fn.AbstractFunction):
 
     def play(self, clock=None, proto=None, quant=None):
         proto = evt.event() if proto is None else evt.event(proto)
-        stream = stm.EventStreamPlayer(self.__stream__(), proto)
+        stream = pst.EventStreamPlayer(self.__stream__(), proto)
         stream.play(clock, False, quant)
         return stream
 
     # def _as_event_stream_player(self, proto_event=None):
-    #     return stm.EventStreamPlayer(self.__stream__(), proto_event)
+    #     return pst.EventStreamPlayer(self.__stream__(), proto_event)
 
     # stream_args
     # do

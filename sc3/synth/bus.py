@@ -25,12 +25,34 @@ class BusAlreadyFreed(BusException):
 
 
 class Bus(gpp.UGenParameter, gpp.NodeParameter):
-    def __init__(self, rate='audio', index=0, num_channels=2, server=None): # NOTE: es *new
+    '''
+    rate: Rate of the bus, 'audio' (default) or 'control'.
+    num_channels: Number of channels as int, default is 1.
+    server: A server object.
+    index: Sets the bus index. If index is None bus number is automatically
+           allocated (client side) by the bus allocator class.
+    '''
+
+    def __init__(self, rate='audio', num_channels=1, server=None, index=None):
         super(gpp.UGenParameter, self).__init__(self)
         self._rate = rate
-        self._index = index
         self._num_channels = num_channels
         self._server = server or srv.Server.default
+        if index is None:
+            if self._rate == 'audio':
+                self._index = self._server._audio_bus_allocator.alloc(
+                    self._num_channels)
+            elif self._rate == 'control':
+                self._index = self._server._control_bus_allocator.alloc(
+                    self._num_channels)
+            else:
+                raise BusException(f"invalid rate '{self._rate}'")
+            if self._index is None:
+                raise BusException(
+                    f'failed to get a {self._rate} bus allocated, num_channels '
+                    f'= {self._num_channels}, server = {self._server.name}')
+        else:
+            self._index = index
         self._map_symbol = None
 
     @property
@@ -56,38 +78,9 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
             raise BusException(
                 'new_from tried to reach outside '
                 f'the channel range of {bus}')
-        return cls(bus.rate, bus.index + offset, num_channels)
+        return cls(bus.rate, num_channels, bus.server, bus.index + offset)
 
-    @classmethod
-    def control(cls, server=None, num_channels=1):
-        server = server or srv.Server.default
-        alloc = server._control_bus_allocator.alloc(num_channels)
-        if alloc is None:
-            raise BusException(
-                'failed to get a control bus allocated, '
-                f'num_channels = {num_channels}, server = {server.name}')
-        return cls('control', alloc, num_channels, server)
-
-    @classmethod
-    def audio(cls, server=None, num_channels=1):
-        server = server or srv.Server.default
-        alloc = server._audio_bus_allocator.alloc(num_channels)
-        if alloc is None:
-            raise BusException(
-                'failed to get a audio bus allocated, '
-                f'num_channels = {num_channels}, server = {server.name}')
-        return cls('audio', alloc, num_channels, server)
-
-    @classmethod
-    def alloc(cls, rate, server=None, num_channels=1):
-        if rate == 'control':
-            return cls.control(server, num_channels)
-        elif rate == 'audio':
-            return cls.audio(server, num_channels)
-        else:
-            raise BusException(f"invalid rate '{rate}'")
-
-    def settable(self): # NOTE: está pitonizado, era isSettable
+    def is_settable(self):
         return self._rate != 'audio'
 
     def set(self, *values):  # // shouldn't be larger than self._num_channels
@@ -267,9 +260,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
 
     # // allow reallocation
 
-    def alloc_bus(self):  # NOTE: Naming convention as Buffer for instance methods.
-        if self._index is None:
-            raise BusAlreadyFreed('alloc_bus')
+    def alloc(self):
         if self._rate == 'audio':
             self._index = self._server._audio_bus_allocator.alloc(
                 self._num_channels)
@@ -278,18 +269,15 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
                 self._num_channels)
         self._map_symbol = None
 
-    def realloc_bus(self):
+    def realloc(self):
         if self._index is None:
-            raise BusAlreadyFreed('realloc_bus')
-        if self._index is not None:
-            rate = self._rate
-            num_channels = self._num_channels
-            self.free()
-            self._rate = rate
-            self._num_channels = num_channels
-            self.alloc()
-        else:
-            raise BusAlreadyFreed('realloc_bus')
+            raise BusAlreadyFreed('realloc')
+        rate = self._rate
+        num_channels = self._num_channels
+        self.free()
+        self._rate = rate
+        self._num_channels = num_channels
+        self.alloc()
 
     # setAll is fill(value, self._num_channels)
     # value_ is fill(value, self._num_channels)
@@ -310,7 +298,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         hash((self._index, self._num_channels, self._rate, self._server))
 
     @property
-    def is_audio_output(self):
+    def is_audio_io(self):
         return (self._rate == 'audio' and
                 self._index < self._server.options.first_private_bus())
 

@@ -4,6 +4,7 @@ import logging
 import pathlib
 import time
 import array
+import uuid
 
 from ..base import responsedefs as rdf
 from ..base import model as mdl
@@ -119,8 +120,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         obj = cls(server, None, None, bufnum)
         obj._do_on_info = action
         # obj._cache() # NOTE: __init__ llama a _cache
-        obj.alloc_read(path, start_frame, num_frames,
-                       lambda buf: ['/b_query', buf.bufnum])
+        obj.alloc_read(
+            path, start_frame, num_frames, lambda buf: ['/b_query', buf.bufnum])
         return obj
 
     @classmethod
@@ -241,24 +242,66 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 self._num_frames, fn.value(completion_msg, self)]  # *** BUG: pone 1 en vez de True, porque es el mensaje, pero no lo hace siempre.
 
     @classmethod
-    def new_load_list(cls, server, lst, num_channels=1, action=None):  # Was new_load_collection
+    def new_load_list(cls, server, channel_lst, action=None):  # Was new_load_collection
+        # Difference: this version receives a list of channel data (lists).
         # // Transfer a collection of numbers to a buffer through a file.
         server = server or srv.Server.default
-        bufnum = self._server.next_buffer_number(1)
-        if self._server.is_local:
-            lst = list(array.array('f', lst))  # Type check & cast.
-            sndfile = xxx.SoundFile()  # *** TODO
-            sndfile.sample_rate = self._server._status_watcher.sample_rate
-            sndfile.num_channels = num_channels
-            path = plt.Platform.tmp_dir / str(hash(sndfile))  # BUG: Returns pathlib.Path
-            with sndfile:  # *** TODO: needs SoundFile
-                ...
+        if server.is_local:
+            channel_lst = [list(array.array('f', l)) for l in channel_lst]  # Type check & cast.
+            path = str(
+                plt.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
+            sample_rate = int(server._status_watcher.sample_rate)
+            try:
+                # Was using SoundFile in sclang.
+                _write_wave_file(path, channel_lst, sample_rate)
+            except Exception as e:
+                raise BufferException('failed to write data') from e
+
+            def remove_file(buf):
+                try:
+                    pathlib.Path(path).unlink()
+                    buf._path = None
+                except:
+                    _logger.warning(f'could not delete data file: {path}')
+                finally:
+                    fn.value(action, buf)
+
+            return cls.new_read(server, path, action=remove_file)
         else:
             _logger.warning("cannot call 'new_load' with a non-local Server")
 
-    def load_list(self, lst, start_frame=0, action=None):  # Was load_collection
+    def load_list(self, channel_lst, start_frame=0, action=None):  # Was load_collection
         if self._server.is_local:
-            ...  # *** TODO: needs SoundFile
+            framesize = (self._num_frames - start_frame) * self._num_channels
+            # if len(channel_lst) > self._num_channels:
+            #     # Channel mismatch is reported by Server.
+            #     _logger.warning('channel_lst has more channels than buffer')
+            for i, chn in enumerate(channel_lst[:]):
+                if len(chn) > framesize:
+                    _logger.warning(
+                        f'channel_lst[{i}] larger than '
+                        'available number of frames')
+                channel_lst[i] = list(array.array('f', chn))  # Type check & cast.
+            path = str(
+                plt.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
+            sample_rate = int(self._server._status_watcher.sample_rate)
+            try:
+                # Was using SoundFile in sclang.
+                _write_wave_file(path, channel_lst, sample_rate)
+            except Exception as e:
+                raise BufferException('failed to write data') from e
+
+            def remove_file(buf):
+                try:
+                    pathlib.Path(path).unlink()
+                    buf._path = None
+                except:
+                    _logger.warning(f'could not delete data file: {path}')
+                finally:
+                    fn.value(action, buf)
+
+            return self.read(
+                path, buf_start_frame=start_frame, action=remove_file)
         else:
             _logger.warning("cannot call 'load' with a non-local Server")
 
@@ -314,10 +357,24 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
         stm.Routine.run(stream_func)
 
-    # // these next two get the data and put it in a float array which is passed to action
+    # // these next two get the data and put it in a float array
+    # // which is passed to action
 
     def load_to_list(self, index=0, count=-1, action=None):
-        ... # *** TODO: needs SoundFile
+        def load_fork():
+            path = str(
+                plt.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
+            self.write(path, 'wav', 'float', count, index)
+            yield from self._server.sync()
+            channel_lst = _read_wave_file(path)
+            channel_lst = [list(l) for l in channel_lst]
+            try:
+                pathlib.Path(path).unlink()
+            except:
+                _logger.warning(f'could not delete data file: {path}')
+            fn.value(action, channel_lst, self)
+
+        stm.Routine.run(load_fork)
 
     def get_to_list(self, index=0, count=None, wait=0.01,
                     timeout=3, action=None):
@@ -782,3 +839,60 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
 
     # asBufWithValues # NOTE: se implementa acá, en Ref y en SimpleNumber pero no se usa en la librería estandar.
+
+
+# Minimal utility functions to avoid depencencies.
+
+import struct
+
+def _wave_header(num_frames, num_channels, sample_rate):
+    return (
+        b'RIFF' +
+        struct.pack('<L', num_frames + 36) +  # Remaining size
+        b'WAVE' +
+        # Format chunk.
+        b'fmt ' +
+        struct.pack('<L', 16) +  # Size
+        struct.pack('<H', 3) +  # IEEE float PCM
+        struct.pack('<H', num_channels) +
+        struct.pack('<L', sample_rate) +
+        struct.pack('<L', 4 * sample_rate * num_channels) +
+        struct.pack('<H', 4 * num_channels) +
+        struct.pack('<H', 32) +
+        # Data chunk
+        b'data' +
+        struct.pack('<L', 4 * num_frames * num_channels)  # Size
+    )
+
+def _write_wave_file(path, data, sample_rate):
+    # data is [ch1[float, float, ...], ch2[], ...]
+    with open(path, 'w+b') as file:
+        num_channels = len(data)
+        fmt = '<' + 'f' * num_channels
+        file.write(_wave_header(len(data[0]), num_channels, sample_rate))
+        for frame in zip(*data):
+            file.write(struct.pack(fmt, *frame))
+
+def _read_wave_file(path):
+    ret = []
+    with open(path, 'r+b') as file:
+        file.seek(22)
+        num_channels = struct.unpack('<H', file.read(2))[0]
+        fmt = '<' + 'f' * num_channels
+        size = 4 * num_channels
+
+        # b'fmt ' chunk length
+        file.seek(16)
+        ck_len = struct.unpack('<L', file.read(4))[0]
+        file.seek(20 + ck_len)
+
+        while file.read(4) != b'data':
+            data = file.read(4)
+            if not data:
+                raise Exception('bad file format or algorithm')
+            ck_len = struct.unpack('<L', data)[0]
+            file.seek(file.tell() + ck_len)
+
+        for _ in range(struct.unpack('<L', file.read(4))[0] // size):
+            ret.append(struct.unpack(fmt, file.read(size)))
+    return list(zip(*ret))

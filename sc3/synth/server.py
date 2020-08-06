@@ -559,9 +559,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         buffer_client_offset = num_buffers_per_client * self.client_id
 
         self._buffer_allocator = type(self)._buffer_alloc_class(
-            num_buffers_per_client,
-            num_reserved_buffers,
-            buffer_client_offset)
+            num_buffers_per_client, num_reserved_buffers, buffer_client_offset)
 
     # shm for GUI.
     # def _new_scope_buffer_allocators(self):

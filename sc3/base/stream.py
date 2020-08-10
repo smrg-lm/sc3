@@ -21,7 +21,8 @@ _logger = logging.getLogger(__name__)
 
 
 class TimeThread():
-    State = enum.Enum('State', ['Init', 'Running', 'Suspended', 'Done'])
+    State = enum.Enum('State', [
+        'Init', 'Running', 'Suspended', 'Paused', 'Done'])
 
     def __init__(self, func):
         if not inspect.isfunction(func):
@@ -58,7 +59,8 @@ class TimeThread():
 
     @property
     def is_playing(self):
-        return self.state == self.State.Suspended
+        return (self.state == self.State.Suspended or
+                self is _libsc3.main.current_tt)
 
     @property
     def thread_player(self):
@@ -125,6 +127,10 @@ class _MainTimeThread(TimeThread):
         self._m_seconds = seconds
 
     @property
+    def is_playing(self):
+        return True
+
+    @property
     def rgen(self):  # override
         return _libsc3.main._rgen
 
@@ -135,19 +141,27 @@ class _MainTimeThread(TimeThread):
 ### Stream.sc part 1 ###
 
 
+class RoutineException(Exception):
+    pass
+
+
 class StopStream(StopIteration):
+    pass
+
+
+class PauseStream(StopStream):
     pass
 
 
 class YieldAndReset(Exception):
     def __init__(self, yield_value=None):
-        super().__init__()  # Doesn't stores yield_value in self.args.
+        super().__init__()  # Doesn't store yield_value in self.args.
         self.yield_value = value
 
 
 class AlwaysYield(Exception):
     def __init__(self, terminal_value=None):
-        super().__init__()  # Doesn't stores terminal_value in self.args.
+        super().__init__()  # Doesn't store terminal_value in self.args.
         self.terminal_value = terminal_value
 
 
@@ -339,15 +353,13 @@ class FunctionStream(Stream):  # Was FuncStream
 
 
 class Routine(TimeThread, Stream):
+    class _SENTINEL(): pass
+
     def __init__(self, func):
         super().__init__(func)
         self._iterator = None
         self._last_value = None
-        self._sentinel = object()
-        self._terminal_value = self._sentinel
-
-        # <nextBeat, <>endBeat, <>endValue are used
-        # low level in clocks, only for PauseStream?
+        self._terminal_value = self._SENTINEL
 
     @classmethod
     def run(cls, func, clock=None, quant=None):
@@ -364,9 +376,12 @@ class Routine(TimeThread, Stream):
 
     def next(self, inval=None):
         with self._state_cond:
-            # _RoutineAlwaysYield (y Done)
+            if self.state == self.State.Paused:
+                raise PauseStream
+
+            # Done & AlwaysYield.
             if self.state == self.State.Done:
-                if self._terminal_value is self._sentinel:
+                if self._terminal_value is self._SENTINEL:
                     raise StopStream
                 else:
                     return self._terminal_value
@@ -389,10 +404,9 @@ class Routine(TimeThread, Stream):
                         self._last_value = next(self._iterator)
                     else:
                         if self._func_has_inval:
-                            self.func(inval)
+                            raise AlwaysYield(self.func(inval))
                         else:
-                            self.func()
-                        raise AlwaysYield()
+                            raise AlwaysYield(self.func())
                 else:
                     self._last_value = self._iterator.send(inval)
                 self.state = self.State.Suspended
@@ -426,23 +440,38 @@ class Routine(TimeThread, Stream):
     def reset(self):
         with self._state_cond:
             if self.state == self.State.Running:
-                raise Exception(
-                    'Routine cannot reset itself except by YieldAndReset')
+                raise RoutineException(
+                    'cannot be reset within itself except by YieldAndReset')
             else:
                 self._iterator = None
+                self._clock = None
                 self.state = self.State.Init
+
+    def pause(self):
+        with self._state_cond:
+            if self.state == self.State.Running:
+                raise RoutineException('cannot be paused within itself')
+            if self.state == self.State.Init\
+            or self.state == self.State.Suspended:
+                self.state = self.State.Paused
+
+    def resume(self, clock=None, quant=None):
+        with self._state_cond:
+            if self.state == self.State.Paused:
+                self.state = self.State.Suspended
+                clock = clock or self._clock or clk.SystemClock
+                self._clock.play(self, quant)
 
     def stop(self):
         with self._state_cond:
             if self.state == self.State.Running:
-                raise StopStream
+                raise RoutineException('cannot be stopped within itself')
             else:
                 self._iterator = None
                 self._last_value = None
                 self._clock = None
                 self.state = self.State.Done
 
-    # p ^Prout(func)
     # storeArgs
     # storeOn
 

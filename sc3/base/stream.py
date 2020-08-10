@@ -12,7 +12,9 @@ from . import functions as fn
 from . import clock as clk
 
 
-__all__ = ['Routine', 'routine', 'FunctionStream', 'Condition', 'FlowVar']
+__all__ = ['Routine', 'routine', 'FunctionStream',
+           'Condition', 'FlowVar', 'stream', 'embed']
+
 
 _logger = logging.getLogger(__name__)
 

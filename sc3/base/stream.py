@@ -82,8 +82,8 @@ class TimeThread():
         return self._rgen
 
     def rand_seed(self, x):
-        # NOTE: La rutinas heredan el generador de parent y solo lo cambian si
-        # NOTE: se siembra. Así se comporta sclang. Hay que usar sc3.random.
+        # Routine's rgen are inherited from parent and
+        # only changed when seeded. Use sc3.random.
         self._rgen = random.Random(x)
 
     @property
@@ -94,13 +94,7 @@ class TimeThread():
     def rand_state(self, data):
         self._rgen.setstate(data)
 
-    # TODO: ver el manejo de excpeiones, se implementa junto con los relojes
-    # failedPrimitiveName
-    # handleError
-    # *primitiveError
-    # *primitiveErrorString
-
-    # TODO: ver pickling
+    # TODO: Maybe for pickling.
     # storeOn { arg stream; stream << "nil"; }
     # archiveAsCompileString { ^true }
     # checkCanArchive { "cannot archive Threads".warn }
@@ -202,7 +196,7 @@ class Stream(fn.AbstractFunction, ABC):
         pass
 
 
-    # def stream_arg(self): # BUG: se usa para Pcollect, Pselect, Preject, el método lo definen Object y Pattern también.
+    # def stream_arg(self): # BUG: Used for Pcollect, Pselect, Preject, method defined by Object and Pattern.
     #     return self
 
     def all(self, inval=None):
@@ -219,10 +213,10 @@ class Stream(fn.AbstractFunction, ABC):
     # putN
     # putAll
     # do
-    # subSample # es un tanto específico, evalúa a partir de offset una cantidad skipSize
-    # generate # método interno para list comprehensions, documentado en Object
+    # subSample # Is somewhat specific, evaluates from offset an skipSize amount.
+    # generate # Internal method for list comprehension documented in Object.
 
-    # Estos métodos acá se podrían dejar para generator list comprehensions
+    # These method could be left for generator list comprehensions.
     # collect
     # reject
     # select
@@ -230,7 +224,7 @@ class Stream(fn.AbstractFunction, ABC):
     # dot # // combine item by item with another stream # NOTE: usa FuncStream
     # interlace # // interlace with another stream # NOTE: usa FuncStream
     # ++ (appendStream)
-    # append_stream # NOTE: usa Routine con embedInStream
+    # append_stream # NOTE: Uses Routine with embedInStream.
     # collate # // ascending order merge of two streams # NOTE: usa interlace
     # <> # Pchain
 
@@ -241,7 +235,7 @@ class Stream(fn.AbstractFunction, ABC):
         return UnaryOpStream(selector, self)
 
     def _compose_binop(self, selector, other):
-        return BinaryOpStream(selector, self, stream(other)) # BUG: BUG: en sclang usa el adverbio y si es nil la operación binaria retorna nil, tal vez porque sin él no hace la operación elemento a elemento de los streams.
+        return BinaryOpStream(selector, self, stream(other))
 
     def _rcompose_binop(self, selector, other):
         return BinaryOpStream(selector, stream(other), self)
@@ -303,7 +297,7 @@ class NAryOpStream(Stream):
     def __init__(self, selector, a, *args):
         self.selector = selector
         self.a = a
-        self.args = args # BUG: cambié el nombres arglist, no uso la optimización isNumeric, todos los args son stream (convertidos en la llamada)
+        self.args = args  # All args are streams (cast done by _compose_narop).
 
     def next(self, inval=None):
         a = self.a.next(inval)  # raises StopStream
@@ -496,10 +490,6 @@ class routine():
 ### Condition.sc ###
 
 
-# NOTE: hay que usar yield from que delega a en un
-# subgenerador (factoriza el código a otra función),
-# o simplemente hacer return de la función a un yield,
-# pero creo que 'yield from' va a ser más explícito.
 class Condition():
     def __init__(self, test=False):
         self._test = test

@@ -512,6 +512,7 @@ class Condition():
         # This method and hang could be common functions so instead of doing
         # `yielf from condition.wait()` it could be `yield cond.wait()`. That
         # will affect server.sync() for instance. I don't know which is best.
+        # However, FlowVar needs to use `yield from` expression.
         if not self.test:
             self._waiting_threads.append(_libsc3.main.current_tt.thread_player)
             yield 'hang'  # Arbitrary non numeric value.
@@ -540,19 +541,20 @@ class Condition():
 
 
 class FlowVar():
-    def __init__(self, compare='unbound'):
-        self._compare = compare
-        self._value = compare
-        self.condition = Condition(lambda: self._value != self._compare) # BUG: 'unbound') creo que es así en vez de como está, no le veo sentido al argumento inicial más que elegir un valor el cuál seguro no se va a asignar.
+    class _UNBOUND(): pass
+
+    def __init__(self):
+        self._value = self._UNBOUND
+        self.condition = Condition(lambda: self._value is not self._UNBOUND)
 
     @property
     def value(self):
-        yield from self.condition.wait()  # *** BUG: hace yield a la nada, y es un descriptor.
-        return self._value  # *** BUG: y los generadores ignoran el valor de retorno.
+        yield from self.condition.wait()
+        return self._value
 
     @value.setter
     def value(self, inval):
-        if self._value != self._compare:
+        if self._value is not self._UNBOUND:
             raise Exception('cannot rebind a FlowVar')
         self._value = inval
         self.condition.signal()

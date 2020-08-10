@@ -9,7 +9,7 @@ from ..base import clock as clk
 from . import event as evt
 
 
-__all__ = ['Task', 'task']
+__all__ = []
 
 
 _logger = logging.getLogger(__name__)
@@ -114,19 +114,6 @@ class PauseStream(stm.Stream):
     @thread_player.setter
     def thread_player(self, value):
         pass
-
-
-class Task(PauseStream):
-    # // Task is a PauseStream for wrapping a Routine.
-    def __init__(self, func):
-        super().__init__(stm.Routine(func))  # BUG: qué pasa si func llega a ser una rutina? qué error tira?
-
-    # storeArgs # TODO: ver en general para la librería
-
-
-# decorator syntax
-def task(func):
-    return Task(func)
 
 
 ### EventStreamCleanup.sc ###

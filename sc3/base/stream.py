@@ -252,7 +252,8 @@ class Stream(fn.AbstractFunction, ABC):
     # trace
     # repeat
 
-    # reset # NOTE: la docuemntación dice que está pero no todos los streams lo implementan.
+    def reset(self):
+        pass
 
 
 ### BasicOpStream.sc ###
@@ -456,7 +457,7 @@ class Routine(TimeThread, Stream):
             if self.state == self.State.Paused:
                 self.state = self.State.Suspended
                 clock = clock or self._clock or clk.SystemClock
-                self._clock.play(self, quant)
+                clock.play(self, quant)
 
     def stop(self):
         with self._state_cond:

@@ -521,8 +521,7 @@ class Condition():
 
     def hang(self, value='hang'):
         # // Ignore the test, just wait.
-        self._waiting_threads.append(
-            _libsc3.main.current_tt.thread_player)
+        self._waiting_threads.append(_libsc3.main.current_tt.thread_player)
         yield value
 
     def signal(self):
@@ -595,28 +594,28 @@ class DictionaryStream(ValueStream):
 
     ### Stream protocol ###
 
-    def __embed__(self, inevent=None):
+    def __embed__(self, indict=None):
         # Dictionary.embedInStream
         # func = self.value.get('embed', None)
         # if func is not None:
-        #     yield from func(self.value, inevent)
-        if inevent is None:
+        #     yield from func(self.value, indict)
+        if indict is None:
             return (yield self.value)
         else:
-            inevent = inevent.copy()
-            inevent.update(self.value)
-            return (yield inevent)
+            indict = indict.copy()
+            indict.update(self.value)
+            return (yield indict)
 
-    def next(self, inevent=None):
+    def next(self, indict=None):
         # Event.next
-        if inevent is None:
+        if indict is None:
             # Object.composeEvent
             return self.value.copy()
         else:
             # Environment.composeEvent
-            inevent = inevent.copy()
-            inevent.update(self.value)
-            return inevent
+            indict = indict.copy()
+            indict.update(self.value)
+            return indict
 
 
 ### Module functions ###

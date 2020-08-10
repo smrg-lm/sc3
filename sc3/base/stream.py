@@ -507,21 +507,20 @@ class Condition():
         self._test = value
 
     def wait(self):
+        # This method and hang could be common functions so instead of doing
+        # `yielf from condition.wait()` it could be `yield cond.wait()`. That
+        # will affect server.sync() for instance. I don't know which is best.
         if not self.test:
-            self._waiting_threads.append(
-                _libsc3.main.current_tt.thread_player) # NOTE: problema en realidad, thread_player es callable, si se confunde con un método... no es que me haya pasado.
-            yield 'hang'
-            #return 'hang'
+            self._waiting_threads.append(_libsc3.main.current_tt.thread_player)
+            yield 'hang'  # Arbitrary non numeric value.
         else:
-            yield 0 # BUG: sclang retorna self (no hace yield), supongo que 0 es como decir que sigua aunque reprograma, pero funciona, ver sync
-            #return 0
+            return 0
 
     def hang(self, value='hang'):
-        # // ignore the test, just wait
+        # // Ignore the test, just wait.
         self._waiting_threads.append(
             _libsc3.main.current_tt.thread_player)
         yield value
-        #return 'hang'
 
     def signal(self):
         if self.test:
@@ -531,7 +530,7 @@ class Condition():
                 tt._clock.sched(0, tt)
 
     def unhang(self):
-        # // ignore the test, just resume all waiting threads
+        # // Ignore the test, just resume all waiting threads.
         tmp_wtt = self._waiting_threads
         self._waiting_threads = []
         for tt in tmp_wtt:

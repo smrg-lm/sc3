@@ -365,8 +365,12 @@ class Routine(TimeThread, Stream):
         return obj
 
     def play(self, clock=None, quant=None):
-        clock = clock or clk.SystemClock
-        clock.play(self, quant)
+        with self._state_cond:
+            if self.state == self.State.Init\
+            or self.state == self.state.Paused:
+                self.state = self.State.Suspended
+                clock = clock or clk.SystemClock
+                clock.play(self, quant)
         # Pattern.play return the stream, maybe for API usage constency
         # Stream.play should return self, but I'm not sure.
         # return self

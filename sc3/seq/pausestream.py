@@ -85,13 +85,8 @@ class EventStreamPlayer(stm.Routine):
         super().__init__(self._stream_player_func())
         self._stream = stream
         self._event = event or evt.event()
-        self._is_playing = False
         self._is_muted = False
         self.cleanup = EventStreamCleanup()
-
-    @property
-    def is_playing(self):
-        return self._is_playing
 
     def mute(self):
         self._is_muted = True
@@ -100,21 +95,25 @@ class EventStreamPlayer(stm.Routine):
         self._is_muted = False
 
     def reset(self):
-        super().reset()
-        self._stream.reset()
-        self.cleanup.terminate()
+        with self._state_cond:
+            super().reset()
+            self._stream.reset()
+            self.cleanup.terminate()
 
     def resume(self, clock=None, quant=None):
-        clock = clock or self._clock or clk.TempoClock.default
-        self._event, quant = self._synch_with_quant(self._event, quant)
-        super().resume(clock, quant)
+        with self._state_cond:
+            if self.state == self.State.Paused:
+                self.state = self.State.Suspended
+                clock = clock or self._clock or clk.TempoClock.default
+                self._event, quant = self._synch_with_quant(self._event, quant)
+                clock.play(self, quant)
 
     def stop(self):
-        super().stop()
-        self._on_stop_cleanup()
+        with self._state_cond:
+            super().stop()
+            self._on_stop_cleanup()
 
     def _on_stop_cleanup(self):
-        self._is_playing = False
         self.cleanup.terminate()
         sac.CmdPeriod.remove(self.__on_cmd_period)
 
@@ -136,18 +135,16 @@ class EventStreamPlayer(stm.Routine):
         return outevent('delta')
 
     def play(self, clock=None, quant=None, reset=False):
-        if self._is_playing:
-            return
-            # Pattern.play return the stream, maybe for API usage constency
-            # Stream.play should return self, but I'm not sure.
-            # return self
         if reset:
             self.reset()
-        self._is_playing = True
-        clock = clock or clk.TempoClock.default
-        self._event, quant = self._synch_with_quant(self._event, quant)
-        clock.play(self, quant)
-        sac.CmdPeriod.add(self.__on_cmd_period)
+        with self._state_cond:
+            if self.state == self.State.Init\
+            or self.state == self.state.Paused:
+                self.state = self.State.Suspended
+                clock = clock or clk.TempoClock.default
+                self._event, quant = self._synch_with_quant(self._event, quant)
+                clock.play(self, quant)
+                sac.CmdPeriod.add(self.__on_cmd_period)
         # Pattern.play return the stream, maybe for API usage constency
         # Stream.play should return self, but I'm not sure.
         # return self

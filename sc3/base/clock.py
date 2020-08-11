@@ -311,8 +311,6 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
             # BUG: queue es thisProcess.prSchedulerQueue, VER!
             while not cls._task_queue.empty():
                 item = cls._task_queue.pop()[1]
-                # if isinstance(item, pst.PauseStream):
-                #     item.removed_from_scheduler()
             cls._sched_cond.notify_all()
             # BUG: llama a prClear, VER!
 
@@ -414,8 +412,6 @@ class Scheduler():
         item = None
         while not self.queue.empty():
             item = self.queue.pop()
-            # if isinstance(item, pst.PauseStream):
-            #     item.removed_from_scheduler()  # NOTE: cambié el orden, en sclang primero se llama a este método y luego se vacía la cola.
 
     def empty(self):
         return self.queue.empty()
@@ -698,14 +694,13 @@ class MetaTempoClock(MetaClock):
         def init_func(cls):
             cls.default = cls()
             cls.default.permanent = True
-            sac.CmdPeriod.add(cls.__on_cmd_period, cls)
+            sac.CmdPeriod.add(cls.__on_cmd_period)
 
         utl.ClassLibrary.add(cls, init_func)
 
-    @staticmethod
     def __on_cmd_period(cls):
         for clock in cls.all:
-            clock.clear(False)
+            clock.clear()
             if not clock.permanent:
                 clock.stop()
 
@@ -1026,9 +1021,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             with self._sched_cond:
                 self._sched_add(beat, item)
 
-    def clear(self):  #, release_nodes=True):  # Is here because PauseStream, domain interference, not good.
-        # // flag tells EventStreamPlayers that CmdPeriod
-        # // is removing them, so nodes are already freed
+    def clear(self):
         # clear -> prClear -> _TempoClock_Clear -> TempoClock::Clear
         if self.mode == _libsc3.main.NRT_MODE:
             return
@@ -1037,8 +1030,6 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             with self._sched_cond:
                 while not self._task_queue.empty():
                     item = self._task_queue.pop()[1] # de por sí PriorityQueue es thread safe, la implementación de SuperCollider es distinta, ver SystemClock*clear.
-                    # if isinstance(item, pst.PauseStream):
-                    #     item.removed_from_scheduler(release_nodes)
                 self._sched_cond.notify() # NOTE: es notify_one en C++
 
     @property

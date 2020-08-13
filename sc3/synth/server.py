@@ -602,8 +602,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def send_msg(self, *args):
         self.addr.send_msg(*args)
 
-    def send_bundle(self, time, *args):
-        self.addr.send_bundle(time, *args)
+    def send_bundle(self, time, *elements):
+        self.addr.send_bundle(time, *elements)
 
     def send_synthdef(self, name, dir=None):
         # // Load from disk locally, send remote.
@@ -646,11 +646,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             '/n_order', nod.Node.action_number_for(add_action), # 62
             target.node_id, *node_list)
 
-    def sync(self, condition=None, bundle=None, latency=None):
+    def sync(self, condition=None, latency=None, elements=None):
         if _libsc3.main is _libsc3.NrtMain:
             yield 0  # *** NOTE: Depends on Condition implementation.
         else:
-            yield from self.addr.sync(condition, bundle, latency)
+            yield from self.addr.sync(condition, latency, elements)
 
 
     ### Network message bundling ###

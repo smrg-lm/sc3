@@ -113,17 +113,17 @@ class NetAddr():
     def send_msg(self, *args):
         self._osc_interface.send_msg(self._target, *args)
 
-    def send_bundle(self, time, *args):
-        self._osc_interface.send_bundle(self._target, time, *args)
+    def send_bundle(self, time, *elements):
+        self._osc_interface.send_bundle(self._target, time, *elements)
 
-    def send_clumped_bundles(self, time, *args):
-        if self._calc_bndl_dgram_size(args) > self._MAX_UDP_DGRAM_SIZE:
-            for item in self._clump_bundle(args):
+    def send_clumped_bundles(self, time, *elements):
+        if self._calc_bndl_dgram_size(elements) > self._MAX_UDP_DGRAM_SIZE:
+            for item in self._clump_bundle(elements):
                 if time is not None:
                     time += 1e-9  # One nanosecond later each.
                 self.send_bundle(time, *item)
         else:
-            self.send_bundle(time, *args)
+            self.send_bundle(time, *elements)
 
     def send_status_msg(self):
         self._osc_interface.send_msg(self._target, '/status')
@@ -131,17 +131,17 @@ class NetAddr():
     def recover(self):
         return self
 
-    def sync(self, condition=None, bundle=None, latency=None):
+    def sync(self, condition=None, latency=None, elements=None):
         condition = condition or stm.Condition()
-        if bundle is None:
+        if elements is None:
             id = self._make_sync_responder(condition)
             self.send_bundle(latency, ['/sync', id])
             yield from condition.wait()
         else:
             sync_size = self._SYNC_BNDL_DGRAM_SIZE
             max_size = self._MAX_UDP_DGRAM_SIZE - sync_size
-            if self._calc_bndl_dgram_size(bundle) > max_size:
-                for item in self._clump_bundle(bundle, max_size):
+            if self._calc_bndl_dgram_size(elements) > max_size:
+                for item in self._clump_bundle(elements, max_size):
                     id = self._make_sync_responder(condition)
                     item.append(['/sync', id])
                     self.send_bundle(latency, *item)
@@ -150,9 +150,9 @@ class NetAddr():
                     yield from condition.wait()
             else:
                 id = self._make_sync_responder(condition)
-                bundle = bundle[:]
-                bundle.append(['/sync', id])
-                self.send_bundle(latency, *bundle)
+                elements = list(elements)
+                elements.append(['/sync', id])
+                self.send_bundle(latency, *elements)
                 yield from condition.wait()
 
     def _make_sync_responder(self, condition):
@@ -172,8 +172,12 @@ class NetAddr():
         for e in elements:
             if isinstance(e[0], str):
                 elist.append((self._calc_msg_dgram_size(e), e))
+            elif isinstance(e[0], (int, float)):  # bundle
+                elist.append((self._calc_bndl_dgram_size(e[1:]), e))
             else:
-                elist.append((self._calc_bndl_dgram_size(e), e))
+                raise ValueError(
+                    'elements within bundles must be valid OSC '
+                    f'messages or bundles, received: {e}')
         res = []
         clump = []
         acc_size = 16  # Bundle prefix + Timetag bytes.
@@ -188,15 +192,19 @@ class NetAddr():
             res.append(clump)
         return res
 
-    def _calc_bndl_dgram_size(self, bndl):
-        # Argument bndl is the content without Timetag: [[], [], ...].
+    def _calc_bndl_dgram_size(self, elements):
+        # Argument elements is the content without Timetag: [[], [], ...].
         res = 16  # Bundle prefix + Timetag bytes.
-        for element in bndl:
+        for e in elements:
             res += 4  # Element size bytes.
-            if isinstance(element[0], str):  # message
-                res += self._calc_msg_dgram_size(element)
-            else:  # bundle
-                res += self._calc_bndl_dgram_size(bndl)
+            if isinstance(e[0], str):  # message
+                res += self._calc_msg_dgram_size(e)
+            elif isinstance(e[0], (int, float)):  # bundle
+                res += self._calc_bndl_dgram_size(e[1:])
+            else:
+                raise ValueError(
+                    'elements within bundles must be valid OSC '
+                    f'messages or bundles, received: {e}')
         return res
 
     def _calc_msg_dgram_size(self, msg):
@@ -239,7 +247,7 @@ class BundleNetAddr(NetAddr):
 
     class _SYNC_FLAG(): pass
 
-    def __init__(self, target, bundle=None, send=True):
+    def __init__(self, target, arg_list=None, send=True):
         if isinstance(target, NetAddr):
             self._save_addr = addr
             self._server = None
@@ -247,7 +255,7 @@ class BundleNetAddr(NetAddr):
             self._save_addr = target.addr
             self._server = target
         super().__init__(self._save_addr._hostname, self._save_addr._port)
-        self._bundle = bundle or []
+        self._bundle = arg_list or []
         self._send = send
         self._last_sync = -1
 
@@ -259,11 +267,11 @@ class BundleNetAddr(NetAddr):
     def send_msg(self, *args):
         self._bundle.append(list(args))
 
-    def send_bundle(self, time, *args):
-        self._bundle.extend(list(args))  # Discard time.
+    def send_bundle(self, time, *elements):
+        self._bundle.extend(list(elements))  # Discard time.
 
-    def send_clumped_bundles(self, time, *args):
-        self._bundle.extend(args)  # Discard time.
+    def send_clumped_bundles(self, time, *elements):
+        self._bundle.extend(list(elements))  # Discard time.
 
     def send_status_msg(self):
         pass  # // Ignore status message.
@@ -271,12 +279,12 @@ class BundleNetAddr(NetAddr):
     def recover(self):
         return self._save_addr
 
-    def sync(self, condition=None, bundle=None, latency=None):
+    def sync(self, condition=None, latency=None, elements=None):
         if self._send:
             self._send_last_bundle()
-            yield from self._save_addr.sync(None, bundle, latency)
+            yield from self._save_addr.sync(None, latency, elements)
         self._last_sync = len(self._bundle)
-        self._bundle.append([self._SYNC_FLAG, bundle, latency])
+        self._bundle.append([self._SYNC_FLAG, latency, elements])
 
     def _send_last_bundle(self):
         time = self._server.latency if self._server else None
@@ -289,10 +297,10 @@ class BundleNetAddr(NetAddr):
         curr = [time]
         for item in self._bundle:
             if item[0] is self._SYNC_FLAG:
-                if item[1] is not None:
-                    curr.extend(item[1])
+                if item[2] is not None:
+                    curr.extend(item[2])
                 res.append(curr)
-                curr = [item[2]]
+                curr = [item[1]]
             else:
                 curr.append(item)
         res.append(curr)

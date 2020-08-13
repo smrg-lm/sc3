@@ -96,10 +96,9 @@ class OscInterface(ABC):
         Non empty lists are converted to blobs containing osc messages or
         bundles. Empty strings are sent unchanged.
         '''
-        msg = self._build_msg(list(args))
-        self._send(msg, target)
+        self._send(self._build_msg(list(args)), target)
 
-    def send_bundle(self, target, time, *args):
+    def send_bundle(self, target, time, *elements):
         '''
         args are lists of values to creae a message or bundle each.
         target is a tuple (hostname, port).
@@ -107,17 +106,23 @@ class OscInterface(ABC):
         If time is negative it will be substracted from elapsed time and be
         an already late timetag (no check for sign).
         '''
-        if time is not None:
+        # Time is calculated in _build_bundle to support
+        # sub-bundles relative time by calling _get_timetag().
+        self._send(self._build_bundle([time, *elements]), target)
+
+    def _get_timetag(self, time):
+        if time is None:
+            return oli.IMMEDIATELY
+        else:
             time += _libsc3.main.current_tt._seconds
-            time = clk.SystemClock.elapsed_time_to_osc(time)
-        bndl = self._build_bundle([time, *args])
-        self._send(bndl, target)
+            return clk.SystemClock.elapsed_time_to_osc(time)
 
     @abstractmethod
     def _send(self, msg, target):
         pass
 
-    def _build_msg(self, arg_list):  # ['/path', arg1, arg2, ..., argN]
+    def _build_msg(self, arg_list):
+        # ['/path', arg1, arg2, ..., argN]
         msg_builder = oli.OscMessageBuilder(arg_list[0])
         for arg in arg_list[1:]:
             if arg is None:
@@ -133,9 +138,9 @@ class OscInterface(ABC):
                 and len(arg) > 1 and isinstance(arg[1], list):
                     msg_builder.add_arg(self._build_bundle(arg).dgram)
                 else:
-                    raise oli.OscMessageBuildError(
-                        'lists within messages must be a valid '
-                        f'OSC message or bundle: {arg}')
+                    raise ValueError(
+                        'lists within messages must be valid '
+                        f'OSC messages or bundles: {arg}')
             elif arg == '[':
                 msg_builder.args.append(
                     (msg_builder.ARG_TYPE_ARRAY_START, None))
@@ -146,8 +151,9 @@ class OscInterface(ABC):
                 msg_builder.add_arg(arg)  # Infiere correctamente el resto de los tipos.
         return msg_builder.build()
 
-    def _build_bundle(self, arg_list):  # [time, ['/path', arg1, arg2, ..., argN], ['/path', arg1, arg2, ..., argN], ...]
-        timetag = oli.IMMEDIATELY if arg_list[0] is None else arg_list[0]
+    def _build_bundle(self, arg_list):
+        # [time, ['/path', arg1, arg2, ..., argN], [...], ...]
+        timetag = self._get_timetag(arg_list[0])
         bndl_builder = oli.OscBundleBuilder(timetag)
         for arg in arg_list[1:]:
             if isinstance(arg[0], str):
@@ -155,9 +161,9 @@ class OscInterface(ABC):
             elif isinstance(arg[0], (int, float, type(None))):
                 bndl_builder.add_content(self._build_bundle(arg))
             else:
-                raise oli.OscMessageBuildError(
-                    'lists within messages must be a valid '
-                    f'OSC message or bundle: {arg}')
+                raise ValueError(
+                    'elements within bundles must be valid '
+                    f'OSC messages or bundles: {arg}')
         return bndl_builder.build()
 
     def __str__(self):
@@ -396,12 +402,16 @@ class OscNrtInterface(OscInterface):
         # In NRT all messages are bundles at current time.
         self.send_bundle(target, 0.0, list(args))
 
-    def send_bundle(self, target, time, *args):  # override
+    def send_bundle(self, target, time, *elements):  # override
+        # Time is calculated in _build_bundle to support
+        # sub-bundles relative time by calling _get_timetag().
+        self._osc_score.add([time, *elements])
+
+    def _get_timetag(self, time):  # override
         if time is None:
             time = 0.0  # IMMEDIATELY is not needed in nrt.
         time += _libsc3.main.current_tt._seconds
-        time = int(time * clk.SystemClock._SECONDS_TO_OSC)
-        self._osc_score.add([time, *args])
+        return int(time * clk.SystemClock._SECONDS_TO_OSC)
 
     def _send(self, msg, target):
         pass

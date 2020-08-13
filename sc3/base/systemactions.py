@@ -144,6 +144,10 @@ class ServerAction():
             for action, pk in cls._servers['all'].copy().items():
                 action(server, *pk[0], **pk[1])
 
+    @classmethod
+    def _do_action(cls, action):
+        pass
+
 
 class ServerBoot(ServerAction):
     # // Things to do after server has booted.

@@ -432,12 +432,14 @@ class MetaSynthDescLib(type):
 
         def init_func(cls):
             cls.default = cls('default')  # Was global in sclang.
-            sac.ServerBoot.add('all', cls.__on_server_boot, cls)  # *** NOTE: *send llama a global.send if server has booted, ver abajo.
+            sac.ServerBoot.add('all', cls.__on_server_boot)  # *** NOTE: *send calls global.send if server has booted, see below.
 
         utl.ClassLibrary.add(cls, init_func)
 
-    @staticmethod
-    def __on_server_boot(server, cls):
+
+    ### System Actions ###
+
+    def __on_server_boot(cls, server):
         # // tryToLoadReconstructedDefs = false:
         # // since this is done automatically, w/o user action,
         # // it should not try to do things that will cause warnings

@@ -39,7 +39,7 @@ class Volume():
             self._send_synthdef()
             self._update_synth()
 
-        sac.ServerBoot.add(self._server, self.__on_server_boot, self)
+        sac.ServerBoot.add(self._server, self.__on_server_boot)
 
     @property
     def server(self):
@@ -123,7 +123,7 @@ class Volume():
 
                 sdf.SynthDef(self._def_name, graph).send(self._server)
                 yield from self._server.sync()
-                sac.ServerTree.add(self._server, self.__on_server_tree, self)
+                sac.ServerTree.add(self._server, self.__on_server_tree)
 
             stm.Routine.run(send_synthdef, clk.TempoClock.default)
 
@@ -181,16 +181,14 @@ class Volume():
 
     ### System Actions ###
 
-    @staticmethod
-    def __on_server_boot(_, self):
+    def __on_server_boot(self, _):
         self._amp_synth = None
         self._send_synthdef()
         # // Only create synth now if it won't be created by ServerTree.
         if not self._persist:
             self._update_synth()
 
-    @staticmethod
-    def __on_server_tree(_, self):
+    def __on_server_tree(self, _):
         self._amp_synth = None
         if self._persist:
             self._update_synth()

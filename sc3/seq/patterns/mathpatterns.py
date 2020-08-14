@@ -112,7 +112,7 @@ class Pwhite(ptt.Pattern):
                 loval = lo_stream.next(inval)
                 hival = hi_stream.next(inval)
                 inval = yield bi.rrand(loval, hival)
-            except StopStream:
+            except stm.StopStream:
                 return inval
         return inval
 

@@ -9,7 +9,7 @@ from . import pausestream as pst
 from . import event as evt
 
 
-__all__ = []
+__all__ = ['pattern']
 
 
 class Pattern(fn.AbstractFunction):
@@ -157,3 +157,42 @@ class Pnarop(Pattern): # BUG: nombre cambiado
                 return inval
 
     # storeOn
+
+
+def pattern(gfunc):
+    '''
+    Decorator to create value patterns from generator functions.
+
+    @pattern
+    def pwhite(lo=0.0, hi=1.0, length=bi.inf):
+        lo = stream(lo)
+        hi = stream(hi)
+        loval = hival = None
+        for _ in utl.counter(length):
+            try:
+                loval = next(lo)
+                hival = next(hi)
+                yield bi.rrand(loval, hival)
+            except StopIteration:
+                return
+
+    p = stream(pwhite(length=3) ** 2)
+    next(p)
+    '''
+
+    if not inspect.isgeneratorfunction(gfunc):
+        raise Exception(f'{gfunc} is not a generator function')
+
+    class _(Pattern):
+        _gfunc = gfunc
+
+        def __init__(self, *args, **kwargs):
+            self._args = args
+            self._kwargs = kwargs
+
+        def __embed__(self, _=None):
+            return type(self)._gfunc(*self._args, **self._kwargs)
+
+    _.__name__ = gfunc.__name__
+    _.__qualname__ = gfunc.__qualname__
+    return _

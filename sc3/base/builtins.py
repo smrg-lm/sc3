@@ -1101,7 +1101,7 @@ def explin(x, inmin, inmax, outmin, outmax, clip='minmax'):
         if x <= inmin: return outmin
     elif clip == 'max':
         if x >= inmax: return outmax
-    return math.log(this / inmin, math.e) / math.log(inmax / inmin, math.e)\
+    return math.log(x / inmin, math.e) / math.log(inmax / inmin, math.e)\
            * (outmax - outmin) + outmin
 
 @scbuiltin.narop
@@ -1115,7 +1115,7 @@ def expexp(x, inmin, inmax, outmin, outmax, clip='minmax'):
         if x >= inmax: return outmax
     return math.pow(
         outmax / outmin,
-        math.log(this / inmin, math.e) / math.log(inmax / inmin, math.e)
+        math.log(x / inmin, math.e) / math.log(inmax / inmin, math.e)
     ) * outmin
 
 @scbuiltin.narop

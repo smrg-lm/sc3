@@ -185,7 +185,7 @@ class PatternValueStream(stm.Stream):
             else:
                 return self._stream.send(inval)
         except StopIteration:
-            raise stm.StopStream
+            raise stm.StopStream from None
 
     def reset(self):
         self._stream = None
@@ -203,4 +203,4 @@ class PatternEventStream(PatternValueStream):
             else:
                 return self._stream.send(inevent)
         except StopIteration:
-            raise stm.StopStream
+            raise stm.StopStream from None

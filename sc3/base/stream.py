@@ -422,7 +422,7 @@ class Routine(TimeThread, Stream):
                 self._last_value = None
                 self._clock = None
                 self.state = self.State.Done
-                raise StopStream
+                raise StopStream from None
             except YieldAndReset as e:
                 self._iterator = None
                 self.state = self.State.Init

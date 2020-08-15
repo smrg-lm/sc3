@@ -71,7 +71,7 @@ class TimeThread():
         else:
             if self.parent is not None\
             and self.parent is not _libsc3.main.main_tt:
-                return self.parent.thread_player()
+                return self.parent.thread_player
             else:
                 return self
 

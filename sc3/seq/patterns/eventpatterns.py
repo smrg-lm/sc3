@@ -4,6 +4,8 @@ import logging
 import copy
 
 from ...base import stream as stm
+from ...base import builtins as bi
+from ...base import utils as utl
 from ...base import functions as fn
 from ...base import _taskq as tsq
 from .. import pattern as ptt
@@ -20,16 +22,50 @@ _logger = logging.getLogger(__name__)
 
 class Pkey(ptt.Pattern):
     # // Access a key from the input event.
-    def __init__(self, key):  # No repeats parameter.
+    def __init__(self, key, length=None):  # Changed: repeats is for lists.
         self.key = key
+        self.length = length
 
     def __stream__(self):
-        # Simplified: key can't be a stream.
-        return stm.FunctionStream(lambda inevent: inevent.get(self.key))  # inevent(self.key))  # *** BUG: would need as_event.
+        key_stm = stm.stream(self.key)
+
+        def _stm_func(inevent):
+            if inevent is not None:
+                try:
+                    return inevent[key_stm.next(inevent)]  # raises StopStream
+                except KeyError:
+                    raise stm.StopStream from None
+            else:
+                raise stm.StopStream
+
+        func_stm = stm.FunctionStream(_stm_func)
+        if self.length is None:
+            return func_stm
+        else:
+            # Object.fin() only used here.
+            length = self.length
+
+            def _rtn_func(inevent):
+                try:
+                    for _ in range(length):
+                        inevent = yield func_stm.next(inevent)
+                except stm.StopStream:
+                    return
+
+            return stm.Routine(_rtn_func)
 
     def __embed__(self, inevent):
-        while True:
-            inevent = yield inevent(self.key)
+        if not isinstance(inevent, dict):
+            raise TypeError(
+                f'inevent must be dict, not {type(inevent).__name__}')
+        key_stm = stm.stream(self.key)
+        length = self.length or bi.inf
+        for _ in utl.counter(length):
+            try:
+                inevent = (yield inevent[key_stm.next(inevent)]) or dict()
+            except (stm.StopStream, KeyError):
+                return inevent
+        return inevent
 
     # storeArgs
 

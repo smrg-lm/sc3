@@ -193,10 +193,14 @@ class Stream(fn.AbstractFunction, ABC):
         except StopStream:
             return inval
 
+    # play
+
     @abstractmethod
     def next(self, inval=None):
         pass
 
+    def reset(self):
+        pass
 
     # def stream_arg(self): # BUG: Used for Pcollect, Pselect, Preject, method defined by Object and Pattern.
     #     return self
@@ -248,12 +252,8 @@ class Stream(fn.AbstractFunction, ABC):
 
 
     # asEventStreamPlayer
-    # play
     # trace
     # repeat
-
-    def reset(self):
-        pass
 
 
 ### BasicOpStream.sc ###
@@ -627,7 +627,7 @@ class DictionaryStream(ValueStream):
 
 
 def stream(obj):
-    '''Converts any object in a Stream.'''
+    '''Converts any object into a Stream.'''
 
     if hasattr(obj, '__stream__'):
         return obj.__stream__()
@@ -640,7 +640,7 @@ def stream(obj):
 
 def embed(obj, inval=None):
     '''
-    Converts any object in a Stream and returns its embeddable form passing
+    Converts any object into a Stream and returns its embeddable form passing
     inval to the `next` calls.
     '''
 

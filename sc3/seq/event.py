@@ -502,7 +502,7 @@ class NoteEvent(EventType, partial_events=(
     def play(self):  # NOTE: No server parameter.
         self['freq'] = self._detuned_freq()  # Before _get_msg_params.
         param_list = self._get_msg_params()  # Populates synth_desc.
-        self['instrument'] = instrument_name = self._synthdef_name()
+        self['instrument'] = instrument = self._synthdef_name()
         self['server'] = server = self('server')
 
         self['node_id'] = id = server.next_node_id()
@@ -510,7 +510,7 @@ class NoteEvent(EventType, partial_events=(
         self['group'] = group = gpp.node_param(
             self('group'))._as_control_input() # *** NOTE: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido? VER PERORATA ABAJO EN GRAIN
 
-        bndl = ['/s_new', instrument_name, id, add_action, group]
+        bndl = ['/s_new', instrument, id, add_action, group]
         bndl.extend(param_list)
         bndl = gpp.node_param(bndl)._as_osc_arg_list()
 
@@ -521,3 +521,17 @@ class NoteEvent(EventType, partial_events=(
                 server.latency + self('sustain'), ['/n_set', id, 'gate', 0])
 
         self['is_playing'] = True
+
+        # *** BUG: In scsynth, sub-bundles time is intepreted a both cmd and
+        # timetag throwing "FAILURE IN SERVER:  Command not found".
+        # elements = []
+        # on_msg = ['/s_new', instrument, id, add_action, group]
+        # on_msg.extend(param_list)
+        # on_msg = gpp.node_param(on_msg)._as_osc_arg_list()
+        # elements.append(on_msg)
+        # if self('send_gate'):
+        #     elements.append(  # off_bndl
+        #         [server.latency + self('sustain'), ['/n_set', id, 'gate', 0]])  # *** Not using latency key.
+        # # *** BUG: socket.sendto and/or threading mixin use too much cpu.
+        # server.send_bundle(server.latency, *elements)  # *** Not using latency key.
+        # self['is_playing'] = True

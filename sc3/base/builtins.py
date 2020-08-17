@@ -224,8 +224,6 @@ def xrand2(x, exclude=0):
         return x if res == exclude else res
     raise TypeError
 
-# list choose/wchoose
-
 
 ### Unary ###
 
@@ -591,6 +589,7 @@ def next_near_power(x, base=2):  # SimpleNumber.nextPowerOf
 @scbuiltin.binop
 def previous_near_power(x, base=2):  # SimpleNumber.previousPowerOf
     return base ** (ceil(log(x) / log(base)) - 1)
+
 
 ### Binary ###
 
@@ -1214,3 +1213,40 @@ def gauss_curve(x, a=1.0, b=0.0, c=1.0):
 # theta
 # rotate
 # dist
+
+
+### Array ###
+
+# The next sclang functios operate over lists and don't map to server opcodes.
+# They are Routine's state aware, i.e. random operatons use rgen state.
+
+import operator
+import itertools
+
+
+def normalize(lst, min=0.0, max=1.0):
+    min = itertools.repeat(min)
+    max = itertools.repeat(max)
+    outmin = itertools.repeat(builtins.min(lst))
+    outmax = itertools.repeat(builtins.max(lst))
+    return list(map(linlin, lst, outmin, outmax, min, max))
+
+def normsum(lst):  # normalizeSum/normalize_sum
+    return list(map(operator.truediv, lst, itertools.repeat(sum(lst))))
+
+def shuffle(lst, random=None):  # scramble
+    return _libsc3.main.rgen.shuffle(lst, random)  # In place.
+
+# mirror, mirror1, mirror2  # one mirror with mode.
+# stutter, rotate, pyramid, pyramidg, sputter(rand), etc.
+
+
+### SequenceableCollection ###
+
+def choice(lst):  # choose
+    return _libsc3.main.rgen.choice(lst)
+
+def choices(lst, weights=None, *, cum_weights=None, k=1):  # wchoose
+    return _libsc3.main.rgen.choices(lst, weights, cum_weights=cum_weights, k=k)
+
+# ...

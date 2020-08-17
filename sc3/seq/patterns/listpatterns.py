@@ -4,6 +4,7 @@ import collections
 
 from ...base import utils as utl
 from ...base import stream as stm
+from ...base import builtins as bi
 from .. import pattern as ptt
 
 
@@ -35,10 +36,12 @@ class Pseq(ListPattern):
         # NOTE: Are sclang assignments in case the object is mutable?
         # NOTE: review use of value in sclang.
         # if (inval.eventAt('reverse') == true, { # Not good.
+        lst = self.lst
+        offset = self.offset
         for _ in utl.counter(self.repeats):
-            for item in self.lst[self.offset:]:
+            for item in lst[offset:]:
                 inval = yield from stm.embed(item, inval)
-            for item in self.lst[:self.offset]:
+            for item in lst[:offset]:
                 inval = yield from stm.embed(item, inval)
         return inval
 
@@ -47,36 +50,12 @@ class Pseq(ListPattern):
 
 class Pser(Pseq):
     def __embed__(self, inval=None):
+        lst = self.lst
         offset = self.offset
-        length = len(self.lst)
+        length = len(lst)
         for i in utl.counter(self.repeats):
-            item = self.lst[(i + offset) % length]
-            inval = yield from stm.embed(item, inval)
+            inval = yield from stm.embed(lst[(i + offset) % length], inval)
         return inval
-
-
-class Pshuf(ListPattern):
-    ...
-
-
-class Prand(ListPattern):
-    ...
-
-class Pxrand(ListPattern):
-    ...
-
-
-class Pwrand(ListPattern):
-    ...
-
-
-# # TODO: estos dos son un tanto específicos.
-# # // Finite State Machine
-# class Pfsm(ListPattern):
-#     ...
-# # // Deterministic Finite State Machine
-# class Pdfsm(ListPattern):
-#     ...
 
 
 # TODO: selecciona elementos por índice en la lista.
@@ -120,5 +99,101 @@ class Pslide(ListPattern):
     ...
 
 
+### Random ###
+
+class Pshuffle(ListPattern):  # Pshuf
+    def __embed__(self, inval):
+        slist = self.lst[:]
+        bi.shuffle(slist)
+        for _ in utl.counter(self.repeats):
+            for item in slist:
+                inval = yield from stm.embed(item)
+        return inval
+
+
+class Prand(ListPattern):
+    # repeats should be length.
+    def __embed__(self, inval):
+        lst = self.lst
+        size = len(lst)
+        for _ in utl.counter(self.repeats):
+            inval = yield from stm.embed(lst[bi.rand(size)], inval)
+        return inval
+
+
+class Pxrand(ListPattern):
+    # repeats should be length.
+    def __embed__(self, inval):
+        size = len(self.lst)
+        index = bi.rand(size)
+        for _ in utl.counter(self.repeats):
+            index = (index + bi.rand(size - 1) + 1) % size
+            inval = yield from stm.embed(lst[index], inval)
+        return inval
+
+
+class Pwrand(ListPattern):
+    # repeats should be length.
+    def __init__(self, lst, weights=None, repeats=1):  #, *, cum_weights=None, k=1):
+        super().__init__(lst, repeats)
+        self.weights = weights
+        # self.cum_weights = cum_weights
+        # self.k = k
+
+    def __embed__(self, inval):
+        lst = self.lst
+        weights = self.weights
+        ilst = range(len(weights)) if weights else range(len(lst))
+        indx = None
+        wstream = stm.stream(weights)
+        try:
+            for _ in utl.counter(self.repeats):
+                indx = bi.choices(ilst, wstream.next(inval))[0]  #, cum_weights=cw, k=k)
+                inval = yield from stm.embed(lst[indx], inval)
+        except stm.StopStream:
+            return inval
+
+
 class Pwalk(ListPattern):
+    # // random walk pattern - hjh - jamshark70@gmail.com
+    def __init__(self, lst, steps=None, directions=1, start=0):
+        super().__init__(lst)
+        self.steps = steps or Prand([-1, 1], bi.inf)
+        self.directions = 1 if directions is None else directions
+        self.start = start
+
+    # storeArgs
+
+    def __embed__(self, inval):
+        lst = self.lst
+        step = None
+        size = len(lst)
+        index = self.start
+        step_stream = stm.stream(self.steps)
+        direction_stream = stm.stream(self.directions)
+        direction = direction_stream.next(inval)
+
+        try:
+            while True:
+                step = step_stream.next(inval)  # raises StopStream
+                inval = yield from stm.embed(lst[int(index)], inval)
+                step *= direction
+                if index + step < 0 or index + step >= size:
+                    direction = direction_stream.next(inval)  # or 1  # raises StopStream
+                    step = abs(step) * bi.sign(direction)
+                index += step
+                index %= size
+        except stm.StopStream:
+            return inval
+
+
+
+### Finite State Machine ###
+
+class Pfsm(ListPattern):
+    # // Finite State Machine
+    ...
+
+class Pdfsm(ListPattern):
+    # // Deterministic Finite State Machine
     ...

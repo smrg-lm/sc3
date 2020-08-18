@@ -75,6 +75,7 @@ class Pser(Pseq):
 #                 indx_stream = stm.stream(indx_pattern)
 #                 for i in indx_stream:
 #                     inval = yield from stm.embed(lst[i % size], inval)
+#             return inval
 #         except stm.StopStream:
 #             return inval
 
@@ -196,6 +197,7 @@ class Pwrand(ListPattern):
             for _ in utl.counter(self.repeats):
                 indx = bi.choices(ilst, wstream.next(inval))[0]  #, cum_weights=cw, k=k)
                 inval = yield from stm.embed(lst[indx], inval)
+            return inval
         except stm.StopStream:
             return inval
 

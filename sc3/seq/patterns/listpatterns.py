@@ -19,8 +19,8 @@ class ListPattern(ptt.Pattern):
                 f"ListPattern '{type(self).__name__}' "
                 "requires a non empty collection")
 
-    # copy # BUG: copia la lista lst
-    # storeArgs # TODO
+    # copy
+    # storeArgs
 
 
 class Pseq(ListPattern):
@@ -29,8 +29,6 @@ class Pseq(ListPattern):
         self.offset = offset
 
     def __embed__(self, inval):
-        # NOTE: Are sclang assignments in case the object is mutable?
-        # NOTE: review use of value in sclang.
         # if (inval.eventAt('reverse') == true, { # Not good.
         lst = self.lst
         offset = self.offset
@@ -75,9 +73,9 @@ class Pser(Pseq):
 #                 indx_stream = stm.stream(indx_pattern)
 #                 for i in indx_stream:
 #                     inval = yield from stm.embed(lst[i % size], inval)
-#             return inval
 #         except stm.StopStream:
-#             return inval
+#             pass
+#         return inval
 
 
 class Pswitch(ptt.Pattern):
@@ -115,35 +113,53 @@ class Pswitch1(Pswitch):
             return inval
 
 
-# TODO: es un tipo de paralelización de streams.
 class Ptuple(ListPattern):
-    ...
+    def __embed__(self, inval):
+        for _ in utl.counter(self.repeats):
+            stream_lst = [stm.stream(i) for i in self.lst]
+            try:
+                while True:
+                    tpl = []
+                    for i in stream_lst:
+                        tpl.append(i.next(inval))
+                    inval = yield tuple(tpl)  # real tuple or list?
+            except stm.StopStream:
+                pass
+        return inval
 
 
-# TODO: entrelaza elementos de sub listas, es secuencial.
 class Place(Pseq):
-    ...
+    def __embed__(self, inval):
+        lst = self.lst
+        offset = self.offset
+        lst = lst[offset:] + lst[:offset]
+        for j in utl.counter(self.repeats):
+            for item in lst:
+                if isinstance(item, (list, tuple)):
+                    item = item[j % len(item)]
+                inval = yield from stm.embed(item, inval)
+        return inval
 
 
-# TODO: este es un caso de funcionalidad repetida por tipo de dato
-# de entrada, este tipo de cosas estaría bueno unificar, como hace
-# en general en el resto de la librería. Pero es un detalle por ahora.
-# // similar to Place, but the list is an array of Patterns or Streams
-class Ppatlace(Pseq):
-    ...
-
-
-# TODO: este es una operación específica, una manera de recorrer
-# la lista. Ver si no se puede hacer programáticamente de otra manera,
-# aunque es el mismo principio que con rand, xrand, walk, etc.
-class Pslide(ListPattern):
-    # // 'repeats' is the number of segments.
-    # // 'len' is the length of each segment.
-    # // 'step' is how far to step the start of each segment from previous.
-    # // 'start' is what index to start at.
-    # // indexing wraps around if goes past beginning or end.
-    # // step can be negative.
-    ...
+class Place1(Pseq):  # Was Ppatlace.
+    def __embed__(self, inval):
+        lst = self.lst
+        size = len(lst)
+        offset = self.offset
+        stream_lst = [stm.stream(i) for i in lst[offset:]]
+        stream_lst += [stm.stream(i) for i in lst[:offset]]
+        done = 0
+        for _ in utl.counter(self.repeats):
+            for item in stream_lst:
+                try:
+                    inval = yield item.next(inval)
+                except stm.StopStream:
+                    done += 1
+            if done == size:
+                break
+            else:
+                done = 0
+        return inval
 
 
 ### Random ###
@@ -197,9 +213,52 @@ class Pwrand(ListPattern):
             for _ in utl.counter(self.repeats):
                 indx = bi.choices(ilst, wstream.next(inval))[0]  #, cum_weights=cw, k=k)
                 inval = yield from stm.embed(lst[indx], inval)
-            return inval
         except stm.StopStream:
-            return inval
+            pass
+        return inval
+
+
+class Pslide(ListPattern):
+    # // 'repeats' is the number of segments.
+    # // 'len' is the length of each segment.
+    # // 'step' is how far to step the start of each segment from previous.
+    # // 'start' is what index to start at.
+    # // indexing wraps around if goes past beginning or end.
+    # // step can be negative.
+
+    def __init__(self, lst, length=3, step=1, start=0, wrap=True, repeats=1):
+        super().__init__(lst, repeats)
+        self.length = length
+        self.step = step
+        self.start = start
+        self.wrap = wrap
+
+    def __embed__(self, inval):
+        lst = self.lst
+        size = len(lst)
+        pos = self.start
+        wrap = self.wrap
+        step_stream = stm.stream(self.step)
+        len_stream = stm.stream(self.length)
+        lval = None
+        try:
+            for _ in utl.counter(self.repeats):
+                lval = len_stream.next(inval)  # raises StopStream
+                if wrap:
+                    for j in range(lval):
+                        inval = yield from stm.embed(
+                            lst[bi.mod(pos + j, size)], inval)
+                else:
+                    for j in range(lval):
+                        if pos + j < size:
+                            inval = yield from stm.embed(
+                                lst[pos + j], inval)
+                        else:
+                            return inval
+                pos += step_stream.next(inval)  # raises StopStream
+        except stm.StopStream:
+            pass
+        return inval
 
 
 class Pwalk(ListPattern):
@@ -240,8 +299,51 @@ class Pwalk(ListPattern):
 
 class Pfsm(ListPattern):
     # // Finite State Machine
-    ...
+    def __embed__(self, inval):
+        lst = self.lst
+        index = None
+        max_state = ((len(lst) - 1) // 2) - 1
+        for _ in utl.counter(self.repeats):
+            index = 0
+            while True:
+                if lst[index] is None:
+                    break
+                index = bi.clip(bi.choice(lst[index]), 0, max_state) * 2 + 2
+                item = lst[index - 1]
+                if item is None:
+                    break
+                inval = yield from stm.embed(item, inval)
+        return inval
+
 
 class Pdfsm(ListPattern):
     # // Deterministic Finite State Machine
-    ...
+    def __init__(self, lst, start_state=0, repeats=1):
+        super().__init__(lst, repeats)
+        self.start_state = start_state
+
+    def __embed__(self, inval):
+        lst = self.lst
+        start_state = self.start_state
+        num_states = len(lst) - 1
+        curr_state = sig_state = None
+        sig = state = out_stream = None
+        for _ in utl.counter(self.repeats):
+            curr_state = start_state
+            sig_state = stm.stream(lst[0])
+            try:
+                while True:
+                    sig = sig_state.next(inval)  # raises StopStream
+                    if sig is None:
+                        break
+                    state = lst[curr_state + 1]
+                    if sig in state:
+                        curr_state, out_stream = state[sig]
+                    else:
+                        curr_state, out_stream = state['default']
+                    if curr_state is None or curr_state >= num_states:
+                        break
+                    inval = yield from stm.embed(out_stream, inval)
+            except stm.StopStream:
+                pass
+        return inval

@@ -110,11 +110,11 @@ class Punop(Pattern):
 
     def __embed__(self, inval=None):
         stream = stm.stream(self.a)
-        while True:
-            try:
+        try:
+            while True:
                 inval = yield self.selector(stream.next(inval))
-            except stm.StopStream:
-                return inval
+        except stm.StopStream:
+            return inval
 
     # storeOn
 
@@ -148,13 +148,13 @@ class Pnarop(Pattern): # BUG: nombre cambiado
         stream_a = stm.stream(self.a)
         # NOTE: See omitted optimization.
         stream_lst = [stm.stream(x) for x in self.args]
-        while True:
-            try:
+        try:
+            while True:
                 a = stream_a.next(inval)
                 args = [x.next(inval) for x in stream_lst]
                 inval = yield self.selector(a, *args)
-            except stm.StopStream:
-                return inval
+        except stm.StopStream:
+            return inval
 
     # storeOn
 
@@ -168,13 +168,13 @@ def pattern(gfunc):
         lo = stream(lo)
         hi = stream(hi)
         loval = hival = None
-        for _ in utl.counter(length):
-            try:
+        try:
+            for _ in utl.counter(length):
                 loval = next(lo)
                 hival = next(hi)
                 yield bi.rrand(loval, hival)
-            except StopIteration:
-                return
+        except StopIteration:
+            return
 
     p = stream(pwhite(length=3) ** 2)
     next(p)

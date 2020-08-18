@@ -119,13 +119,13 @@ class EventStreamPlayer(stm.Routine):
 
     def _stream_player_func(self):
         def esp_func():
-            while True:
-                try:
+            try:
+                while True:
                     outevent = self._stream.next(self._event.copy())
                     yield self._play_and_delta(outevent)
-                except stm.StopStream:
-                    self._on_stop_cleanup()
-                    return
+            except stm.StopStream:
+                self._on_stop_cleanup()
+
         return esp_func
 
     def _play_and_delta(self, outevent):  # Was Event.playAndDelta.

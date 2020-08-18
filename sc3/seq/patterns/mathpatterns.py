@@ -21,14 +21,14 @@ class Pseries(ptt.Pattern):
         length = self.length  # if the parameter is a stream.
         step_stream = stm.stream(self.step)
         outval = stepval = None
-        for _ in utl.counter(length):
-            try:
+        try:
+            for _ in utl.counter(length):
                 stepval = step_stream.next(inval)
                 outval = cur
                 cur += stepval
                 inval = yield outval
-            except stm.StopStream:
-                return inval
+        except stm.StopStream:
+            pass
         return inval
 
     # storeArgs
@@ -46,14 +46,14 @@ class Pgeom(ptt.Pattern):
         length = self.length
         grow_stream = stm.stream(self.grow)
         outval = growval = None
-        for _ in utl.counter(length):
-            try:
+        try:
+            for _ in utl.counter(length):
                 growval = grow_stream.next(inval)
                 outval = cur
                 cur *= growval
                 inval = yield outval
-            except stm.StopStream:
-                return inval
+        except stm.StopStream:
+            pass
         return inval
 
     # storeArgs
@@ -83,7 +83,7 @@ class Pbrown(ptt.Pattern):
                     self._calc_next(current, stepval), loval, hival)
                 inval = yield current
         except stm.StopStream:
-            return inval
+            pass
         return inval
 
     def _calc_next(self, current, step):
@@ -107,13 +107,13 @@ class Pwhite(ptt.Pattern):
         lo_stream = stm.stream(self.lo)
         hi_stream = stm.stream(self.hi)
         hival = loval = None
-        for _ in utl.counter(self.length):
-            try:
+        try:
+            for _ in utl.counter(self.length):
                 loval = lo_stream.next(inval)
                 hival = hi_stream.next(inval)
                 inval = yield bi.rrand(loval, hival)
-            except stm.StopStream:
-                return inval
+        except stm.StopStream:
+            pass
         return inval
 
     # storeArgs

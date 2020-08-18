@@ -50,7 +50,7 @@ class Pkey(ptt.Pattern):
                     for _ in range(length):
                         inevent = yield func_stm.next(inevent)
                 except stm.StopStream:
-                    return
+                    pass
 
             return stm.Routine(_rtn_func)
 
@@ -60,11 +60,11 @@ class Pkey(ptt.Pattern):
                 f'inevent must be dict, not {type(inevent).__name__}')
         key_stm = stm.stream(self.key)
         length = self.length or bi.inf
-        for _ in utl.counter(length):
-            try:
+        try:
+            for _ in utl.counter(length):
                 inevent = (yield inevent[key_stm.next(inevent)]) or dict()
-            except (stm.StopStream, KeyError):
-                return inevent
+        except (stm.StopStream, KeyError):
+            pass
         return inevent
 
     # storeArgs
@@ -96,15 +96,15 @@ class Pchain(ptt.Pattern):
     def __embed__(self, inval):
         cleanup = pst.EventStreamCleanup()
         streams = [stm.stream(p) for p in reversed(self.patterns)]
-        while True:
-            inevent = copy.copy(inval)
-            for stream in streams:
-                try:
+        try:
+            while True:
+                inevent = copy.copy(inval)
+                for stream in streams:
                     inevent = stream.next(inevent)
-                except stm.StopStream:
-                    return cleanup.exit(inval)
-            cleanup.update(inevent)
-            inval = yield inevent
+                cleanup.update(inevent)
+                inval = yield inevent
+        except stm.StopStream:
+            return cleanup.exit(inval)
 
     # storeOn
 
@@ -116,11 +116,11 @@ class Pevent(ptt.Pattern):
 
     def __embed__(self, inval):
         stream = stm.stream(self.pattern)
-        while True:
-            try:
+        try:
+            while True:
                 inval = yield stream.next(self.event)
-            except stm.StopStream:
-                return inval
+        except stm.StopStream:
+            return inval
 
     # storeArgs
 
@@ -136,28 +136,28 @@ class Pbind(ptt.Pattern):
         event = None
         stream_dict = {k: stm.stream(v) for k, v in self.dict.items()}
 
-        while True:
-            if inevent is None:
-                return  # Equivalent to ^nil.yield.
-            event = inevent.copy()
-            for name, stream in stream_dict.items():
-                try:
-                    stream_out = stream.next(event)
-                except stm.StopStream:
-                    return inevent
-                if isinstance(name, tuple):
-                    if not isinstance(stream_out, (list, tuple))\
-                    or isinstance(stream_out, (list, tuple))\
-                    and len(name) > len(stream_out):
-                        _logger.warning(
-                            'the pattern is not providing enough '
-                            f'values to assign to the key set: {name}')
-                        return inevent
-                    for i, key in enumerate(name):
-                        event[key] = stream_out[i]
-                else:
-                    event[name] = stream_out
-            inevent = yield event
+        try:
+            while True:
+                if inevent is None:
+                    return  # Equivalent to ^nil.yield.
+                event = inevent.copy()
+                for name, stream in stream_dict.items():
+                    stream_out = stream.next(event)  # raises StopStream
+                    if isinstance(name, tuple):
+                        if not isinstance(stream_out, (list, tuple))\
+                        or isinstance(stream_out, (list, tuple))\
+                        and len(name) > len(stream_out):
+                            _logger.warning(
+                                'the pattern is not providing enough '
+                                f'values to assign to the key set: {name}')
+                            return inevent
+                        for i, key in enumerate(name):
+                            event[key] = stream_out[i]
+                    else:
+                        event[name] = stream_out
+                inevent = yield event
+        except stm.StopStream:
+            return inevent
 
     # storeArgs # TODO
 

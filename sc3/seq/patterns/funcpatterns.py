@@ -29,7 +29,7 @@ class Prout(ptt.Pattern):
     def __stream__(self):
         return stm.Routine(self.func)
 
-    def __embed__(self, inval=None):
+    def __embed__(self, inval):
         if self._func_isgenfunc:
             if self._func_has_inval:
                 iterator = self.func(inval)
@@ -57,7 +57,7 @@ class Pfuncn(ptt.Pattern):
             len(inspect.signature(self.func).parameters) > 0)
         self.repeats = repeats
 
-    def __embed__(self, inval=None):
+    def __embed__(self, inval):
         for i in utl.counter(self.repeats):
             if self._func_has_inval:
                 inval = yield self.func(inval)

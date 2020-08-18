@@ -8,10 +8,6 @@ from ...base import builtins as bi
 from .. import pattern as ptt
 
 
-# class Pindex(ptt.Pattern):
-#     ... # TODO: ver qué patrones definen funcionalidad excepcional
-
-
 class ListPattern(ptt.Pattern):
     def __init__(self, lst=None, repeats=1):
         lst = list(lst)  # raises TypeError
@@ -32,7 +28,7 @@ class Pseq(ListPattern):
         super().__init__(lst, repeats)
         self.offset = offset
 
-    def __embed__(self, inval=None):
+    def __embed__(self, inval):
         # NOTE: Are sclang assignments in case the object is mutable?
         # NOTE: review use of value in sclang.
         # if (inval.eventAt('reverse') == true, { # Not good.
@@ -49,23 +45,73 @@ class Pseq(ListPattern):
 
 
 class Pser(Pseq):
-    def __embed__(self, inval=None):
+    def __embed__(self, inval):
         lst = self.lst
         offset = self.offset
-        length = len(lst)
+        size = len(lst)
         for i in utl.counter(self.repeats):
-            inval = yield from stm.embed(lst[(i + offset) % length], inval)
+            inval = yield from stm.embed(lst[(i + offset) % size], inval)
         return inval
 
 
-# TODO: selecciona elementos por índice en la lista.
+# class Pindex(ptt.Pattern):
+#     # I don't see the difference with Pswitch, here or in sclang.
+#     def __init__(self, lst, indx_pattern, repeats=1):
+#         self.lst = lst
+#         self.indx_pattern = indx_pattern
+#         self.repeats = repeats
+#
+#     # storeArgs
+#
+#     def __embed__(self, inval):
+#         lst_stream = stm.stream(self.lst)
+#         indx_stream = None
+#         indx_pattern = self.indx_pattern
+#         lst = size = None
+#         try:
+#             for _ in utl.counter(self.repeats):
+#                 lst = lst_stream.next(inval)  # raises StopStream
+#                 size = len(lst)
+#                 indx_stream = stm.stream(indx_pattern)
+#                 for i in indx_stream:
+#                     inval = yield from stm.embed(lst[i % size], inval)
+#         except stm.StopStream:
+#             return inval
+
+
 class Pswitch(ptt.Pattern):
-    ...
+    def __init__(self, lst, which=0):
+        self.lst = lst
+        self.which = which
+
+    def __embed__(self, inval):
+        lst = self.lst
+        size = len(lst)
+        indx_stream = stm.stream(self.which)
+        indx = None
+        try:
+            while True:
+                indx = indx_stream.next(inval)  # raises StopStream
+                inval = yield from stm.embed(lst[indx % size], inval)
+        except stm.StopStream:
+            return inval
+
+    # storeArgs
 
 
-# TODO: idem pero no embebe el item si es un stream sino que alterna por elemento
 class Pswitch1(Pswitch):
-    ...
+    def __embed__(self, inval):
+        # EventStreamCleanup removed.
+        stream_lst = [stm.stream(i) for i in self.lst]
+        size = len(stream_lst)
+        indx_stream = stm.stream(self.which)
+        indx = None
+        try:
+            while True:
+                indx = indx_stream.next(inval)
+                inval = yield stream_lst[indx % size].next(inval)
+        except stm.StopStream:
+            return inval
 
 
 # TODO: es un tipo de paralelización de streams.

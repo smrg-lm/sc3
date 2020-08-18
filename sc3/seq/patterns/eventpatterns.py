@@ -93,7 +93,7 @@ class Pchain(ptt.Pattern):
     def chain(self, pattern):  # <>  # *** NOTE: Maybe a function like stm.stream.
         return type(self)(*self.patterns, pattern)
 
-    def __embed__(self, inval=None):
+    def __embed__(self, inval):
         cleanup = pst.EventStreamCleanup()
         streams = [stm.stream(p) for p in reversed(self.patterns)]
         while True:
@@ -132,7 +132,7 @@ class Pbind(ptt.Pattern):
     def __stream__(self):
         return pst.PatternEventStream(self)
 
-    def __embed__(self, inevent=None):
+    def __embed__(self, inevent):
         event = None
         stream_dict = {k: stm.stream(v) for k, v in self.dict.items()}
 

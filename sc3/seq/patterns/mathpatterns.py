@@ -121,13 +121,28 @@ class Pwhite(ptt.Pattern):
 
 class Pprob(ptt.Pattern):
     def __init__(self, distribution, lo=0.0, hi=1.0,
-                 length=bi.inf, table_size=None):
-        # ArrayedCollection.asRandomTable
-        # ArrayedCollection.tableRand
-        ...
+                 table_size=None, length=bi.inf):
+        self.distribution = distribution
+        self.lo = lo
+        self.hi = hi
+        # Patterns arguments should be constant after instantiation.
+        self.table_size = table_size or max(64, len(distribution))
+        self.table = bi.as_random_table(distribution, self.table_size)
+        self.length = length
 
     def __embed__(self, inval):
-        ...
+        table = self.table
+        lo_stream = stm.stream(self.lo)
+        hi_stream = stm.stream(self.hi)
+        lval = hval = None
+        try:
+            for _ in utl.counter(self.length):
+                lval = lo_stream.next(inval)
+                hval = hi_stream.next(inval)
+                inval = yield (bi.table_rand(table) * (hval - lval)) + lval
+        except stm.StopStream:
+            pass
+        return inval
 
 
 class Pstep2add(ptt.Pattern):

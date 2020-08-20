@@ -1240,6 +1240,64 @@ def shuffle(lst, random=None):  # scramble
 # mirror, mirror1, mirror2  # one mirror with mode.
 # stutter, rotate, pyramid, pyramidg, sputter(rand), etc.
 
+def blend_at(lst, index):
+    imin = int(roundup(index)) - 1
+    imax = len(lst) - 1
+    a = lst[clip(imin, 0, imax)]
+    b = lst[clip(imin + 1, 0, imax)]
+    return blend(a, b, abs(index - imin))
+
+def resamp0(lst, new_size):
+    factor = (len(lst) - 1) / builtins.max(new_size - 1, 1)
+    return list(lst[int(round(i * factor))])
+
+def resamp1(lst, new_size):
+    factor = (len(lst) - 1) / builtins.max(new_size - 1, 1)
+    return list(blend_at(lst, i * factor) for i in range(new_size))
+
+def index_of_greater_than(lst, val, start=0):
+    for i, n in enumerate(lst[start:]):
+        if n > val:
+            return i + start
+    return len(lst) - 1
+
+def index_in_between(lst, val):
+    # // Collection is sorted, returns linearly interpolated index.
+    i = index_of_greater_than(lst, val)
+    if i == 0:
+        return 0
+    if i == len(lst):
+        return len(lst) - 1
+    a = lst[i - 1]
+    b = lst[i]
+    div = b - a
+    if div == 0:
+        return i
+    return ((val - a) / div) + i - 1
+
+def as_random_table(lst, size=None):
+    if size is None:
+        size = len(lst)
+    else:
+        lst = resamp1(lst, size)
+    acc = list(itertools.accumulate(lst))  # // Incrementally integrate.
+    norm = normalize(acc, 0.0, size - 1.0)  # // Normalize and scale by max index.
+    lasti = 0
+    res = []
+    for i in range(size):
+        # indexInBetween wit start and rescale to 0..1
+        lasti = index_of_greater_than(norm, i, lasti)
+        a = norm[lasti-1]
+        div = norm[lasti] - a
+        if div == 0:
+            res.append(lasti / size)
+        else:
+            res.append( (((i - a) / div) + lasti - 1) / size )
+    return res
+
+def table_rand(lst):
+    return blend_at(lst, rand(float(len(lst) - 1)))
+
 
 ### SequenceableCollection ###
 

@@ -187,7 +187,8 @@ class Prand(ListPattern):
 class Pxrand(ListPattern):
     # repeats should be length.
     def __embed__(self, inval):
-        size = len(self.lst)
+        lst = self.lst
+        size = len(lst)
         index = bi.rand(size)
         for _ in utl.counter(self.repeats):
             index = (index + bi.rand(size - 1) + 1) % size

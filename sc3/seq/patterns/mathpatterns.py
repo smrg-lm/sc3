@@ -145,34 +145,39 @@ class Pprob(ptt.Pattern):
         return inval
 
 
-class Pstep2add(ptt.Pattern):
-    ...
+class Pproduct(ptt.Pattern):  # Was PstepNfunc.
+    def __init__(self, patterns, func=None):
+        self.patterns = patterns
+        self.func = func or (lambda values: values)
 
     def __embed__(self, inval):
-        ...
+        # If there wasn't inval things would be much easier.
+        # for t in itertools.product(*self.patterns): ...
+        patterns = self.patterns
+        size = len(patterns)
+        max_level = size - 1
+        streams = [None] * size
+        values = [None] * size
+        yield from self._recgen(inval, 0, max_level, patterns, streams, values)
+
+    def _recgen(self, inval, level, max_level, patterns, streams, values):
+        try:
+            streams[level] = stm.stream(patterns[level])
+            while True:
+                values[level] = streams[level].next(inval)
+                if level < max_level:
+                    yield from self._recgen(
+                        inval, level + 1, max_level, patterns, streams, values)
+                else:
+                    yield self.func(values)
+        except stm.StopStream:
+            pass
+        return inval
 
     # storeArgs
 
 
-class Pstep3add(ptt.Pattern):
-    ...
-
-    def __embed__(self, inval):
-        ...
-
-    # storeArgs
-
-
-class PstepNfunc(ptt.Pattern):
-    ...
-
-    def __embed__(self, inval):
-        ...
-
-    # storeArgs
-
-
-class PstepNadd(PstepNfunc):
-    ...
-
-    # storeArgs
+# Superseded by PstepNfunc (Pproduct).
+# class Pstep2add(ptt.Pattern)
+# class Pstep3add(ptt.Pattern)
+# class PstepNadd(PstepNfunc)

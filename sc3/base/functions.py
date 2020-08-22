@@ -30,7 +30,7 @@ def value(obj, *args, **kwargs):
 class AbstractFunction():
     def __call__(self, *args):
         raise NotImplementedError(
-            f'callable interface has no use for {type(self).__name__}')
+            f'{type(self).__name__} does not implement __call__')
 
 
     ### AbstractFunction interface ###

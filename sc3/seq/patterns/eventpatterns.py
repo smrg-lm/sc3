@@ -81,7 +81,8 @@ class Pvalue(ptt.Pattern):
             while True:
                 yield value_stream.next(inval)
         except stm.StopStream:
-            return inval
+            pass
+        return inval
 
     # storeArgs
 
@@ -104,7 +105,8 @@ class Pchain(ptt.Pattern):
                 cleanup.update(inevent)
                 inval = yield inevent
         except stm.StopStream:
-            return cleanup.exit(inval)
+            pass
+        return cleanup.exit(inval)
 
     # storeOn
 
@@ -120,7 +122,8 @@ class Pevent(ptt.Pattern):
             while True:
                 inval = yield stream.next(self.event)
         except stm.StopStream:
-            return inval
+            pass
+        return inval
 
     # storeArgs
 
@@ -157,7 +160,8 @@ class Pbind(ptt.Pattern):
                         event[name] = stream_out
                 inevent = yield event
         except stm.StopStream:
-            return inevent
+            pass
+        return inevent
 
     # storeArgs # TODO
 

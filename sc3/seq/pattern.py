@@ -2,7 +2,7 @@
 
 import inspect
 
-from ..base import functions as fn
+from ..base import absobject as aob
 from ..base import stream as stm
 from ..base import utils as utl
 from . import pausestream as pst
@@ -12,7 +12,7 @@ from . import event as evt
 __all__ = ['pattern']
 
 
-class Pattern(fn.AbstractFunction):
+class Pattern(aob.AbstractObject):
     ### Iterable protocol ###
 
     def __iter__(self):
@@ -28,7 +28,7 @@ class Pattern(fn.AbstractFunction):
         return (yield from self.__stream__().__embed__(inval))
 
 
-    ### AbstractFunction interface ###
+    ### AbstractObject interface ###
 
     def _compose_unop(self, selector):
         return Punop(selector, self)

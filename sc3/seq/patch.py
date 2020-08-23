@@ -30,7 +30,7 @@ import traceback
 from ..base import clock as clk
 from ..base import _taskq as tsq
 from ..base import stream as stm
-from ..base import functions as fn
+from ..base import absobject as aob
 from ..synth import node as nod
 from ..synth import server as srv
 
@@ -1148,7 +1148,7 @@ def test():
 '''
 
 
-class AbstractBox(BoxObject, fn.AbstractFunction):
+class AbstractBox(BoxObject, aob.AbstractObject):
     def _compose_unop(self, selector):
         return UnopBox(selector, self)
 

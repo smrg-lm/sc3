@@ -1,9 +1,9 @@
 """Operand.sc"""
 
-from . import functions as fn
+from . import absobject as aob
 
 
-class Operand(fn.AbstractFunction):
+class Operand(aob.AbstractObject):
     def __init__(self, value=None):
         if isinstance(value, Operand):
             self.value = value.value
@@ -19,7 +19,7 @@ class Operand(fn.AbstractFunction):
         self.__value = value
 
 
-    ### AbstractFunction interface ###
+    ### AbstractObject interface ###
 
     def _compose_unop(self, selector):
         return type(self)(selector(self.value))

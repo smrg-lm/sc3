@@ -8,7 +8,7 @@ import random
 import logging
 
 from . import main as _libsc3
-from . import functions as fn
+from . import absobject as aob
 from . import clock as clk
 
 
@@ -161,7 +161,7 @@ class AlwaysYield(Exception):
         self.terminal_value = terminal_value
 
 
-class Stream(fn.AbstractFunction, ABC):
+class Stream(aob.AbstractObject, ABC):
     '''
     Streams are iterator-generators compatible objects that implement an
     specific interface to interact with clocks and patterns.
@@ -235,7 +235,7 @@ class Stream(fn.AbstractFunction, ABC):
     # <> # Pchain
 
 
-    ### AbstractFunction interface ###
+    ### AbstractObject interface ###
 
     def _compose_unop(self, selector):
         return UnaryOpStream(selector, self)

@@ -7,7 +7,7 @@ import logging
 
 from ..base import utils as utl
 from ..base import builtins as bi
-from ..base import functions as fn
+from ..base import absobject as aob
 from ..base import main as _libsc3
 from . import _specialindex as _si
 from . import _graphparam as gpp
@@ -32,7 +32,7 @@ __all__ = []
 _logger = logging.getLogger(__name__)
 
 
-class ChannelList(list, gpp.UGenSequence, fn.AbstractFunction):
+class ChannelList(list, gpp.UGenSequence, aob.AbstractObject):
     '''List wrapper for multichannel expansion graph operations.'''
 
     def __init__(self, obj=None):
@@ -47,7 +47,7 @@ class ChannelList(list, gpp.UGenSequence, fn.AbstractFunction):
         super(gpp.UGenSequence, self).__init__(self)
 
 
-    ### AbstractFunction interface ###
+    ### AbstractObject interface ###
 
     def _compose_unop(self, selector):
         return utl.list_unop(selector, self, type(self))
@@ -254,7 +254,7 @@ class MetaUGen(type):
         return getattr(cls, rate)(*args, **kwargs)
 
 
-class UGen(gpp.UGenParameter, fn.AbstractFunction, metaclass=MetaUGen):
+class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
     '''
     Subclasses should not use __init__ to implement graph logic, interface
     methods are _new1, _multi_new, _multi_new_list, _init_ugen, _init_outputs
@@ -715,7 +715,7 @@ class UGen(gpp.UGenParameter, fn.AbstractFunction, metaclass=MetaUGen):
         return lst
 
 
-    ### AbstractFunction interface ###
+    ### AbstractObject interface ###
 
     def _compose_unop(self, selector):
         selector = _si.sc_opname(selector.__name__)

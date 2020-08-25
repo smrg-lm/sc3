@@ -172,12 +172,15 @@ class event(EventDict):
     _default_type = 'note'
 
     def __new__(cls, *args, **kwargs):
-        if 'type' in kwargs:
-            return cls._event_types[kwargs['type']](*args, **kwargs)
-        elif len(args) > 0 and 'type' in args[0]:
-            return cls._event_types[args[0]['type']](*args, **kwargs)
+        d = {**dict(*args), **kwargs}  # Override duplicated 'type' keys.
+        type = d.pop('type', None)  # Remove 'type' from actual keys.
+        if type:
+            try:
+                return cls._event_types[type](d)
+            except KeyError:
+                raise ValueError(f"no event type '{type}'") from None
         else:
-            return cls._event_types[cls._default_type](*args, **kwargs)
+            return cls._event_types[cls._default_type](d)
 
 
 ### Partial Events ###
@@ -505,33 +508,34 @@ class NoteEvent(EventType, partial_events=(
         self['instrument'] = instrument = self._synthdef_name()
         self['server'] = server = self('server')
 
-        self['node_id'] = id = server.next_node_id()
+        self['node_id'] = node_id = server.next_node_id()
         add_action = nod.Node.action_number_for(self('add_action'))
         self['group'] = group = gpp.node_param(
-            self('group'))._as_control_input() # *** NOTE: y así la llave 'group' que por defecto es una funcion que retorna node_id no tendría tanto sentido? VER PERORATA ABAJO EN GRAIN
+            self('group'))._as_control_input()
 
-        bndl = ['/s_new', instrument, id, add_action, group]
+        bndl = ['/s_new', instrument, node_id, add_action, group]
         bndl.extend(param_list)
         bndl = gpp.node_param(bndl)._as_osc_arg_list()
 
         # *** BUG: socket.sendto and/or threading mixin use too much cpu.
-        server.send_bundle(server.latency, bndl)  # *** NO USA LA LLAVE LATENCY, NO SÉ PARA QUÉ ESTARÁ.
+        server.send_bundle(server.latency, bndl)  # Missing ~latency, ~lag and ~timmingOffset.
         if self('send_gate'):
             server.send_bundle(
-                server.latency + self('sustain'), ['/n_set', id, 'gate', 0])
+                server.latency + self('sustain'),
+                ['/n_set', node_id, 'gate', 0])
 
         self['is_playing'] = True
 
         # *** BUG: In scsynth, sub-bundles time is intepreted a both cmd and
         # timetag throwing "FAILURE IN SERVER:  Command not found".
         # elements = []
-        # on_msg = ['/s_new', instrument, id, add_action, group]
+        # on_msg = ['/s_new', instrument, node_id, add_action, group]
         # on_msg.extend(param_list)
         # on_msg = gpp.node_param(on_msg)._as_osc_arg_list()
         # elements.append(on_msg)
         # if self('send_gate'):
         #     elements.append(  # off_bndl
-        #         [server.latency + self('sustain'), ['/n_set', id, 'gate', 0]])  # *** Not using latency key.
+        #         [server.latency + self('sustain'), ['/n_set', node_id, 'gate', 0]])  # *** Not using latency key.
         # # *** BUG: socket.sendto and/or threading mixin use too much cpu.
         # server.send_bundle(server.latency, *elements)  # *** Not using latency key.
         # self['is_playing'] = True

@@ -26,58 +26,55 @@ _logger = logging.getLogger(__name__)
 ### EventStreamCleanup.sc ###
 
 
-class EventStreamCleanup():
-    # // Cleanup functions are passed a flag. The flag is set false if nodes
-    # // have already been freed by CmdPeriod. This caused a minor change to
-    # // TempoClock:clear and TempoClock:cmdPeriod
-
+class CleanupEntry():
     def __init__(self):
-        # // cleanup functions from child streams and parent stream
-        self.functions = set()
+        self._events = set()
+        self._functions = dict()
 
-    def add_function(self, event, func):
-        if isinstance(event, dict):
-            self.functions.add(func)
-            if 'add_to_cleanup' not in event:
-                event['add_to_cleanup'] = []
-            event['add_to_cleanup'].append(func)
+    def add_event(self, event):
+        self._events.add(event)
 
-    def add_node_cleanup(self, event, func):
-        if isinstance(event, dict):
-            self.functions.add(func)
-            if 'add_to_node_cleanup' not in event:
-                event['add_to_node_cleanup'] = []
-            event['add_to_node_cleanup'].append(func)
+    def remove_event(self, event):
+        self._events.discard(event)
 
-    def update(self, event):
-        if isinstance(event, dict):
-            if 'add_to_node_cleanup' in event:
-                self.functions.update(event['add_to_node_cleanup'])
-            if 'add_to_cleanup' in event:
-                self.functions.update(event['add_to_cleanup'])
-            if 'remove_from_cleanup' in event:
-                for item in event['remove_from_cleanup']:
-                    self.functions.discard(item)
-        return event
+    def add_function(self, fn, *args):
+        self._functions[fn] = args
 
-    def exit(self, event, free_nodes=True):
-        if isinstance(event, dict):
-            self.update(event)
-            for func in self.functions:
-                func(free_nodes)
-            if 'remove_from_cleanup' not in event:
-                event['remove_from_cleanup'] = []
-            event['remove_from_cleanup'].extend(self.functions)
-            self.clear()
-        return event
+    def remove_function(self, fn):
+        self._functions.pop(fn, None)
 
-    def terminate(self, free_nodes=True):
-        for func in self.functions:
-            func(free_nodes)
+    def run(self):
+        for event in self._events:
+            event.play()
+        for fn, args in self._functions.copy().items():
+            fn(*args)
         self.clear()
 
     def clear(self):
-        self.functions = set()
+        self._events = set()
+        self._functions = dict()
+
+
+class EventStreamCleanup():
+    def __init__(self):
+        self._entries = set()
+
+    def add(self, entry):
+        if isinstance(entry, CleanupEntry):
+            self._entries.add(entry)
+        else:
+            raise TypeError('entry is not a CleanupEntry')
+
+    def remove(self, entry):
+        self._entries.discard(entry)
+
+    def run(self):
+        for entry in self._entries.copy():
+            entry.run()
+        self.clear()
+
+    def clear(self):
+        self._entries = set()
 
 
 class EventStreamPlayer(stm.Routine):
@@ -98,7 +95,7 @@ class EventStreamPlayer(stm.Routine):
         with self._state_cond:
             super().reset()
             self._stream.reset()
-            self.cleanup.terminate()
+            self.cleanup.run()
 
     def resume(self, clock=None, quant=None):
         with self._state_cond:
@@ -114,7 +111,7 @@ class EventStreamPlayer(stm.Routine):
             self._on_stop_cleanup()
 
     def _on_stop_cleanup(self):
-        self.cleanup.terminate()
+        self.cleanup.run()
         sac.CmdPeriod.remove(self.__on_cmd_period)
 
     def _stream_player_func(self):
@@ -129,7 +126,6 @@ class EventStreamPlayer(stm.Routine):
         return esp_func
 
     def _play_and_delta(self, outevent):  # Was Event.playAndDelta.
-        self.cleanup.update(outevent)
         if not (self._is_muted or evt.is_rest(outevent)):
             outevent.play()
         return outevent('delta')

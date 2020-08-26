@@ -303,7 +303,7 @@ class PitchKeys(PartialEvent):
 
 
 class DurationKeys(PartialEvent):
-    delta = None
+    delta = None  # Used in EventStreamPlayer._play_and_delta.
     sustain = None
     dur = 1.0
     legato = 0.8
@@ -396,14 +396,14 @@ class ServerKeys(PartialEvent):
     synth_desc = None
     out = 0
     add_action = 'addToHead'
-    msg_params = None
+    msg_params = []
     instrument = 'default'
     variant = None
     has_gate = True  # // assume SynthDef has gate
     send_gate = None  # // sendGate == false turns off releases
     args = ('freq', 'amp', 'pan', 'trig')  # // for 'type' 'set'
-    lag = 0
-    timing_offset = 0
+    # lag = 0
+    timing_offset = 0  # Used in EventStreamPlayer._synch_with_quant
 
     @keyfunction
     def server(self):
@@ -438,7 +438,7 @@ class ServerKeys(PartialEvent):
 
     def _get_msg_params(self):  # Was get_msg_func
         msg_params = self('msg_params')
-        if msg_params is None or self('is_playing'):
+        if not msg_params or self('is_playing'):
             synth_lib = self('synth_lib')
             desc = synth_lib.at(self('instrument'))
             if desc is None:
@@ -496,6 +496,9 @@ class EventType(EventDict):  # *** TODO: And PlayerEvent.
     def play(self):
         pass
 
+    def __hash__(self):
+        return id(self)
+
 
 class NoteEvent(EventType, partial_events=(
         PitchKeys, AmplitudeKeys, DurationKeys, ServerKeys)):  # TODO...
@@ -539,3 +542,42 @@ class NoteEvent(EventType, partial_events=(
         # # *** BUG: socket.sendto and/or threading mixin use too much cpu.
         # server.send_bundle(server.latency, *elements)  # *** Not using latency key.
         # self['is_playing'] = True
+
+
+class MonoSetEvent(EventType, partial_events=(
+        PitchKeys, AmplitudeKeys, DurationKeys, ServerKeys)):
+    type = '_mono_set'
+    is_playing = True
+    mono_params = None
+
+    def play(self):
+        self['freq'] = self._detuned_freq()
+        self['server'] = server = self('server')
+        bndl = ['/n_set', self['node_id'], *self._update_msg_params()]  # _get_msg_params()]
+        bndl = gpp.node_param(bndl)._as_osc_arg_list()
+        server.send_bundle(server.latency, bndl)
+
+    def _update_msg_params(self):
+        msg_params = []
+        for arg in self['mono_params']:
+            msg_params.extend([arg, self(arg)])
+        self['msg_params'] = msg_params
+        return msg_params
+
+
+class MonoOffEvent(EventType, partial_events=(ServerKeys,)):
+    type = '_mono_off'
+    is_playing = True
+    has_gate = False
+    gate = 0
+    delay = 0
+
+    def play(self):
+        if self('has_gate'):
+            bndl = ['/n_set', self['node_id'], 'gate', self('gate')]
+        else:
+            bndl = ['/n_free', self['node_id']]
+        bndl = gpp.node_param(bndl)._as_osc_arg_list()
+        server = self('server')
+        server.send_bundle(server.latency + self('delay'), bndl)
+        self['is_playing'] = False

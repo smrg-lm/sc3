@@ -295,7 +295,9 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
             return False
 
     def __hash__(self):
-        hash((self._index, self._num_channels, self._rate, self._server))
+        return hash(
+            (type(self), self._index, self._num_channels,
+            self._rate, self._server))
 
     @property
     def is_audio_io(self):

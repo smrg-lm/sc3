@@ -1,9 +1,15 @@
 """FilterPatterns.sc"""
 
+import copy
+
+from ...base import builtins as bi
 from ...base import stream as stm
 from ...base import utils as utl
 from ...base import functions as fn
 from .. import pattern as ptt
+
+
+utl.ClassLibrary.late_imports(__name__, ('sc3.seq.pausestream', 'pst'))
 
 
 class FilterPattern(ptt.Pattern):
@@ -11,8 +17,49 @@ class FilterPattern(ptt.Pattern):
 		self.pattern = pattern
 
 
-# Pn
-# Pgate
+class Pn(FilterPattern):
+	def __init__(self, pattern, repeats=bi.inf, key=None):
+		self.pattern = pattern
+		self.repeats = repeats
+		self.key = key
+
+	def __stream__(self):
+		return pst.PatternEventStream(self)
+
+	def __embed__(self, inevent):
+		pattern = self.pattern
+		key = self.key
+		if key is None:
+			for _ in utl.counter(self.repeats):
+				inevent = yield from pattern.__embed__(inevent)
+		else:
+			for _ in utl.counter(self.repeats):
+				inevent[key] = True
+				inevent = yield from pattern.__embed__(inevent)
+			inevent[key] = False
+		return inevent
+
+	# storeArgs
+
+
+class Pgate(Pn):
+	def __embed__(self, inevent):
+		pattern = self.pattern
+		key = self.key
+		stream = output = None
+		for _ in utl.counter(self.repeats):
+			stream = stm.stream(pattern)
+			try:
+				while True:
+					if inevent.get(key, False) is True or output is None:
+						output = stream.next(inevent)
+					inevent = yield from stm.embed(copy.copy(output), inevent)
+			except stm.StopStream:
+				pass
+			output = None   # // Force new value for every repeat.
+		return inevent
+
+	# storeArgs
 
 
 class FuncFilterPattern(FilterPattern):

@@ -100,7 +100,6 @@ class Pswitch(ptt.Pattern):
 
 class Pswitch1(Pswitch):
     def __embed__(self, inval):
-        # EventStreamCleanup removed.
         stream_lst = [stm.stream(i) for i in self.lst]
         size = len(stream_lst)
         indx_stream = stm.stream(self.which)

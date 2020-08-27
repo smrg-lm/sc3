@@ -108,15 +108,13 @@ class Pfin(FilterPattern):
 
     def __embed__(self, inevent):
         stream = stm.stream(self.pattern)
-        cleanup = xxx.EventStreamCleanup()
         for _ in utl.counter(self.count):
             try:
                 inevent = stream.next(inevent)
             except StopStream:
                 return inevent
-            cleanup.update(inevent)
             inevent = yield inevent
-        return cleanup.exit(inevent)
+        return inevent
 
 
 # And more...

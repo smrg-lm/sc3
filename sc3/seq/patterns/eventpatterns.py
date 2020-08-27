@@ -95,19 +95,17 @@ class Pchain(ptt.Pattern):
     def chain(self, pattern):  # <>  # *** NOTE: Maybe a function like stm.stream.
         return type(self)(*self.patterns, pattern)
 
-    def __embed__(self, inval):
-        cleanup = pst.EventStreamCleanup()
+    def __embed__(self, inevent):
         streams = [stm.stream(p) for p in reversed(self.patterns)]
         try:
             while True:
-                inevent = copy.copy(inval)
+                inevent = inevent.copy()
                 for stream in streams:
                     inevent = stream.next(inevent)
-                cleanup.update(inevent)
-                inval = yield inevent
+                inevent = yield inevent
         except stm.StopStream:
             pass
-        return cleanup.exit(inval)
+        return inevent
 
     # storeOn
 
@@ -117,14 +115,14 @@ class Pevent(ptt.Pattern):
         self.pattern = pattern
         self.event = event or evt.event()
 
-    def __embed__(self, inval):
+    def __embed__(self, inevent):
         stream = stm.stream(self.pattern)
         try:
             while True:
-                inval = yield stream.next(self.event)
+                inevent = yield stream.next(self.event)
         except stm.StopStream:
             pass
-        return inval
+        return inevent
 
     # storeArgs
 

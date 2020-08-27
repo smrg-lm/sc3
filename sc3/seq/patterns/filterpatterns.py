@@ -18,6 +18,9 @@ class FilterPattern(ptt.Pattern):
 
 
 class Pn(FilterPattern):
+	# NOTE: For Pn to have 'key' and to be parent of Pgate seems to be a bit
+	# arbitrary. A gate is not usually something that repeats n times, moreover
+	# Pgate acts like a hold more that a gate.
 	def __init__(self, pattern, repeats=bi.inf, key=None):
 		self.pattern = pattern
 		self.repeats = repeats

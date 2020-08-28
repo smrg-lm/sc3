@@ -3,7 +3,6 @@
 import logging
 import copy
 
-from ...base import main as _libsc3
 from ...base import stream as stm
 from ...base import builtins as bi
 from ...base import utils as utl
@@ -186,8 +185,8 @@ class Pmono(Pbind):
     def _embed_mono(self, inevent):
         synth_name = self.synth_name
         stream_dict = {k: stm.stream(v) for k, v in self.dict.items()}
-        cleanup = _PmonoCleanup()
-        mono_params = node_id = event = None
+        cleanup = pst.CleanupEntry()
+        mono_params = node_id = event = cleanup_event = None
 
         try:
             while True:
@@ -199,7 +198,11 @@ class Pmono(Pbind):
                     inevent = yield event
                     node_id = event('node_id')
                     mono_params = event('msg_params')[::2]  # For _update_msg_params
-                    cleanup.add_event(event)
+                    cleanup_event = evt.event(event, type='_mono_off')
+                    cleanup_event['node_id'] = event('node_id')
+                    cleanup_event['server'] = event('server')
+                    cleanup_event['has_gate'] = event('has_gate')
+                    cleanup.add_event(cleanup_event)
                 else:
                     event = evt.event(inevent, type='_mono_set')
                     event.update(self._stream_dict_next(stream_dict))
@@ -213,7 +216,7 @@ class Pmono(Pbind):
     def _embed_mono_artic(self, inevent):
         synth_name = self.synth_name
         stream_dict = {k: stm.stream(v) for k, v in self.dict.items()}
-        cleanup = _PmonoCleanup()
+        cleanup = pst.CleanupEntry()
         mono_params = node_id = event = cleanup_event = None
 
         try:
@@ -228,7 +231,11 @@ class Pmono(Pbind):
                         inevent = yield event
                         node_id = event('node_id')
                         mono_params = event('msg_params')[::2]
-                        cleanup.add_event(event)
+                        cleanup_event = evt.event(event, type='_mono_off')
+                        cleanup_event['node_id'] = event('node_id')
+                        cleanup_event['server'] = event('server')
+                        cleanup_event['has_gate'] = event('has_gate')
+                        cleanup.add_event(cleanup_event)
                     else:
                         inevent = yield event
                 else:
@@ -237,53 +244,18 @@ class Pmono(Pbind):
                     event['node_id'] = node_id
                     event['mono_params'] = mono_params
                     if event('sustain') < event('delta'):
-                        cleanup_event = cleanup.pop_event()
                         cleanup_event['delay'] = event('sustain')
                         cleanup_event.play()
+                        cleanup.remove_event(cleanup_event)
                         node_id = None
                     elif evt.is_rest(event):
-                        cleanup.run()
+                        cleanup_event.play()
+                        cleanup.remove_event(cleanup_event)
                         node_id = None
                     inevent = yield event
         except stm.StopStream:
             cleanup.run()
         return inevent
-
-
-class _PmonoCleanup(pst.CleanupEntry):
-    def __init__(self):
-        self._thread_player = _libsc3.main.current_tt.thread_player
-        if isinstance(self._thread_player, pst.EventStreamPlayer):
-            self._cleanup = self._thread_player.cleanup
-            self._cleanup.add(self)
-            self._event = None
-        else:
-            self._thread_player = None
-
-    def add_event(self, event):
-        if self._thread_player:
-            self._event = evt.event(event, type='_mono_off')
-            self._event['node_id'] = event('node_id')
-            self._event['server'] = event('server')
-            self._event['has_gate'] = event('has_gate')
-
-    def pop_event(self):
-        if self._thread_player:
-            event = self._event
-            self._event = None
-            return event
-
-    def run(self):
-        if self._thread_player:
-            self._cleanup.remove(self)
-            if self._event:  # Pop case.
-                self._event.play()
-                self._event = None
-
-    def remove_event(self, event): pass
-    def add_function(self, fn, *args): pass
-    def remove_function(self, fn): pass
-    def clear(self): pass
 
 
 ### Ppar.sc ###

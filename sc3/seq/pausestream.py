@@ -2,6 +2,7 @@
 
 import logging
 
+from ..base import main as _libsc3
 from ..base import stream as stm
 from ..base import systemactions as sac
 from ..base import clock as clk
@@ -28,6 +29,12 @@ _logger = logging.getLogger(__name__)
 
 class CleanupEntry():
     def __init__(self):
+        thread_player = _libsc3.main.current_tt.thread_player
+        if isinstance(thread_player, EventStreamPlayer):
+            self._cleanup = thread_player.cleanup
+            self._cleanup.add(self)
+        else:
+            self._cleanup = EventStreamCleanup()
         self._events = set()
         self._functions = dict()
 
@@ -49,6 +56,8 @@ class CleanupEntry():
         for fn, args in self._functions.copy().items():
             fn(*args)
         self.clear()
+        self._cleanup.remove(self)
+        self._cleanup = None
 
     def clear(self):
         self._events = set()
@@ -58,6 +67,7 @@ class CleanupEntry():
 class EventStreamCleanup():
     def __init__(self):
         self._entries = set()
+        sac.CmdPeriod.add(self.__on_cmd_period)
 
     def add(self, entry):
         if isinstance(entry, CleanupEntry):
@@ -68,13 +78,21 @@ class EventStreamCleanup():
     def remove(self, entry):
         self._entries.discard(entry)
 
+    def clear(self):
+        self._entries = set()
+
     def run(self):
         for entry in self._entries.copy():
             entry.run()
         self.clear()
+        sac.CmdPeriod.remove(self.__on_cmd_period)
 
-    def clear(self):
-        self._entries = set()
+
+    ### System Actions ###
+
+    def __on_cmd_period(self):  # Instead of removed_from_scheduler.
+        self.run()
+
 
 
 class EventStreamPlayer(stm.Routine):
@@ -83,7 +101,11 @@ class EventStreamPlayer(stm.Routine):
         self._stream = stream
         self._event = event or evt.event()
         self._is_muted = False
-        self.cleanup = EventStreamCleanup()
+        self._cleanup = EventStreamCleanup()
+
+    @property
+    def cleanup(self):
+        return self._cleanup
 
     def mute(self):
         self._is_muted = True
@@ -95,7 +117,7 @@ class EventStreamPlayer(stm.Routine):
         with self._state_cond:
             super().reset()
             self._stream.reset()
-            self.cleanup.run()
+            self._cleanup.run()
 
     def resume(self, clock=None, quant=None):
         with self._state_cond:
@@ -108,11 +130,7 @@ class EventStreamPlayer(stm.Routine):
     def stop(self):
         with self._state_cond:
             super().stop()
-            self._on_stop_cleanup()
-
-    def _on_stop_cleanup(self):
-        self.cleanup.run()
-        sac.CmdPeriod.remove(self.__on_cmd_period)
+            self._cleanup.run()
 
     def _stream_player_func(self):
         def esp_func():
@@ -121,7 +139,7 @@ class EventStreamPlayer(stm.Routine):
                     outevent = self._stream.next(self._event.copy())
                     yield self._play_and_delta(outevent)
             except stm.StopStream:
-                self._on_stop_cleanup()
+                self._cleanup.run()
 
         return esp_func
 
@@ -140,7 +158,6 @@ class EventStreamPlayer(stm.Routine):
                 clock = clock or clk.TempoClock.default
                 self._event, quant = self._synch_with_quant(self._event, quant)
                 clock.play(self, quant)
-                sac.CmdPeriod.add(self.__on_cmd_period)
         # Pattern.play return the stream, maybe for API usage constency
         # Stream.play should return self, but I'm not sure.
         # return self
@@ -154,12 +171,6 @@ class EventStreamPlayer(stm.Routine):
             event = event.copy()
             event['timing_offset'] = quant.timing_offset
         return event, quant
-
-
-    ### System Actions ###
-
-    def __on_cmd_period(self):  # Instead of removed_from_scheduler.
-        self._on_stop_cleanup()
 
 
 ### Pattern Streams ###
@@ -200,3 +211,14 @@ class PatternEventStream(PatternValueStream):
                 return self._stream.send(inevent)
         except StopIteration:
             raise stm.StopStream from None
+
+    def reset(self):
+        self.clear()
+        self._stream = None
+
+    def clear(self):
+        if self._stream:
+            try:
+                self._stream.throw(stm.StopStream)
+            except StopIteration:
+                pass

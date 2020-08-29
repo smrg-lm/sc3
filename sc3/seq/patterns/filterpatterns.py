@@ -105,6 +105,38 @@ class Pcollect(FuncFilterPattern):
 # Pstretchp
 # Pplayer
 # Pdrop
+class Pselect(FuncFilterPattern):
+    def __embed__(self, inval):
+        func = self.func
+        stream = stm.stream(self.pattern)
+        outval = None
+        try:
+            while True:
+                outval = stream.next(inval)
+                if fn.value(func, outval, inval) is True:
+                    inval = yield outval
+        except stm.StopStream:
+            pass
+        return inval
+
+    # asStream  # Idem.
+
+
+class Preject(FuncFilterPattern):
+    def __embed__(self, inval):
+        func = self.func
+        stream = stm.stream(self.pattern)
+        outval = None
+        try:
+            while True:
+                outval = stream.next(inval)
+                if fn.value(func, outval, inval) is False:
+                    inval = yield outval
+        except stm.StopStream:
+            pass
+        return inval
+
+    # asStream  # Idem.
 
 
 class Pfin(FilterPattern):

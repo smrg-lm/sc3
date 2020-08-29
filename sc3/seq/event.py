@@ -146,6 +146,9 @@ class EventDict(dict, metaclass=MetaEventDict):
     def copy(self):
         return type(self)(self)
 
+    def __repr__(self):
+        return f'{type(self).__name__}({super().__repr__()})'
+
 
 def new_event(name, values=None, functions=None,
               bases=None, partial_events=None):
@@ -544,7 +547,31 @@ class NoteEvent(EventType, partial_events=(
         # self['is_playing'] = True
 
 
-class MonoSetEvent(EventType, partial_events=(
+class _MonoOnEvent(EventType, partial_events=(
+        PitchKeys, AmplitudeKeys, DurationKeys, ServerKeys)):
+    type = '_mono_on'
+    is_playing = False
+
+    def play(self):
+        self['add_action'] = nod.Node.action_number_for(self('add_action'))
+        self['group'] = gpp.node_param(self('group'))._as_control_input()
+        bndl = [
+            '/s_new', self['instrument'], self['node_id'],
+            self['add_action'], self['group'], *self['msg_params']]
+        bndl = gpp.node_param(bndl)._as_osc_arg_list()
+        self['server'].send_bundle(self['server'].latency, bndl)  # Missing ~latency, ~lag and ~timmingOffset.
+        self['is_playing'] = True
+
+    def _prepare_event(self, instrument):
+        self['instrument'] = instrument
+        self['freq'] = self._detuned_freq()  # Before _get_msg_params.
+        self['msg_params'] = self._get_msg_params()  # Populates synth_desc.
+        self['has_gate'] = self('has_gate')
+        self['server'] = self('server')
+        self['node_id'] = self['server'].next_node_id()
+
+
+class _MonoSetEvent(EventType, partial_events=(
         PitchKeys, AmplitudeKeys, DurationKeys, ServerKeys)):
     type = '_mono_set'
     is_playing = True
@@ -552,10 +579,10 @@ class MonoSetEvent(EventType, partial_events=(
 
     def play(self):
         self['freq'] = self._detuned_freq()
-        self['server'] = server = self('server')
-        bndl = ['/n_set', self['node_id'], *self._update_msg_params()]  # _get_msg_params()]
+        self['server'] = self('server')
+        bndl = ['/n_set', self['node_id'], *self._update_msg_params()]
         bndl = gpp.node_param(bndl)._as_osc_arg_list()
-        server.send_bundle(server.latency, bndl)
+        self['server'].send_bundle(self['server'].latency, bndl)
 
     def _update_msg_params(self):
         msg_params = []
@@ -565,7 +592,7 @@ class MonoSetEvent(EventType, partial_events=(
         return msg_params
 
 
-class MonoOffEvent(EventType, partial_events=(ServerKeys,)):
+class _MonoOffEvent(EventType, partial_events=(ServerKeys,)):
     type = '_mono_off'
     is_playing = True
     has_gate = False

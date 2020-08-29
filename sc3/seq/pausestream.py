@@ -56,8 +56,9 @@ class CleanupEntry():
         for fn, args in self._functions.copy().items():
             fn(*args)
         self.clear()
-        self._cleanup.remove(self)
-        self._cleanup = None
+        if self._cleanup:
+            self._cleanup.remove(self)
+            self._cleanup = None
 
     def clear(self):
         self._events = set()

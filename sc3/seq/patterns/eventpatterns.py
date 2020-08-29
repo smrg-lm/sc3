@@ -171,6 +171,8 @@ class Pbind(ptt.Pattern):
 
 
 class Pmono(Pbind):
+    _kept_keys = {'server', 'node_id', 'has_gate'}
+
     def __init__(self, synth_name, mapping, articulate=False):
         super().__init__(mapping)
         self.synth_name = synth_name
@@ -184,28 +186,27 @@ class Pmono(Pbind):
 
     def _embed_mono(self, inevent):
         synth_name = self.synth_name
+        kept_keys = self._kept_keys
         stream_dict = {k: stm.stream(v) for k, v in self.dict.items()}
         cleanup = pst.CleanupEntry()
-        mono_params = node_id = event = cleanup_event = None
+        server = node_id = mono_params = event = None
 
         try:
             while True:
                 if node_id is None:
-                    event = evt.event(inevent)
+                    event = evt.event(inevent, type='_mono_on')
                     event.update(self._stream_dict_next(stream_dict))
-                    event['instrument'] = synth_name
-                    event['send_gate'] = False
+                    event._prepare_event(synth_name)
+                    server = event['server']
+                    node_id = event['node_id']
+                    mono_params = event['msg_params'][::2]  # For _update_msg_params
+                    cleanup.add_event(evt.event(
+                        {k: event[k] for k in kept_keys}, type='_mono_off'))
                     inevent = yield event
-                    node_id = event('node_id')
-                    mono_params = event('msg_params')[::2]  # For _update_msg_params
-                    cleanup_event = evt.event(event, type='_mono_off')
-                    cleanup_event['node_id'] = event('node_id')
-                    cleanup_event['server'] = event('server')
-                    cleanup_event['has_gate'] = event('has_gate')
-                    cleanup.add_event(cleanup_event)
                 else:
                     event = evt.event(inevent, type='_mono_set')
                     event.update(self._stream_dict_next(stream_dict))
+                    event['server'] = server
                     event['node_id'] = node_id
                     event['mono_params'] = mono_params
                     inevent = yield event
@@ -215,32 +216,33 @@ class Pmono(Pbind):
 
     def _embed_mono_artic(self, inevent):
         synth_name = self.synth_name
+        kept_keys = self._kept_keys
         stream_dict = {k: stm.stream(v) for k, v in self.dict.items()}
         cleanup = pst.CleanupEntry()
-        mono_params = node_id = event = cleanup_event = None
+        server = node_id = mono_params = event = cleanup_event = None
 
         try:
             while True:
                 if node_id is None:
-                    event = evt.event(inevent, type='note')
+                    event = evt.event(inevent, type='_mono_on')
                     event.update(self._stream_dict_next(stream_dict))
-                    event['instrument'] = synth_name
+                    event._prepare_event(synth_name)
                     if event('sustain') >= event('delta')\
                     and not evt.is_rest(event):
-                        event['send_gate'] = False
-                        inevent = yield event
-                        node_id = event('node_id')
-                        mono_params = event('msg_params')[::2]
-                        cleanup_event = evt.event(event, type='_mono_off')
-                        cleanup_event['node_id'] = event('node_id')
-                        cleanup_event['server'] = event('server')
-                        cleanup_event['has_gate'] = event('has_gate')
+                        server = event['server']
+                        node_id = event['node_id']
+                        mono_params = event['msg_params'][::2]  # For _update_msg_params
+                        cleanup_event = evt.event(
+                            {k: event[k] for k in kept_keys}, type='_mono_off')
                         cleanup.add_event(cleanup_event)
+                        inevent = yield event
                     else:
+                        event = evt.event(event, type='note')
                         inevent = yield event
                 else:
                     event = evt.event(inevent, type='_mono_set')
                     event.update(self._stream_dict_next(stream_dict))
+                    event['server'] = server
                     event['node_id'] = node_id
                     event['mono_params'] = mono_params
                     if event('sustain') < event('delta'):

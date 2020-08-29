@@ -89,22 +89,6 @@ class Pcollect(FuncFilterPattern):
     # asStream  # For some reason it converts to a FunctonStream.
 
 
-# Pselect
-# Preject
-# Pfset
-# Psetpre
-# Paddpre
-# Pmulpre
-# Pset
-# Padd
-# Pmul
-# Psetp
-# Paddp
-# Pmulp
-# Pstretch
-# Pstretchp
-# Pplayer
-# Pdrop
 class Pselect(FuncFilterPattern):
     def __embed__(self, inval):
         func = self.func
@@ -139,6 +123,62 @@ class Preject(FuncFilterPattern):
     # asStream  # Idem.
 
 
+class Pfset(FuncFilterPattern):
+    ...
+
+
+class Psetpre(FilterPattern):
+    ...
+
+
+class Paddpre(Psetpre):
+    ...
+
+
+class Pmulpre(Psetpre):
+    ...
+
+
+class Pset(FilterPattern):
+    ...
+
+
+class Padd(Pset):
+    ...
+
+
+class Pmul(Pset):
+    ...
+
+
+class Psetp(Pset):
+    ...
+
+
+class Paddp(Psetp):
+    ...
+
+
+class Pmulp(Psetp):
+    ...
+
+
+class Pstretch(FilterPattern):
+    ...
+
+
+class Pstretchp(Pstretch):
+    ...
+
+
+# class Pplayer(FilterPattern):  # Undocumented, with note.
+
+
+class Pdrop(FilterPattern):
+    ...
+
+
+
 class Pfin(FilterPattern):
     def __init__(self, count, pattern):
         self.pattern = pattern
@@ -157,4 +197,69 @@ class Pfin(FilterPattern):
     # storeArgs
 
 
-# And more...
+class Pfinval(Pfin):
+    ...
+
+
+class Pfindur(FilterPattern):
+    ...
+
+
+class Psync(FilterPattern):
+    ...
+
+
+class Pconst(FilterPattern):
+    ...
+
+
+class Plag(FilterPattern):
+    ...
+
+
+class Pbindf(FilterPattern):
+    ...
+
+
+class Pstutter(FilterPattern):
+    ...
+
+
+class PdurStutter(Pstutter):
+    ...
+
+
+class Pclutch(FilterPattern):
+    ...
+
+
+class Pwhile(FuncFilterPattern):
+    ...
+
+
+class Pwrap(FilterPattern):
+    ...
+
+
+class Ptrace(FilterPattern):
+    ...
+
+
+class Pclump(FilterPattern):
+    ...
+
+
+class Pflatten(Pclump):
+    ...
+
+
+class Pdiff(FilterPattern):
+    ...
+
+
+class Prorate(FilterPattern):
+    ...
+
+
+class Pavaroh(FilterPattern):
+    ...

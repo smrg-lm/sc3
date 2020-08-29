@@ -13,75 +13,80 @@ utl.ClassLibrary.late_imports(__name__, ('sc3.seq.eventstream', 'est'))
 
 
 class FilterPattern(ptt.Pattern):
-	def __init__(self, pattern):
-		self.pattern = pattern
+    def __init__(self, pattern):
+        self.pattern = pattern
 
 
 class Pn(FilterPattern):
-	# NOTE: For Pn to have 'key' and to be parent of Pgate seems to be a bit
-	# arbitrary. A gate is not usually something that repeats n times, moreover
-	# Pgate acts like a hold more that a gate.
-	def __init__(self, pattern, repeats=bi.inf, key=None):
-		self.pattern = pattern
-		self.repeats = repeats
-		self.key = key
+    # NOTE: For Pn to have 'key' and to be parent of Pgate seems to be a bit
+    # arbitrary. A gate is not usually something that repeats n times, moreover
+    # Pgate acts like a hold more that a gate.
+    def __init__(self, pattern, repeats=bi.inf, key=None):
+        self.pattern = pattern
+        self.repeats = repeats
+        self.key = key
 
-	def __stream__(self):
-		return est.PatternEventStream(self)
+    def __stream__(self):
+        return est.PatternEventStream(self)
 
-	def __embed__(self, inevent):
-		pattern = self.pattern
-		key = self.key
-		if key is None:
-			for _ in utl.counter(self.repeats):
-				inevent = yield from pattern.__embed__(inevent)
-		else:
-			for _ in utl.counter(self.repeats):
-				inevent[key] = True
-				inevent = yield from pattern.__embed__(inevent)
-			inevent[key] = False
-		return inevent
+    def __embed__(self, inevent):
+        pattern = self.pattern
+        key = self.key
+        if key is None:
+            for _ in utl.counter(self.repeats):
+                inevent = yield from pattern.__embed__(inevent)
+        else:
+            for _ in utl.counter(self.repeats):
+                inevent[key] = True
+                inevent = yield from pattern.__embed__(inevent)
+            inevent[key] = False
+        return inevent
 
-	# storeArgs
+    # storeArgs
 
 
 class Pgate(Pn):
-	def __embed__(self, inevent):
-		pattern = self.pattern
-		key = self.key
-		stream = output = None
-		for _ in utl.counter(self.repeats):
-			stream = stm.stream(pattern)
-			try:
-				while True:
-					if inevent.get(key, False) is True or output is None:
-						output = stream.next(inevent)
-					inevent = yield from stm.embed(copy.copy(output), inevent)
-			except stm.StopStream:
-				pass
-			output = None   # // Force new value for every repeat.
-		return inevent
+    def __embed__(self, inevent):
+        pattern = self.pattern
+        key = self.key
+        stream = output = None
+        for _ in utl.counter(self.repeats):
+            stream = stm.stream(pattern)
+            try:
+                while True:
+                    if inevent.get(key, False) is True or output is None:
+                        output = stream.next(inevent)
+                    inevent = yield from stm.embed(copy.copy(output), inevent)
+            except stm.StopStream:
+                pass
+            output = None  # // Force new value for every repeat.
+        return inevent
 
-	# storeArgs
+    # storeArgs
 
 
 class FuncFilterPattern(FilterPattern):
-	def __init__(self, func, pattern):
-		super().__init__(pattern)
-		self.func = func
+    def __init__(self, func, pattern):
+        super().__init__(pattern)
+        self.func = func
+
+    # storeArgs
 
 
 class Pcollect(FuncFilterPattern):
-	def __embed__(self, inval):
-		fun = self.func
-		pstream = stm.stream(self.pattern)
-		inval = outval = None
-		try:
-			while True:
-				outval = pstream.next(inval)
-				inval = yield fn.value(func, outval, inval)
-		except stm.StopStream:
-			return inval
+    def __embed__(self, inval):
+        func = self.func
+        stream = stm.stream(self.pattern)
+        outval = None
+        try:
+            while True:
+                outval = stream.next(inval)
+                inval = yield fn.value(func, outval, inval)
+        except stm.StopStream:
+            pass
+        return inval
+
+    # asStream  # For some reason it converts to a FunctonStream.
 
 
 # Pselect
@@ -103,21 +108,21 @@ class Pcollect(FuncFilterPattern):
 
 
 class Pfin(FilterPattern):
-    def __init__(self, count, pattern):  # *** No deberían ir al revés?
+    def __init__(self, count, pattern):
         self.pattern = pattern
         self.count = count
 
-	# storeArgs
-
     def __embed__(self, inevent):
         stream = stm.stream(self.pattern)
-        for _ in utl.counter(self.count):
-            try:
+        try:
+            for _ in utl.counter(self.count):
                 inevent = stream.next(inevent)
-            except StopStream:
-                return inevent
-            inevent = yield inevent
+                inevent = yield inevent
+        except stm.StopStream:
+            pass
         return inevent
+
+    # storeArgs
 
 
 # And more...

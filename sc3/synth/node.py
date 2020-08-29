@@ -658,8 +658,8 @@ class Synth(Node):
     def get(self, index, action):
         def resp_func(msg, *_):
             # // The server replies with a message of the
-			# // form: [/n_set, node ID, index, value].
-			# // We want 'value' which is at index 3.
+            # // form: [/n_set, node ID, index, value].
+            # // We want 'value' which is at index 3.
             fn.value(action, msg[3])
 
         rdf.OSCFunc(
@@ -674,8 +674,8 @@ class Synth(Node):
     def getn(self, index, count, action):
         def resp_func(msg, *_):
             # // The server replies with a message of the form
-			# // [/n_setn, node ID, index, count, *values].
-			# // We want '*values' which are at indexes 4 and above.
+            # // [/n_setn, node ID, index, count, *values].
+            # // We want '*values' which are at indexes 4 and above.
             fn.value(action, msg[4:])
 
         rdf.OSCFunc(

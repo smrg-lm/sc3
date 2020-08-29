@@ -47,37 +47,37 @@ The idea is that you can write the same in Python as in sclang, with the same
 logic regarding multichannel expansion, arguments conversion to Control ugens,
 etc., it should be the same result. For example::
 
-		from sc3.all import *
+        from sc3.all import *
 
-		# interactive shell run...
+        # interactive shell run...
 
-		s = Server.local
-		s.boot()
+        s = Server.local
+        s.boot()
 
-		# wait or error...
+        # wait or error...
 
-		@synthdef.add()
-		def sine(freq=440, amp=0.1, gate=1):
-				sig = SinOsc.ar(freq) * amp
-				sig *= EnvGen.kr(Env.adsr(), gate, done_action=2)
-				Out.ar(0, sig.dup())
+        @synthdef.add()
+        def sine(freq=440, amp=0.1, gate=1):
+                sig = SinOsc.ar(freq) * amp
+                sig *= EnvGen.kr(Env.adsr(), gate, done_action=2)
+                Out.ar(0, sig.dup())
 
-		sine.dump_ugens()
+        sine.dump_ugens()
 
-		# following lines are meant to be executed one by one as in interactive
-		# session. Commands to the server are asynchronous actions that need a bit
-		# of time for the resource to be available/changed.
+        # following lines are meant to be executed one by one as in interactive
+        # session. Commands to the server are asynchronous actions that need a bit
+        # of time for the resource to be available/changed.
 
-		n = Synth('sine')
-		n.set('amp', 0.05)
-		n.set('freq', 220)
+        n = Synth('sine')
+        n.set('amp', 0.05)
+        n.set('freq', 220)
 
-		s.query_tree(True)
+        s.query_tree(True)
 
-		n.release()
-		# s.free_all()  # if something went wrong free all nodes.
+        n.release()
+        # s.free_all()  # if something went wrong free all nodes.
 
-		s.quit()  # stop server at the end of interactive session or just quit ipython.
+        s.quit()  # stop server at the end of interactive session or just quit ipython.
 
 
 That's a working example but many things are not finished or tested and some
@@ -89,7 +89,7 @@ Install (in develop mode)
 
 ::
 
-		python3 setup.py develop --user
+        python3 setup.py develop --user
 
 
 Contribute

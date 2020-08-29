@@ -60,7 +60,7 @@ class TDuty(Duty):
 class DemandEnvGen(ugn.UGen):
     @classmethod
     def ar(cls, level, dur, shape=1, curve=0, gate=1.0, reset=1.0,
-		   level_scale=1.0, level_bias=0.0, time_scale=1.0, done_action=0):
+           level_scale=1.0, level_bias=0.0, time_scale=1.0, done_action=0):
         gate_rate = gpp.ugen_param(gate)._as_ugen_rate()
         reset_rate = gpp.ugen_param(reset)._as_ugen_rate()
         if gate_rate == 'audio' or reset_rate == 'audio':
@@ -69,13 +69,13 @@ class DemandEnvGen(ugn.UGen):
             if reset_rate != 'audio':
                 reset = lne.K2A.ar(reset)
         return cls._multi_new('audio', level, dur, shape, curve, gate, reset,
-			                  level_scale, level_bias, time_scale, done_action)
+                              level_scale, level_bias, time_scale, done_action)
 
     @classmethod
     def kr(cls, level, dur, shape=1, curve=0, gate=1.0, reset=1.0,
-		   level_scale=1.0, level_bias=0.0, time_scale=1.0, done_action=0):
+           level_scale=1.0, level_bias=0.0, time_scale=1.0, done_action=0):
         return cls._multi_new('control', level, dur, shape, curve, gate, reset,
-			                  level_scale, level_bias, time_scale, done_action)
+                              level_scale, level_bias, time_scale, done_action)
 
 
 class DUGen(ugn.UGen):
@@ -93,7 +93,7 @@ class DUGen(ugn.UGen):
 
     def explin(self, inmin, inmax, outmin, outmax, clip='minmax'):
         return (bi.log(self.prune(inmin, inmax, clip) / inmin) /
-		        bi.log(inmax / inmin) * (outmax - outmin) + outmin)
+                bi.log(inmax / inmin) * (outmax - outmin) + outmin)
 
     def expexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
         return bi.pow(outmax / outmin,

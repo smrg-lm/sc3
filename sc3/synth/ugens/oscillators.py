@@ -294,13 +294,13 @@ class SelectXFocus(ugn.PseudoUGen):
 class Vibrato(ugn.PureUGen):
     @classmethod
     def ar(cls, freq=440.0, rate=6, depth=0.02, delay=0.0, onset=0.0,
-		   rate_variation=0.04, depth_variation=0.1, iphase=0.0, trig=0.0):
+           rate_variation=0.04, depth_variation=0.1, iphase=0.0, trig=0.0):
         return cls._multi_new('audio', freq, rate, depth, delay, onset,
                               rate_variation, depth_variation, iphase, trig)
 
     @classmethod
     def kr(cls, freq=440.0, rate=6, depth=0.02, delay=0.0, onset=0.0,
-		   rate_variation=0.04, depth_variation=0.1, iphase=0.0, trig=0.0):
+           rate_variation=0.04, depth_variation=0.1, iphase=0.0, trig=0.0):
         return cls._multi_new('control', freq, rate, depth, delay, onset,
                               rate_variation, depth_variation, iphase, trig)
 

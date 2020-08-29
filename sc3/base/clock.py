@@ -668,9 +668,9 @@ class Quant():
 # in the future or past, even though you might think so from the methods.
 #
 # There are several ideas of now:
-# 	elapsed time, i.e. "real time"
-# 	logical time in the current time base.
-# 	logical time in another time base.
+#     elapsed time, i.e. "real time"
+#     logical time in the current time base.
+#     logical time in another time base.
 #
 # Logical time is time that is incremented by exact amounts from the time you
 # started. It is not affected by the actual time your task gets scheduled, which

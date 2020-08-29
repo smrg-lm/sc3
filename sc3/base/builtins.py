@@ -598,18 +598,18 @@ def mod(a, b):
     # NOTE: Has a different behaviour from Python's %.
     # DOUBLE/FLOAT
     # // avoid the divide if possible
-	# const double lo = (double)0.;
-	# if (in >= hi) {
-	# 	in -= hi;
-	# 	if (in < hi) return in;
-	# } else if (in < lo) {
-	# 	in += hi;
-	# 	if (in >= lo) return in;
-	# } else return in;
+    # const double lo = (double)0.;
+    # if (in >= hi) {
+    #     in -= hi;
+    #     if (in < hi) return in;
+    # } else if (in < lo) {
+    #     in += hi;
+    #     if (in >= lo) return in;
+    # } else return in;
     #
-	# if (hi == lo) return lo;
+    # if (hi == lo) return lo;
     # FLOAT
-	# return in - hi*sc_floor(in/hi);
+    # return in - hi*sc_floor(in/hi);
     # INT
     # int c;
     # c = in % hi;
@@ -642,19 +642,19 @@ def wrap(x, lo, hi, range=None): # *** BUG: AbstractFunction usa sin range. tien
         lo = int(lo)
         hi = int(hi)
         return mod(x - lo, hi - lo + 1) + lo
-	# // avoid the divide if possible
-	# if (in >= hi) {
+    # // avoid the divide if possible
+    # if (in >= hi) {
 # range = hi - lo; # sin range
-	# 	in -= range;
-	# 	if (in < hi) return in;
-	# } else if (in < lo) {
+    #     in -= range;
+    #     if (in < hi) return in;
+    # } else if (in < lo) {
 # range = hi - lo; # sin range
-	# 	in += range;
-	# 	if (in >= lo) return in;
-	# } else return in;
+    #     in += range;
+    #     if (in >= lo) return in;
+    # } else return in;
     #
-	# if (hi == lo) return lo;
-	# return in - range * sc_floor((in - lo)/range);
+    # if (hi == lo) return lo;
+    # return in - range * sc_floor((in - lo)/range);
     if x >= hi:
         if range is None:
             range = hi - lo
@@ -687,25 +687,25 @@ def fold(x, lo, hi, range=None, range2=None): # *** BUG: ídem wrap con range y 
         c = mod(x - lo, b2)
         if c > b: c = b2 - c
         return c + lo
-	# double x, c;
-	# x = in - lo;
+    # double x, c;
+    # x = in - lo;
     #
-	# // avoid the divide if possible
-	# if (in >= hi) {
-	# 	in = hi + hi - in;
-	# 	if (in >= lo) return in;
-	# } else if (in < lo) {
-	# 	in = lo + lo - in;
-	# 	if (in < hi) return in;
-	# } else return in;
+    # // avoid the divide if possible
+    # if (in >= hi) {
+    #     in = hi + hi - in;
+    #     if (in >= lo) return in;
+    # } else if (in < lo) {
+    #     in = lo + lo - in;
+    #     if (in < hi) return in;
+    # } else return in;
     #
-	# if (hi == lo) return lo;
-	# // ok do the divide
+    # if (hi == lo) return lo;
+    # // ok do the divide
 # range = hi - lo; # sin range
 # range2 = range + range; # sin range2
-	# c = x - range2 * sc_floor(x / range2);
-	# if (c>=range) c = range2 - c;
-	# return c + lo;
+    # c = x - range2 * sc_floor(x / range2);
+    # if (c>=range) c = range2 - c;
+    # return c + lo;
     x2 = x - lo
     if x >= hi:
         x = hi + hi - x
@@ -735,12 +735,12 @@ def fold(x, lo, hi, range=None, range2=None): # *** BUG: ídem wrap con range y 
 def div(a, b): # TODO: define div para int devolviendo el dividendo si el divisor es cero, en sclang es el comportamiento de 1 div: 0, en Python 1 // 0 es error.
                # TODO: ver si se usa para las ugens o qué cómo, lo mismo con mod.
                # TODO: si lo sargumentos son float sclang realiza las operaciones y castead el valor de retorno.
-	# int c;
-	# if (b) {
-	# 	if (a<0) c = (a+1)/b - 1;
-	# 	else c = a/b;
-	# } else c = a;
-	# return c;
+    # int c;
+    # if (b) {
+    #     if (a<0) c = (a+1)/b - 1;
+    #     else c = a/b;
+    # } else c = a;
+    # return c;
     if b:
         if a < 0: c = (a + 1) / b - 1
         else: c = a / b
@@ -821,11 +821,11 @@ def hypot(x, y):
 
 @scbuiltin.binop
 def hypotx(x, y):  # hypotenuse aproximation C name, hypotApx in sclang.
-	# double minxy;
-	# x = std::abs(x);
-	# y = std::abs(y);
-	# minxy = sc_min(x,y);
-	# return x + y - kDSQRT2M1 * minxy;
+    # double minxy;
+    # x = std::abs(x);
+    # y = std::abs(y);
+    # minxy = sc_min(x,y);
+    # return x + y - kDSQRT2M1 * minxy;
     x = abs(x)
     y = abs(y)
     minxy = min(x, y)
@@ -836,31 +836,31 @@ def gcd(a, b):
 # FLOAT: abajo define para float gcd(u, v)
 # return (float) sc_gcd((long) std::trunc(u), (long) std::trunc(v));
     # if (a == 0)
-    # 	return b;
+    #     return b;
     # if (b == 0)
-    # 	return a;
+    #     return a;
     # const bool negative = (a <= 0 && b <= 0);
     # a = sc_abs(a);
     # b = sc_abs(b);
     # if (a == 1 || b == 1) {
-    # 	if(negative) {
-    # 		return (long) -1;
-    # 	} else {
-    # 		return (long) 1;
-    # 	}
+    #     if(negative) {
+    #         return (long) -1;
+    #     } else {
+    #         return (long) 1;
+    #     }
     # }
     # if (a < b) {
-    # 	long t = a;
-    # 	a = b;
-    # 	b = t;
+    #     long t = a;
+    #     a = b;
+    #     b = t;
     # }
     # while (b > 0) {
-    # 	long t = a % b;
-    # 	a = b;
-    # 	b = t;
+    #     long t = a % b;
+    #     a = b;
+    #     b = t;
     # }
     # if(negative) {
-    # 	a = 0 - a;
+    #     a = 0 - a;
     # }
     # return a;
     if type(a) is float or type(b) is float:
@@ -934,12 +934,12 @@ def lcm(a, b):
 #     # F z = 1;
 #     # while (n != 0)
 #     # {
-#     # 	if ((n & 1) != 0)
-#     # 	{
-#     # 		z *= x;
-#     # 	}
-#     # 	n >>= 1;
-#     # 	x *= x;
+#     #     if ((n & 1) != 0)
+#     #     {
+#     #         z *= x;
+#     #     }
+#     #     n >>= 1;
+#     #     x *= x;
 #     # }
 #     # return z;
 #     pass
@@ -978,13 +978,13 @@ def first_arg(a, b):
 @scbuiltin.binop
 def scaleneg(a, b):
     # template: T a, T b
-	# if (a < 0)
-	# 	return a*b;
-	# else
-	# 	return a;
+    # if (a < 0)
+    #     return a*b;
+    # else
+    #     return a;
     # DOUBLE/FLOAT
     # b = 0.5 * b + 0.5;
-	# return (std::abs(a) - a) * b + a;
+    # return (std::abs(a) - a) * b + a;
     if type(a) is int and type(b) is int:
         if a < 0: return a * b
         return a
@@ -994,10 +994,10 @@ def scaleneg(a, b):
 @scbuiltin.binop
 def amclip(a, b):
     # template: T a, T b
-	# if (b < 0)
-	# 	return 0;
-	# else
-	# 	return a*b;
+    # if (b < 0)
+    #     return 0;
+    # else
+    #     return a*b;
     # DOUBLE/FLOAT
     # return a * 0.5 * (b + std::abs(b));
     if type(a) is int and type(b) is int:

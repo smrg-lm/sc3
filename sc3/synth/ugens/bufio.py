@@ -33,7 +33,7 @@ class PlayBuf(ugn.MultiOutUGen):
 class TGrains(ugn.MultiOutUGen):
     @classmethod
     def ar(cls, num_channels, trigger=0, bufnum=0, rate=1.0, center_pos=0,
-		   dur=0.1, pan=0, amp=0.1, interp=4):
+           dur=0.1, pan=0, amp=0.1, interp=4):
         return cls._multi_new(
             'audio', num_channels, trigger, bufnum,
             rate, center_pos, dur, pan, amp, interp)

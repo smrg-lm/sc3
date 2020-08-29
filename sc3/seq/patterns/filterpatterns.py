@@ -9,7 +9,7 @@ from ...base import functions as fn
 from .. import pattern as ptt
 
 
-utl.ClassLibrary.late_imports(__name__, ('sc3.seq.pausestream', 'pst'))
+utl.ClassLibrary.late_imports(__name__, ('sc3.seq.eventstream', 'est'))
 
 
 class FilterPattern(ptt.Pattern):
@@ -27,7 +27,7 @@ class Pn(FilterPattern):
 		self.key = key
 
 	def __stream__(self):
-		return pst.PatternEventStream(self)
+		return est.PatternEventStream(self)
 
 	def __embed__(self, inevent):
 		pattern = self.pattern

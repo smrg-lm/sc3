@@ -9,7 +9,7 @@ from ...base import utils as utl
 from ...base import functions as fn
 from ...base import _taskq as tsq
 from .. import pattern as ptt
-from .. import pausestream as pst
+from .. import eventstream as est
 from .. import event as evt
 from . import listpatterns as lsp
 
@@ -131,7 +131,7 @@ class Pbind(ptt.Pattern):
         self.dict = dict(mapping)
 
     def __stream__(self):
-        return pst.PatternEventStream(self)
+        return est.PatternEventStream(self)
 
     def __embed__(self, inevent):
         event = None
@@ -188,7 +188,7 @@ class Pmono(Pbind):
         synth_name = self.synth_name
         kept_keys = self._kept_keys
         stream_dict = {k: stm.stream(v) for k, v in self.dict.items()}
-        cleanup = pst.CleanupEntry()
+        cleanup = est.CleanupEntry()
         server = node_id = mono_params = event = None
 
         try:
@@ -218,7 +218,7 @@ class Pmono(Pbind):
         synth_name = self.synth_name
         kept_keys = self._kept_keys
         stream_dict = {k: stm.stream(v) for k, v in self.dict.items()}
-        cleanup = pst.CleanupEntry()
+        cleanup = est.CleanupEntry()
         server = node_id = mono_params = event = cleanup_event = None
 
         try:

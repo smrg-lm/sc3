@@ -87,7 +87,12 @@ class Pvalue(ptt.Pattern):
     # storeArgs
 
 
-class Pchain(ptt.Pattern):
+class EventPattern(ptt.Pattern):
+    def __stream__(self):
+        return est.PatternEventStream(self)
+
+
+class Pchain(EventPattern):
     def __init__(self, *patterns):
         self.patterns = list(patterns)
 
@@ -109,10 +114,11 @@ class Pchain(ptt.Pattern):
     # storeOn
 
 
-class Pevent(ptt.Pattern):
-    def __init__(self, pattern, event=None):
+class Pevent(EventPattern):
+    # This class can be used to change the default value of PatternEventStream.
+    def __init__(self, pattern, event):
         self.pattern = pattern
-        self.event = event or evt.event()
+        self.event = event
 
     def __embed__(self, inevent):
         stream = stm.stream(self.pattern)
@@ -126,12 +132,9 @@ class Pevent(ptt.Pattern):
     # storeArgs
 
 
-class Pbind(ptt.Pattern):
+class Pbind(EventPattern):
     def __init__(self, mapping):
         self.dict = dict(mapping)
-
-    def __stream__(self):
-        return est.PatternEventStream(self)
 
     def __embed__(self, inevent):
         event = None
@@ -263,7 +266,7 @@ class Pmono(Pbind):
 ### Ppar.sc ###
 
 
-class Ppar(lsp.ListPattern):
+class Ppar(EventPattern):
     def __embed__(self, inevent):
         # assn?
         queue = tsq.TaskQueue()

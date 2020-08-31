@@ -21,48 +21,16 @@ _logger = logging.getLogger(__name__)
 
 
 class Pkey(ptt.Pattern):
-    # // Access a key from the input event.
-    def __init__(self, key, length=None):  # Changed: repeats is for lists.
+    # Access a key from the input event within a Pbind.
+    def __init__(self, key, length=bi.inf):  # Changed: repeats is for lists.
         self.key = key
         self.length = length
 
-    def __stream__(self):
-        key_stm = stm.stream(self.key)
-
-        def _stm_func(inevent):
-            if inevent is not None:
-                try:
-                    return inevent[key_stm.next(inevent)]  # raises StopStream
-                except KeyError:
-                    raise stm.StopStream from None
-            else:
-                raise stm.StopStream
-
-        func_stm = stm.FunctionStream(_stm_func)
-        if self.length is None:
-            return func_stm
-        else:
-            # Object.fin() only used here.
-            length = self.length
-
-            def _rtn_func(inevent):
-                try:
-                    for _ in range(length):
-                        inevent = yield func_stm.next(inevent)
-                except stm.StopStream:
-                    pass
-
-            return stm.Routine(_rtn_func)
-
     def __embed__(self, inevent):
-        if not isinstance(inevent, dict):
-            raise TypeError(
-                f'inevent must be dict, not {type(inevent).__name__}')
-        key_stm = stm.stream(self.key)
-        length = self.length or bi.inf
+        key_stream = stm.stream(self.key)
         try:
-            for _ in utl.counter(length):
-                inevent = (yield inevent[key_stm.next(inevent)]) or dict()
+            for _ in utl.counter(self.length):
+                inevent = (yield inevent[key_stream.next(inevent)]) or dict()
         except (stm.StopStream, KeyError):
             pass
         return inevent
@@ -121,10 +89,11 @@ class Pevent(EventPattern):
         self.event = event
 
     def __embed__(self, inevent):
+        event = self.event
         stream = stm.stream(self.pattern)
         try:
             while True:
-                inevent = yield stream.next(self.event)
+                inevent = yield stream.next(event)
         except stm.StopStream:
             pass
         return inevent

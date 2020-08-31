@@ -22,12 +22,9 @@ class Pn(FilterPattern):
     # arbitrary. A gate is not usually something that repeats n times, moreover
     # Pgate acts like a hold more that a gate.
     def __init__(self, pattern, repeats=bi.inf, key=None):
-        self.pattern = pattern
+        super().__init__(pattern)
         self.repeats = repeats
         self.key = key
-
-    def __stream__(self):
-        return est.PatternEventStream(self)
 
     def __embed__(self, inevent):
         pattern = self.pattern
@@ -123,86 +120,89 @@ class Preject(FuncFilterPattern):
     # asStream  # Idem.
 
 
-class Pfset(FuncFilterPattern):
-    ...
-
-
-class Psetpre(FilterPattern):
-    ...
-
-
-class Paddpre(Psetpre):
-    ...
-
-
-class Pmulpre(Psetpre):
-    ...
-
-
-class Pset(FilterPattern):
-    ...
-
-
-class Padd(Pset):
-    ...
-
-
-class Pmul(Pset):
-    ...
-
-
-class Psetp(Pset):
-    ...
-
-
-class Paddp(Psetp):
-    ...
-
-
-class Pmulp(Psetp):
-    ...
-
-
-class Pstretch(FilterPattern):
-    ...
-
-
-class Pstretchp(Pstretch):
-    ...
+# These are all specific variants of Pchain + Pcollect.
+# class Pfset(FuncFilterPattern): ...
+# class Psetpre(FilterPattern): ...
+# class Paddpre(Psetpre): ...
+# class Pmulpre(Psetpre): ...
+# class Pset(FilterPattern): ...
+# class Padd(Pset): ...
+# class Pmul(Pset): ...
+# class Psetp(Pset): ...
+# class Paddp(Psetp): ...
+# class Pmulp(Psetp): ...
+# class Pstretch(FilterPattern): ...
+# class Pstretchp(Pstretch): ...
+# class Pbindf(FilterPattern): ...
 
 
 # class Pplayer(FilterPattern):  # Undocumented, with note.
 
 
 class Pdrop(FilterPattern):
-    ...
+    def __init__(self, pattern, n):
+        super().__init__(pattern)
+        self.n = int(n)
+
+    def __embed__(self, inval):
+        stream = stm.stream(self.pattern)
+        first_inval = inval
+        try:
+            for _ in range(self.n):
+                inval = stream.next(first_inval)
+            while True:
+                inval = yield stream.next(inval)
+        except stm.StopStream:
+            pass
+        return inval
 
 
+class Plen(FilterPattern):  # Was Pfin.
+    def __init__(self, pattern, n):
+        super().__init__(pattern)
+        self.n = int(n)
 
-class Pfin(FilterPattern):
-    def __init__(self, count, pattern):
-        self.pattern = pattern
-        self.count = count
-
-    def __embed__(self, inevent):
+    def __embed__(self, inval):
         stream = stm.stream(self.pattern)
         try:
-            for _ in utl.counter(self.count):
+            for _ in range(self.n):
+                inval = yield stream.next(inval)
+        except stm.StopStream:
+            pass
+        return inval
+
+    # storeArgs
+
+
+class Pdur(FilterPattern):  # Was Pfindur.
+    def __init__(self, pattern, dur, tolerance=0.001):
+        super().__init__(pattern)
+        self.dur = dur
+        self.tolerance = tolerance
+
+    def __embed__(self, inevent):
+        elapsed = 0.0
+        local_dur = self.dur
+        tolerance = self.tolerance
+        stream = stm.stream(self.pattern)
+        delta = next_elapsed = remaining = None
+        try:
+            while True:
                 inevent = stream.next(inevent)
+                delta = inevent('delta')
+                next_elapsed = elapsed + float(delta)
+                if bi.roundup(next_elapsed, tolerance) >= local_dur:
+                    remaining = local_dur - elapsed
+                    inevent = inevent.copy()
+                    inevent['delta'] = type(delta)(remaining)
+                    return (yield inevent)
+                elapsed = next_elapsed
                 inevent = yield inevent
         except stm.StopStream:
             pass
         return inevent
 
     # storeArgs
-
-
-class Pfinval(Pfin):
-    ...
-
-
-class Pfindur(FilterPattern):
-    ...
 
 
 class Psync(FilterPattern):
@@ -214,10 +214,6 @@ class Pconst(FilterPattern):
 
 
 class Plag(FilterPattern):
-    ...
-
-
-class Pbindf(FilterPattern):
     ...
 
 

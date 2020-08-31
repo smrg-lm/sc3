@@ -179,7 +179,7 @@ class Stream(aob.AbstractObject, ABC):
     ### Stream protocol ###
 
     def __stream__(self):
-        '''Returns a Stream object, most likely a Routine.'''
+        '''Returns a Stream object.'''
         return self
 
     def __embed__(self, inval=None):

@@ -26,7 +26,7 @@ class ListPattern(ptt.Pattern):
 class Pseq(ListPattern):
     def __init__(self, lst, repeats=1, offset=0):
         super().__init__(lst, repeats)
-        self.offset = offset
+        self.offset = int(offset)
 
     def __embed__(self, inval):
         # if (inval.eventAt('reverse') == true, { # Not good.
@@ -140,7 +140,7 @@ class Place(Pseq):
         return inval
 
 
-class Place1(Pseq):  # Was Ppatlace.
+class Placep(Pseq):  # Was Ppatlace.
     def __embed__(self, inval):
         lst = self.lst
         size = len(lst)

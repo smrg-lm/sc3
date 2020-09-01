@@ -358,15 +358,62 @@ class Ptrace(FilterPattern):
 
 
 class Pclump(FilterPattern):
-    ...
+    def __init__(self, pattern, n):
+        super().__init__(pattern)
+        self.n = n
+
+    def __embed__(self, inval):
+        stream = stm.stream(self.pattern)
+        n_stream = stm.stream(self.n)
+        lst = n = value = None
+        try:
+            while True:
+                lst = []
+                n = n_stream.next(inval)
+                for _ in range(int(n)):
+                    value = stream.next(inval)
+                    lst.append(value)
+                inval = yield lst
+        except stm.StopStream:
+            if lst:
+                inval = yield lst
+        return inval
 
 
 class Pflatten(Pclump):
-    ...
+    def __embed__(self, inval):
+        stream = stm.stream(self.pattern)
+        n_stream = stm.stream(self.n)
+        flatten = utl.flatten
+        n = value = None
+        try:
+            while True:
+                n = n_stream.next(inval)
+                value = stream.next(inval)
+                if isinstance(value, list):
+                    value = flatten([value], n)
+                    for item in value:
+                        inval = yield item
+                else:
+                    inval = yield value
+        except stm.StopStream:
+            pass
+        return inval
 
 
 class Pdiff(FilterPattern):
-    ...
+    def __embed__(self, inval):
+        stream = stm.stream(self.pattern)
+        prev = next = None
+        try:
+            prev = stream.next(inval)
+            while True:
+                next = stream.next(inval)
+                inval = yield next - prev
+                prev = next
+        except stm.StopStream:
+            pass
+        return inval
 
 
 class Prorate(FilterPattern):

@@ -1,6 +1,7 @@
 """FilterPatterns.sc"""
 
 import copy
+import logging
 
 from ...base import builtins as bi
 from ...base import stream as stm
@@ -316,7 +317,44 @@ class Pwrap(FilterPattern):
 
 
 class Ptrace(FilterPattern):
-    ...
+    _ptrace_logger = logging.getLogger('Ptrace')
+
+    def __init__(self, pattern, prefix='', keys=None):
+        super().__init__(pattern)
+        self.prefix = prefix
+        self.keys = keys
+
+    def __embed__(self, inval):
+        logger = self._ptrace_logger
+        stream = stm.stream(self.pattern)
+        prefix = self.prefix
+        keys = self.keys
+        calc_keys = True
+        outval = None
+        try:
+            if self.keys:
+                while True:
+                    outval = stream.next(inval)
+                    if calc_keys:
+                        if isinstance(outval, evt.EventType):
+                            keys = tuple(
+                                k for k in keys if k in outval\
+                                or k in outval.default_values)
+                        else:
+                            keys = tuple()
+                        calc_keys = False
+                    logger.info('%s%s', prefix, {k: outval(k) for k in keys})
+                    inval = yield outval
+            else:
+                while True:
+                    outval = stream.next(inval)
+                    logger.info('%s%s', prefix, outval)
+                    inval = yield outval
+        except stm.StopStream:
+            pass
+        return inval
+
+    # storeArgs
 
 
 class Pclump(FilterPattern):

@@ -7,6 +7,7 @@ from ...base import stream as stm
 from ...base import utils as utl
 from ...base import functions as fn
 from .. import pattern as ptt
+from .. import event as evt
 
 
 utl.ClassLibrary.late_imports(__name__, ('sc3.seq.eventstream', 'est'))
@@ -213,28 +214,105 @@ class Pconst(FilterPattern):
     ...
 
 
-class Plag(FilterPattern):
-    ...
+class Plag(ptt.EventPattern, FilterPattern):
+    def __init__(self, pattern, lag):
+        super(ptt.EventPattern, self).__init__(pattern)
+        self.lag = lag
+
+    def __embed__(self, inevent):
+        yield evt.silent(self.lag, inevent)
+        return (yield from stm.embed(self.pattern, inevent))
+
+    # storeArgs
 
 
 class Pstutter(FilterPattern):
-    ...
+    def __init__(self, pattern, n):
+        super().__init__(pattern)
+        self.n = n
+
+    def __embed__(self, inval):
+        stream = stm.stream(self.pattern)
+        n_stream = stm.stream(self.n)
+        value = n = None
+        try:
+            while True:
+                value = stream.next(inval)
+                n = n_stream.next(inval)
+                for _ in range(abs(n)):
+                    inval = yield copy.copy(value)
+        except stm.StopStream:
+            pass
+        return inval
+
+    # storeArgs
 
 
 class PdurStutter(Pstutter):
     ...
 
 
-class Pclutch(FilterPattern):
-    ...
+class Platch(FilterPattern):  # Was Pclutch.
+    class _UNDEFINED(): pass
+
+    def __init__(self, pattern, trig=True):
+        super().__init__(pattern)
+        self.trig = trig
+
+    def __embed__(self, inval):
+        stream = stm.stream(self.pattern)
+        trig_stream = stm.stream(self.trig)
+        UNDEFINED = self._UNDEFINED
+        last_inval = UNDEFINED
+        trig = None
+        try:
+            while True:
+                trig = trig_stream.next(inval)
+                if trig:
+                    last_inval = stream.next(inval)
+                    inval = yield last_inval
+                else:
+                    if last_inval is UNDEFINED:
+                        last_inval = stream.next(inval)
+                    inval = yield copy.copy(last_inval)
+        except stm.StopStream:
+            pass
+        return inval
+
+    # storeArgs
 
 
 class Pwhile(FuncFilterPattern):
-    ...
+    def __embed__(self, inval):
+        func = self.func
+        pattern = self.pattern
+        while fn.value(func, inval):
+            inval = yield from stm.embed(pattern, inval)
+        return inval
 
 
 class Pwrap(FilterPattern):
-    ...
+    def __init__(self, pattern, lo, hi):
+        super().__init__(pattern)
+        self.lo = lo
+        self.hi = hi
+
+    def __embed__(self, inval):
+        stream = stm.stream(self.pattern)
+        lo_stream = stm.stream(self.lo)
+        hi_stream = stm.stream(self.hi)
+        value = lo = hi = None
+        try:
+            while True:
+                lo = lo_stream.next(inval)
+                hi = hi_stream.next(inval)
+                value = stream.next(inval)
+                inval = yield bi.wrap(value, lo, hi)
+        except stm.StopStream:
+            pass
+        return inval
+
+    # storeArgs
 
 
 class Ptrace(FilterPattern):

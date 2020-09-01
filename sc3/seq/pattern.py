@@ -97,6 +97,11 @@ class Pattern(aob.AbstractObject):
     # record
 
 
+class EventPattern(Pattern):
+    def __stream__(self):
+        return est.PatternEventStream(self)
+
+
 ### op patterns ###
 
 

@@ -17,6 +17,11 @@ utl.ClassLibrary.late_imports(__name__, ('sc3.seq.eventstream', 'est'))
 class FilterPattern(ptt.Pattern):
     def __init__(self, pattern):
         self.pattern = pattern
+        self._is_event_pattern = pattern.is_event_pattern
+
+    @property
+    def is_event_pattern(self):
+        return self._is_event_pattern
 
 
 class Pn(FilterPattern):

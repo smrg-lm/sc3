@@ -13,6 +13,13 @@ __all__ = ['pattern']
 
 
 class Pattern(aob.AbstractObject):
+    @property
+    def is_event_pattern(self):
+        # Value patterns may create either value or event
+        # streams depending if they embed an EventPattern.
+        return False
+
+
     ### Iterable protocol ###
 
     def __iter__(self):
@@ -22,7 +29,10 @@ class Pattern(aob.AbstractObject):
     ### Stream protocol ###
 
     def __stream__(self):
-        return est.PatternValueStream(self)
+        if self.is_event_pattern:
+            return est.PatternEventStream(self)
+        else:
+            return est.PatternValueStream(self)
 
     def __embed__(self, inval=None):
         return (yield from self.__stream__().__embed__(inval))
@@ -98,6 +108,10 @@ class Pattern(aob.AbstractObject):
 
 
 class EventPattern(Pattern):
+    @property
+    def is_event_pattern(self):
+        return True
+
     def __stream__(self):
         return est.PatternEventStream(self)
 
@@ -109,6 +123,11 @@ class Punop(Pattern):
     def __init__(self, selector, a):
         self.selector = selector
         self.a = a
+        self._is_event_pattern = a.is_event_pattern
+
+    @property
+    def is_event_pattern(self):
+        return self._is_event_pattern
 
     def __stream__(self):
         return stm.UnaryOpStream(self.selector, stm.stream(self.a))
@@ -129,6 +148,12 @@ class Pbinop(Pattern):
         self.selector = selector
         self.a = a
         self.b = b
+        self._is_event_pattern = any(
+            isinstance(x, Pattern) and x.is_event_pattern for x in (a, b))
+
+    @property
+    def is_event_pattern(self):
+        return self._is_event_pattern
 
     def __stream__(self):
         return stm.BinaryOpStream(
@@ -144,6 +169,11 @@ class Pnarop(Pattern): # BUG: nombre cambiado
         self.selector = selector
         self.a = a
         self.args = args
+        self._is_event_pattern = a.is_event_pattern
+
+    @property
+    def is_event_pattern(self):
+        return self._is_event_pattern
 
     def __stream__(self):
         args = [stm.stream(x) for x in self.args]

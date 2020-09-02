@@ -18,6 +18,12 @@ class ListPattern(ptt.Pattern):
             raise ValueError(
                 f"ListPattern '{type(self).__name__}' "
                 "requires a non empty collection")
+        self._is_event_pattern = any(
+            isinstance(x, ptt.Pattern) and x.is_event_pattern for x in lst)
+
+    @property
+    def is_event_pattern(self):
+        return self._is_event_pattern
 
     # copy
     # storeArgs

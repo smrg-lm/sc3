@@ -163,6 +163,8 @@ class Pdrop(FilterPattern):
             pass
         return inval
 
+    # storeArgs
+
 
 class Plen(FilterPattern):  # Was Pfin.
     def __init__(self, pattern, n):
@@ -384,6 +386,8 @@ class Pclump(FilterPattern):
                 inval = yield lst
         return inval
 
+    # storeArgs
+
 
 class Pflatten(Pclump):
     def __embed__(self, inval):
@@ -421,9 +425,55 @@ class Pdiff(FilterPattern):
         return inval
 
 
-class Prorate(FilterPattern):
-    ...
+class Pprorate(FilterPattern):  # Was Protate.
+    def __init__(self, pattern, proportion=1):
+        super().__init__(pattern)
+        self.proportion = proportion
+
+    def __embed__(self, inval):
+        stream = stm.stream(self.pattern)
+        prop_stream = stm.stream(self.proportion)
+        value = c = None
+        try:
+            while True:
+                value = stream.next(inval)
+                c = prop_stream.next(inval)
+                if isinstance(c, (list, tuple)):
+                    for el in c:
+                        inval = yield el * value
+                else:
+                    inval = yield c * value
+                    inval = yield (1 - c) * value
+        except stm.StopStream:
+            pass
+        return inval
+
+    # storeArgs
 
 
 class Pavaroh(FilterPattern):
-    ...
+    def __init__(self, pattern, aroh, avaroh, spo=12):
+        super().__init__(pattern)
+        self.aroh = aroh  # Aroh and avaroh are Scale objects.
+        self.avaroh = avaroh
+        self.spo = spo
+
+    def __embed__(self, inval):
+        stream = stm.stream(self.pattern)
+        spo_stream = stm.stream(self.spo)
+        aroh = self.aroh
+        avaroh = self.avaroh
+        spo = me = scale = None
+        melast = 0
+        try:
+            while True:
+                spo = spo_stream.next(inval)
+                me = stream.next(inval)
+                scale = aroh if me >= melast else avaroh
+                melast = me
+                inval = yield scale.degree_to_key(me, spo)  # *** TODO: Scale.
+        except stm.StopStream:
+            pass
+        return inval
+
+    # storeArgs

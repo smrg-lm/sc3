@@ -1,5 +1,7 @@
 """From Patterns.sc"""
 
+import inspect
+
 from ...base import stream as stm
 from .. import pattern as ptt
 

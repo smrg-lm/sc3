@@ -183,16 +183,18 @@ class Plen(FilterPattern):  # Was Pfin.
     # storeArgs
 
 
-class Pdur(FilterPattern):  # Was Pfindur.
-    def __init__(self, pattern, dur, tolerance=0.001):
-        super().__init__(pattern)
+class Pdur(ptt.EventPattern, FilterPattern):  # Was Pfindur.
+    def __init__(self, pattern, dur, tolerance=0.001, quant=None):
+        super(ptt.EventPattern, self).__init__(pattern)
         self.dur = dur
         self.tolerance = tolerance
+        self.quant = quant
 
     def __embed__(self, inevent):
         elapsed = 0.0
         local_dur = self.dur
         tolerance = self.tolerance
+        quant = self.quant
         stream = stm.stream(self.pattern)
         delta = next_elapsed = remaining = None
         try:
@@ -208,18 +210,42 @@ class Pdur(FilterPattern):  # Was Pfindur.
                 elapsed = next_elapsed
                 inevent = yield inevent
         except stm.StopStream:
-            pass
+            if quant is not None:
+                delta = bi.roundup(elapsed, quant) - elapsed
+                if delta > 0:
+                    inevent = yield evt.silent(delta, inevent)
         return inevent
 
     # storeArgs
 
 
-class Psync(FilterPattern):
-    ...
+# class Psync(FilterPattern):  # Added as quant to Pdur.
 
 
 class Pconst(FilterPattern):
-    ...
+    def __init__(self, pattern, sum, tolerance=0.001):
+        super().__init__(pattern)
+        self.sum = sum
+        self.tolerance = tolerance
+
+    def __embed__(self, inval):
+        stream = stm.stream(self.pattern)
+        local_sum = self.sum
+        tolerance = self.tolerance
+        sum = next_sum = 0
+        value = None
+        try:
+            while True:
+                value = stream.next(inval)
+                next_sum = sum + value
+                if bi.roundup(next_sum, tolerance) >= local_sum:
+                    inval = yield local_sum - sum
+                    return inval
+                sum = next_sum
+                inval = yield value
+        except stm.StopStream:
+            inval = yield local_sum - sum
+        return inval
 
 
 class Plag(ptt.EventPattern, FilterPattern):
@@ -256,8 +282,7 @@ class Pstutter(FilterPattern):
     # storeArgs
 
 
-class PdurStutter(Pstutter):
-    ...
+# class PdurStutter(Pstutter):  # Tremolo-like partition.
 
 
 class Platch(FilterPattern):  # Was Pclutch.

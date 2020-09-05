@@ -38,23 +38,6 @@ class Pkey(ptt.Pattern):
     # storeArgs
 
 
-class Pvalue(ptt.Pattern):
-    # Similar to Plazy in Ppatmod.sc but embed is infinite for common objects.
-    def __init__(self, func):
-        self.func = func
-
-    def __embed__(self, inval):
-        value_stream = stm.stream(fn.value(self.func, inval))
-        try:
-            while True:
-                yield value_stream.next(inval)
-        except stm.StopStream:
-            pass
-        return inval
-
-    # storeArgs
-
-
 class Pchain(ptt.EventPattern):
     def __init__(self, *patterns):
         self.patterns = list(patterns)

@@ -13,6 +13,16 @@ class Scale(tuple):
 
     __slots__ = ('_tuning', '_ppo', '_name')
 
+    # Tuning is the set of possible pitch clases (len(tuning)) in a Scale,
+    # expressed as factors/ratios. Degrees are a sub-set of tuning ratios
+    # expressed as indexes of tuning, len(degrees) is pitches per octave (ppo).
+    # There is also steps per octave (spo) that depends on the octave ratio,
+    # spo may differ from len(tuning) if octave ratio is different than 2.
+    # Note that the word 'degree' as event key refers to the actual positional
+    # degree of a scale, the first, second, third, and so on. Scale and Tuning
+    # objects are immutable by now. Although I can see use cases for mutability
+    # these complicate the code. Structures can be made mutable later anyway.
+
     def __new__(cls, degrees, tuning=None, *, name=None):
         return super().__new__(cls, degrees)
 
@@ -89,7 +99,24 @@ class Scale(tuple):
     def __repr__(self):
         return f'Scale({super().__repr__()}, {self._tuning}, name={self._name})'
 
-    # TODO
+    # @property
+    # def degree_ratios(self):  # Was semitones.
+    #     tuning = self._tuning
+    #     return tuple(tuning[i] for i in self)
+    #
+    # @property
+    # def midi_ratios(self):  # Was ratios.
+    #     ...
+    #
+    # performNearestInList
+    # performNearestInScale
+    # degreeToRatio
+    # degreeToFreq
+    # *choose
+    # *chooseFromSelected
+    # *names
+    # octaveRatio
+    # stepsPerOctave
 
 
 class Tuning(tuple):

@@ -206,7 +206,7 @@ class PitchKeys(PartialEvent):
     gtranspose = 0.0
     octave = 5.0
     root = 0.0
-    scale =scl.Scale([0, 2, 4, 5, 7, 9, 11])
+    scale = scl.Scale([0, 2, 4, 5, 7, 9, 11])
 
     def _detuned_freq(self):
         return self('freq') * self('harmonic') + self('detune')
@@ -246,20 +246,21 @@ class PitchKeys(PartialEvent):
         else:
             return self.default_values['midinote']
 
-    def _midinote_from_freq(self):
-        return bi.cpsmidi(self._detuned_freq())
 
     def _midinote_from_degree(self):
         ret = self._transposed_degree()
-        ret = ret * (12.0 * bi.log2(self('scale').octave_ratio)) + 60
+        ret = ret * (12.0 * bi.log2(self('scale').tuning.octave_ratio)) + 60
         return ret
 
     def _transposed_degree(self):
         scale = self('scale')
         ret = scale.degree_to_key(self('degree') + self('mtranspose'))
         ret = ret + self('gtranspose') + self('root')
-        ret = ret / scale.spo() + self('octave') - 5.0
+        ret = ret / scale.tuning.spo + self('octave') - 5.0
         return ret
+
+    def _midinote_from_freq(self):
+        return bi.cpsmidi(self._detuned_freq())
 
     @keyfunction
     def degree(self):
@@ -294,7 +295,7 @@ class PitchKeys(PartialEvent):
         if index is None:
             index = i + 1
             a = scale.tuning[-1]
-            b = scale.tuning[0] + scale.spo()
+            b = scale.tuning[0] + scale.tuning.spo
         else:
             a = scale.tuning[index - 1]
             b = scale.tuning[index]

@@ -496,7 +496,7 @@ class Pavaroh(FilterPattern):
                 me = stream.next(inval)
                 scale = aroh if me >= melast else avaroh
                 melast = me
-                inval = yield scale.degree_to_key(me, spo)  # *** TODO: Scale.
+                inval = yield scale.degree_to_key(me)
         except stm.StopStream:
             pass
         return inval

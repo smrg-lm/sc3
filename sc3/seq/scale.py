@@ -2,53 +2,149 @@
 
 import math
 
+from ..base import builtins as bi
+
 
 __all__ = ['Scale', 'Tuning']
 
 
-class Scale(list): # BUG: Tuning es como un array en sc y Scale implementa la intefaz llamando a Tuning, pero no sé si conviene heredar de tuple/list acá, esto es todo provisorio para seguir con Event
-    # TODO
+class Scale(tuple):
+    _ALL = dict()
 
-    def __init__(self, degrees='ionian', ppo=None, tuning=None, name='Unknown Scale'):
-        # TODO
-        self.tuning = Tuning([0, 2, 4, 5, 7, 9, 11]) # TODO: tuning or Tuning.default(ppo) # BUG: tiene setter especial
-        super().__init__(self.tuning) # BUG: provisorio
-        # TODO
+    __slots__ = ('_tuning', '_ppo', '_name')
 
-    # NOTE: podría ser property como en Tuning y acá abajo en octave_ratio
-    def spo(self):
-        return self.tuning.spo()
+    def __new__(cls, degrees, tuning=None, *, name=None):
+        return super().__new__(cls, degrees)
+
+    def __init__(self, degrees, tuning=None, *, name=None):
+        if tuning is None:
+            tuning = Tuning.et(12)
+            name = tuning.name
+        else:
+            tuning = Tuning(tuning)
+        if max(degrees) > len(tuning) - 1:
+            raise ValueError(
+                f'max scale degree {max(degrees)} exceeds '
+                f'{tuning.name} tuning ppo range')
+        self._ppo = len(degrees)
+        self._tuning = tuning
+        self._name = name
+
+    @classmethod
+    def from_name(cls, name, tuning=None):  # Was newFromKey.
+        try:
+            scale = cls(cls._ALL[name], tuning, name=name)
+        except KeyError:
+            raise ValueError(f"invalid scale name '{name}'") from None
+        return scale
+
+    @classmethod
+    def chromatic(cls, tuning=None):
+        if tuning is None:
+            tuning = Tuning.from_name('et12')
+        ppo = len(tuning)
+        name = f'Chromatic {ppo} {tuning.name}'
+        return cls(range(ppo), tuning, name=name)
 
     @property
-    def octave_ratio(self):
-        return self.tuning.octave_ratio
+    def ppo(self):
+        return self._ppo
 
-    def degree_to_key(self, degree, spo=None, acc=0): # NOTE: es performDegreeToKey, spo = steps per octave, acc = accidental
-        if spo is None:
-            spo = self.tuning.spo()
+    @property
+    def tuning(self):
+        return self._tuning
+
+    @property
+    def name(self):
+        return self._name
+
+    def degree_to_key(self, degree, acc=0):
+        # Accidentals only work for et scales? Why not a fraction?
+        spo = self.tuning._spo
         l = len(self)
-        base_key = spo * (degree // l) + self[int(degree) % l]
+        base_key = (spo * (degree // l)) + self[int(degree) % l]
         if acc == 0:
             return base_key
         else:
-            return base_key + acc * (spo / 12)
+            return base_key + acc * (spo / self._ppo)
+
+    def key_to_degree(self, note):  # note in spo, midinote/note?
+        spo = self.tuning._spo
+        n = note // spo * self._ppo  # N octaves in ppo.
+        key = note % spo
+        return bi.index_in_between(self, key) + n
+
+    def __eq__(self, other):
+        if isinstance(other, type(self)):
+            return (
+                super().__eq__(other)
+                and self._tuning == other._tuning
+                and self._name == other._name)
+        else:
+            return False
+
+    def __hash__(self):
+        return hash((super().__hash__(), self._tuning, self._name))
+
+    def __repr__(self):
+        return f'Scale({super().__repr__()}, {self._tuning}, name={self._name})'
 
     # TODO
 
 
-class Tuning(list): # BUG: Ídem Scale
-    # TODO
+class Tuning(tuple):
+    _ALL = dict()
 
-    def __init__(self, tuning, octave_ratio=2.0, name='Unknown Tuning'):
-        # TODO
-        super().__init__(tuning)
-        self.octave_ratio = octave_ratio # BUG: es read only
-        # TODO
+    __slots__ = ('_octave_ratio', '_name', '_spo')
 
-    def spo(self):
-        return math.log2(self.octave_ratio) * 12 # NOTE: por qué 12.0 siempre es constante en relación a distintas cantidades de pasos por octava.
+    def __new__(cls, tuning, octave_ratio=2.0, *, name=None):
+        return super().__new__(cls, tuning)
 
-    # TODO
+    def __init__(self, tuning, octave_ratio=2.0, *, name=None):
+        self._octave_ratio = octave_ratio
+        self._name = name
+        self._spo = math.log2(octave_ratio) * len(tuning)
 
+    @classmethod
+    def from_name(cls, name):  # Was newFromKey.
+        try:
+            tuning = cls._ALL[name]
+        except KeyError:
+            raise ValueError(f"invalid tuning name '{name}'") from None
+        return tuning
 
-# TODO: sigue...
+    @classmethod
+    def et(cls, spo=12):
+        ratio = 12 / spo
+        tuning = tuple(i * ratio for i in range(spo))
+        return cls(tuning, 2.0, name='et' + str(spo))
+
+    @property
+    def octave_ratio(self):
+        return self._octave_ratio
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def spo(self):  # Was stepsPerOctave.
+        return self._spo
+
+    def __eq__(self, other):
+        if isinstance(other, type(self)):
+            return (
+                super().__eq__(other)
+                and self._octave_ratio == other._octave_ratio
+                and self._name == other._name)
+        else:
+            return False
+
+    def __hash__(self):
+        return hash((super().__hash__(), self._octave_ratio, self._name))
+
+    def __repr__(self):
+        return (
+            f'Tuning({super().__repr__()}, '
+            f'{self._octave_ratio}, '
+            f'name={self._name})')

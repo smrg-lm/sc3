@@ -11,7 +11,7 @@ __all__ = ['Scale', 'Tuning']
 class Scale(tuple):
     _ALL = dict()
 
-    __slots__ = ('_tuning', '_ppo', '_name')
+    # __slots__ = ('_tuning', '_ppo', '_name')
 
     # Tuning is the set of possible pitch clases (len(tuning)) in a Scale,
     # expressed as factors/ratios. Degrees are a sub-set of tuning ratios
@@ -122,7 +122,7 @@ class Scale(tuple):
 class Tuning(tuple):
     _ALL = dict()
 
-    __slots__ = ('_octave_ratio', '_name', '_spo')
+    # __slots__ = ('_octave_ratio', '_name', '_spo')
 
     def __new__(cls, tuning, octave_ratio=2.0, *, name=None):
         return super().__new__(cls, tuning)

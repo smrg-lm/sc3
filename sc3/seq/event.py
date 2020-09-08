@@ -201,6 +201,7 @@ class PitchKeys(PartialEvent):
     midinote = 60
     ctranspose = 0.0
 
+    # note = 0  # Desn't need a default, see comment in keyfunction.
     degree = 0
     mtranspose = 0
     gtranspose = 0.0
@@ -215,7 +216,7 @@ class PitchKeys(PartialEvent):
     def freq(self):
         if 'freq' in self:
             return self['freq']
-        elif 'midinote' in self:
+        elif 'midinote' in self or 'note' in self:
             return self._freq_from_midinote()
         elif 'degree' in self:
             return self._freq_from_degree()
@@ -239,6 +240,8 @@ class PitchKeys(PartialEvent):
     def midinote(self):
         if 'midinote' in self:
             return self['midinote']
+        elif 'note' in self:
+            return self._midi_from_note()
         elif 'degree' in self:
             return self._midinote_from_degree()
         elif 'freq' in self:
@@ -246,21 +249,30 @@ class PitchKeys(PartialEvent):
         else:
             return self.default_values['midinote']
 
-
-    def _midinote_from_degree(self):
-        ret = self._transposed_degree()
+    def _midi_from_note(self):
+        # See comment in keyfunction.
+        ret = self['note'] + self('gtranspose') + self('root')
+        ret = ret / self('scale').tuning.spo + self('octave') - 5.0
         ret = ret * (12.0 * bi.log2(self('scale').tuning.octave_ratio)) + 60
         return ret
 
-    def _transposed_degree(self):
+    def _midinote_from_degree(self):
         scale = self('scale')
         ret = scale.degree_to_key(self('degree') + self('mtranspose'))
         ret = ret + self('gtranspose') + self('root')
         ret = ret / scale.tuning.spo + self('octave') - 5.0
+        ret = ret * (12.0 * bi.log2(scale.tuning.octave_ratio)) + 60
         return ret
 
     def _midinote_from_freq(self):
         return bi.cpsmidi(self._detuned_freq())
+
+    @keyfunction
+    def note(self):
+        # When set, this key doesn't call degree_to_key when converting to
+        # midinote so it can be done externally, yet this is not the best
+        # path for combinations and naming/meaning gets confusing.
+        return self('scale').degree_to_key(self('degree') + self('mtranspose'))
 
     @keyfunction
     def degree(self):

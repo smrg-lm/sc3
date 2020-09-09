@@ -787,7 +787,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         if self._status_watcher.unresponsive:
             _logger.info(f"server '{self.name}' unresponsive, rebooting...")
-            self.quit(watch_shutdown=False)
+            self.quit(False)
 
         if self._status_watcher.server_running:
             _logger.info(f"server '{self.name}' already running")
@@ -875,7 +875,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         if self._status_watcher.server_running:
             event = _threading.Event()
             set_func = lambda: event.set()
-            self.quit(set_func, set_func)
+            self.quit(True, set_func, set_func)
             event.wait(5)  # _MainThread, set_func runs in AppClock thread.
 
     def reboot(self, func=None, on_failure=None):
@@ -894,7 +894,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 if func is not None:
                     func()
                 self.boot()
-            self.quit(_on_complete, on_failure)
+            self.quit(True, _on_complete, on_failure)
         else:
             if func is not None:
                 func()
@@ -956,7 +956,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def quit_all(cls, watch_shutdown=True):
         for server in cls.all:
             if server.is_local:
-                server.quit(watch_shutdown=watch_shutdown)
+                server.quit(watch_shutdown)
 
     @classmethod
     def free_all(cls, even_remote=False):  # All refers to cls.all.

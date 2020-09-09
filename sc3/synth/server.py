@@ -801,6 +801,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         def _on_complete(server):
             server._status_watcher._server_booting = False
+            server._status_watcher._server_rebooting = False
             server._boot_init()
             fn.value(on_complete, server)
             _libsc3.main._atexitq.add(
@@ -810,6 +811,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             if self.addr.proto == 'tcp':
                 self.addr.disconnect()
             server._status_watcher._server_booting = False
+            server._status_watcher._server_rebooting = False
             fn.value(on_failure, server)
 
         self._status_watcher._add_action('boot', _on_complete, _on_failure)
@@ -845,6 +847,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                             self._status_watcher._start_alive_thread(1)
                         def failure():
                             self._status_watcher._server_booting = False
+                            self._status_watcher._server_rebooting = False
                             self._status_watcher._clear_actions()
                         self.addr.connect(success, failure)
                     else:
@@ -862,7 +865,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._pid = None
         self._pid_release_condition.signal()
         _logger.info(f"server '{self.name}' exited with exit code {exit_code}")
-        if self._status_watcher._server_booting:
+        if self._status_watcher._server_booting\
+        and not self._status_watcher._server_rebooting:
             self._status_watcher._server_booting = False
             _logger.warning(f"server '{self.name}' failed to boot")
         # In case of server crash or Exception in World_OpenUDP: bind: Address
@@ -887,6 +891,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         if not self.is_local:
             _logger.info("can't reboot a remote server")
             return
+
+        if self._status_watcher._server_booting:
+            _logger.info(f"server '{self.name}' already booting")
+            return
+
+        self._status_watcher._server_rebooting = True
 
         if self._status_watcher.server_running\
         and not self._status_watcher.unresponsive:

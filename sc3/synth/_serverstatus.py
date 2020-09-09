@@ -39,6 +39,7 @@ class ServerStatusWatcher():
 
         self._has_booted = False
         self._server_booting = False
+        self._server_rebooting = False
         self._server_quitting = False
         self._server_registering = False
         self._server_unregistering = False
@@ -129,6 +130,7 @@ class ServerStatusWatcher():
                         f"'{self.server.name}': registration "
                         "failed, server unresponsive")
                     self._server_booting = False
+                    self._server_rebooting = False
                     self._server_registering = False
 
             clk.AppClock.sched(delay + self._timeout, start_timeout_func)
@@ -206,7 +208,8 @@ class ServerStatusWatcher():
                 _logger.info(f"'{self.server.name}': unregistration done")
                 self._perform_actions('unregister', 'on_complete')
             else:
-                raise Exception('something whent wrong, may be a bug')
+                raise Exception(
+                    'something went wrong, server status is inconsistent')
 
         done_osc_func = rdf.OSCFunc(
             done, '/done', self.server.addr,
@@ -226,7 +229,8 @@ class ServerStatusWatcher():
             elif self._server_unregistering:
                 self._perform_actions('unregister', 'on_failure')
             else:
-                raise Exception('something whent wrong, may be a bug')
+                raise Exception(
+                    'something went wrong, server status is inconsistent')
 
         fail_osc_func = rdf.OSCFunc(
             fail, '/fail', self.server.addr,

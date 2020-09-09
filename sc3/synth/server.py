@@ -888,12 +888,13 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         if self._status_watcher._server_booting\
         and not self._status_watcher._server_rebooting:
             self._status_watcher._server_booting = False
+            self._status_watcher._perform_actions('boot', 'on_failure')
             _logger.warning(f"server '{self.name}' failed to boot")
         # In case of server crash or Exception in World_OpenUDP: bind: Address
         # already in use, status_watcher should stop to avoid registering to
         # another local server. See note in boot(). There sould be a better
         # option for the second case to avoid delay which is arbitrary.
-        self._status_watcher._quit(watch_shutdown=False)
+        self._status_watcher._quit(False)
 
     def _quit_atexit(self):
         if self._status_watcher.server_running:

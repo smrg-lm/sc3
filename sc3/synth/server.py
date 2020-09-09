@@ -275,8 +275,12 @@ class ServerProcess():
         self.on_exit = on_exit or (lambda exit_code: None)
         self.proc = None
         self.timeout = 0.1
+        self._detached = False
 
     def run(self, server):
+        if self.proc:
+            return
+
         cmd = [server.options.program]
         cmd.extend(server.options.options_list(server.addr.port))
 
@@ -293,7 +297,8 @@ class ServerProcess():
             self._tflag.set()
             # self._tout.join()
             # self._terr.join()
-            self.on_exit(self.proc.poll())
+            if not self._detached:
+                self.on_exit(self.proc.poll())
 
         t = _threading.Thread(
             target=popen_wait_thread,
@@ -302,9 +307,14 @@ class ServerProcess():
         t.start()
 
     def running(self):
+        if self.proc is None or self._detached:
+            return False
         return self.proc.poll() is None
 
     def finish(self):
+        if self._detached:
+            return
+
         def terminate_proc_thread():
             try:
                 if self.running():
@@ -319,6 +329,10 @@ class ServerProcess():
             name=f'{type(self).__name__}.terminate id: {id(self)}')
         t.daemon = True
         t.start()
+
+    def detach(self):
+        self._tflag.set()
+        self._detached = True
 
     def _redirect_outerr(self):
         def read(out, flag, logger):
@@ -758,6 +772,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 if self.addr.proto == 'tcp' and self.addr.is_connected:
                     self.addr.disconnect()
                 self._status_watcher._server_unregistering = False
+                if self._pid is not None:
+                    self._server_process.detach()
+                    self._server_process = None
+                    self._pid = None
                 fn.value(on_complete, self)
                 _libsc3.main._atexitq.remove(self._unregister_atexit)
 
@@ -862,6 +880,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def _on_server_process_exit(self, exit_code):
         # This method is called after quit or crash.
+        self._server_process = None
         self._pid = None
         self._pid_release_condition.signal()
         _logger.info(f"server '{self.name}' exited with exit code {exit_code}")
@@ -912,6 +931,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def application_running(self):
+        if self._server_process is None:
+            return False
         return self._server_process.running()
 
     def quit(self, watch_shutdown=True, on_complete=None, on_failure=None):

@@ -319,7 +319,7 @@ class ServerProcess():
             try:
                 if self.running():
                     self.proc.terminate()
-                    self.proc.wait(timeout=self.timeout)  # TODO: ver, llama a wait de nuevo desde otro hilo, popen_thread están en wait.
+                    self.proc.wait(timeout=self.timeout)
             except _subprocess.TimeoutExpired:
                 self.proc.kill()
                 self.proc.communicate() # just to be polite
@@ -393,15 +393,16 @@ class MetaServer(type):
 
 class Server(gpp.NodeParameter, metaclass=MetaServer):
     def __init__(self, name, addr, options=None):
-        super(gpp.NodeParameter, self).__init__(self)  # *** BUG: VER AHORA: ESTO SE SOLUCIONA CON __INIT_SUBCLASS__ HOOCK? (NO TENER QUE PONER EN CADA UNA)
+        super(gpp.NodeParameter, self).__init__(self)
 
         self.addr = addr  # @property setter
         self._set_name(name)  # Raises ValueException if duplicated.
         type(self).all.add(self)
 
-        # self.is_local # inicializa con el setter de addr
-        # self.in_process # inicializa con el setter de addr
-        # self.remote_controlled # inicializa con el setter de addr
+        # These attributes are initialized through addr setter.
+        # self.is_local
+        # self.in_process
+        # self.remote_controlled
 
         self.options = options or ServerOptions()
         self.latency = 0.2
@@ -425,7 +426,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._recorder = rcd.Recorder(server=self)
         self._recorder.notify_server = True
 
-        self.tree = lambda *args: None # TODO: ver dónde se inicializa (en la clase no lo hace), se usa en init_tree
+        self.tree = lambda *args: None
 
         self._pid = None
         self._shm_interface = None  # ServerShmInterface
@@ -679,7 +680,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def init_tree(self):
         def init_task():
             self._send_default_groups()
-            self.tree(self) # tree es un atributo de instancia que contiene una función
+            self.tree(self)
             yield from self.sync()
             sac.ServerTree.run(self)
             yield from self.sync()
@@ -973,7 +974,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.addr.send_msg('/quit')  # Send quit after responders are in place.
 
         if self.in_process:
-            self.quit_in_process()  # *** BUG: no existe.
+            self.quit_in_process()  # Not implemented.
             _logger.info('internal server has quit')
         else:
             _logger.info(f"'/quit' message sent to server '{self.name}'")

@@ -5,6 +5,9 @@ import weakref
 from . import functions as fn
 
 
+__all__ = ['NotificationCenter']
+
+
 class NotificationCenter():
     _registrations = weakref.WeakKeyDictionary()
 

@@ -12,8 +12,9 @@ from . import absobject as aob
 from . import clock as clk
 
 
-__all__ = ['Routine', 'routine', 'FunctionStream',
-           'Condition', 'FlowVar', 'stream', 'embed']
+__all__ = [
+    'Routine', 'routine', 'FunctionStream',
+    'Condition', 'FlowVar', 'stream', 'embed']
 
 
 _logger = logging.getLogger(__name__)

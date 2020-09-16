@@ -3,6 +3,9 @@
 from . import absobject as aob
 
 
+__all__ = ['Operand']
+
+
 class Operand(aob.AbstractObject):
     def __init__(self, value=None):
         if isinstance(value, Operand):

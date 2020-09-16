@@ -5,8 +5,9 @@ from . import clock as clk
 from . import functions as fn
 
 
-__all__ = ['CmdPeriod', 'StartUp', 'ShutDown', 'OnError',
-           'ServerBoot', 'ServerQuit', 'ServerTree']
+__all__ = [
+    'CmdPeriod', 'StartUp', 'ShutDown', 'OnError',
+    'ServerBoot', 'ServerQuit', 'ServerTree']
 
 
 class SystemAction():

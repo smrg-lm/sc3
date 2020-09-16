@@ -11,9 +11,6 @@ from .. import pattern as ptt
 from .. import event as evt
 
 
-utl.ClassLibrary.late_imports(__name__, ('sc3.seq.eventstream', 'est'))
-
-
 class FilterPattern(ptt.Pattern):
     def __init__(self, pattern):
         self.pattern = pattern

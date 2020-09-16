@@ -432,6 +432,9 @@ class Routine(TimeThread, Stream):
                 self._terminal_value = e.terminal_value
                 self.state = self.State.Done
                 self._last_value = self._terminal_value
+            except:
+                self.state = self.State.Done  # Failure.
+                raise
             finally:
                 _libsc3.main.current_tt = self.parent
                 self.parent = None

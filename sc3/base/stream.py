@@ -7,9 +7,12 @@ import threading
 import random
 import logging
 
-from . import main as _libsc3
+from . import utils as utl
 from . import absobject as aob
 from . import clock as clk
+
+
+utl.ClassLibrary.late_imports(__name__, ('sc3.base.main', '_libsc3'))
 
 
 __all__ = [

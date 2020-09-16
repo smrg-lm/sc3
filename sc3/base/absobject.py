@@ -2,7 +2,10 @@
 import operator
 import math
 
-from . import builtins as bi
+from . import utils as utl
+
+
+utl.ClassLibrary.late_imports(__name__, ('sc3.base.builtins', 'bi'))
 
 
 class AbstractObject():

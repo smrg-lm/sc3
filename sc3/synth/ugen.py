@@ -8,12 +8,12 @@ import logging
 from ..base import utils as utl
 from ..base import builtins as bi
 from ..base import absobject as aob
-from ..base import main as _libsc3
 from . import _specialindex as _si
 from . import _graphparam as gpp
 
 
 utl.ClassLibrary.late_imports(__name__,
+    ('sc3.base.main', '_libsc3'),
     ('sc3.synth.ugens.trig', 'trg'),
     ('sc3.synth.ugens.pan', 'pan'),
     ('sc3.synth.ugens.infougens', 'ifu'),

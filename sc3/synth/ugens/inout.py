@@ -25,13 +25,11 @@ class ControlName():
     def num_channels(self):
         return len(utl.as_list(self.default_value))
 
-    #def print_on(self, stream):
-    def __str__(self):
-        string = 'ControlName P ' + str(self.index)
-        if self.name is not None: string += ' ' + self.name
-        if self.rate is not None: string += ' ' + self.rate
-        if self.default_value is not None: string += ' ' + str(self.default_value)
-        return string
+    def __repr__(self):  # Was printOn.
+        return (
+            f"{type(self).__name__}(name='{self.name}', index={self.index}, "
+            f"rate='{self.rate}', default_value={self.default_value}, "
+            f"arg_num={self.arg_num}, lag={self.lag})")
 
 
 class AbstractControl(ugn.MultiOutUGen):

@@ -30,13 +30,12 @@ class IODesc():
         self.starting_channel = starting_channel or '?'
         self.type = type
 
-    #def print_on(self, stream: io.StringIO):
-    def __str__(self):
-        string = str(self.rate) + ' '
-        string += self.type.__name__ + ' '
-        string += str(self.starting_channel) + ' '
-        string += str(self.num_channels)
-        return string
+    def __repr__(self):  # Was printOn.
+        return (
+            f"{type(self).__name__}(rate='{self.rate}', "
+            f"num_channels={self.num_channels}, "
+            f"starting_channel={self.starting_channel}, "
+            f"type={self.type.__name__})")
 
 
 # TODO: Estas clases están ligadas al protocolo Archiving de Object.sc (L800).
@@ -61,8 +60,8 @@ class AbstractMDPlugin():
     # TODO: todo...
 
 
-# // simple archiving of the dictionary
 class TextArchiveMDPlugin(AbstractMDPlugin):
+    # // simple archiving of the dictionary
     ... # TODO
 
 
@@ -90,21 +89,20 @@ class SynthDesc():
         self._msg_func_keep_gate = False # @property
 
     @classmethod
-    def new_from(cls, synthdef): # TODO: ver estos métodos constructores en general, posiblemente sea mejor llamar a __new__ con argumentos.
+    def new_from(cls, synthdef):
         return synthdef.as_synth_dec()
 
     def send(self, server, completion_msg):
         self.sdef.send(server, completion_msg)
 
-    #def print_on(self, stream: io.StringIO):
-    def __str__(self):
-        string = "SynthDesc '" + self.name + "'\nControls:\n"
+    def __str__(self):  # Was printOn.
+        string = f"SynthDesc '{self.name}':"
         for control in self.controls:
-            string += control.__str__() + '\n'
+            string += f'\n  K {repr(control)}'
         for input in self.inputs:
-            string += '    I ' + input.__str__() + '\n'
+            string += f'\n  I {repr(input)}'
         for output in self.outputs:
-            string += '    O ' + output.__str__()
+            string += f'\n  O {repr(output)}'
         return string
 
     # // don't use *read or *readFile to read into a SynthDescLib. Use SynthDescLib:read or SynthDescLib:readStream instead

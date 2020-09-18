@@ -82,8 +82,15 @@ class MetaPlatform(type):
             run = lambda: subprocess.call(*popenargs)
             threading.Thread(target=run, daemon=True).start()
 
-    def kill_all(cls, program_name):
-        return _libsc3.main.platform.kill_all(program_name)
+    def killall(cls, program_name):
+        '''
+        Kill a server process by name. Utility method used to stop a lost
+        server in the local machine, e.g. when is not possible to reboot or
+        connect and the process is retaining the port.
+        On Unix this method executes ``killall -SIGKILL program_name``.
+        On Windows it executes ``taskkill /F /IM program_name``.
+        '''
+        return _libsc3.main.platform.killall(program_name)
 
 
 class Platform(metaclass=MetaPlatform):
@@ -149,7 +156,7 @@ class UnixPlatform(Platform):
     SCSYNTH_CMD = 'scsynth'
     SUPERNOVA_CMD = 'supernova'
 
-    def kill_all(self, program_name):
+    def killall(self, program_name):
         cmd = ['killall', '-9', program_name]
         type(self)._cmd_line(cmd)
 
@@ -232,7 +239,7 @@ class WindowsPlatform(Platform):
     SCSYNTH_CMD = 'scsynth.exe'
     SUPERNOVA_CMD = 'supernova.exe'
 
-    def kill_all(self, program_name):
+    def killall(self, program_name):
         cmd = ['taskkill', '/F', '/IM', program_name]
         type(self)._cmd_line(cmd)
 
@@ -260,10 +267,8 @@ class Win32Platform(WindowsPlatform):
 
     @staticmethod
     def _get_lastest_version(path_list):
-        '''
-        Get the folder with the lastest version. Folder name format sould be
-        'SuperCollider-X.X.X'.
-        '''
+        # Get the folder with the lastest version.
+        # Folder name format sould be 'SuperCollider-X.X.X'.
         res = []
         for path in path_list:
             name = path.name

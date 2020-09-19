@@ -14,7 +14,7 @@ from . import ugen as ugn
 from . import ugens as ugns
 from . import server as srv
 from . import synthdef as sdf
-from .ugens import inout as scio
+from .ugens import inout as iou
 
 
 __all__ = ['SynthDescLib']
@@ -178,7 +178,7 @@ class SynthDesc():
                 aux_f = struct.unpack('>' + 'f' * num_controls, aux_f) # read FloatArray 02
                 self.sdef._controls = list(aux_f) # read FloatArray 03
                 self.controls = [
-                    scio.ControlName('?', i, '?', self.sdef._controls[i], None)
+                    iou.ControlName('?', i, '?', self.sdef._controls[i], None)
                     for i in range(num_controls)]
 
                 num_control_names = struct.unpack('>i', stream.read(4))[0] # getInt32
@@ -273,7 +273,8 @@ class SynthDesc():
 
         def add_io(lst, nchan): # lambda
             b = ugen.inputs[0]
-            if type(b) is ugn.OutputProxy and isinstance(b.source_ugen, scio.Control):
+            if type(b) is ugn.OutputProxy\
+            and isinstance(b.source_ugen, iou.Control):
                 control = None
                 for item in self.controls: # detect
                     if item.index == (b._output_index + b.source_ugen._special_index):
@@ -283,16 +284,16 @@ class SynthDesc():
                     b = control.name
             lst.append(IODesc(rate, nchan, b, ugen_class))
 
-        if issubclass(ugen_class, scio.AbstractControl):
+        if issubclass(ugen_class, iou.AbstractControl):
             # // Control.newFromDesc does not set the specialIndex, since it
             # // doesn't call Control-init. Therefore we fill it in here:
             ugen._special_index = special_index
             for i in range(num_outputs):
                 self.controls[i + special_index].rate = rate
         else:
-            if issubclass(ugen_class, scio.AbstractIn):
+            if issubclass(ugen_class, iou.AbstractIn):
                 add_io(self.inputs, len(ugen._channels))
-            elif issubclass(ugen_class, scio.AbstractOut):
+            elif issubclass(ugen_class, iou.AbstractOut):
                 add_io(self.outputs, ugen._num_audio_channels())
             # else:
             #     self.can_free_synth = self.can_free_synth or ugen._can_free_synth()  # Non core interface, see note in SynthDef.

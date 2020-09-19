@@ -14,7 +14,7 @@ from ..base import main as _libsc3
 from . import ugen as ugn
 from . import server as srv
 from . import synthdesc as sdc
-from .ugens import inout as scio
+from .ugens import inout as iou
 from .ugens import fftunpacking as ffu
 
 
@@ -233,23 +233,23 @@ class SynthDef(metaclass=MetaSynthDef):
     # // Allow incremental building of controls.
     # BUG, BUG: de cada parámetro value hace value.copy, ver posibles consecuencias...
     def _add_non_control(self, name, values):  # Not used in the standard library.
-        self._add_control_name(scio.ControlName(name, None, 'noncontrol',
+        self._add_control_name(iou.ControlName(name, None, 'noncontrol',
             values, len(self._control_names)))
 
     def _add_ir(self, name, values):  # *** VER dice VALUES en plural, pero salvo que se pase un array como valor todos los que calcula son escalares u objetos no iterables.
-        self._add_control_name(scio.ControlName(name, len(self._controls), 'scalar',
+        self._add_control_name(iou.ControlName(name, len(self._controls), 'scalar',
             values, len(self._control_names)))  # values *** VER el argumento de ControlName es defaultValue que puede ser un array para expansión multicanal de controles, pero eso puede pasar acá saliendo de los argumentos?
 
     def _add_tr(self, name, values):
-        self._add_control_name(scio.ControlName(name, len(self._controls), 'trigger',
+        self._add_control_name(iou.ControlName(name, len(self._controls), 'trigger',
             values, len(self._control_names)))
 
     def _add_ar(self, name, values):
-        self._add_control_name(scio.ControlName(name, len(self._controls), 'audio',
+        self._add_control_name(iou.ControlName(name, len(self._controls), 'audio',
             values, len(self._control_names)))
 
     def _add_kr(self, name, values, lags):  # Acá también dice lags en plural pero es un valor simple como string (symbol) o number según interpreto del código anterior.
-        self._add_control_name(scio.ControlName(name, len(self._controls), 'control',
+        self._add_control_name(iou.ControlName(name, len(self._controls), 'control',
             values, len(self._control_names), lags))
 
     def _add_control_name(self, cn):
@@ -290,9 +290,9 @@ class SynthDef(metaclass=MetaSynthDef):
                     arguments[cn.arg_num] = ctrl_ugens[i]
                     self._set_control_names(ctrl_ugens[i], cn)
 
-        build_ita_controls(ir_cns, scio.Control, 'ir')
-        build_ita_controls(tr_cns, scio.TrigControl, 'kr')
-        build_ita_controls(ar_cns, scio.AudioControl, 'ar')
+        build_ita_controls(ir_cns, iou.Control, 'ir')
+        build_ita_controls(tr_cns, iou.TrigControl, 'kr')
+        build_ita_controls(ar_cns, iou.AudioControl, 'ar')
 
         if kr_cns:
             values = []
@@ -307,11 +307,11 @@ class SynthDef(metaclass=MetaSynthDef):
             index = self._control_index # TODO: esto puede ir abajo si los kr no cambian el índice.
 
             if any(x != 0 for x in lags):
-                ctrl_ugens = scio.LagControl.kr(utl.flat(values), lags) # LagControl.kr(values.flat, lags) //.asArray.reshapeLike(values);
+                ctrl_ugens = iou.LagControl.kr(utl.flat(values), lags)  # LagControl.kr(values.flat, lags) //.asArray.reshapeLike(values);
             else:
-                ctrl_ugens = scio.Control.kr(utl.flat(values)) # Control.kr(values.flat)
+                ctrl_ugens = iou.Control.kr(utl.flat(values))  # Control.kr(values.flat)
             ctrl_ugens = utl.as_list(ctrl_ugens) # .asArray
-            ctrl_ugens = utl.reshape_like(ctrl_ugens, values) # .reshapeLike(values);
+            ctrl_ugens = utl.reshape_like(ctrl_ugens, values)  # .reshapeLike(values);
 
             for i, cn in enumerate(kr_cns):
                 cn.index = index
@@ -566,7 +566,7 @@ class SynthDef(metaclass=MetaSynthDef):
             for item in allcns_tmp:
                 # comprueba if (item.name.notNil) # TODO: posible BUG? (ver arriba _set_control_names). Pero no debería poder agregarse items sin no son ControlNames. Arrays anidados como argumentos, de más de un nivel, no están soportados porque fallar _set_control_names según analicé.
                 #if item.name: # TODO: y acá solo comprueba que sea un string no vacío, pero no comprueba el typo ni de name ni de item.
-                if not isinstance(item, scio.ControlName): # TODO: test para debugear luego.
+                if not isinstance(item, iou.ControlName): # TODO: test para debugear luego.
                     raise Exception(
                         'SynthDef self._all_control_names '
                         'has non ControlName object')

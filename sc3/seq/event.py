@@ -463,14 +463,14 @@ class ServerKeys(PartialEvent):
             else:
                 self['synth_desc'] = desc
                 self['has_gate'] = desc.has_gate
-                if desc.has_gate and not desc.msg_func_keep_gate:
-                    control_names = desc.control_names[:]  # *** BUG: No realiza los checkeos que hace SynthDesc.make_msg_func.
+                if desc.has_gate and not desc.keep_gate:
+                    control_names = desc.control_names[:]
                     control_names.remove('gate')
                 else:
-                    control_names = desc.control_names  # *** BUG: No realiza los checkeos que hace SynthDesc.make_msg_func.
+                    control_names = desc.control_names
                 msg_params = []
                 for arg in control_names:
-                    if arg in self or arg in self.default_values:
+                    if arg in self:
                         msg_params.extend([arg, self(arg)])
                 self['msg_params'] = msg_params
                 return msg_params

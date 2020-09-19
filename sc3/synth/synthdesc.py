@@ -23,6 +23,10 @@ __all__ = ['SynthDescLib']
 _logger = logging.getLogger(__name__)
 
 
+class SynthDescError(Exception):
+    pass
+
+
 class IODesc():
     def __init__(self, rate, num_channels, starting_channel, type):
         self.rate = rate
@@ -83,10 +87,10 @@ class SynthDesc():
         self.sdef = None  # Was def, reserved word.
         self.msg_func = lambda event: [] # NOTE: Se llama si la SynthDef no define argumentos. Necesita definir el argumento porque siempre se pasa Event para obtener las llaves, y tiene que devolver una lista.
         self.has_gate = False
+        self.keep_gate = False  # Was msg_func_keep_gate.
         self.has_array_args = None
         self.has_variants = False
         # self.can_free_synth = False  # Non core interface, see note in SynthDef.
-        self._msg_func_keep_gate = False # @property
 
     @classmethod
     def new_from(cls, synthdef):
@@ -141,10 +145,14 @@ class SynthDesc():
                 desc.sdef.metadata['loadPath'] = path
         return dictionary
 
-    def read_synthdef(self, stream, keep_def=False): # TODO
-        raise NotImplementedError('read_synthdef format version 1 not implemented')
+    def read_synthdef(self, stream, keep_def=False):  # TODO
+        raise NotImplementedError(
+            'read_synthdef format version 1 not implemented')
 
-    # // synthdef ver 2
+    def read_ugen_spec(self, stream):  # TODO
+        raise NotImplementedError(
+            'read_ugen_spec format version 1 not implemented')
+
     def read_synthdef2(self, stream, keep_def=False):
         with _libsc3.main._def_build_lock:
             try:
@@ -157,7 +165,7 @@ class SynthDesc():
                 aux_string = stream.read(aux_str_len) # getPascalString 02
                 self.name = str(aux_string, 'ascii') # getPascalString 03
 
-                self.sdef = sdf.SynthDef.dummy(self.name) # BUG: Object:prNew es objeto vacío, dummy, y se va llenando acá pero no se puede llamar a __init__ porque este llama a _build
+                self.sdef = sdf.SynthDef.dummy(self.name)
                 _libsc3.main._current_synthdef = self.sdef
 
                 num_constants = struct.unpack('>i', stream.read(4))[0] # getInt32
@@ -215,14 +223,10 @@ class SynthDesc():
                     self.sdef = None
                     self.constats = None
 
-                self.make_msg_func()  # *** NOTE: aún tiene que llamar para setear _has_gate. Y realiza comprobaciones que son independientes de la función en sí.
+                self._check_synthdesc2()
             finally:
                 _libsc3.main._current_synthdef = None
 
-    def read_ugen_spec(self, stream): # TODO
-        raise NotImplementedError('read_ugen_spec format version 1 not implemented')
-
-    # // synthdef ver 2
     def read_ugen_spec2(self, stream):
         aux_str_len = struct.unpack('B', stream.read(1))[0] # getPascalString 01
         aux_string = stream.read(aux_str_len) # getPascalString 02
@@ -293,110 +297,32 @@ class SynthDesc():
             # else:
             #     self.can_free_synth = self.can_free_synth or ugen._can_free_synth()  # Non core interface, see note in SynthDef.
 
-    def make_msg_func(self):
-        duplicated_cn = False
+    def _check_synthdesc2(self):
         names = set()
+        nm = None
 
-        # // if a control name is duplicated, the msgFunc will be invalid
-        # // that "shouldn't" happen but it might; better to check for it
-        # // and throw a proper error
+        # For reasons I don't know, synthdef controls can have duplicated
+        # names, beacuse control values can be assigned by position. That is
+        # not possible if the file was created from this library or sclang's
+        # standard interface, unless there is a bug somewhere. For simplicity
+        # and consistnecy, I'm considering the files as malformed and throwing
+        # an error. This can be review later.
         for cname in self.controls:
-            if cname.name[0].isalpha(): # BUG: creo que cname.name siempre es str, pero usa asString, revisar.
-                name = cname.name
-                if name in names:
-                    _logger.warning(
-                        "could not build msg_func for this SynthDesc: "
-                        f"duplicated control name '{name}'")
-                    duplicated_cn = True
-                else:
-                    names.add(name)
+            nm = cname.name
+            if nm != '?' and nm in names:
+                raise SynthDescError(
+                    f"SynthDesc '{self.name}' has duplicated "
+                    f"control name '{nm}'")
+            else:
+                names.add(nm)
 
         if len(names) > 255:
-            raise Exception("a SynthDef cannot have more than 255 "
-                            f"control names ('{self.name}')")
+            raise SynthDescError(
+                "a SynthDef cannot have more than 255 "
+                f"control names ('{self.name}')")
 
-        if duplicated_cn:
-            _logger.warning(
-                f"SynthDef '{self.name}' has been saved in the library and  "
-                "loaded on the server, if running. Use of this synth in "
-                "Patterns will not detect argument names automatically because "
-                "of the duplicate name(s)")
-            self.msg_func = None
-            return
-
-        # comma = False
-        # names = 0 # // now, count the args actually added to the func
-        # suffix = hex(self.__hash__() & 0xFFFFFFFF) # 32 bits positive
-        #
-        # string = 'def sdesc_' + suffix + '(event, ' # NOTE: es una función que se asigna a una llave de Event, que se evalúa/llama con valueEnvir en 'note', acá se necesita self al evaluarse como método al llamar a la llave con __getattr__ para tener los parámetros del evento.
-        # for i, cname in enumerate(self.controls):
-        #     name = cname.name
-        #     if name != '?':
-        #         if name == 'gate':
-        #             self.has_gate = True
-        #             if self.msg_func_keep_gate:
-        #                 if comma:
-        #                     string += ', '
-        #                 else:
-        #                     comma = True
-        #                 string += name
-        #                 names += 1
-        #         else:
-        #             if len(name) > 2 and name[1] == '_':
-        #                 name2 = name[2:] # BUG: en sclang, no comprueba len, los índices y name2 puede ser un string vacío: x = "a_"[2..]; x.size == 0
-        #             else:
-        #                 name2 = name
-        #             if comma:
-        #                 string += ', '
-        #             else:
-        #                 comma = True
-        #             string += name2
-        #             names += 1
-        # string += '):\n'
-        #
-        # comma = False # BUG: VER EL USO DE ESTA VARIABLE, ES REALMENTE CONFUSO, E.G. POR QUÉ LA VUELVE A FALSE? POR QUÉ LA USA AL PRINCIPIO ANTES DEL FOR DE LOS ARGUMENTOS PARA NOMBRE DUPLICADOS?!
-
-        # NOTE: gate tiene que estar en names desde el primer for.
         if 'gate' in names:
-            self.has_gate = True # NOTE: este método se llama con add() y por lo tanto inicializa antes, aunque Event.play también lo llama y ¿actualiza, por qué? o será por defs cargadas del disco?
-
-        # NOTE: Implementación alterantiva, y sin argumentos, los valores se
-        # NOTE: obtienen del parámetro event.
-        # NOTE: *** VER POR QUÉ ESTO NECESITA SER UNA FUNCIÓN QUE DEVUELVE UNA
-        # NOTE: *** LISTA Y NO PUEDE SER UNA LISTA, A COMPLETAR EN ToDO CASO.
-        names_count = 0 # // count the args actually added to the func # NOTE: no reutilizamos ninguna variable que genere confusión.
-        suffix = hex(hash(self) & 0xFFFFFFFF) # 32 bits positive
-        string = 'def sdesc_' + suffix + '(event):\n' # NOTE: es una función que se asigna a una llave de Event, que se evalúa/llama con valueEnvir en 'note', acá se necesita self al evaluarse como método al llamar a la llave con __getattr__ para tener los parámetros del evento.
-        string += '    ret = []\n'
-
-        for i, cname in enumerate(self.controls):
-            name = cname.name
-            if name != '?':
-                if self.msg_func_keep_gate or name != 'gate':
-                    if len(name) > 2 and name[1] == '_':
-                        name2 = name[2:] # BUG: en sclang, no comprueba len, los índices y name2 puede ser un string vacío: x = "a_"[2..]; x.size == 0
-                    else:
-                        name2 = name
-                    string += "    if hasattr(event, '" + name2 + "'):\n" # NOTE: antes era None porque eran los argumentos de valueEnvir.
-                    string += "        ret.append('" + name + "')\n"
-                    string += "        ret.append(event.value('" + name2 + "'))\n"
-                    names_count += 1
-        string += '    return ret\n'
-        string += 'self.msg_func = sdesc_' + suffix
-
-        # // do not compile the string if no argnames were added
-        if names_count > 0:
-            exec(string)
-
-    @property
-    def msg_func_keep_gate(self):
-        return self._msg_func_keep_gate
-
-    @msg_func_keep_gate.setter
-    def msg_func_keep_gate(self, value):
-        if value != self.msg_func_keep_gate:
-            self._msg_func_keep_gate = value
-            self.make_msg_func()
+            self.has_gate = True
 
     def write_metadata(self, path, md_plugin=None): # BUG falta MDPlugin # TODO: el nombre me resulta confuso en realación a lo que hace. En SynthDef writeDefFile y store llama a SynthDesc.populateMetadataFunc.value(desc) inmediatamente antes de esta función.
         if self.metadata is None:

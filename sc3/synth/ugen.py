@@ -1,6 +1,5 @@
 """UGens.sc"""
 
-import struct
 import inspect
 import operator
 import logging
@@ -10,6 +9,7 @@ from ..base import builtins as bi
 from ..base import absobject as aob
 from . import _specialindex as _si
 from . import _graphparam as gpp
+from . import _fmtrw as frw
 
 
 utl.ClassLibrary.late_imports(__name__,
@@ -755,12 +755,11 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
     # L470
     def _write_def(self, file):
         try:
-            file.write(struct.pack('B', len(self.name))) # 01 putPascalString, unsigned int8 -> bytes
-            file.write(bytes(self.name, 'ascii')) # 02 putPascalString
-            file.write(struct.pack('b', self._rate_number()))  # putInt8
-            file.write(struct.pack('>i', self._num_inputs()))  # putInt32
-            file.write(struct.pack('>i', self._num_outputs()))  # putInt32
-            file.write(struct.pack('>h', self._special_index)) # putInt16
+            frw.write_pascal_str(file, self.name)
+            frw.write_i8(file, self._rate_number())
+            frw.write_i32(file, self._num_inputs())
+            frw.write_i32(file, self._num_outputs())
+            frw.write_i16(file, self._special_index)
             # // write wire spec indices.
             for input in self.inputs:
                 gpp.ugen_param(input)._write_input_spec(file, self._synthdef)
@@ -786,8 +785,12 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
     def _num_outputs(self):
         return 1
 
+    def _write_input_spec(self, file, synthdef):
+        frw.write_i32(file, self._synth_index)
+        frw.write_i32(file, self._output_index)
+
     def _write_output_spec(self, file):
-        file.write(struct.pack('b', self._rate_number()))  # putInt8
+        frw.write_i8(file, self._rate_number())
 
     def _write_output_specs(self, file): # TODO: variación con 's' que llama a la sin 's', este método sería para las ugens con salidas múltiples, el nombre del método debería ser más descriptivo porque es fácil de confundir, además. # lo implementan AbstractOut, MultiOutUGen, SendPeakRMS, SendTrig y UGen.
         self._write_output_spec(file)
@@ -880,10 +883,6 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
 
     # BUG: VER
     # def _perform_binary_op_on_ugen(input, selector, thing):
-
-    def _write_input_spec(self, file, synthdef):
-        file.write(struct.pack('>i', self._synth_index)) # putInt32
-        file.write(struct.pack('>i', self._output_index)) # putInt32
 
 
 class PureUGen(UGen):

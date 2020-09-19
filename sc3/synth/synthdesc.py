@@ -1,10 +1,8 @@
 """SynthDesc.sc"""
 
 import io
-import struct
 import logging
-import glob # sclang usa glob y glob se encarga de '*' (que no lista los archivos ocultos), hace str(path) para poder usar Path en la interfaz
-#from pathlib import Path # BUG: no se si es necesario, se usa cuando sd.SynthDef.synthdef_dir devuelve un objeto Path en SynthDescLib:read.
+import glob
 
 from ..base import utils as utl
 from ..base import systemactions as sac
@@ -14,6 +12,7 @@ from . import ugen as ugn
 from . import ugens as ugns
 from . import server as srv
 from . import synthdef as sdf
+from . import _fmtrw as frw
 from .ugens import inout as iou
 
 
@@ -85,7 +84,6 @@ class SynthDesc():
 
         self.constants = None
         self.sdef = None  # Was def, reserved word.
-        self.msg_func = lambda event: [] # NOTE: Se llama si la SynthDef no define argumentos. Necesita definir el argumento porque siempre se pasa Event para obtener las llaves, y tiene que devolver una lista.
         self.has_gate = False
         self.keep_gate = False  # Was msg_func_keep_gate.
         self.has_array_args = None
@@ -109,21 +107,23 @@ class SynthDesc():
             string += f'\n  O {repr(output)}'
         return string
 
-    # // don't use *read or *readFile to read into a SynthDescLib. Use SynthDescLib:read or SynthDescLib:readStream instead
     @classmethod
     def read(cls, path, keep_defs=False, dictionary=None):
+        # // Don't use *read or *readFile to read into a SynthDescLib.
+        # // Use SynthDescLib:read or SynthDescLib:readStream instead.
         dictionary = dictionary or dict()
         for filename in glob.glob(str(path)):
             with open(filename, 'rb') as file:
                 dictionary = cls._read_file(file, keep_defs, dictionary)
         return dictionary
 
-    # // path is for metadata -- only this method has direct access to the new SynthDesc
     @classmethod
     def _read_file(cls, stream, keep_defs=False, dictionary=None, path=''):
-        stream.read(4) # getInt32 // SCgf # TODO: la verdad que podría comprobar que fuera un archivo válido.
-        version = struct.unpack('>i', stream.read(4))[0] # getInt32
-        num_defs = struct.unpack('>h', stream.read(2))[0] # getInt16
+        # // path is for metadata -- only this method
+        # // has direct access to the new SynthDesc.
+        stream.read(4)  # getInt32 // SCgf
+        version = frw.read_i32(stream)
+        num_defs = frw.read_i16(stream)
         for _ in num_defs:
             if version >= 2:
                 desc = SynthDesc()
@@ -161,37 +161,29 @@ class SynthDesc():
                 self.control_names = []
                 self.control_dict = dict()
 
-                aux_str_len = struct.unpack('B', stream.read(1))[0] # getPascalString 01
-                aux_string = stream.read(aux_str_len) # getPascalString 02
-                self.name = str(aux_string, 'ascii') # getPascalString 03
+                self.name = frw.read_pascal_str(stream)
 
                 self.sdef = sdf.SynthDef.dummy(self.name)
                 _libsc3.main._current_synthdef = self.sdef
 
-                num_constants = struct.unpack('>i', stream.read(4))[0] # getInt32
-                aux_f = stream.read(num_constants * 4) # read FloatArray 01
-                aux_f = struct.unpack('>' + 'f' * num_constants, aux_f) # read FloatArray 02
-                self.constants = list(aux_f) # read FloatArray 03
+                num_constants = frw.read_i32(stream)
+                self.constants = frw.read_f32_list(stream, num_constants)
 
-                num_controls = struct.unpack('>i', stream.read(4))[0] # getInt32
-                aux_f = stream.read(num_controls * 4) # read FloatArray 01
-                aux_f = struct.unpack('>' + 'f' * num_controls, aux_f) # read FloatArray 02
-                self.sdef._controls = list(aux_f) # read FloatArray 03
+                num_controls = frw.read_i32(stream)
+                self.sdef._controls = frw.read_f32_list(stream, num_controls)
                 self.controls = [
                     iou.ControlName('?', i, '?', self.sdef._controls[i], None)
                     for i in range(num_controls)]
 
-                num_control_names = struct.unpack('>i', stream.read(4))[0] # getInt32
+                num_control_names = frw.read_i32(stream)
                 for _ in range(num_control_names):
-                    aux_str_len = struct.unpack('B', stream.read(1))[0] # getPascalString 01
-                    aux_string = stream.read(aux_str_len) # getPascalString 02
-                    control_name = str(aux_string, 'ascii') # getPascalString 03
-                    control_index = struct.unpack('>i', stream.read(4))[0] # getInt32
+                    control_name = frw.read_pascal_str(stream)
+                    control_index = frw.read_i32(stream)
                     self.controls[control_index].name = control_name
                     self.control_names.append(control_name)
                     self.control_dict[control_name] = self.controls[control_index]
 
-                num_ugens = struct.unpack('>i', stream.read(4))[0] # getInt32
+                num_ugens = frw.read_i32(stream)
                 for _ in range(num_ugens):
                     self.read_ugen_spec2(stream)
 
@@ -206,10 +198,12 @@ class SynthDesc():
                         aux_ctrl = ctrl
                 # end of BUG: inject(nil), revisar
 
-                self.sdef._control_names = [x for x in self.controls if x.name is not None] # select x.name.notNil
-                self.has_array_args = any(cn.name == '?' for cn in self.controls)
+                self.sdef._control_names = [
+                    x for x in self.controls if x.name is not None]
+                self.has_array_args = any(
+                    cn.name == '?' for cn in self.controls)
 
-                num_variants = struct.unpack('>h', stream.read(2))[0] # getInt16
+                num_variants = frw.read_i16(stream)
                 self.has_variants = num_variants > 0
                 # // maybe later, read in variant names and values
                 # // this is harder than it might seem at first
@@ -228,9 +222,7 @@ class SynthDesc():
                 _libsc3.main._current_synthdef = None
 
     def read_ugen_spec2(self, stream):
-        aux_str_len = struct.unpack('B', stream.read(1))[0] # getPascalString 01
-        aux_string = stream.read(aux_str_len) # getPascalString 02
-        ugen_class = str(aux_string, 'ascii') # getPascalString 03
+        ugen_class = frw.read_pascal_str(stream)
         try:
             ugen_class = ugns.installed_ugens[ugen_class]
         except NameError as e:
@@ -238,18 +230,14 @@ class SynthDesc():
                 f"no UGen class found for '{ugen_class}' which was "
                 f"specified in synth def file: {self.name}") from e
 
-        rate_index = struct.unpack('b', stream.read(1))[0] # getInt8
-        num_inputs = struct.unpack('>i', stream.read(4))[0] # getInt32
-        num_outputs = struct.unpack('>i', stream.read(4))[0] # getInt32
-        special_index = struct.unpack('>h', stream.read(2))[0] # getInt16
+        rate_index = frw.read_i8(stream)
+        num_inputs = frw.read_i32(stream)
+        num_outputs = frw.read_i32(stream)
+        special_index = frw.read_i16(stream)
 
-        aux_i32 = stream.read(num_inputs * 4 * 2) # read Int32Array 01 # NOTE: _write_input_spec writes _synth_index and _output_index as int32
-        aux_i32 = struct.unpack('>' + 'i' * (num_inputs * 2), aux_i32) # read Int32Array 02
-        input_specs = list(aux_i32) # read Int32Array 03
-
-        aux_i8 = stream.read(num_outputs) # read Int8Array 01
-        aux_i8 = struct.unpack('b' * num_outputs, aux_i8) # read Int8Array 02
-        # output_specs = list(aux_i8) # read Int8Array 03 # NOTE: leyó para avanzar pero no se usa
+        # NOTE: _write_input_spec writes _synth_index and _output_index as i32.
+        input_specs = frw.read_i32_list(stream, num_inputs * 2)
+        output_specs = frw.read_i8_list(stream, num_outputs)  # Not used.
 
         ugen_inputs = []
         for i in range(0, len(input_specs), 2):
@@ -266,7 +254,8 @@ class SynthDesc():
             ugen_inputs.append(input)
 
         rate = ['scalar', 'control', 'audio', 'demand'][rate_index]
-        ugen = ugen_class._new_from_desc(rate, num_outputs, ugen_inputs, special_index)
+        ugen = ugen_class._new_from_desc(
+            rate, num_outputs, ugen_inputs, special_index)
         if isinstance(ugen, ugn.OutputProxy):
             ugen = ugen.source_ugen # BUG: esta propiedad se llama source en sclang y la implementan todas las clases pero solo se usa para OutputProxy. Comentarios en UGen._init_topo_sort
         ugen._add_to_synth() # BUG: vaya a saber uno por qué en el código original se pasa a si mismo como parámetro si addToSynth no recibe en ninguna implementación, esto es porque sclang ignora los argumentos demás.
@@ -332,18 +321,14 @@ class SynthDesc():
         md_plugin = md_plugin or self.md_plugin
         md_plugin.write_metadata(self.metadata, self.sdef, path)
 
-    # // parse the def name out of the bytes array sent with /d_recv
     @classmethod
     def def_name_from_bytes(cls, data: bytearray): # TODO: posible BUG: Es el mismo type que devuelve SynthDef:as_bytes, si cambia allá cambia acá.
+        # // parse the def name out of the bytes array sent with /d_recv
         stream = io.BytesIO(data)
-
-        stream.read(4) # getInt32 SCgf
-        stream.read(4) # getInt32 version
-        struct.unpack('>h', stream.read(2)) # getInt16 num_defs # BUG: typo: en sclang declara y asigna num_defs pero no la usa
-
-        aux_str_len = struct.unpack('B', stream.read(1))[0] # getPascalString 01
-        aux_string = stream.read(aux_str_len) # getPascalString 02
-        return str(aux_string, 'ascii') # getPascalString 03
+        stream.read(4)  # getInt32 // SCgf
+        version = frw.read_i32(stream)  # Not used.
+        num_defs = frw.read_i16(stream)  # Not used.
+        return frw.read_pascal_str(stream)
 
     def output_data(self): # TODO: no parece usar este método en ninguna parte
         ugens = self.sdef._children
@@ -430,7 +415,6 @@ class SynthDescLib(metaclass=MetaSynthDescLib):
     def send(self, server=None, try_reconstructed=True):
         server_list = utl.as_list(server) or self.servers
         for s in server_list:
-            # BUG: aún no entiendo por qué hace server = server.value, usa el método de Object que retorna this.
             for desc in self.synth_descs.values():
                 if 'shouldNotSend' in desc.sdef.metadata\
                 and not desc.sdef.metadata['shouldNotSend']:  # BUG: camelCase
@@ -441,15 +425,14 @@ class SynthDescLib(metaclass=MetaSynthDescLib):
     def read(self, path=None, keep_defs=True):
         if path is None:
             path = sdf.SynthDef.synthdef_dir / '*.scsyndef'
-            # BUG: typo: sclang declara result y no la usa
         for filename in glob.glob(str(path)):
             with open(filename, 'rb') as file:
                 self.read_stream(file, keep_defs, filename)
 
     def read_stream(self, stream, keep_defs=True, path=''):
-        stream.read(4) # getInt32 // SCgf # TODO: la verdad que podría comprobar que fuera un archivo válido.
-        version = struct.unpack('>i', stream.read(4))[0] # getInt32
-        num_defs = struct.unpack('>h', stream.read(2))[0] # getInt16
+        stream.read(4)  # getInt32 // SCgf
+        version = frw.read_i32(stream)
+        num_defs = frw.read_i16(stream)
         result_set = set()
         for _ in range(num_defs):
             if version >= 2:
@@ -476,9 +459,9 @@ class SynthDescLib(metaclass=MetaSynthDescLib):
         return result_set
 
     def read_desc_from_def(self, stream, keep_def, sdef, metadata=None):
-        stream.read(4) # getInt32 // SCgf # TODO: la verdad que podría comprobar que fuera un archivo válido.
-        version = struct.unpack('>i', stream.read(4))[0] # getInt32 // version
-        num_defs = struct.unpack('>h', stream.read(2))[0] # getInt16 # // should be 1 # NOTE: avanza el cabezal pero no usa el resultado.
+        stream.read(4)  # getInt32 // SCgf
+        version = frw.read_i32(stream)
+        num_defs = frw.read_i16(stream)  # // should be 1  # Not used.
         if version >= 2:
             desc = SynthDesc()
             desc.read_synthdef2(stream, keep_def)

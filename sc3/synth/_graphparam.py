@@ -12,10 +12,10 @@ with its own interface.
 """
 
 from math import isnan
-import struct
 
-from . import _specialindex as _si
 from ..base import utils as utl
+from . import _specialindex as _si
+from . import _fmtrw as frw
 
 
 utl.ClassLibrary.late_imports(__name__,
@@ -133,8 +133,8 @@ class UGenScalar(UGenParameter):
     def _write_input_spec(self, file, synthdef):
         try:
             const_index = synthdef._constants[float(self._param_value)]
-            file.write(struct.pack('>i', -1))  # putInt32
-            file.write(struct.pack('>i', const_index))  # putInt32
+            frw.write_i32(file, -1)
+            frw.write_i32(file, const_index)
         except KeyError as e:
             raise Exception(
                 '_write_input_spec constant not found: '

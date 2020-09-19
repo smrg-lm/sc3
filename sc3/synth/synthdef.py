@@ -3,7 +3,6 @@
 import inspect
 import logging
 import io
-import struct
 import pathlib
 
 from ..base import utils as utl
@@ -14,6 +13,7 @@ from ..base import main as _libsc3
 from . import ugen as ugn
 from . import server as srv
 from . import synthdesc as sdc
+from . import _fmtrw as frw
 from .ugens import inout as iou
 from .ugens import fftunpacking as ffu
 
@@ -543,26 +543,24 @@ class SynthDef(metaclass=MetaSynthDef):
         # This method is Collection-writeDef in sclang, is the only one
         # that creates the header. Called from as_bytes.
         file.write(b'SCgf')  # putString 'a null terminated String'
-        file.write(struct.pack('>i', 2))  # putInt32(2); // file version
-        file.write(struct.pack('>h', len(lst)))  # putInt16(this.size); // number of defs in file.
+        frw.write_i32(file, 2)  # // file version
+        frw.write_i16(file, len(lst))  # // number of defs in file.
         for synthdef in lst:
             synthdef.write_def(file)
 
     def write_def(self, file):
         try:
-            file.write(struct.pack('B', len(self.name))) # 01 putPascalString, unsigned int8 -> bytes
-            file.write(bytes(self.name, 'ascii')) # 02 putPascalString
-
+            frw.write_pascal_str(file, self.name)
             self._write_constants(file)
 
             # // Controls have been added by the Control UGens.
-            file.write(struct.pack('>i', len(self._controls)))  # putInt32
+            frw.write_i32(file, len(self._controls))
             for item in self._controls:
-                file.write(struct.pack('>f', item))  # putFloat
+                frw.write_f32(file, item)
 
             allcns_tmp = [
-                x for x in self._all_control_names if x.rate != 'noncontrol']  # reject
-            file.write(struct.pack('>i', len(allcns_tmp)))  # putInt32
+                x for x in self._all_control_names if x.rate != 'noncontrol']
+            frw.write_i32(file, len(allcns_tmp))
             for item in allcns_tmp:
                 # comprueba if (item.name.notNil) # TODO: posible BUG? (ver arriba _set_control_names). Pero no debería poder agregarse items sin no son ControlNames. Arrays anidados como argumentos, de más de un nivel, no están soportados porque fallar _set_control_names según analicé.
                 #if item.name: # TODO: y acá solo comprueba que sea un string no vacío, pero no comprueba el typo ni de name ni de item.
@@ -574,15 +572,14 @@ class SynthDef(metaclass=MetaSynthDef):
                     raise Exception(
                         'SynthDef self._all_control_names has '
                         f'empty ControlName object = {item.name}')
-                file.write(struct.pack('B', len(item.name))) # 01 putPascalString, unsigned int8 -> bytes
-                file.write(bytes(item.name, 'ascii')) # 02 putPascalString
-                file.write(struct.pack('>i', item.index))
+                frw.write_pascal_str(file, item.name)
+                frw.write_i32(file, item.index)
 
-            file.write(struct.pack('>i', len(self._children)))  # putInt32
+            frw.write_i32(file, len(self._children))
             for item in self._children:
                 item._write_def(file)
 
-            file.write(struct.pack('>h', len(self.variants))) # putInt16
+            frw.write_i16(file, len(self.variants))
             if len(self.variants) > 0:
                 allcns_map = dict()
                 for cn in allcns_tmp:
@@ -616,10 +613,9 @@ class SynthDef(metaclass=MetaSynthDef):
                         for i, val in enumerate(values):
                             varcontrols[index + i] = val
 
-                    file.write(struct.pack('B', len(varname))) # 01 putPascalString, unsigned int8 -> bytes
-                    file.write(bytes(varname, 'ascii')) # 02 putPascalString
+                    frw.write_pascal_str(file, varname)
                     for item in varcontrols:
-                        file.write(struct.pack('>f', item)) # putFloat
+                        frw.write_f32(file, item)
             return True
         except Exception as e:
             raise Exception('SynthDef: could not write def') from e
@@ -629,9 +625,9 @@ class SynthDef(metaclass=MetaSynthDef):
         arr = [None] * size
         for value, index in self._constants.items():
             arr[index] = value
-        file.write(struct.pack('>i', size)) # putInt32
+        frw.write_i32(file, size)
         for item in arr:
-            file.write(struct.pack('>f', item)) # putFloat
+            frw.write_f32(file, item)
 
     # // Only write if no file exists
     def write_once(self, dir, md_plugin): # Nota: me quedo solo con el método de instancia, usar el método de clase es equivalente a crear una instancia sin llamar a add u otro método similar.

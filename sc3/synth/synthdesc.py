@@ -22,25 +22,6 @@ __all__ = ['SynthDescLib']
 _logger = logging.getLogger(__name__)
 
 
-class SynthDescError(Exception):
-    pass
-
-
-class IODesc():
-    def __init__(self, rate, num_channels, starting_channel, type):
-        self.rate = rate
-        self.num_channels = num_channels
-        self.starting_channel = starting_channel or '?'
-        self.type = type
-
-    def __repr__(self):  # Was printOn.
-        return (
-            f"{type(self).__name__}(rate='{self.rate}', "
-            f"num_channels={self.num_channels}, "
-            f"starting_channel={self.starting_channel}, "
-            f"type={self.type.__name__})")
-
-
 # TODO: Estas clases están ligadas al protocolo Archiving de Object.sc (L800).
 # Tengo que ver con qué recursos de Python representarlas.
 #
@@ -68,12 +49,30 @@ class TextArchiveMDPlugin(AbstractMDPlugin):
     ... # TODO
 
 
+class SynthDescError(Exception):
+    pass
+
+
+class IODesc():
+    def __init__(self, rate, num_channels, starting_channel, type):
+        self.rate = rate
+        self.num_channels = num_channels
+        self.starting_channel = starting_channel or '?'
+        self.type = type
+
+    def __repr__(self):  # Was printOn.
+        return (
+            f"{type(self).__name__}(rate='{self.rate}', "
+            f"num_channels={self.num_channels}, "
+            f"starting_channel={self.starting_channel}, "
+            f"type={self.type.__name__})")
+
+
 class SynthDesc():
     _RATE_NAME = ('scalar', 'control', 'audio', 'demand')  # Used by index.
 
     md_plugin = TextArchiveMDPlugin # // override in your startup file
-    populate_metadata_func = lambda *args: None # BUG: aún no sé quién/cómo setea esta función
-                                                # BUG: VER SynthDescs and SynthDef metadata en SynthDesc.schelp
+    populate_metadata_func = lambda *args: None
 
     def __init__(self):
         self.name = None
@@ -94,7 +93,7 @@ class SynthDesc():
 
     @classmethod
     def new_from(cls, synthdef):
-        return synthdef.as_synth_dec()
+        return synthdef.as_synthdesc()
 
     def send(self, server, completion_msg):
         self.sdef.send(server, completion_msg)
@@ -183,13 +182,15 @@ class SynthDesc():
                     control_index = frw.read_i32(stream)
                     self.controls[control_index].name = control_name
                     self.control_names.append(control_name)
-                    self.control_dict[control_name] = self.controls[control_index]
+                    self.control_dict[control_name] = \
+                        self.controls[control_index]
 
                 num_ugens = frw.read_i32(stream)
                 for _ in range(num_ugens):
                     self.read_ugen_spec2(stream)
 
-                #self.controls # BUG: controls.inject(nil) { arg x, y; ... } asume que el primer y.name no va a ser '?' para que no llame a z.defaultValue, no entiendo por qué.
+                # Append all default values of each multichannel
+                # control to the fist ControlName default value.
                 aux_ctrl = None
                 for ctrl in self.controls:
                     if ctrl.name == '?':
@@ -198,7 +199,6 @@ class SynthDesc():
                         aux_ctrl.default_value = default_value
                     else:
                         aux_ctrl = ctrl
-                # end of BUG: inject(nil), revisar
 
                 self.sdef._control_names = [
                     x for x in self.controls if x.name is not None]

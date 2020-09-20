@@ -69,6 +69,8 @@ class TextArchiveMDPlugin(AbstractMDPlugin):
 
 
 class SynthDesc():
+    _RATE_NAME = ('scalar', 'control', 'audio', 'demand')  # Used by index.
+
     md_plugin = TextArchiveMDPlugin # // override in your startup file
     populate_metadata_func = lambda *args: None # BUG: aún no sé quién/cómo setea esta función
                                                 # BUG: VER SynthDescs and SynthDef metadata en SynthDesc.schelp
@@ -253,12 +255,12 @@ class SynthDesc():
                     input = ugen
             ugen_inputs.append(input)
 
-        rate = ['scalar', 'control', 'audio', 'demand'][rate_index]
+        rate = self._RATE_NAME[rate_index]
         ugen = ugen_class._new_from_desc(
             rate, num_outputs, ugen_inputs, special_index)
         if isinstance(ugen, ugn.OutputProxy):
-            ugen = ugen.source_ugen # BUG: esta propiedad se llama source en sclang y la implementan todas las clases pero solo se usa para OutputProxy. Comentarios en UGen._init_topo_sort
-        ugen._add_to_synth() # BUG: vaya a saber uno por qué en el código original se pasa a si mismo como parámetro si addToSynth no recibe en ninguna implementación, esto es porque sclang ignora los argumentos demás.
+            ugen = ugen.source_ugen
+        ugen._add_to_synth()
 
         def add_io(lst, nchan): # lambda
             b = ugen.inputs[0]

@@ -858,8 +858,7 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
     # def _writes_to_bus(self):  # NOTE: All AbstractOut except LocalOut write to buses, is used only in SynthDesc.outputData that is used only in Pfx.isolate.
     #     return False
 
-    # def _can_free_synth(self):  # Non core interface, see note in SynthDef.
-    #     return False
+    # def _can_free_synth(self):  # Non core interface, removed.
 
 
     ### UGen graph parameter interface ###

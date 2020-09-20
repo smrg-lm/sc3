@@ -90,7 +90,7 @@ class SynthDesc():
         self.keep_gate = False  # Was msg_func_keep_gate.
         self.has_array_args = None
         self.has_variants = False
-        # self.can_free_synth = False  # Non core interface, see note in SynthDef.
+        # self.can_free_synth = False  # Non core interface, removed.
 
     @classmethod
     def new_from(cls, synthdef):
@@ -262,32 +262,30 @@ class SynthDesc():
             ugen = ugen.source_ugen
         ugen._add_to_synth()
 
-        def add_io(lst, nchan): # lambda
+        def add_iodesc(iolst, nchan):  # lambda
             b = ugen.inputs[0]
             if type(b) is ugn.OutputProxy\
             and isinstance(b.source_ugen, iou.Control):
                 control = None
-                for item in self.controls: # detect
-                    if item.index == (b._output_index + b.source_ugen._special_index):
+                cmp_index = b._output_index + b.source_ugen._special_index
+                for item in self.controls:  # detect
+                    if item.index == cmp_index:
                         control = item
                         break
                 if control is not None:
                     b = control.name
-            lst.append(IODesc(rate, nchan, b, ugen_class))
+            iolst.append(IODesc(rate, nchan, b, ugen_class))
 
         if issubclass(ugen_class, iou.AbstractControl):
             # // Control.newFromDesc does not set the specialIndex, since it
-            # // doesn't call Control-init. Therefore we fill it in here:
+            # // doesn't call Control-init. Therefore we fill it in here.
             ugen._special_index = special_index
             for i in range(num_outputs):
                 self.controls[i + special_index].rate = rate
-        else:
-            if issubclass(ugen_class, iou.AbstractIn):
-                add_io(self.inputs, len(ugen._channels))
-            elif issubclass(ugen_class, iou.AbstractOut):
-                add_io(self.outputs, ugen._num_audio_channels())
-            # else:
-            #     self.can_free_synth = self.can_free_synth or ugen._can_free_synth()  # Non core interface, see note in SynthDef.
+        elif issubclass(ugen_class, iou.AbstractIn):
+            add_iodesc(self.inputs, len(ugen._channels))
+        elif issubclass(ugen_class, iou.AbstractOut):
+            add_iodesc(self.outputs, ugen._num_audio_channels())
 
     def _check_synthdesc2(self):
         names = set()

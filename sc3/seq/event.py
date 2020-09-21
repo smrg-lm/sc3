@@ -505,12 +505,15 @@ class ServerKeys(PartialEvent):
 ### Event Types ###
 
 
-class EventType(EventDict):  # *** TODO: And PlayerEvent.
+class EventType(EventDict):
     # type = None
     # is_playing = False
 
     def play(self):
         pass
+
+    # def __eq__(self, other):
+    #     return super().__eq__(other)
 
     def __hash__(self):
         return id(self)

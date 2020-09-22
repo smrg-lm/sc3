@@ -246,14 +246,17 @@ def zapgremlins(x):
 
 @scbuiltin.unop
 def log2(x):
+    if x == 0: return -inf
     return math.log2(x)
 
 @scbuiltin.unop
 def log10(x):
+    if x == 0: return -inf
     return math.log10(x)
 
 @scbuiltin.unop
 def log(x):  #, base=math.e):
+    if x == 0: return -inf
     return math.log(x)
 
 @scbuiltin.unop
@@ -1103,7 +1106,7 @@ def explin(x, inmin, inmax, outmin, outmax, clip='minmax'):
         if x <= inmin: return outmin
     elif clip == 'max':
         if x >= inmax: return outmax
-    return math.log(x / inmin, math.e) / math.log(inmax / inmin, math.e)\
+    return log(x / inmin, math.e) / log(inmax / inmin, math.e)\
            * (outmax - outmin) + outmin
 
 @scbuiltin.narop
@@ -1117,7 +1120,7 @@ def expexp(x, inmin, inmax, outmin, outmax, clip='minmax'):
         if x >= inmax: return outmax
     return math.pow(
         outmax / outmin,
-        math.log(x / inmin, math.e) / math.log(inmax / inmin, math.e)
+        log(x / inmin, math.e) / log(inmax / inmin, math.e)
     ) * outmin
 
 @scbuiltin.narop
@@ -1155,7 +1158,7 @@ def curvelin(x, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
     grow = math.exp(curve)
     a = (inmax - inmin) / (1.0 - grow)
     b = inmin + a
-    return math.log((b - x) / a, math.e) * (outmax - outmin) / curve + outmin
+    return log((b - x) / a, math.e) * (outmax - outmin) / curve + outmin
 
 @scbuiltin.narop
 def bilin(x, incenter, inmin, inmax, outcenter, outmin, outmax, clip='minmax'):
@@ -1252,7 +1255,7 @@ def blend_at(lst, index):
 
 def resamp0(lst, new_size):
     factor = (len(lst) - 1) / builtins.max(new_size - 1, 1)
-    return list(lst[int(round(i * factor))])
+    return list(lst[int(round(i * factor))] for i in range(new_size))
 
 def resamp1(lst, new_size):
     factor = (len(lst) - 1) / builtins.max(new_size - 1, 1)

@@ -10,6 +10,7 @@ from ..base import platform as plf
 from ..base import systemactions as sac
 from ..base import functions as fn
 from ..base import main as _libsc3
+from . import spec as spc
 from . import ugen as ugn
 from . import server as srv
 from . import synthdesc as sdc
@@ -210,7 +211,6 @@ class SynthDef(metaclass=MetaSynthDef):
 
     # método agregado
     def _apply_metadata_specs(self, names, values):
-        # no veo una forma conscisa como en sclang
         new_values = []
         if 'specs' in self.metadata:
             specs = self.metadata['specs']
@@ -218,17 +218,18 @@ class SynthDef(metaclass=MetaSynthDef):
                 if value is not None:
                     new_values.append(value)
                 else:
+                    spec = None
                     if names[i] in specs:
-                        spec = xxx.as_spec(specs[names[i]]) # BUG: as_spec devuelve un objeto ControlSpec o None, implementan Array, Env, Nil, Spec y Symbol  **** FALTA no está hecha la clase Spec ni la función para los strings!
+                        spec = spc.spec(specs[names[i]])
                     else:
-                        spec = xxx.as_spec(names[i])
+                        spec = spc.spec(names[i])
                     if spec is not None:
-                        new_values.append(spec.default()) # BUG **** FALTA no está hecha la clase Spec/ControlSpec, no sé si default es un método
+                        new_values.append(spec.default)
                     else:
                         new_values.append(0.0)
         else:
             new_values = [x if x is not None else 0.0 for x in values]
-        return new_values # values no la reescribo acá por ser mutable
+        return new_values
 
     # // Allow incremental building of controls.
     # BUG, BUG: de cada parámetro value hace value.copy, ver posibles consecuencias...

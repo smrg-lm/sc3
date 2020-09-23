@@ -75,7 +75,6 @@ class SynthDef(metaclass=MetaSynthDef):
 
         return obj
 
-    #*new L35
     def __init__(self, name, graph_func, rates=None,
                  prepend_args=None, variants=None, metadata=None):
         self.name = name
@@ -97,7 +96,7 @@ class SynthDef(metaclass=MetaSynthDef):
         # topo sort
         self._available = []
         self._width_first_ugens = []
-        self._rewrite_in_progress = False # = la inicializa a True en optimizeGraph L472 y luego la vuelve a nil, pero es mejor que sea false por los 'if'
+        self._rewrite_in_progress = False
 
         self._build(graph_func, rates or [], prepend_args or [])
 
@@ -114,17 +113,16 @@ class SynthDef(metaclass=MetaSynthDef):
                 _libsc3.main._current_synthdef = None
                 raise
 
-    # L53
     @classmethod
-    def wrap(cls, func, rates=None, prepend_args=None): # TODO: podría ser, además, un decorador en Python pero para usar dentro de una @synthdef o graph_func
+    def wrap(cls, func, rates=None, prepend_args=None):
         if _libsc3.main._current_synthdef is not None:
             return _libsc3.main._current_synthdef._build_ugen_graph(
                 func, rates or [], prepend_args or [])
         else:
-            raise Exception('SynthDef wrap should be called inside '
-                            'a SynthDef graph function')
+            raise Exception(
+                'SynthDef wrap should be called inside '
+                'a SynthDef graph function')
 
-    # L69
     def _init_build(self):
         # UGen.buildSynthDef, lock above.
         self._constants = dict()
@@ -162,8 +160,8 @@ class SynthDef(metaclass=MetaSynthDef):
         values = values[skip_args:]
         values = self._apply_metadata_specs(names, values)
 
-        annotations = [x.annotation if x != inspect.Signature.empty else None
-                       for x in params]
+        empty = inspect.Signature.empty
+        annotations = [x.annotation if x != empty else None for x in params]
         annotations = annotations[skip_args:]
 
         rates += [0] * (len(names) - len(rates))
@@ -194,8 +192,9 @@ class SynthDef(metaclass=MetaSynthDef):
     def _get_valid_arg_values(self, params):
         valid_args = (int, float, bool, complex, type(None))  # + tuple
         ret = []
+        empty = inspect.Signature.empty
         for param in params:
-            if param.default != inspect.Signature.empty:
+            if param.default != empty:
                 if isinstance(param.default, valid_args):
                     ret.append(param.default)
                 elif isinstance(param.default, tuple):
@@ -257,7 +256,6 @@ class SynthDef(metaclass=MetaSynthDef):
         self._control_names.append(cn)
         self._all_control_names.append(cn)
 
-    # L178
     def _build_controls(self):
         nn_cns = [x for x in self._control_names if x.rate == 'noncontrol']
         ir_cns = [x for x in self._control_names if x.rate == 'scalar']
@@ -320,11 +318,10 @@ class SynthDef(metaclass=MetaSynthDef):
                 arguments[cn.arg_num] = ctrl_ugens[i]
                 self._set_control_names(ctrl_ugens[i], cn)
 
-        self._control_names = [x for x in self._control_names
-                               if x.rate != 'noncontrol']
+        self._control_names = [
+            x for x in self._control_names if x.rate != 'noncontrol']
         return arguments
 
-    # L263
     def _set_control_names(self, ctrl_ugens, cn):
         # *** BUG: can't find where is this name change is used (name getter of OutputProxy)
         if isinstance(ctrl_ugens, list):
@@ -333,7 +330,6 @@ class SynthDef(metaclass=MetaSynthDef):
         else:
             ctrl_ugens.name = cn.name
 
-    # L273
     def _finish_build(self):
         self._add_copies_if_needed()  # ping, only for PV_Chain ugens.
         self._optimize_graph()
@@ -350,13 +346,12 @@ class SynthDef(metaclass=MetaSynthDef):
             if isinstance(child, ffu.PV_ChainUGen):
                 child._add_copies_if_needed()  # pong
 
-    # L468
+
     # OC: Multi channel expansion causes a non optimal breadth-wise
     # ordering of the graph. The topological sort below follows
     # branches in a depth first order, so that cache performance
     # of connection buffers is optimized.
 
-    # L472
     def _optimize_graph(self):  # ping
         self._init_topo_sort()
 
@@ -383,17 +378,15 @@ class SynthDef(metaclass=MetaSynthDef):
             # // All ugens with no antecedents are made available.
             ugen._make_available()
 
-    def _index_ugens(self): # CAMBIADO A ORDEN DE LECTURA
+    def _index_ugens(self):
         for i, ugen in enumerate(self._children):
             ugen._synth_index = i
 
-    # L489
-    def _collect_constants(self): # ping
+    def _collect_constants(self):  # ping
         for ugen in self._children:
-            ugen._collect_constants() # pong
+            ugen._collect_constants()  # pong
 
-    # L409
-    def _check_inputs(self): # ping
+    def _check_inputs(self):  # ping
         first_err = None
         for ugen in self._children:
             err = ugen._check_inputs() # pong, en sclang devuelve nil o un string, creo que esos serían todos los casos según la lógica de este bloque.
@@ -424,8 +417,8 @@ class SynthDef(metaclass=MetaSynthDef):
             ugen._descendants = set()
             ugen._width_first_antecedents = []
 
-    # L428
-    # // UGens do these. (ping pong methods)
+
+    # // UGens do these (ping pong methods).
 
     def _add_ugen(self, ugen):
         if not self._rewrite_in_progress:
@@ -434,7 +427,7 @@ class SynthDef(metaclass=MetaSynthDef):
             self._children.append(ugen)
 
     def _remove_ugen(self, ugen):
-        # // Lazy removal: clear entry and later remove all None entries
+        # // Lazy removal: clear entry and later remove all None entries.
         self._children[ugen._synth_index] = None
 
     def _replace_ugen(self, a, b):
@@ -446,7 +439,7 @@ class SynthDef(metaclass=MetaSynthDef):
         b._synth_index = a._synth_index
         self._children[a._synth_index] = b
 
-        for item in self._children:  # counter not used in sclang
+        for item in self._children:
             if item is not None:
                 for i, input in enumerate(item.inputs):
                     if input is a:
@@ -459,20 +452,18 @@ class SynthDef(metaclass=MetaSynthDef):
             self._constant_set.add(value)
             self._constants[value] = len(self._constants)
 
-    # L535
     def dump_ugens(self):
-        # BUG: in sclang, some variables are not used.
         print(self.name)
         for ugen in self._children:
             inputs = None
             if ugen.inputs is not None:
-                inputs = [x._dump_name() if isinstance(x, ugn.UGen)
-                          else x for x in ugen.inputs]
+                inputs = [
+                    x._dump_name() if isinstance(x, ugn.UGen)
+                    else x for x in ugen.inputs]
             print([ugen._dump_name(), ugen.rate, inputs])
 
-    # L549
-    # // Make SynthDef available to all servers.
     def add(self, libname=None, completion_msg=None, keep_def=True):
+        # // Make SynthDef available to all servers.
         self.as_synthdesc(libname or 'default', keep_def)  # This call adds synthdesc to the lib as side effect which is the intended effect here.
         if libname is None:
             servers = set(
@@ -482,7 +473,6 @@ class SynthDef(metaclass=MetaSynthDef):
         for server in servers:
             self._do_send(server, fn.value(completion_msg, server))  # BUG: Why each(server).value in sclang?
 
-    # L645
     def as_synthdesc(self, libname='default', keep_def=True):
         stream = io.BytesIO(self.as_bytes())
         libname = libname or 'default'
@@ -490,7 +480,6 @@ class SynthDef(metaclass=MetaSynthDef):
         desc = lib.read_desc_from_def(stream, keep_def, self, self.metadata)
         return desc
 
-    # L587
     def _do_send(self, server, completion_msg):
         buffer = self.as_bytes()
         if len(buffer) < (65535 // 4):  # BUG: size limitation for rt safety, compare with ArrayedCollection:clumpBundles.
@@ -536,7 +525,7 @@ class SynthDef(metaclass=MetaSynthDef):
                     with open(name, 'wb') as file:
                         sdc.AbstractMDPlugin.clear_metadata(name) # BUG: No está implementado
                         self.write_def_list([self], file)
-        # // make sure the synth defs are written to the right path
+        # // Make sure the synth defs are written to the right path.
         sac.StartUp.defer(defer_func, self, name, dir, overwrite)
 
     @staticmethod
@@ -630,11 +619,11 @@ class SynthDef(metaclass=MetaSynthDef):
         for item in arr:
             frw.write_f32(file, item)
 
-    # // Only write if no file exists
-    def write_once(self, dir, md_plugin): # Nota: me quedo solo con el método de instancia, usar el método de clase es equivalente a crear una instancia sin llamar a add u otro método similar.
-        self._write_def_file(dir, False, md_plugin)  # TODO: ver la documentación, este método es obsoleto.
+    def write_once(self, dir, md_plugin):
+        # // Only write if no file exists.
+        # This method is obsolete according to the documentation.
+        self._write_def_file(dir, False, md_plugin)
 
-    # L561
     @classmethod
     def remove_at(cls, name, libname='default'):  # *** BUG: Este método es de dudosa utilidad para SynthDef en core.
         lib = sdc.SynthDescLib.get_lib(libname)
@@ -642,11 +631,11 @@ class SynthDef(metaclass=MetaSynthDef):
         for server in lib.servers:
             server.send_msg('/d_free', name) # BUG: no entiendo por qué usa server.value (que retorna el objeto server). Además, send_msg también es método de String en sclang lo que resulta confuso.
 
-    # L570
-    # // Methods for special optimizations
 
-    # // Only send to servers.
+    # // Methods for special optimizations.
+
     def send(self, server=None, completion_msg=None):
+        # // Only send to servers.
         if server is None:
             servers = list(
                 s for s in srv.Server.all if s._status_watcher.has_booted)
@@ -663,10 +652,10 @@ class SynthDef(metaclass=MetaSynthDef):
             else:
                 self._do_send(server, fn.value(completion_msg, server))
 
-    # L653
-    # // This method warns and does not halt because loading existing def from
-    # // disk is a viable alternative to get the synthdef to the server.
     def _load_reconstructed(self, server, completion_msg):
+        # // This method warns and does not halt because
+        # // loading existing def from disk is a viable
+        # // alternative to get the synthdef to the server.
         _logger.warning(
             f"SynthDef '{self.name}' was reconstructed from a "
             ".scsyndef file, it does not contain all the required "
@@ -679,24 +668,23 @@ class SynthDef(metaclass=MetaSynthDef):
             raise Exception(
                 f"Server '{server}' is remote, cannot load from disk")
 
-    # // Send to server and write file.
     def load(self, server, completion_msg=None, dir=None):
+        # // Send to server and write file.
         server = server or srv.Server.default
         completion_msg = fn.value(completion_msg, server)
         if self.metadata.get('shouldNotSend', False):
             self._load_reconstructed(server, completion_msg)
         else:
-            # // should remember what dir synthDef was written to
+            # // Should remember what dir synthDef was written to.
             dir = dir or SynthDef.synthdef_dir
             dir = pathlib.Path(dir)
             self._write_def_file(dir)
             server.send_msg(
                 '/d_load', str(dir / (self.name + '.scsyndef')), completion_msg)
 
-    # L615
-    # // Write to file and make synth description.
     def store(self, libname='default', dir=None, completion_msg=None,
               md_plugin=None):
+        # // Write to file and make synth description.
         lib = sdc.SynthDescLib.get_lib(libname)
         dir = dir or SynthDef.synthdef_dir
         dir = pathlib.Path(dir)
@@ -706,7 +694,7 @@ class SynthDef(metaclass=MetaSynthDef):
                 self.write_def_list([self], file)
             lib.read(path)
             for server in lib.servers:
-                self._do_send(server, fn.value(completion_msg, server))  # BUG: Why server.value
+                self._do_send(server, fn.value(completion_msg, server))
             desc = lib.at(self.name)
             desc.metadata = self.metadata
             sdc.SynthDesc.populate_metadata_func(desc)
@@ -717,25 +705,21 @@ class SynthDef(metaclass=MetaSynthDef):
                 self._load_reconstructed(
                     server, fn.value(completion_msg, server))
 
-    # L670
-    # // This method needs a reconsideration
     def store_once(self, libname='default', dir=None, completion_msg=None,
                    md_plugin=None):
+        # // This method needs a reconsideration.
         dir = dir or SynthDef.synthdef_dir
         dir = pathlib.Path(dir)
         path = dir / (self.name + '.scsyndef')
         if not path.exists():
             self.store(libname, dir, completion_msg, md_plugin)
         else:
-            # // load synthdesc from disk
-            # // because SynthDescLib still needs to have the info
+            # // Load synthdesc from disk because
+            # // SynthDescLib still needs to have the info.
             lib = sdc.SynthDescLib.get_lib(libname)
             lib.read(path)
 
-    # L683
-    def play(self, target, args, add_action='addToHead'):
-        raise Exception('SynthDef.play no está implementada') # BUG: esta función de deprecated y des-deprecated
-
+    # play
     # def store_args(self):
 
     # canFreeSynth.sc Is an added interface used at least by JITlib and wslib.

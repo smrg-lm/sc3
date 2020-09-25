@@ -7,11 +7,15 @@ __all__ = ['spec']
 
 
 class Warp():
-    specifier = None
+    _specifier = None
     __slots__ = ('_spec',)
 
     def __init__(self, spec):
         self._spec = spec
+
+    @property
+    def specifier(self):
+        return type(self)._specifier
 
     def map(self, value):
         return value
@@ -30,7 +34,7 @@ class Warp():
 
 
 class LinearWarp(Warp):
-    specifier = 'lin'
+    _specifier = 'lin'
 
     def map(self, value):
         return value * self._spec.range + self._spec.minval
@@ -42,7 +46,7 @@ class LinearWarp(Warp):
 class ExponentialWarp(Warp):
     # // Both minval and maxval must be non zero and have the same sign.
 
-    specifier = 'exp'
+    _specifier = 'exp'
 
     def map(self, value):
         return self._spec.ratio ** value * self._spec.minval
@@ -52,7 +56,6 @@ class ExponentialWarp(Warp):
 
 
 class CurveWarp(Warp):
-    specifier = 'curve'
     __slots__ = ('_spec', '_curve', '_a', '_b', '_grow')
 
     def __new__(cls, spec, curve):
@@ -70,6 +73,10 @@ class CurveWarp(Warp):
         self._grow = bi.exp(self._curve)
         self._a = spec.range / (1.0 - self._grow)
         self._b = spec.minval + self._a
+
+    @property
+    def specifier(self):
+        return self._curve
 
     @property
     def curve(self):
@@ -92,7 +99,7 @@ class CurveWarp(Warp):
 
 
 class CosineWarp(LinearWarp):
-    specifier = 'cos'
+    _specifier = 'cos'
 
     def map(self, value):
         return super().map(0.5 - bi.cos(bi.pi * value) * 0.5)
@@ -102,7 +109,7 @@ class CosineWarp(LinearWarp):
 
 
 class SineWarp(LinearWarp):
-    specifier = 'sin'
+    _specifier = 'sin'
 
     def map(self, value):
         return super().map(bi.sin(bi.pi2 * value))
@@ -112,7 +119,7 @@ class SineWarp(LinearWarp):
 
 
 class AmpWarp(Warp):
-    specifier = 'amp'
+    _specifier = 'amp'
 
     def map(self, value):
         if self._spec.range >= 0:
@@ -131,7 +138,7 @@ class AmpWarp(Warp):
 
 
 class DbWarp(Warp):
-    specifier = 'db'
+    _specifier = 'db'
 
     def map(self, value):
         dbamp = bi.dbamp
@@ -157,12 +164,12 @@ class DbWarp(Warp):
 # Warp *initClass
 
 _WARPS = {
-    LinearWarp.specifier: LinearWarp,
-    ExponentialWarp.specifier: ExponentialWarp,
-    SineWarp.specifier: SineWarp,
-    CosineWarp.specifier: CosineWarp,
-    AmpWarp.specifier: AmpWarp,
-    DbWarp.specifier: DbWarp
+    LinearWarp._specifier: LinearWarp,
+    ExponentialWarp._specifier: ExponentialWarp,
+    SineWarp._specifier: SineWarp,
+    CosineWarp._specifier: CosineWarp,
+    AmpWarp._specifier: AmpWarp,
+    DbWarp._specifier: DbWarp
     # // CurveWarp is specified by a number.
 }
 
@@ -264,8 +271,8 @@ class ControlSpec():
     def __repr__(self):
         return (
             f"{type(self).__name__}({self._minval}, {self._maxval}, "
-            f"'{self._warp.specifier}', {self._step}, {self._default},"
-            f"{self._units})")
+            f"{repr(self._warp.specifier)}, {self._step}, {self._default}, "
+            f"'{self._units}')")
 
 
 # ControlSpec *initClass

@@ -1,19 +1,17 @@
 """Server.sc"""
 
 import enum
-import subprocess as _subprocess
-import threading as _threading
-import atexit as _atexit
-import logging as _logging
-import os as _os
-import pathlib as _pathlib
-import time as _time
+import subprocess
+import threading
+import logging
+import os
+import pathlib
+import time
 
 from ..base import main as _libsc3
 from ..base import utils as utl
 from ..base import netaddr as nad
 from ..base import model as mdl
-from ..base import responsedefs as rdf
 from ..base import systemactions as sac
 from ..base import functions as fn
 from ..base import platform as plf
@@ -28,13 +26,12 @@ from . import recorder as rcd
 from . import node as nod
 from . import bus
 from . import _graphparam as gpp
-from . import buffer as bff
 
 
 __all__ = ['s', 'Server', 'ServerOptions']
 
 
-_logger = _logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 s = None
@@ -159,7 +156,7 @@ class ServerOptions():
                 output_file = plf.Platform.recording_dir
                 output_file.mkdir(exist_ok=True)
                 output_file = str(output_file / 'SC_')
-                output_file += _time.strftime('%Y%m%d_%H%M%S')
+                output_file += time.strftime('%Y%m%d_%H%M%S')
                 output_file += '.' + self.rec_header_format
             else:
                 output_file = str(output_file)
@@ -190,7 +187,7 @@ class ServerOptions():
             o.extend([Defaults.RESTRICTED_PATH.flag, str(self.restricted_path)])
         if self.ugen_plugins_path != Defaults.UGEN_PLUGINS_PATH.default:
             plist = utl.as_list(self.ugen_plugins_path)
-            plist = [_os.path.normpath(x) for x in plist]
+            plist = [os.path.normpath(x) for x in plist]
             o.extend([Defaults.UGEN_PLUGINS_PATH.flag, ':'.join(plist)])
 
         if self.control_buses != Defaults.CONTROL_BUSES.default:
@@ -284,10 +281,10 @@ class ServerProcess():
         cmd = [server.options.program]
         cmd.extend(server.options.options_list(server.addr.port))
 
-        self.proc = _subprocess.Popen(
+        self.proc = subprocess.Popen(
             cmd,  # TODO: maybe a method popen_cmd regarding server, options and platform.
-            stdout=_subprocess.PIPE,
-            stderr=_subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             bufsize=1,
             universal_newlines=True)
         self._redirect_outerr()
@@ -300,7 +297,7 @@ class ServerProcess():
             if not self._detached:
                 self.on_exit(self.proc.poll())
 
-        t = _threading.Thread(
+        t = threading.Thread(
             target=popen_wait_thread,
             name=f'{type(self).__name__}.popen_wait id: {id(self)}')
         t.daemon = True
@@ -320,11 +317,11 @@ class ServerProcess():
                 if self.running():
                     self.proc.terminate()
                     self.proc.wait(timeout=self.timeout)
-            except _subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired:
                 self.proc.kill()
                 self.proc.communicate() # just to be polite
 
-        t = _threading.Thread(
+        t = threading.Thread(
             target=terminate_proc_thread,
             name=f'{type(self).__name__}.terminate id: {id(self)}')
         t.daemon = True
@@ -343,8 +340,8 @@ class ServerProcess():
                     logger.info(line.rstrip())
 
         def make_thread(out, flag, out_name):
-            logger = _logging.getLogger(f'SERVER.{out_name}')
-            t = _threading.Thread(
+            logger = logging.getLogger(f'SERVER.{out_name}')
+            t = threading.Thread(
                 target=read,
                 name=f'{type(self).__name__}.{out_name} id: {id(self)}',
                 args=(out, flag, logger))
@@ -352,7 +349,7 @@ class ServerProcess():
             t.start()
             return t
 
-        self._tflag = _threading.Event()
+        self._tflag = threading.Event()
         self._tout = make_thread(self.proc.stdout, self._tflag, 'stdout')
         self._terr = make_thread(self.proc.stderr, self._tflag, 'stderr')
 
@@ -623,7 +620,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def send_synthdef(self, name, dir=None):
         # // Load from disk locally, send remote.
         dir = dir or plf.Platform.synthdef_dir
-        dir = _pathlib.Path(dir)
+        dir = pathlib.Path(dir)
         full_path = dir / (name + '.scsyndef')
         try:
             with open(full_path, 'rb') as file:
@@ -635,7 +632,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def load_synthdef(self, name, completion_msg=None, dir=None):
         # // Tell server to load from disk.
         dir = dir or plf.Platform.synthdef_dir
-        dir = _pathlib.Path(dir)
+        dir = pathlib.Path(dir)
         path = str(dir / (name + '.scsyndef'))
         self.send_msg('/d_load', path, fn.value(completion_msg, self))
 
@@ -898,7 +895,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def _quit_atexit(self):
         if self._status_watcher.server_running:
-            event = _threading.Event()
+            event = threading.Event()
             set_func = lambda: event.set()
             self.quit(True, set_func, set_func)
             event.wait(5)  # _MainThread, set_func runs in AppClock thread.

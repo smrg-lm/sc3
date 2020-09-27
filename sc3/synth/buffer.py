@@ -9,7 +9,7 @@ import uuid
 from ..base import responsedefs as rdf
 from ..base import model as mdl
 from ..base import functions as fn
-from ..base import platform as plt
+from ..base import platform as plf
 from ..base import builtins as bi
 from ..base import utils as utl
 from ..base import stream as stm
@@ -249,7 +249,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         if server.is_local:
             channel_lst = [list(array.array('f', l)) for l in channel_lst]  # Type check & cast.
             path = str(
-                plt.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
+                plf.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
             sample_rate = int(server._status_watcher.sample_rate)
             try:
                 # Was using SoundFile in sclang.
@@ -283,7 +283,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                         'available number of frames')
                 channel_lst[i] = list(array.array('f', chn))  # Type check & cast.
             path = str(
-                plt.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
+                plf.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
             sample_rate = int(self._server._status_watcher.sample_rate)
             try:
                 # Was using SoundFile in sclang.
@@ -363,7 +363,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def load_to_list(self, index=0, count=-1, action=None):
         def load_fork():
             path = str(
-                plt.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
+                plf.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
             self.write(path, 'wav', 'float', count, index)
             yield from self._server.sync()
             channel_lst = _read_wave_file(path)
@@ -432,7 +432,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             raise BufferAlreadyFreed('write')
 
         if path is None:
-            dir = plt.Platform.recording_dir
+            dir = plf.Platform.recording_dir
             timestamp = time.strftime('%Y%m%d_%H%M%S')
             path = dir / ('SC_' + timestamp + '.' + header_format)
         else:

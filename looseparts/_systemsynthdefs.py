@@ -1,5 +1,6 @@
 """SystemSynthDefs.sc"""
 
+from ..base import platform as plf
 from . import synthdef as sdf
 from . import ugens as ugns
 
@@ -24,7 +25,7 @@ class SystemSynthDefs():
     def _init_class(cls):  # BUG: A MetaSystemSynthDefs? def init del init? at all?
         # NOTE: JITLib specific.
         # StartUp.add -> _init_class
-        path = sdf.SynthDef.synthdef_dir
+        path = plf.Platform.synthdef_dir
         match = list(path.glob(cls.tmp_name_prefix + '*'))
         if match:
             _logger.info(f'celaning up temporary synthdefs, {len(match)} found')

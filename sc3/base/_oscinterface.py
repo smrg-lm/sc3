@@ -18,7 +18,7 @@ from . import main as _libsc3
 from . import netaddr as nad
 from . import _osclib as oli
 from . import functions as fn
-from . import platform as plt
+from . import platform as plf
 
 
 __all__ = ['OscUdpInterface', 'OscTcpInterface', 'OscNrtInterface']
@@ -470,7 +470,7 @@ class OscScore():
         if self._finished:
             self.finish(self.duration + 1)
 
-        osc_file = plt.Platform.tmp_dir
+        osc_file = plf.Platform.tmp_dir
         osc_file /= 'SC_' + time.strftime('%Y%m%d_%H%M%S') + '.osc'
         self.write(osc_file)
 

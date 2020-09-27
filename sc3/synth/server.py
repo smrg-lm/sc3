@@ -16,7 +16,7 @@ from ..base import model as mdl
 from ..base import responsedefs as rdf
 from ..base import systemactions as sac
 from ..base import functions as fn
-from ..base import platform as plt
+from ..base import platform as plf
 from ..base import stream as stm
 from ..base import clock as clk
 from . import _engine as eng
@@ -90,7 +90,7 @@ class ServerOptions():
     # locals().update(Defaults.__members__)
 
     def __init__(self):
-        self.program = plt.Platform.default_server_cmd
+        self.program = plf.Platform.default_server_cmd
         self.protocol = 'upd'
 
         self.bind_address = Defaults.BIND_ADDRESS.default
@@ -156,7 +156,7 @@ class ServerOptions():
             o.append(input_file)
             if output_file is None:
                 # TODO: Method in Platform for name generation. See Recorder & Buffer.
-                output_file = plt.Platform.recording_dir
+                output_file = plf.Platform.recording_dir
                 output_file.mkdir(exist_ok=True)
                 output_file = str(output_file / 'SC_')
                 output_file += _time.strftime('%Y%m%d_%H%M%S')
@@ -229,7 +229,7 @@ class ServerOptions():
             o.extend([Defaults.VERBOSE.flag, str(self.verbose)])
 
         # Supernova only.
-        if self.program == plt.Platform.SUPERNOVA_CMD:
+        if self.program == plf.Platform.SUPERNOVA_CMD:
             if self.memory_locking != Defaults.MEMORY_LOCKING.default:
                 o.append(Defaults.MEMORY_LOCKING.flag)
             if self.threads != Defaults.THREADS.default:
@@ -239,7 +239,7 @@ class ServerOptions():
                     str(int(self.use_system_clock))])
 
         # Darwin only.
-        if plt.Platform.name.startswith('darwin'):
+        if plf.Platform.name.startswith('darwin'):
             if self.input_streams != Defaults.INPUT_STREAMS.default:
                 o.extend([Defaults.INPUT_STREAMS.flag, str(self.input_streams)])
             if self.output_streams != Defaults.OUTPUT_STREAMS.default:
@@ -513,7 +513,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _logger.error(
                 f'id ({value}) outside options.max_logins '
                 f'({s.options.max_logins}), current id is {self._client_id}')
-            if self.options.program == plt.Platform.SUPERNOVA_CMD:
+            if self.options.program == plf.Platform.SUPERNOVA_CMD:
                 _logger.info(
                     'NOTE: suepernova servers ignore options.max_logins')
             return
@@ -622,7 +622,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def send_synthdef(self, name, dir=None):
         # // Load from disk locally, send remote.
-        dir = dir or sdf.SynthDef.synthdef_dir
+        dir = dir or plf.Platform.synthdef_dir
         dir = _pathlib.Path(dir)
         full_path = dir / (name + '.scsyndef')
         try:
@@ -634,7 +634,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def load_synthdef(self, name, completion_msg=None, dir=None):
         # // Tell server to load from disk.
-        dir = dir or sdf.SynthDef.synthdef_dir
+        dir = dir or plf.Platform.synthdef_dir
         dir = _pathlib.Path(dir)
         path = str(dir / (name + '.scsyndef'))
         self.send_msg('/d_load', path, fn.value(completion_msg, self))

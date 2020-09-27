@@ -32,13 +32,12 @@ class MetaSynthDef(type):
     def __init__(cls, *_):
 
         def init_func(cls):
-            cls.synthdef_dir = plf.Platform.synthdef_dir
             # // Ensure exists.
             if not plf.Platform.support_dir.exists():
                 _logger.info(
                     'creating Platform.support_dir '
                     f'at {plf.Platform.support_dir}')
-            cls.synthdef_dir.mkdir(parents=True, exist_ok=True)
+            plf.Platform.synthdef_dir.mkdir(parents=True, exist_ok=True)
 
         utl.ClassLibrary.add(cls, init_func)
 
@@ -489,10 +488,10 @@ class SynthDef(metaclass=MetaSynthDef):
                 _logger.warning(
                     f'SynthDef {self.name} too big for sending. '
                     'Retrying via synthdef file')
-                self._write_def_file(SynthDef.synthdef_dir)
+                self._write_def_file(plf.Platform.tmp_dir)
                 server.send_msg(
                     '/d_load',
-                    str(SynthDef.synthdef_dir / (self.name + '.scsyndef')),
+                    str(plf.Platform.tmp_dir / (self.name + '.scsyndef')),
                     completion_msg)
             else:
                 _logger.warning(f'SynthDef {self.name} too big for sending')
@@ -676,7 +675,7 @@ class SynthDef(metaclass=MetaSynthDef):
             self._load_reconstructed(server, completion_msg)
         else:
             # // Should remember what dir synthDef was written to.
-            dir = dir or SynthDef.synthdef_dir
+            dir = dir or plf.Platform.synthdef_dir
             dir = pathlib.Path(dir)
             self._write_def_file(dir)
             server.send_msg(
@@ -686,7 +685,7 @@ class SynthDef(metaclass=MetaSynthDef):
               md_plugin=None):
         # // Write to file and make synth description.
         lib = sdc.SynthDescLib.get_lib(libname)
-        dir = dir or SynthDef.synthdef_dir
+        dir = dir or plf.Platform.synthdef_dir
         dir = pathlib.Path(dir)
         path = dir / (self.name + '.scsyndef')
         if not self.metadata.get('shouldNotSend', False):
@@ -708,7 +707,7 @@ class SynthDef(metaclass=MetaSynthDef):
     def store_once(self, libname='default', dir=None, completion_msg=None,
                    md_plugin=None):
         # // This method needs a reconsideration.
-        dir = dir or SynthDef.synthdef_dir
+        dir = dir or plf.Platform.synthdef_dir
         dir = pathlib.Path(dir)
         path = dir / (self.name + '.scsyndef')
         if not path.exists():

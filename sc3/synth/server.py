@@ -621,7 +621,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # // Load from disk locally, send remote.
         dir = dir or plf.Platform.synthdef_dir
         dir = pathlib.Path(dir)
-        full_path = dir / (name + '.scsyndef')
+        full_path = dir / f'{name}.{sdf.SynthDef._SUFFIX}'
         try:
             with open(full_path, 'rb') as file:
                 buffer = file.read()
@@ -633,7 +633,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         # // Tell server to load from disk.
         dir = dir or plf.Platform.synthdef_dir
         dir = pathlib.Path(dir)
-        path = str(dir / (name + '.scsyndef'))
+        path = str(dir / f'{name}.{sdf.SynthDef._SUFFIX}')
         self.send_msg('/d_load', path, fn.value(completion_msg, self))
 
     def load_directory(self, dir, completion_msg=None):

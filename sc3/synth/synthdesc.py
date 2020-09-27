@@ -442,7 +442,7 @@ class SynthDescLib(metaclass=MetaSynthDescLib):
                     desc.sdef._load_reconstructed(s)
 
     def read(self, path=None, keep_defs=True):
-        path = path or plf.Platform.synthdef_dir / '*.scsyndef'
+        path = path or plf.Platform.synthdef_dir / f'*.{sdf.SynthDef._SUFFIX}'
         path = pathlib.Path(path)
         for desc in SynthDesc.read(path, keep_defs):
             self.add(desc)

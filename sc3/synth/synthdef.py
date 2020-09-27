@@ -48,6 +48,8 @@ class MetaSynthDef(type):
 
 
 class SynthDef(metaclass=MetaSynthDef):
+    _SUFFIX = 'scsyndef'
+
     @classmethod
     def dummy(cls, name):
         obj = cls.__new__(cls)
@@ -487,7 +489,7 @@ class SynthDef(metaclass=MetaSynthDef):
                 self._write_def_file(plf.Platform.tmp_dir)
                 server.send_msg(
                     '/d_load',
-                    str(plf.Platform.tmp_dir / (self.name + '.scsyndef')),
+                    str(plf.Platform.tmp_dir / f'{self._name}.{self._SUFFIX}'),
                     completion_msg)
             else:
                 _logger.warning(f'SynthDef {self.name} too big for sending')
@@ -501,7 +503,7 @@ class SynthDef(metaclass=MetaSynthDef):
         if not self.metadata.get('shouldNotSend', False):
             dir = dir or plf.Platform.synthdef_dir
             dir = pathlib.Path(dir)
-            path = dir / (self.name + '.scsyndef')
+            path = dir / f'{self._name}.{self._SUFFIX}'
             if overwrite or not path.exists():
                 with open(path, 'wb') as file:
                     self.write_def_list([self], file)
@@ -637,8 +639,8 @@ class SynthDef(metaclass=MetaSynthDef):
         # // alternative to get the synthdef to the server.
         _logger.warning(
             f"SynthDef '{self.name}' was reconstructed from a "
-            ".scsyndef file, it does not contain all the required "
-            "structure to send back to the server")
+            f"{self._SUFFIX} file, it does not contain all the "
+            "required structure to send back to the server")
         if server.is_local:
             _logger.warning(f"loading from disk instead for Server '{server}'")
             bundle = ['/d_load', self.metadata['load_path'], completion_msg]
@@ -659,7 +661,8 @@ class SynthDef(metaclass=MetaSynthDef):
             dir = pathlib.Path(dir)
             self._write_def_file(dir)
             server.send_msg(
-                '/d_load', str(dir / (self.name + '.scsyndef')), completion_msg)
+                '/d_load', str(dir / f'{self._name}.{self._SUFFIX}'),
+                completion_msg)
 
     def store(self, libname='default', dir=None, completion_msg=None,
               md_plugin=None):
@@ -667,7 +670,7 @@ class SynthDef(metaclass=MetaSynthDef):
         lib = sdc.SynthDescLib.get_lib(libname)
         dir = dir or plf.Platform.synthdef_dir
         dir = pathlib.Path(dir)
-        path = dir / (self.name + '.scsyndef')
+        path = dir / f'{self._name}.{self._SUFFIX}'
         if not self.metadata.get('shouldNotSend', False):
             with open(path, 'wb') as file:
                 self.write_def_list([self], file)
@@ -689,7 +692,7 @@ class SynthDef(metaclass=MetaSynthDef):
         # // This method needs a reconsideration.
         dir = dir or plf.Platform.synthdef_dir
         dir = pathlib.Path(dir)
-        path = dir / (self.name + '.scsyndef')
+        path = dir / f'{self._name}.{self._SUFFIX}'
         if not path.exists():
             self.store(libname, dir, completion_msg, md_plugin)
         else:

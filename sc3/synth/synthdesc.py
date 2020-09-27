@@ -1,13 +1,16 @@
 """SynthDesc.sc"""
 
+import pathlib
+import json
 import io
 import logging
-import glob
 
+from ..base import platform as plf
 from ..base import utils as utl
 from ..base import systemactions as sac
 from ..base import model as mdl
 from ..base import main as _libsc3
+from . import spec as spc
 from . import ugen as ugn
 from . import ugens as ugns
 from . import server as srv
@@ -19,34 +22,49 @@ from .ugens import inout as iou
 __all__ = ['SynthDescLib']
 
 
-_logger = logging.getLogger(__name__)
+# _logger = logging.getLogger(__name__)
 
 
-# TODO: Estas clases están ligadas al protocolo Archiving de Object.sc (L800).
-# Tengo que ver con qué recursos de Python representarlas.
-#
-# // Basic metadata plugins
-#
-# // to disable metadata read/write
-class AbstractMDPlugin():
-    @classmethod
-    def clear_metadata(cls, path):
-        ... # BUG: Falta implementar, es test para SynthDef _write_def_after_startup
+class MdPlugin():
+    SUFFIX = 'scjsonmd'  # The only extension.
+    _default_codec = {'specs': spc.spec_codec}
 
-    @classmethod
-    def write_metadata(cls, metadata, synthdef, path):
-        ... # BUG: Falta implementar, es test para SynthDef _write_def_after_startup, acá se llama en la función homónima de SynthDesc
+    def __init__(self, codec=None):
+        self.codec = codec or type(self)._default_codec
 
-    @classmethod
-    def read_metadata(cls, path):
-        return None # BUG: BUG: Falta implementar, hace varias cosas, retorna nil si no lo logra.
+    def write(self, synthdef, path):  # Was *write_metadata.
+        path = pathlib.Path(path) / f'{synthdef.name}.{self.SUFFIX}'
+        path.unlink(missing_ok=True)
+        if synthdef.metadata:
+            metadata = synthdef.metadata.copy()
+            for key in self.codec:
+                if key in metadata:
+                    print('*** metadata[key]', metadata[key])
+                    metadata[key] = self.codec[key].encoder(metadata[key])
+            with open(path, 'w') as file:
+                json.dump(metadata, file)
 
-    # TODO: todo...
+    def read(self, synthdef, path):  # Was *read_metadata.
+        path = pathlib.Path(path) / f'{synthdef.name}.{self.SUFFIX}'
+        return self.read_file(path)
 
+    def read_file(self, path):
+        if path.exists():
+            with open(path, 'r') as file:
+                metadata = json.load(file)
+            for key in self.codec:
+                if key in metadata:
+                    metadata[key] = self.codec[key].decoder(metadata[key])
+            return metadata
+        return None
 
-class TextArchiveMDPlugin(AbstractMDPlugin):
-    # // simple archiving of the dictionary
-    ... # TODO
+    def delete(self, synthdef, path):  # Was *clear_metadata.
+        path = pathlib.Path(path) / f'{synthdef.name}.{self.SUFFIX}'
+        path.unlink(missing_ok=True)
+
+    # def delete_all(self, path):
+    #     for file in pahtlib.Path(path).glob(f'*.{self.SUFFIX}'):
+    #         file.unlink()
 
 
 class SynthDescError(Exception):
@@ -71,7 +89,7 @@ class IODesc():
 class SynthDesc():
     _RATE_NAME = ('scalar', 'control', 'audio', 'demand')  # Used by index.
 
-    md_plugin = TextArchiveMDPlugin # // override in your startup file
+    md_plugin = MdPlugin()  # TODO: // override in your startup file.
     populate_metadata_func = lambda *args: None
 
     def __init__(self):
@@ -92,8 +110,20 @@ class SynthDesc():
         # self.can_free_synth = False  # Non core interface, removed.
 
     @classmethod
-    def new_from(cls, synthdef):
-        return synthdef.as_synthdesc()
+    def new_from(cls, synthdef, keep_def=True):
+        stream = io.BytesIO(synthdef.as_bytes())
+        stream.read(4)  # SCgf
+        version = frw.read_i32(stream)
+        num_defs = frw.read_i16(stream)  # Always 1 here. Not used.
+        desc = cls()  # desc = SynthDesc()
+        if version >= 2:
+            desc._read_synthdef2(stream, keep_def)
+        else:
+            desc._read_synthdef(stream, keep_def)
+        desc.metadata = synthdef.metadata
+        if keep_def:
+            desc.sdef = synthdef
+        return desc
 
     def send(self, server, completion_msg):
         self.sdef.send(server, completion_msg)
@@ -109,52 +139,49 @@ class SynthDesc():
         return string
 
     @classmethod
-    def read(cls, path, keep_defs=False, dictionary=None):
-        # // Don't use *read or *readFile to read into a SynthDescLib.
-        # // Use SynthDescLib:read or SynthDescLib:readStream instead.
-        dictionary = dictionary or dict()
-        for filename in glob.glob(str(path)):
+    def read(cls, path, keep_defs=False):  # *** SynthDesc read y _read_stream son iguales a SynthDescLib read y read_stream.
+        path = pathlib.Path(path)
+        ret = []
+        for filename in path.parent.glob(path.name):
             with open(filename, 'rb') as file:
-                dictionary = cls._read_file(file, keep_defs, dictionary)
-        return dictionary
+                ret.extend(cls._read_stream(file, keep_defs, filename))
+        return ret
 
     @classmethod
-    def _read_file(cls, stream, keep_defs=False, dictionary=None, path=''):
-        # // path is for metadata -- only this method
-        # // has direct access to the new SynthDesc.
-        stream.read(4)  # getInt32 // SCgf
+    def _read_stream(cls, stream, keep_defs=False, path=None):  # Was readFile.
+        # path is for metadata.
+        stream.read(4)  # SCgf
         version = frw.read_i32(stream)
         num_defs = frw.read_i16(stream)
-        for _ in num_defs:
+        ret = []
+        for _ in range(num_defs):
+            desc = SynthDesc()
             if version >= 2:
-                desc = SynthDesc()
-                desc.read_synthdef2(stream, keep_defs)
+                desc._read_synthdef2(stream, keep_defs)
             else:
-                desc = SynthDesc()
-                desc.read_synthdef(stream, keep_defs)
-            dictionary[desc.name] = desc
-            # // AbstractMDPlugin dynamically determines the md archive type
-            # // from the file extension
+                desc._read_synthdef(stream, keep_defs)
+            ret.append(desc)
             if path:
-                desc.metadata = AbstractMDPlugin.read_metadata(path)
+                path = path.parent / f'{path.stem}.{type(cls.md_plugin).SUFFIX}'
+                desc.metadata = cls.md_plugin.read_file(path)
             cls.populate_metadata_func(desc)
-            in_memory_stream = isinstance(stream, io.BytesIO) # TODO: entiendo que es sl significado de { stream.isKindOf(CollStream).not }: de la condición de abajo, porque expresión no explica la intención. Supongo que refiere a que no sea un stream en memoria sino un archivo del disco. En Python los streams en memoria son StringIO y BytesIO. TextIOWrapper y BufferReader se usa para archivos y son hermanas de aquellas en la jerarquía de clases, por lo tanto debería funcionar.
+            in_memory_stream = isinstance(stream, io.BytesIO)
             if desc.sdef is not None and not in_memory_stream:
                 if desc.sdef.metadata is None:
                     desc.sdef.metadata = dict()
-                desc.sdef.metadata['shouldNotSend'] = True # BUG/TODO: los nombres en metadata tienen que coincidir con las convenciones de sclang... (?)
-                desc.sdef.metadata['loadPath'] = path
-        return dictionary
+                desc.sdef.metadata['shouldNotSend'] = True  # BUG: camelCase
+                desc.sdef.metadata['load_path'] = str(path)
+        return ret
 
-    def read_synthdef(self, stream, keep_def=False):  # TODO
+    def _read_synthdef(self, stream, keep_def=False):  # TODO
         raise NotImplementedError(
             'read_synthdef format version 1 not implemented')
 
-    def read_ugen_spec(self, stream):  # TODO
+    def _read_ugen_spec(self, stream):  # TODO
         raise NotImplementedError(
             'read_ugen_spec format version 1 not implemented')
 
-    def read_synthdef2(self, stream, keep_def=False):
+    def _read_synthdef2(self, stream, keep_def=False):
         with _libsc3.main._def_build_lock:
             try:
                 self.inputs = []
@@ -187,7 +214,7 @@ class SynthDesc():
 
                 num_ugens = frw.read_i32(stream)
                 for _ in range(num_ugens):
-                    self.read_ugen_spec2(stream)
+                    self._read_ugen_spec2(stream)
 
                 # Append all default values of each multichannel
                 # control to the fist ControlName default value.
@@ -223,7 +250,7 @@ class SynthDesc():
             finally:
                 _libsc3.main._current_synthdef = None
 
-    def read_ugen_spec2(self, stream):
+    def _read_ugen_spec2(self, stream):
         ugen_class = frw.read_pascal_str(stream)
         try:
             ugen_class = ugns.installed_ugens[ugen_class]
@@ -314,12 +341,12 @@ class SynthDesc():
         if 'gate' in names:
             self.has_gate = True
 
-    def write_metadata(self, path, md_plugin=None): # BUG falta MDPlugin # TODO: el nombre me resulta confuso en realación a lo que hace. En SynthDef writeDefFile y store llama a SynthDesc.populateMetadataFunc.value(desc) inmediatamente antes de esta función.
-        if self.metadata is None:
-            AbstractMDPlugin.clear_metadata(path)
-            return
+    def write_metadata(self, path, md_plugin=None):
         md_plugin = md_plugin or self.md_plugin
-        md_plugin.write_metadata(self.metadata, self.sdef, path)
+        if self.metadata is None:
+            md_plugin.delete(self.sdef, path)
+        else:
+            md_plugin.write(self.sdef, path)
 
     @classmethod
     def def_name_from_bytes(cls, data: bytearray): # TODO: posible BUG: Es el mismo type que devuelve SynthDef:as_bytes, si cambia allá cambia acá.
@@ -330,9 +357,9 @@ class SynthDesc():
         num_defs = frw.read_i16(stream)  # Not used.
         return frw.read_pascal_str(stream)
 
-    def output_data(self): # TODO: no parece usar este método en ninguna parte
+    def output_data(self):
         ugens = self.sdef._children
-        outs = [x for x in ugens if x.wirtes_to_bus()] # BUG: interfaz/protocolo, falta implementar
+        outs = [x for x in ugens if x.wirtes_to_bus()]  # *** BUG: interfaz/protocolo, IMPLEMENTAR.
         return [{'rate': x.rate, 'num_channels': x._num_audio_channels()} for x in outs]
 
 
@@ -372,14 +399,9 @@ class SynthDescLib(metaclass=MetaSynthDescLib):
         except KeyError as e:
             raise Exception(f"library '{libname}' not found") from e
 
-    # Todos los métodos duplicados entre instancia y clase se volvieron
-    # solo de instancia. El atributo global pasó a ser default como en server
-    # y client. Las llamadas se deben hacer a través de SynthDescLib.default.
-    # BUG: ESTO AFECTA LAS LLAMADAS A LA CLASE DESDE OTRAS CLASES.
-
     def add(self, synth_desc):
         self.synth_descs[synth_desc.name] = synth_desc
-        mdl.NotificationCenter.notify(self, 'synthDescAdded', synth_desc) # NOTE: era dependancy # NOTE: No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
+        mdl.NotificationCenter.notify(self, 'sdesc_added', synth_desc)
 
     def remove_at(self, name): # BUG: es remove_at porque es un diccionario, pero es interfaz de esta clase que oculta eso, ver qué problemas puede traer.
         self.synth_descs.pop(name) #, None) # BUG: igualmente self.servers es un set y tirar KeyError con remove
@@ -390,9 +412,6 @@ class SynthDescLib(metaclass=MetaSynthDescLib):
     def remove_server(self, server):
         self.servers.remove(server)
 
-    # Salvo anotación contraria, todos los métodos de clase no hacían
-    # mas que llamar a global con el método de instancia.
-    # BUG: ESTO AFECTA LAS LLAMADAS A LA CLASE DESDE OTRAS CLASES.
     def at(self, name):
         return self.synth_descs[name]
 
@@ -423,53 +442,8 @@ class SynthDescLib(metaclass=MetaSynthDescLib):
                     desc.sdef._load_reconstructed(s)
 
     def read(self, path=None, keep_defs=True):
-        if path is None:
-            path = sdf.SynthDef.synthdef_dir / '*.scsyndef'
-        for filename in glob.glob(str(path)):
-            with open(filename, 'rb') as file:
-                self.read_stream(file, keep_defs, filename)
-
-    def read_stream(self, stream, keep_defs=True, path=''):
-        stream.read(4)  # getInt32 // SCgf
-        version = frw.read_i32(stream)
-        num_defs = frw.read_i16(stream)
-        result_set = set()
-        for _ in range(num_defs):
-            if version >= 2:
-                desc = SynthDesc()
-                desc.read_synthdef2(stream, keep_defs)
-            else:
-                desc = SynthDesc()
-                desc.read_synthdef(stream, keep_defs)
-            self.synth_descs[desc.name] = desc
-            result_set.add(desc)
-            # // AbstractMDPlugin dynamically determines the md archive type
-            # // from the file extension
-            if path:
-                desc.metadata = AbstractMDPlugin.read_metadata(path)
-            SynthDesc.populate_metadata_func(desc)
-            in_memory_stream = isinstance(stream, io.BytesIO) # TODO: entiendo que es sl significado de { stream.isKindOf(CollStream).not }: de la condición de abajo, porque expresión no explica la intención. Supongo que refiere a que no sea un stream en memoria sino un archivo del disco. En Python los streams en memoria son StringIO y BytesIO. TextIOWrapper y BufferReader se usa para archivos y son hermanas de aquellas en la jerarquía de clases, por lo tanto debería funcionar.
-            if desc.sdef is not None and not in_memory_stream:
-                if desc.sdef.metadata is None:
-                    desc.sdef.metadata = dict()
-                desc.sdef.metadata['shouldNotSend'] = True # BUG/TODO: los nombres en metadata tienen que coincidir con las convenciones de sclang... (?)
-                desc.sdef.metadata['loadPath'] = path
-        for new_desc in result_set:
-            mdl.NotificationCenter.notify(self, 'synthDescAdded', new_desc) # NOTE: era dependancy # NOTE: No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
-        return result_set
-
-    def read_desc_from_def(self, stream, keep_def, sdef, metadata=None):
-        stream.read(4)  # getInt32 // SCgf
-        version = frw.read_i32(stream)
-        num_defs = frw.read_i16(stream)  # // should be 1  # Not used.
-        if version >= 2:
-            desc = SynthDesc()
-            desc.read_synthdef2(stream, keep_def)
-        else:
-            desc = SynthDesc()
-            desc.read_synthdef(stream, keep_def)
-        if keep_def: desc.sdef = sdef
-        if metadata is not None: desc.metadata = metadata
-        self.synth_descs[desc.name] = desc
-        mdl.NotificationCenter.notify(self, 'synthDescAdded', desc) # NOTE: era dependancy # NOTE: No sé dónde SynthDefLib agrega los dependats, puede que lo haga a través de otras clases como AbstractDispatcher
-        return desc # BUG: esta función se usa para agregar las descs a la libreríá pero el valor de retorno no se usa en SynthDef-add. Ver el resto de la librería de clases.
+        path = path or plf.Platform.synthdef_dir / '*.scsyndef'
+        path = pathlib.Path(path)
+        for desc in SynthDesc.read(path, keep_defs):
+            self.add(desc)
+            mdl.NotificationCenter.notify(self, 'sdesc_added', desc)

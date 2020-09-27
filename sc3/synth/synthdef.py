@@ -463,21 +463,17 @@ class SynthDef(metaclass=MetaSynthDef):
 
     def add(self, libname=None, completion_msg=None, keep_def=True):
         # // Make SynthDef available to all servers.
-        self.as_synthdesc(libname or 'default', keep_def)  # This call adds synthdesc to the lib as side effect which is the intended effect here.
+        desc = sdc.SynthDesc.new_from(self, keep_def)
         if libname is None:
+            sdc.SynthDescLib.get_lib('default').add(desc)
             servers = set(
                 s for s in srv.Server.all if s._status_watcher.has_booted)
         else:
-            servers = sdc.SynthDescLib.get_lib(libname).servers
+            lib = sdc.SynthDescLib.get_lib(libname)
+            lib.add(desc)
+            servers = lib.servers
         for server in servers:
-            self._do_send(server, fn.value(completion_msg, server))  # BUG: Why each(server).value in sclang?
-
-    def as_synthdesc(self, libname='default', keep_def=True):
-        stream = io.BytesIO(self.as_bytes())
-        libname = libname or 'default'
-        lib = sdc.SynthDescLib.get_lib(libname)
-        desc = lib.read_desc_from_def(stream, keep_def, self, self.metadata)
-        return desc
+            self._do_send(server, fn.value(completion_msg, server))
 
     def _do_send(self, server, completion_msg):
         buffer = self.as_bytes()
@@ -503,29 +499,16 @@ class SynthDef(metaclass=MetaSynthDef):
 
     def _write_def_file(self, dir, overwrite=True, md_plugin=None):
         if not self.metadata.get('shouldNotSend', False):
-            dir = dir or SynthDef.synthdef_dir
+            dir = dir or plf.Platform.synthdef_dir
             dir = pathlib.Path(dir)
-            file_existed_before = pathlib.Path(
-                dir / (self.name + '.scsyndef')).exists()
-            self._write_def_after_startup(self.name, dir, overwrite)
-            if overwrite or not file_existed_before:
-                desc = self.as_synthdesc()
-                desc.metadata = self.metadata
+            path = dir / (self.name + '.scsyndef')
+            if overwrite or not path.exists():
+                with open(path, 'wb') as file:
+                    self.write_def_list([self], file)
+                desc = sdc.SynthDesc.new_from(self)
                 sdc.SynthDesc.populate_metadata_func(desc)
-                desc.write_metadata(dir / self.name, md_plugin)
-
-    def _write_def_after_startup(self, name, dir, overwrite=True):  # *** BUG este método en sclang es Object:writeDefFile, llama con super.
-        def defer_func(self, name, dir, overwrite):
-            if name is None:
-                raise Exception('missing SynthDef file name')
-            else:
-                name = pathlib.Path(dir / (name + '.scsyndef'))
-                if overwrite or not name.exists():
-                    with open(name, 'wb') as file:
-                        sdc.AbstractMDPlugin.clear_metadata(name) # BUG: No está implementado
-                        self.write_def_list([self], file)
-        # // Make sure the synth defs are written to the right path.
-        sac.StartUp.defer(defer_func, self, name, dir, overwrite)
+                desc.write_metadata(dir, md_plugin)
+                sdc.SynthDescLib.get_lib('default').add(desc)
 
     @staticmethod
     def write_def_list(lst, file):
@@ -618,10 +601,7 @@ class SynthDef(metaclass=MetaSynthDef):
         for item in arr:
             frw.write_f32(file, item)
 
-    def write_once(self, dir, md_plugin):
-        # // Only write if no file exists.
-        # This method is obsolete according to the documentation.
-        self._write_def_file(dir, False, md_plugin)
+    # writeOnce, removed, see documentation.
 
     @classmethod
     def remove_at(cls, name, libname='default'):  # *** BUG: Este método es de dudosa utilidad para SynthDef en core.
@@ -661,7 +641,7 @@ class SynthDef(metaclass=MetaSynthDef):
             "structure to send back to the server")
         if server.is_local:
             _logger.warning(f"loading from disk instead for Server '{server}'")
-            bundle = ['/d_load', self.metadata['loadPath'], completion_msg]
+            bundle = ['/d_load', self.metadata['load_path'], completion_msg]
             server.send_bundle(None, bundle)
         else:
             raise Exception(
@@ -691,13 +671,13 @@ class SynthDef(metaclass=MetaSynthDef):
         if not self.metadata.get('shouldNotSend', False):
             with open(path, 'wb') as file:
                 self.write_def_list([self], file)
-            lib.read(path)
-            for server in lib.servers:
-                self._do_send(server, fn.value(completion_msg, server))
-            desc = lib.at(self.name)
+            desc = sdc.SynthDesc.new_from(self)
             desc.metadata = self.metadata
             sdc.SynthDesc.populate_metadata_func(desc)
-            desc.write_metadata(path, md_plugin)
+            desc.write_metadata(dir, md_plugin)
+            lib.add(desc)
+            for server in lib.servers:
+                self._do_send(server, fn.value(completion_msg, server))
         else:
             lib.read(path)
             for server in lib.servers:

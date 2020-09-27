@@ -1,5 +1,7 @@
 """Spec.sc"""
 
+from collections import namedtuple
+
 from ..base import builtins as bi
 
 
@@ -318,3 +320,19 @@ def spec(spc):
         raise TypeError(f"can't create a spec from {type(spc).__name__}")
 
 # add_spec/remove_spec might not be a good idea.
+
+
+### Metadata support ###
+
+def key_encoder(lst):
+    # Receives a list of specs and returns JSON serializable Python objects.
+    return [[
+        spc._minval, spc._maxval, spc._warp.specifier,
+        spc._step, spc._default, spc._units] for spc in lst]
+
+def key_decoder(lst):
+    # Receives a list of JSON serializable Python objects.
+    return [spec(spc) for spc in lst]
+
+SpecCodec = namedtuple('SpecCodec', ['key', 'encoder', 'decoder'])
+spec_codec = SpecCodec('specs', key_encoder, key_decoder)

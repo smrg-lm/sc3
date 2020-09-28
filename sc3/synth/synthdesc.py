@@ -3,7 +3,6 @@
 import pathlib
 import json
 import io
-import logging
 
 from ..base import platform as plf
 from ..base import utils as utl
@@ -22,10 +21,22 @@ from .ugens import inout as iou
 __all__ = ['SynthDescLib']
 
 
-# _logger = logging.getLogger(__name__)
-
-
 class MdPlugin():
+    # Metadata is just a JSON object represented as a Python dictionary.
+    # The parameter ``codec`` is a dict containing 'key codecs' ordered by key.
+    # Key codecs are objects of three fields, key, encoder and decoder,
+    # they know to encode non serializable Python objects and convert them
+    # back for a particular metadata key (all the content of a key, e.g.
+    # spec_codec knows to decode specs which is the only data type of the key),
+    # encoder is function that return JSON serializable Python objects,
+    # it acts just like storeArgs in sclang. decoder receives that objects
+    # retrieved with json.load an reconstruct the right object for the key.
+    # Custom MdPlugins are instance objects with a dict of key codecs, there
+    # is no need to make subclasses. This is so we don't have to write a
+    # serialization protocol for each sc3 object. Different metadata
+    # organizations can be differentiated just by its content (e.g. special
+    # keys, format keys, version keys or similar).
+
     SUFFIX = 'scjsonmd'  # The only extension.
     _default_codec = {'specs': spc.spec_codec}
 
@@ -125,21 +136,8 @@ class SynthDesc():
             desc.sdef = synthdef
         return desc
 
-    def send(self, server, completion_msg):
-        self.sdef.send(server, completion_msg)
-
-    def __str__(self):  # Was printOn.
-        string = f"SynthDesc '{self.name}':"
-        for control in self.controls:
-            string += f'\n  K {repr(control)}'
-        for input in self.inputs:
-            string += f'\n  I {repr(input)}'
-        for output in self.outputs:
-            string += f'\n  O {repr(output)}'
-        return string
-
     @classmethod
-    def read(cls, path, keep_defs=False):  # *** SynthDesc read y _read_stream son iguales a SynthDescLib read y read_stream.
+    def read(cls, path, keep_defs=False):
         path = pathlib.Path(path)
         ret = []
         for filename in path.parent.glob(path.name):
@@ -341,6 +339,9 @@ class SynthDesc():
         if 'gate' in names:
             self.has_gate = True
 
+    def send(self, server, completion_msg):
+        self.sdef.send(server, completion_msg)
+
     def write_metadata(self, path, md_plugin=None):
         md_plugin = md_plugin or self.md_plugin
         if self.metadata is None:
@@ -349,7 +350,7 @@ class SynthDesc():
             md_plugin.write(self.sdef, path)
 
     @classmethod
-    def def_name_from_bytes(cls, data: bytearray): # TODO: posible BUG: Es el mismo type que devuelve SynthDef:as_bytes, si cambia allá cambia acá.
+    def def_name_from_bytes(cls, data: bytearray):
         # // parse the def name out of the bytes array sent with /d_recv
         stream = io.BytesIO(data)
         stream.read(4)  # getInt32 // SCgf
@@ -361,6 +362,16 @@ class SynthDesc():
         ugens = self.sdef._children
         outs = [x for x in ugens if x.wirtes_to_bus()]  # *** BUG: interfaz/protocolo, IMPLEMENTAR.
         return [{'rate': x.rate, 'num_channels': x._num_audio_channels()} for x in outs]
+
+    def __str__(self):  # Was printOn.
+        string = f"SynthDesc '{self.name}':"
+        for control in self.controls:
+            string += f'\n  K {repr(control)}'
+        for input in self.inputs:
+            string += f'\n  I {repr(input)}'
+        for output in self.outputs:
+            string += f'\n  O {repr(output)}'
+        return string
 
 
 class MetaSynthDescLib(type):

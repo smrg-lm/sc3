@@ -103,13 +103,13 @@ class DUGen(ugn.UGen):
 
 class Dseries(DUGen):
     @classmethod
-    def dr(cls, start=1, step=1, length=bi.inf):
+    def dr(cls, start=1, step=1, length=float('inf')):
         return cls._multi_new('demand', length, start, step)
 
 
 class Dgeom(DUGen):
     @classmethod
-    def dr(cls, start=1, grow=1, length=bi.inf):
+    def dr(cls, start=1, grow=1, length=float('inf')):
         return cls._multi_new('demand', length, start, grow)
 
 
@@ -171,7 +171,7 @@ class Dswitch(Dswitch1):
 
 class Dwhite(DUGen):
     @classmethod
-    def dr(cls, lo=0.0, hi=1.0, length=bi.inf):
+    def dr(cls, lo=0.0, hi=1.0, length=float('inf')):
         return cls._multi_new('demand', length, lo, hi)
 
 
@@ -181,7 +181,7 @@ class Diwhite(Dwhite):
 
 class Dbrown(DUGen):
     @classmethod
-    def dr(cls, lo=0.0, hi=1.0, step=0.01, length=bi.inf):
+    def dr(cls, lo=0.0, hi=1.0, step=0.01, length=float('inf')):
         return cls._multi_new('demand', length, lo, hi, step)
 
 
@@ -247,7 +247,7 @@ class Dunique(ugn.PseudoUGen):
             # // Here we can simply loop.
             self._writer = Dbufwr.new(
                 source, self._buffer,
-                Dseq.new([Dseries.new(0, 1, max_buffer_size)], bi.inf), 0)
+                Dseq.new([Dseries.new(0, 1, max_buffer_size)], float('inf')), 0)
 
     def _as_ugen_input(self, *_):
         # // We call the writer from each reader.
@@ -255,12 +255,12 @@ class Dunique(ugn.PseudoUGen):
         if self._protected:
             ird = bio.LocalBuf.new(1)
             ird.clear()
-            index = Dbufwr.new(Dseries.new(0, 1, bi.inf), ird)
+            index = Dbufwr.new(Dseries.new(0, 1, float('inf')), ird)
             overrun = (Dbufrd.new(self._iwr) - Dbufrd.new(ird)) >\
                       self._buffer.num_frames
             # // Catch buffer overrun by switching to a zero length series.
             brd = Dswitch1.new([brd, Dseries.new(length=0)], overrun)
         else:
             index = Dseq.new(
-                [Dseries.new(0, 1, self._buffer.num_frames)], bi.inf)
+                [Dseries.new(0, 1, self._buffer.num_frames)], float('inf'))
         return Dbufrd.new(brd, index, 1)

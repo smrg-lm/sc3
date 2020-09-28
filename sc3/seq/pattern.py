@@ -199,7 +199,7 @@ def pattern(gfunc):
     Decorator to create value patterns from generator functions.
 
     @pattern
-    def pwhite(lo=0.0, hi=1.0, length=bi.inf):
+    def pwhite(lo=0.0, hi=1.0, length=float('inf')):
         lo = stream(lo)
         hi = stream(hi)
         loval = hival = None

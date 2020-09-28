@@ -29,7 +29,6 @@ log1 = math.log(0.1)
 rlog2 = 1. / math.log(2.)
 sqrt2 = math.sqrt(2.)
 rsqrt2 = 1. / sqrt2
-inf = math.inf
 
 
 # There is a thing, some operators are unary or binary with argument, some are
@@ -246,17 +245,17 @@ def zapgremlins(x):
 
 @scbuiltin.unop
 def log2(x):
-    if x == 0: return -inf
+    if x == 0: return float('-inf')
     return math.log2(x)
 
 @scbuiltin.unop
 def log10(x):
-    if x == 0: return -inf
+    if x == 0: return float('-inf')
     return math.log10(x)
 
 @scbuiltin.unop
 def log(x):  #, base=math.e):
-    if x == 0: return -inf
+    if x == 0: return float('-inf')
     return math.log(x)
 
 @scbuiltin.unop

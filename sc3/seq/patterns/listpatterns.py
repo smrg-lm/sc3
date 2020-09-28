@@ -271,7 +271,7 @@ class Pwalk(ListPattern):
     # // random walk pattern - hjh - jamshark70@gmail.com
     def __init__(self, lst, steps=None, directions=1, start=0):
         super().__init__(lst)
-        self.steps = steps or Prand([-1, 1], bi.inf)
+        self.steps = steps or Prand([-1, 1], float('inf'))
         self.directions = 1 if directions is None else directions
         self.start = start
 

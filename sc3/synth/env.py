@@ -157,18 +157,18 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
             raise Exception('circle can only be used within graph functions')
         first_0_then_1 = xxx.Latch.kr(1.0, xxx.Impulse.kr(0.0))  # BUG: not defined
         if self.release_node is None:
-            self.levels = [0.0] + self.levels + [0.0]
-            self.curves = ult.wrap_extend(utl.as_list(self.curves),
-                                          len(self.times))
-            self.curves = [last_curve] + self.curves + ['lin']
-            self.times = [first_0_then_1 * last_time] + self.times + [bi.inf]
+            self.levels = [0.0, *self.levels, 0.0]
+            self.curves = ult.wrap_extend(
+                utl.as_list(self.curves), len(self.times))
+            self.curves = [last_curve, *self.curves, 'lin']
+            self.times = [first_0_then_1 * last_time, *self.times, float('inf')]
             self.release_node = len(self.levels) - 2
         else:
-            self.levels = [0.0] + self.levels
-            self.curves = ult.wrap_extend(utl.as_list(self.curves),
-                                          len(self.times))
-            self.curves = [last_curve] + self.curves
-            self.times = [first_0_then_1 * last_time] + self.times
+            self.levels = [0.0, *self.levels]
+            self.curves = ult.wrap_extend(
+                utl.as_list(self.curves), len(self.times))
+            self.curves = [last_curve, *self.curves]
+            self.times = [first_0_then_1 * last_time, *self.times]
             self.release_node += 1
         self.loop_node = 0
         return self

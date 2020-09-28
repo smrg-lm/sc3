@@ -323,14 +323,14 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
             # See note in TempoClock sched.
             seconds = _libsc3.main.current_tt._seconds
             seconds += delta
-            if seconds == bi.inf:
+            if seconds == float('inf'):
                 return
             ClockTask(seconds, cls, item, _libsc3.main._clock_scheduler)
         else:
             with cls._sched_cond:
                 seconds = _libsc3.main.current_tt._seconds
                 seconds += delta
-                if seconds == bi.inf:
+                if seconds == float('inf'):
                     return
                 cls._sched_add(seconds, item)
 
@@ -339,7 +339,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
         item._clock = cls
-        if time == bi.inf:
+        if time == float('inf'):
             return
         if cls.mode == _libsc3.main.NRT_MODE:
             ClockTask(time, cls, item, _libsc3.main._clock_scheduler)
@@ -396,7 +396,7 @@ class Scheduler():
         item._clock = self._clock
         if delta is None:
             delta = 0.0
-        if delta == bi.inf:
+        if delta == float('inf'):
             return
         self._sched_add(delta, item)
 
@@ -404,7 +404,7 @@ class Scheduler():
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
         item._clock = self._clock
-        if time == bi.inf:
+        if time == float('inf'):
             return
         self.queue.add(time, item)
 
@@ -510,7 +510,7 @@ class AppClock(Clock, metaclass=MetaAppClock):
             if not hasattr(item, '__awake__'):
                 item = fn.Function(item)
             item._clock = self
-            if delta == bi.inf:
+            if delta == float('inf'):
                 return
             ClockTask(delta, cls, item, _libsc3.main._clock_scheduler)
         else:
@@ -996,13 +996,13 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # within the _run loop.
         if self.mode == _libsc3.main.NRT_MODE:
             beats = self._calc_sched_beats(delta)
-            if beats == bi.inf:
+            if beats == float('inf'):
                 return
             self._sched_add_nrt(beats, item)
         else:
             with self._sched_cond:
                 beats = self._calc_sched_beats(delta)
-                if beats == bi.inf:
+                if beats == float('inf'):
                     return
                 self._sched_add(beats, item)
 
@@ -1013,7 +1013,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
         item._clock = self
-        if beat == bi.inf:
+        if beat == float('inf'):
             return
         if self.mode == _libsc3.main.NRT_MODE:
             self._sched_add_nrt(beat, item)

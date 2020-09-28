@@ -198,7 +198,7 @@ class ControlSpec():
         self._default = minval if default is None else default
         self._units = '' if units is None else units
         self._range = maxval - minval
-        self._ratio = maxval / minval if minval != 0 else bi.inf
+        self._ratio = maxval / minval if minval != 0 else float('inf')
         self._cliplo = min(minval, maxval)
         self._cliphi = max(minval, maxval)
         self._warp = _as_warp(warp, self)

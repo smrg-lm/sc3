@@ -11,7 +11,7 @@ from .. import pattern as ptt
 
 class Pseries(ptt.Pattern):
     # // Arithmetic series.
-    def __init__(self, start=0.0, step=1.0, length=bi.inf):
+    def __init__(self, start=0.0, step=1.0, length=float('inf')):
         self.start = start
         self.step = step
         self.length = length
@@ -36,7 +36,7 @@ class Pseries(ptt.Pattern):
 
 class Pgeom(ptt.Pattern):
     # // Geometric series.
-    def __init__(self, start=1.0, grow=1.0, length=bi.inf):
+    def __init__(self, start=1.0, grow=1.0, length=float('inf')):
         self.start = start
         self.grow = grow
         self.length = length
@@ -60,7 +60,7 @@ class Pgeom(ptt.Pattern):
 
 
 class Pbrown(ptt.Pattern):
-    def __init__(self, lo=0.0, hi=1.0, step=0.125, length=bi.inf):
+    def __init__(self, lo=0.0, hi=1.0, step=0.125, length=float('inf')):
         self.lo = lo
         self.hi = hi
         self.step = step
@@ -98,7 +98,7 @@ class Pgbrown(Pbrown):
 
 
 class Pwhite(ptt.Pattern):
-    def __init__(self, lo=0.0, hi=1.0, length=bi.inf):
+    def __init__(self, lo=0.0, hi=1.0, length=float('inf')):
         self.lo = lo
         self.hi = hi
         self.length = length
@@ -121,7 +121,7 @@ class Pwhite(ptt.Pattern):
 
 class Pprob(ptt.Pattern):
     def __init__(self, distribution, lo=0.0, hi=1.0,
-                 table_size=None, length=bi.inf):
+                 table_size=None, length=float('inf')):
         self.distribution = distribution
         self.lo = lo
         self.hi = hi

@@ -4,7 +4,6 @@ import logging
 import copy
 
 from ...base import stream as stm
-from ...base import builtins as bi
 from ...base import utils as utl
 from ...base import functions as fn
 from ...base import _taskq as tsq
@@ -22,7 +21,7 @@ _logger = logging.getLogger(__name__)
 
 class Pkey(ptt.Pattern):
     # Access a key from the input event within a Pbind.
-    def __init__(self, key, length=bi.inf):  # Changed: repeats is for lists.
+    def __init__(self, key, length=float('inf')):  # Changed: repeats is for lists.
         self.key = key
         self.length = length
 

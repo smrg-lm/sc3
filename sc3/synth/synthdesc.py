@@ -358,10 +358,12 @@ class SynthDesc():
         num_defs = frw.read_i16(stream)  # Not used.
         return frw.read_pascal_str(stream)
 
-    def output_data(self):
-        ugens = self.sdef._children
-        outs = [x for x in ugens if x.wirtes_to_bus()]  # *** BUG: interfaz/protocolo, IMPLEMENTAR.
-        return [{'rate': x.rate, 'num_channels': x._num_audio_channels()} for x in outs]
+    # def output_data(self):
+    #     ugens = self.sdef._children
+    #     outs = [x for x in ugens if x._writes_to_bus()]
+    #     return [
+    #         {'rate': x.rate, 'num_channels': x._num_audio_channels()}
+    #         for x in outs]
 
     def __str__(self):  # Was printOn.
         string = f"SynthDesc '{self.name}':"

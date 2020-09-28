@@ -270,8 +270,11 @@ class AbstractOut(ugn.UGen):
     def _num_audio_channels(self):  # Type relative SynthDesc interface
         return len(self.inputs) - type(self)._num_fixed_args()
 
-    # def _writes_to_bus(self):  # Omitted by now, note in UGen.
-    #     raise NotImplementedError('subclass responsibility')
+
+    ### SynthDesc interface ###
+
+    # def _writes_to_bus(self):
+    #     return True
 
 
 class Out(AbstractOut):
@@ -291,9 +294,6 @@ class Out(AbstractOut):
     @classmethod
     def _num_fixed_args(cls):
         return 1
-
-    # def _writes_to_bus(self):  # Omitted by now, note in UGen.
-    #     return True
 
 
 class ReplaceOut(Out):
@@ -326,7 +326,10 @@ class LocalOut(AbstractOut):
     def _num_fixed_args(cls):
         return 0
 
-    # def _writes_to_bus(self):  # Omitted by now, note in UGen.
+
+    ### SynthDesc interface ###
+
+    # def _writes_to_bus(self):
     #     return False
 
 
@@ -348,6 +351,3 @@ class XOut(AbstractOut):
     @classmethod
     def _num_fixed_args(cls):
         return 2
-
-    # def _writes_to_bus(self):  # Omitted by now, note in UGen.
-    #     return True

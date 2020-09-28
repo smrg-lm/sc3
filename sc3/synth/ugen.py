@@ -845,20 +845,17 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
 
     ### SynthDesc interface ###
 
-    # def is_control_ugen(cls):  # Use issubclass(cls, AbstractControl).
-    # def is_input_ugen(cls):  # Use issubclass(cls, AbstractIn).
-    # def is_output_ugen(cls):  # Use issubclass(cls, AbstractOut).
-    # BUG: en sclang: no veo el por qué de que estos trés métodos anteriores sean de instancia en Object.
-    # def is_ugen(self):  # Use isinstance(obj, UGen) (not used in sclang).
-    # def _output_index(self): # Is attribute now.
-
-    # BUG: this type of information is of class for ugens but used only through
-    # instances. But not all, e.g. _can_free_synth as used in EnvGen, Line,
-    # etc., that are being omitted by now.
-    # def _writes_to_bus(self):  # NOTE: All AbstractOut except LocalOut write to buses, is used only in SynthDesc.outputData that is used only in Pfx.isolate.
+    # def _writes_to_bus(self):
     #     return False
 
     # def _can_free_synth(self):  # Non core interface, removed.
+    #     return False
+
+    # def is_control_ugen(cls):  # Use issubclass(cls, AbstractControl).
+    # def is_input_ugen(cls):  # Use issubclass(cls, AbstractIn).
+    # def is_output_ugen(cls):  # Use issubclass(cls, AbstractOut).
+    # def is_ugen(self):  # Use isinstance(obj, UGen) (not used in sclang).
+    # def _output_index(self): # Is attribute now.
 
 
     ### UGen graph parameter interface ###

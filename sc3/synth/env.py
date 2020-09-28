@@ -3,10 +3,15 @@
 import copy
 import operator
 
-from . import _graphparam as gpp
 from ..base import main as _libsc3
 from ..base import utils as utl
 from ..base import builtins as bi
+from . import _graphparam as gpp
+from .ugens import trig as trg
+from .ugens import oscillators as ocl
+
+
+__all__ = ['Env']
 
 
 class Env(gpp.UGenParameter, gpp.NodeParameter):
@@ -53,17 +58,17 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
     def xyc(cls, xyc):
         if any(len(i) != 3 for i in xyc):
             raise ValueError('xyc list must contain only sequences of length 3')
-        xyc = xyc[:]  # sclang don't modify the parameter
+        xyc = xyc[:]  # Ensures internal state.
         xyc.sort(key=lambda x: x[0])
         times, levels, curves = utl.flop(xyc)
         offset = times[0]
         times = [b - a for a, b in utl.pairwise(times)]  # differentiate
-        curves.pop(-1)  # BUG: in sclang asArray.drop(-1) is not reasigned.
+        curves.pop(-1)
         return cls(levels, times, curves, offset=offset)
 
     @classmethod
     def pairs(cls, pairs, curves=None):
-        pairs = pairs[:]  # sclang may use a copy
+        pairs = pairs[:]  # Ensures internal state.
         if curves is None:
             for i in range(len(pairs)):
                 pairs[i].append('lin')
@@ -94,9 +99,9 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
     @classmethod
     def linen(cls, attack_time=0.01, sustain_time=1.0, release_time=1.0,
               level=1.0, curve='lin'):
-        return cls([0, level, level, 0],
-                   [attack_time, sustain_time, release_time],
-                   curve)
+        return cls(
+            [0, level, level, 0],
+            [attack_time, sustain_time, release_time], curve)
 
     @classmethod
     def step(cls, levels=None, times=None, release_node=None,
@@ -105,7 +110,7 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
         times = times or [1, 1]
         if len(levels) != len(times):
             raise ValueError('levels and times must have same length')
-        levels = levels[:]  # sclang don't modify the parameter
+        levels = levels[:]  # Ensures internal state.
         levels.insert(0, levels[0])
         return Env(levels, times, 'step', release_node, loop_node, offset)
 
@@ -122,26 +127,25 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
               sustain_level=0.5, release_time=1.0, peak_level=1.0,
               curve=-4.0, bias=0.0):
         return cls(
-            utl.list_binop(operator.add,
-                           [0, 0, peak_level, peak_level * sustain_level, 0],
-                           bias),
-            [delay_time, attack_time, decay_time, release_time],
-            curve, 3)
+            utl.list_binop(
+                operator.add,
+                [0, 0, peak_level, peak_level * sustain_level, 0], bias),
+            [delay_time, attack_time, decay_time, release_time], curve, 3)
 
     @classmethod
     def adsr(cls, attack_time=0.01, decay_time=0.3, sustain_level=0.5,
              release_time=1.0, peak_level=1.0, curve=-4.0, bias=0.0):
         return cls(
-            utl.list_binop(operator.add,
-                           [0, peak_level, peak_level * sustain_level, 0],
-                           bias),
-            [attack_time, decay_time, release_time],
-            curve, 2)
+            utl.list_binop(
+                operator.add,
+                [0, peak_level, peak_level * sustain_level, 0], bias),
+            [attack_time, decay_time, release_time], curve, 2)
 
     @classmethod
     def asr(cls, attack_time=0.01, sustain_level=1.0,
             release_time=1.0, curve=-4.0):
-        return cls([0, sustain_level, 0], [attack_time, release_time], curve, 1)
+        return cls(
+            [0, sustain_level, 0], [attack_time, release_time], curve, 1)
 
     @classmethod
     def cyclic(cls, levels, times, curves='lin'):  # was *circle
@@ -155,13 +159,14 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
         # // Connect releaseNode (or end) to first node of envelope.
         if _libsc3.main._current_synthdef is None:
             raise Exception('circle can only be used within graph functions')
-        first_0_then_1 = xxx.Latch.kr(1.0, xxx.Impulse.kr(0.0))  # BUG: not defined
+        first_0_then_1 = trg.Latch.kr(1.0, ocl.Impulse.kr(0.0))
         if self.release_node is None:
             self.levels = [0.0, *self.levels, 0.0]
             self.curves = ult.wrap_extend(
                 utl.as_list(self.curves), len(self.times))
             self.curves = [last_curve, *self.curves, 'lin']
-            self.times = [first_0_then_1 * last_time, *self.times, float('inf')]
+            self.times = [
+                first_0_then_1 * last_time, *self.times, float('inf')]
             self.release_node = len(self.levels) - 2
         else:
             self.levels = [0.0, *self.levels]
@@ -179,43 +184,46 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
 
     @duration.setter
     def duration(self, value):
-        res = utl.list_binop(operator.mul, self.times, 1 / self.total_duration())
+        res = utl.list_binop(
+            operator.mul, self.times, 1 / self.total_duration())
         self.times = utl.list_binop(operator.mul, res, value)
 
     def total_duration(self):
         duration = utl.list_sum(self.times)
         return utl.list_max(utl.as_list(duration))
 
-    def range(self, lo=0.0, hi=1.0):
-        obj = copy.copy(self)
-        min = utl.list_min(obj.levels)  # BUG: not defined
-        max = utl.list_max(obj.levels)
-        obj.levels = utl.list_narop(bi.linlin, obj.levels, min, max, lo, hi)  # BUG: not defined
-        return obj
-
-    def exprange(self, lo=0.01, hi=1.0):
-        obj = copy.copy(self)
-        min = utl.list_min(obj.levels)  # BUG: not defined
-        max = utl.list_max(obj.levels)
-        obj.levels = utl.list_narop(bi.linexp, obj.levels, min, max, lo, hi)  # BUG: not defined
-        return obj
-
-    def curverange(self, lo=0.0, hi=1.0, curve=-4):
-        obj = copy.copy(self)
-        min = utl.list_min(obj.levels)  # BUG: not defined
-        max = utl.list_max(obj.levels)
-        obj.levels = utl.list_narop(bi.lincurve, obj.levels,  # BUG: not defined
-                                    min, max, lo, hi, curve)
-        return obj
-
+    @property
     def release_time(self):
         if self.release_node is None:
             return 0.0
         else:
             return utl.list_sum(self.times[self.release_node:])
 
-    def sustained(self):  # is_sustained
+    @property
+    def is_sustained(self):
         return self.release_node is not None
+
+    def range(self, lo=0.0, hi=1.0):
+        obj = copy.copy(self)
+        min = utl.list_min(obj.levels)
+        max = utl.list_max(obj.levels)
+        obj.levels = utl.list_narop(bi.linlin, obj.levels, min, max, lo, hi)
+        return obj
+
+    def exprange(self, lo=0.01, hi=1.0):
+        obj = copy.copy(self)
+        min = utl.list_min(obj.levels)
+        max = utl.list_max(obj.levels)
+        obj.levels = utl.list_narop(bi.linexp, obj.levels, min, max, lo, hi)
+        return obj
+
+    def curverange(self, lo=0.0, hi=1.0, curve=-4):
+        obj = copy.copy(self)
+        min = utl.list_min(obj.levels)
+        max = utl.list_max(obj.levels)
+        obj.levels = utl.list_narop(
+            bi.lincurve, obj.levels, min, max, lo, hi, curve)
+        return obj
 
     # TODO
     # asMultichannelSignal
@@ -264,7 +272,7 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
             else:
                 return 0
 
-    def envgen_format(self):  # asMultichannelArray, se usa solo en Env y EnvGen.
+    def envgen_format(self):  # Was asMultichannelArray.
         if self._envgen_format:  # this.array
             return self._envgen_format
 
@@ -313,9 +321,8 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
         contents.append(levels[0])
         contents.append(size)
         contents.append(utl.list_sum(times))
-        # curvesArray = curves.asArray; # BUG: sclang, overrides curvesArray without _as_ugen_input.
 
-        for i in range(size):  # BUG: sclang, uses times.size.do instead of size that is timeArray.size that is times.asUGenInput.
+        for i in range(size):
             contents.append(times[i])
             contents.append(type(self)._shape_number(curves[i % len(curves)]))
             contents.append(type(self)._curve_value(curves[i % len(curves)]))

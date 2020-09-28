@@ -711,13 +711,17 @@ class SynthDef(metaclass=MetaSynthDef):
     # hasGateControl Used in canReleaseSynth.
 
 
-# decorator syntax
+### Decorator syntax ###
+
+def _create_synthdef(graph_func, **kwargs):
+    sdef = SynthDef(graph_func.__name__, graph_func, **kwargs)
+    sdef.add()  # Running servers or offline patterns.
+    sac.ServerBoot.add('all', lambda server: sdef.add())  # Next boot.
+    return sdef
+
 def synthdef(graph_func=None, **kwargs):
     if graph_func is None:
         # action: 'load', 'send', 'store', 'add'? (needs kwargs filtering).
-        return lambda func: SynthDef(func.__name__, func, **kwargs)
+        return lambda graph_func: _create_synthdef(graph_func, **kwargs)
     else:
-        sdef = SynthDef(graph_func.__name__, graph_func)
-        sdef.add()  # Running servers or offline patterns.
-        sac.ServerBoot.add('all', lambda server: sdef.add())  # Next boot.
-        return sdef
+        return _create_synthdef(graph_func)

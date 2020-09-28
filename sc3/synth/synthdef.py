@@ -516,7 +516,7 @@ class SynthDef(metaclass=MetaSynthDef):
         return self._bytes
 
     def _write_def_file(self, dir, overwrite=True, md_plugin=None):
-        if not self.metadata.get('shouldNotSend', False):
+        if not self.metadata.get('reconstructed', False):
             dir = dir or plf.Platform.synthdef_dir
             dir = pathlib.Path(dir)
             path = dir / f'{self._name}.{self._SUFFIX}'
@@ -643,7 +643,7 @@ class SynthDef(metaclass=MetaSynthDef):
                 _logger.warning(
                     f"Server '{server.name}' not running, "  # *** BUG in sclang: prints server.name instead of each.name
                     "could not send SynthDef")
-            if self.metadata.get('shouldNotSend', False):
+            if self.metadata.get('reconstructed', False):
                 self._load_reconstructed(
                     server, fn.value(completion_msg, server))
             else:
@@ -669,7 +669,7 @@ class SynthDef(metaclass=MetaSynthDef):
         # // Send to server and write file.
         server = server or srv.Server.default
         completion_msg = fn.value(completion_msg, server)
-        if self.metadata.get('shouldNotSend', False):
+        if self.metadata.get('reconstructed', False):
             self._load_reconstructed(server, completion_msg)
         else:
             # // Should remember what dir synthDef was written to.
@@ -687,7 +687,7 @@ class SynthDef(metaclass=MetaSynthDef):
         dir = dir or plf.Platform.synthdef_dir
         dir = pathlib.Path(dir)
         path = dir / f'{self._name}.{self._SUFFIX}'
-        if not self.metadata.get('shouldNotSend', False):
+        if not self.metadata.get('reconstructed', False):
             with open(path, 'wb') as file:
                 self.write_def_list([self], file)
             desc = sdc.SynthDesc.new_from(self)

@@ -50,7 +50,6 @@ class MdPlugin():
             metadata = synthdef.metadata.copy()
             for key in self.codec:
                 if key in metadata:
-                    print('*** metadata[key]', metadata[key])
                     metadata[key] = self.codec[key].encoder(metadata[key])
             with open(path, 'w') as file:
                 json.dump(metadata, file)
@@ -101,7 +100,7 @@ class SynthDesc():
     _RATE_NAME = ('scalar', 'control', 'audio', 'demand')  # Used by index.
 
     md_plugin = MdPlugin()  # TODO: // override in your startup file.
-    populate_metadata_func = lambda *args: None
+    populate_metadata_func = lambda desc: None
 
     def __init__(self):
         self.name = None
@@ -160,15 +159,16 @@ class SynthDesc():
                 desc._read_synthdef(stream, keep_defs)
             ret.append(desc)
             if path:
-                path = path.parent / f'{path.stem}.{type(cls.md_plugin).SUFFIX}'
-                desc.metadata = cls.md_plugin.read_file(path)
+                desc.metadata = cls.md_plugin.read_file(
+                    path.parent / f'{path.stem}.{type(cls.md_plugin).SUFFIX}')
             cls.populate_metadata_func(desc)
             in_memory_stream = isinstance(stream, io.BytesIO)
             if desc.sdef is not None and not in_memory_stream:
-                if desc.sdef.metadata is None:
-                    desc.sdef.metadata = dict()
-                desc.sdef.metadata['shouldNotSend'] = True  # BUG: camelCase
-                desc.sdef.metadata['load_path'] = str(path)
+                if desc.metadata is None:
+                    desc.metadata = dict()
+                desc.metadata['reconstructed'] = True  # Was 'shouldNotSend'.
+                desc.metadata['load_path'] = str(path)
+                desc.sdef.metadata = desc.metadata
         return ret
 
     def _read_synthdef(self, stream, keep_def=False):  # TODO
@@ -439,15 +439,11 @@ class SynthDescLib(metaclass=MetaSynthDescLib):
 
         return self.synth_descs[name] # BUG: tira KeyError, en sclang nil para la variable ~synthDesc puede significar otra cosa. La usa solo en PmonoStream.prInit al parecer.
 
-    # @classmethod
-    # def send(cls, server=None, try_reconstructed=True): # BUG: este método se usa en la inicialización de esta clase con ServerBoot.add, la variante de instancia no comprueba si el servidor está corriendo.
-    #     if server._status_watcher.has_booted: cls.default.send(server, try_reconstructed)
     def send(self, server=None, try_reconstructed=True):
         server_list = utl.as_list(server) or self.servers
         for s in server_list:
             for desc in self.synth_descs.values():
-                if 'shouldNotSend' in desc.sdef.metadata\
-                and not desc.sdef.metadata['shouldNotSend']:  # BUG: camelCase
+                if not desc.sdef.metadata.get('reconstructed', False):
                     desc.send(s)
                 elif try_reconstructed:
                     desc.sdef._load_reconstructed(s)

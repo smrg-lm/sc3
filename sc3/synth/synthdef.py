@@ -54,11 +54,12 @@ class SynthDef(metaclass=MetaSynthDef):
     def dummy(cls, name):
         obj = cls.__new__(cls)
 
-        obj.name = name
-        obj.func = None
-        obj.variants = dict()
+        obj._name = name
+        obj._func = None
+        obj._variants = dict()
         obj.metadata = dict()
         obj.desc = None
+        obj._bytes = None
 
         obj._controls = None
         obj._control_names = []
@@ -78,11 +79,12 @@ class SynthDef(metaclass=MetaSynthDef):
 
     def __init__(self, name, graph_func, rates=None,
                  prepend_args=None, variants=None, metadata=None):
-        self.name = name
-        self.func = None
-        self.variants = variants or dict()
+        self._name = name
+        self._func = None
+        self._variants = variants or dict()
         self.metadata = metadata or dict()
         self.desc = None
+        self._bytes = None
 
         # self._controls = None  # init_build, is set by ugens using _libsc3.main._current_synthdef
         self._control_names = []
@@ -108,11 +110,23 @@ class SynthDef(metaclass=MetaSynthDef):
                 self._init_build()
                 self._build_ugen_graph(graph_func, rates, prepend_args)
                 self._finish_build()
-                self.func = graph_func
+                self._func = graph_func
                 _libsc3.main._current_synthdef = None
             except Exception:
                 _libsc3.main._current_synthdef = None
                 raise
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def func(self):
+        return self._func
+
+    @property
+    def variants(self):
+        return self._variants
 
     @classmethod
     def wrap(cls, func, rates=None, prepend_args=None):
@@ -454,7 +468,7 @@ class SynthDef(metaclass=MetaSynthDef):
             self._constants[value] = len(self._constants)
 
     def dump_ugens(self):
-        print(self.name)
+        print(self._name)
         for ugen in self._children:
             inputs = None
             if ugen.inputs is not None:
@@ -484,7 +498,7 @@ class SynthDef(metaclass=MetaSynthDef):
         else:
             if server.is_local:
                 _logger.warning(
-                    f'SynthDef {self.name} too big for sending. '
+                    f'SynthDef {self._name} too big for sending. '
                     'Retrying via synthdef file')
                 self._write_def_file(plf.Platform.tmp_dir)
                 server.send_msg(
@@ -492,12 +506,14 @@ class SynthDef(metaclass=MetaSynthDef):
                     str(plf.Platform.tmp_dir / f'{self._name}.{self._SUFFIX}'),
                     completion_msg)
             else:
-                _logger.warning(f'SynthDef {self.name} too big for sending')
+                _logger.warning(f'SynthDef {self._name} too big for sending')
 
     def as_bytes(self):
-        stream = io.BytesIO()
-        self.write_def_list([self], stream)
-        return stream.getbuffer()
+        if self._bytes is None:
+            stream = io.BytesIO()
+            self.write_def_list([self], stream)
+            self._bytes = stream.getbuffer()
+        return self._bytes
 
     def _write_def_file(self, dir, overwrite=True, md_plugin=None):
         if not self.metadata.get('shouldNotSend', False):
@@ -524,7 +540,7 @@ class SynthDef(metaclass=MetaSynthDef):
 
     def write_def(self, file):
         try:
-            frw.write_pascal_str(file, self.name)
+            frw.write_pascal_str(file, self._name)
             self._write_constants(file)
 
             # // Controls have been added by the Control UGens.
@@ -553,14 +569,14 @@ class SynthDef(metaclass=MetaSynthDef):
             for item in self._children:
                 item._write_def(file)
 
-            frw.write_i16(file, len(self.variants))
-            if len(self.variants) > 0:
+            frw.write_i16(file, len(self._variants))
+            if len(self._variants) > 0:
                 allcns_map = dict()
                 for cn in allcns_tmp:
                     allcns_map[cn.name] = cn
 
-                for varname, pairs in self.variants.items():
-                    varname = self.name + '.' + varname
+                for varname, pairs in self._variants.items():
+                    varname = self._name + '.' + varname
                     if len(varname) > 32:
                         _logger.warning(
                             f"variant '{varname}' name too log, "
@@ -638,7 +654,7 @@ class SynthDef(metaclass=MetaSynthDef):
         # // loading existing def from disk is a viable
         # // alternative to get the synthdef to the server.
         _logger.warning(
-            f"SynthDef '{self.name}' was reconstructed from a "
+            f"SynthDef '{self._name}' was reconstructed from a "
             f"{self._SUFFIX} file, it does not contain all the "
             "required structure to send back to the server")
         if server.is_local:

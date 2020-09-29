@@ -19,111 +19,10 @@ __all__ = ['OSCFunc']
 _logger = logging.getLogger(__name__)
 
 
-class AbstractResponderFunc(ABC):
-    # _all_func_proxies is set()
-
-    def __init__(self):
-        # tienen solo getter
-        self._func = None # @property, no inicializa
-        self.src_id = None # no inicializa
-        self.enabled = False
-        self.dispatcher = None # no inicializa
-        self._permanent = False # @property
-
-    def enable(self):
-        if not self.enabled:
-            if not self.permanent:
-                sac.CmdPeriod.add(self.__on_cmd_period)
-            self.dispatcher.add(self)
-            self.enabled = True
-            type(self)._all_func_proxies.add(self)
-
-    def disable(self):
-        if not self.permanent:
-            sac.CmdPeriod.remove(self.__on_cmd_period)
-        self.dispatcher.remove(self)
-        self.enabled = False
-
-    @property
-    def func(self):
-        return self._func
-
-    @func.setter
-    def func(self, value):  # prFunc_
-        self._func = value
-        mdl.NotificationCenter.notify(self, 'function')
-
-    def __on_cmd_period(self):  # Avoid clash.
-        self.free()
-
-    def one_shot(self):
-        wrapped_func = self._func  # *** BUG: nombre, esta función no es la que se pasa a OSCFunc? no tendría wrapper?
-
-        def one_shot_func(*args):
-            self.free()
-            wrapped_func(*args)
-
-        self.func = one_shot_func
-
-    @property
-    def permanent(self):
-        return self._permanent
-
-    @permanent.setter
-    def permanent(self, value):
-        self._permanent = value
-        if value and self.enabled:
-            sac.CmdPeriod.remove(self.__on_cmd_period)
-        else:
-            sac.CmdPeriod.add(self.__on_cmd_period)
-
-    # def fix(self): # NOTE: usar oscfunc.permanent = True
-    #     self.permanent = True
-
-    def free(self):  # *** BUG: ver si además no hereda add/remove, parece funcionar con OSCFunc en sclang.
-        cls = type(self)
-        if self in cls._all_func_proxies: # NOTE: check agregado para poder llamar a free repetidamente sin que tire KeyError, la otra es comprobar que el responder exista en _all_func_proxies, no sé cuál sería mejor, esta es consistente con que se puede agregar varias veces el mismo sin duplicar (por set)
-            cls._all_func_proxies.remove(self)
-        if self.enabled: # BUG en sclang, esta comprobación faltaba para que no llame duplicado las funciones de disable
-            self.disable()
-
-    def clear(self):
-        self.func = None
-
-    @classmethod
-    def all_func_proxies(cls):
-        result = dict()
-        for func_proxy in cls._all_func_proxies:
-            key = func_proxy.dispatcher.type_key()
-            try:
-                result[key].append(func_proxy)
-            except KeyError:
-                result[key] = [func_proxy]
-        return result
-
-    @classmethod
-    def all_enabled(cls):
-        result = dict()
-        enabled_proxies = [x for x in cls._all_func_proxies if x.enabled]
-        for func_proxy in enabled_proxies:
-            key = func_proxy.dispatcher.type_key()
-            try:
-                result[key].append(func_proxy)
-            except KeyError:
-                result[key] = [func_proxy]
-        return result
-
-    @classmethod
-    def all_disabled(cls):
-        result = dict()
-        disabled_proxies = [x for x in cls._all_func_proxies if not x.enabled]
-        for func_proxy in disabled_proxies:
-            key = func_proxy.dispatcher.type_key()
-            try:
-                result[key].append(func_proxy)
-            except KeyError:
-                result[key] = [func_proxy]
-        return result
+class AbstractMessageMatcher(ABC):
+    @abstractmethod
+    def __call__(self):
+        pass
 
 
 class AbstractDispatcher(ABC):
@@ -226,18 +125,168 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
         super().free()
 
 
-# // The default dispatchers below store by the 'most significant'
-# // message argument for fast lookup. These are for use when more
-# // than just the 'most significant' argument needs to be matched.
+class AbstractResponderFunc(ABC):
+    # _all_func_proxies is set()
 
-class AbstractMessageMatcher(ABC):
-    @abstractmethod
-    def __call__(self):
-        pass
+    def __init__(self):
+        # tienen solo getter
+        self._func = None  # no inicializa
+        self._permanent = False
+        self.src_id = None  # no inicializa
+        self.enabled = False
+        self.dispatcher = None  # no inicializa
+
+    @property
+    def func(self):
+        return self._func
+
+    @func.setter
+    def func(self, value):  # prFunc_
+        self._func = value
+        mdl.NotificationCenter.notify(self, 'function')
+
+    @property
+    def permanent(self):
+        return self._permanent
+
+    @permanent.setter
+    def permanent(self, value):
+        self._permanent = value
+        if value and self.enabled:
+            sac.CmdPeriod.remove(self.__on_cmd_period)
+        else:
+            sac.CmdPeriod.add(self.__on_cmd_period)
+
+    def enable(self):
+        if not self.enabled:
+            if not self.permanent:
+                sac.CmdPeriod.add(self.__on_cmd_period)
+            self.dispatcher.add(self)
+            self.enabled = True
+            type(self)._all_func_proxies.add(self)
+
+    def disable(self):
+        if not self.permanent:
+            sac.CmdPeriod.remove(self.__on_cmd_period)
+        self.dispatcher.remove(self)
+        self.enabled = False
+
+    def __on_cmd_period(self):  # Avoid clash.
+        self.free()
+
+    def one_shot(self):
+        wrapped_func = self._func  # *** BUG: nombre, esta función no es la que se pasa a OSCFunc? no tendría wrapper?
+
+        def one_shot_func(*args):
+            self.free()
+            wrapped_func(*args)
+
+        self.func = one_shot_func
+
+    # def fix(self): # NOTE: usar oscfunc.permanent = True
+    #     self.permanent = True
+
+    def free(self):  # *** BUG: ver si además no hereda add/remove, parece funcionar con OSCFunc en sclang.
+        cls = type(self)
+        if self in cls._all_func_proxies: # NOTE: check agregado para poder llamar a free repetidamente sin que tire KeyError, la otra es comprobar que el responder exista en _all_func_proxies, no sé cuál sería mejor, esta es consistente con que se puede agregar varias veces el mismo sin duplicar (por set)
+            cls._all_func_proxies.remove(self)
+        if self.enabled: # BUG en sclang, esta comprobación faltaba para que no llame duplicado las funciones de disable
+            self.disable()
+
+    def clear(self):
+        self.func = None
+
+    @classmethod
+    def all_func_proxies(cls):
+        result = dict()
+        for func_proxy in cls._all_func_proxies:
+            key = func_proxy.dispatcher.type_key()
+            try:
+                result[key].append(func_proxy)
+            except KeyError:
+                result[key] = [func_proxy]
+        return result
+
+    @classmethod
+    def all_enabled(cls):
+        result = dict()
+        enabled_proxies = [x for x in cls._all_func_proxies if x.enabled]
+        for func_proxy in enabled_proxies:
+            key = func_proxy.dispatcher.type_key()
+            try:
+                result[key].append(func_proxy)
+            except KeyError:
+                result[key] = [func_proxy]
+        return result
+
+    @classmethod
+    def all_disabled(cls):
+        result = dict()
+        disabled_proxies = [x for x in cls._all_func_proxies if not x.enabled]
+        for func_proxy in disabled_proxies:
+            key = func_proxy.dispatcher.type_key()
+            try:
+                result[key].append(func_proxy)
+            except KeyError:
+                result[key] = [func_proxy]
+        return result
 
 
 ### OSC ###
 
+
+class OSCFuncAddrMessageMatcher(AbstractMessageMatcher):
+    # // If you need to test for address func gets wrapped in this.
+    def __init__(self, addr, func):
+        self.addr = addr
+        self.func = func
+
+    def __call__(self, msg, time, addr, recv_port):
+        if self.addr.addr == addr.addr\
+        and (self.addr.port is None or self.addr.port == addr.port):  # was matchItem
+            fn.value(self.func, msg, time, addr, recv_port)
+
+
+class OSCFuncRecvPortMessageMatcher(AbstractMessageMatcher):
+    # // If you need to test for recvPort func gets wrapped in this.
+    def __init__(self, recv_port, func):
+        self.recv_port = recv_port
+        self.func = func
+
+    def __call__(self, msg, time, addr, recv_port):
+        if self.recv_port == recv_port:
+            fn.value(self.func, msg, time, addr, recv_port)
+
+
+class OSCFuncBothMessageMatcher(AbstractMessageMatcher):
+    def __init__(self, addr, recv_port, func):
+        self.addr = addr
+        self.recv_port = recv_port
+        self.func = func
+
+    def __call__(self, msg, time, addr, recv_port):
+        if  self.addr.addr == addr.addr\
+        and (self.addr.port is None or self.addr.port == addr.port)\
+        and self.recv_port == recv_port:
+            fn.value(self.func, msg, time, addr, recv_port)
+
+
+class OSCArgsMatcher(AbstractMessageMatcher):
+    def __init__(self, arg_template, func):
+        self.arg_template = utl.as_list(arg_template)
+        self.func = func
+
+    def __call__(self, msg, time, addr, recv_port):
+        args = msg[1:]
+        for i, item in enumerate(self.arg_template):
+            if item is not None and item != args[i]:  # was matchItem.not
+                return
+        fn.value(self.func, msg, time, addr, recv_port)
+
+
+# // The default dispatchers below store by the 'most significant'
+# // message argument for fast lookup. These are for use when more
+# // than just the 'most significant' argument needs to be matched.
 
 class OSCMessageDispatcher(AbstractWrappingDispatcher):
     def __init__(self):
@@ -341,9 +390,9 @@ class OSCFunc(AbstractResponderFunc):
     @classmethod
     def matching(cls, func, path, src_id=None,
                  recv_port=None, arg_template=None):
-        obj = cls(func, path, src_id, recv_port, arg_template,
-                  cls.default_matching_dispatcher)
-        return obj
+        return cls(
+            func, path, src_id, recv_port, arg_template,
+            cls.default_matching_dispatcher)
 
     @classmethod
     def __on_cmd_period(cls):  # Avoid clash.
@@ -365,62 +414,14 @@ class OSCFunc(AbstractResponderFunc):
             cls._trace_running = False
 
     def __repr__(self):
-        return (f'{type(self).__name__}({self.path}, {self.src_id}, '
-                f'{self.recv_port}, {self.arg_template})')
+        return (
+            f'{type(self).__name__}({self.path}, {self.src_id}, '
+            f'{self.recv_port}, {self.arg_template})')
 
 
 # class OSCDef(OSCFunc):
 
 
-# // if you need to test for address func gets wrapped in this
-class OSCFuncAddrMessageMatcher(AbstractMessageMatcher):
-    def __init__(self, addr, func):
-        self.addr = addr
-        self.func = func
-
-    def __call__(self, msg, time, addr, recv_port):
-        if self.addr.addr == addr.addr\
-        and (self.addr.port is None or self.addr.port == addr.port):  # was matchItem
-            fn.value(self.func, msg, time, addr, recv_port)
-
-
-# // if you need to test for recvPort func gets wrapped in this
-class OSCFuncRecvPortMessageMatcher(AbstractMessageMatcher):
-    def __init__(self, recv_port, func):
-        self.recv_port = recv_port
-        self.func = func
-
-    def __call__(self, msg, time, addr, recv_port):
-        if self.recv_port == recv_port:
-            fn.value(self.func, msg, time, addr, recv_port)
-
-
-class OSCFuncBothMessageMatcher(AbstractMessageMatcher):
-    def __init__(self, addr, recv_port, func):
-        self.addr = addr
-        self.recv_port = recv_port
-        self.func = func
-
-    def __call__(self, msg, time, addr, recv_port):
-        if  self.addr.addr == addr.addr\
-        and (self.addr.port is None or self.addr.port == addr.port)\
-        and self.recv_port == recv_port:
-            fn.value(self.func, msg, time, addr, recv_port)
-
-
-class OSCArgsMatcher(AbstractMessageMatcher):
-    def __init__(self, arg_template, func):
-        super().__init__() # lo llamo por convención pero lo único que hace es setear func = None
-        self.arg_template = utl.as_list(arg_template)
-        self.func = func
-
-    def __call__(self, msg, time, addr, recv_port):
-        args = msg[1:]
-        for i, item in enumerate(self.arg_template):
-            if item is not None and item != args[i]:  # was matchItem.not
-                return
-        fn.value(self.func, msg, time, addr, recv_port)
-
 ### MIDI ###
 
-# sigue...
+# TODO...

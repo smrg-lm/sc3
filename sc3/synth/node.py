@@ -203,7 +203,7 @@ class Node(gpp.NodeParameter):
         rdf.OSCFunc(
             lambda msg, *_: action(*msg),
             '/n_info', self.server.addr,
-            None, self.node_id).one_shot()
+            arg_template=[self.node_id]).one_shot()
         self.server.send_msg('/n_query', self.node_id)
 
     def register(self, playing=True, running=True):

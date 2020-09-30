@@ -96,6 +96,9 @@ class Process(type):
             cls._atexitq.pop()[1]()
         atexit.unregister(cls.shutdown)
 
+    def open_udp_port(cls, port):
+        raise NotImplementedError('multiple UDP ports are not implemented')
+
     def add_osc_recv_func(cls, func):
         cls._osc_interface.add_recv_func(func)
 

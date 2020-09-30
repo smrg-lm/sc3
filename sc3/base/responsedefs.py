@@ -26,9 +26,7 @@ class AbstractMessageMatcher(ABC):
 
 
 class AbstractDispatcher(ABC):
-    '''Defines the required interface.'''
-
-    all = set()
+    all = set()  # TODO: Not really used, needs a metaclass.
 
     def __init__(self):
         self.registered = False
@@ -75,7 +73,7 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
 
     def __init__(self):
         super().__init__()
-        self.active = dict() # NOTE: tal vez sea mejor hacerlas privadas
+        self.active = dict()
         self.wrapped_funcs = dict()
 
     def add(self, func_proxy):
@@ -112,11 +110,11 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
             self.active[key][i] = func
 
     @abstractmethod
-    def wrap_func(self, func_proxy): # TODO: este método pude ser privado, ver documentación
+    def wrap_func(self, func_proxy):
         pass
 
     @abstractmethod
-    def get_keys_for_func_proxy(self, func_proxy): # TODO: este método pude ser privado, ver documentación
+    def get_keys_for_func_proxy(self, func_proxy):
         pass
 
     def free(self):
@@ -129,12 +127,11 @@ class AbstractResponderFunc(ABC):
     # _all_func_proxies is set()
 
     def __init__(self):
-        # tienen solo getter
-        self._func = None  # no inicializa
+        self._func = None
         self._permanent = False
-        self.src_id = None  # no inicializa
+        self.src_id = None
         self.enabled = False
-        self.dispatcher = None  # no inicializa
+        self.dispatcher = None
 
     @property
     def func(self):
@@ -175,7 +172,7 @@ class AbstractResponderFunc(ABC):
         self.free()
 
     def one_shot(self):
-        wrapped_func = self._func  # *** BUG: nombre, esta función no es la que se pasa a OSCFunc? no tendría wrapper?
+        wrapped_func = self._func
 
         def one_shot_func(*args):
             self.free()
@@ -183,14 +180,14 @@ class AbstractResponderFunc(ABC):
 
         self.func = one_shot_func
 
-    # def fix(self): # NOTE: usar oscfunc.permanent = True
+    # def fix(self):  # Use oscfunc.permanent = True.
     #     self.permanent = True
 
-    def free(self):  # *** BUG: ver si además no hereda add/remove, parece funcionar con OSCFunc en sclang.
+    def free(self):
         cls = type(self)
-        if self in cls._all_func_proxies: # NOTE: check agregado para poder llamar a free repetidamente sin que tire KeyError, la otra es comprobar que el responder exista en _all_func_proxies, no sé cuál sería mejor, esta es consistente con que se puede agregar varias veces el mismo sin duplicar (por set)
+        if self in cls._all_func_proxies:
             cls._all_func_proxies.remove(self)
-        if self.enabled: # BUG en sclang, esta comprobación faltaba para que no llame duplicado las funciones de disable
+        if self.enabled:
             self.disable()
 
     def clear(self):
@@ -289,9 +286,6 @@ class OSCArgsMatcher(AbstractMessageMatcher):
 # // than just the 'most significant' argument needs to be matched.
 
 class OSCMessageDispatcher(AbstractWrappingDispatcher):
-    def __init__(self):
-        super().__init__()
-
     def wrap_func(self, func_proxy):
         func = func_proxy.func
         src_id = func_proxy.src_id
@@ -312,12 +306,9 @@ class OSCMessageDispatcher(AbstractWrappingDispatcher):
         return [func_proxy.path]
 
     def __call__(self, msg, time, addr, recv_port):
-        try:
+        if msg[0] in self.active:
             for func in self.active[msg[0]]:
                 fn.value(func, msg, time, addr, recv_port)
-        except KeyError:
-            if len(inspect.trace()) > 1: # *** BUG: (CAMBIADO) sigue solo si la excepción es del frame actual, este patrón se repite en Routine y Clock
-                raise
 
     def register(self):
         _libsc3.main.add_osc_recv_func(self) # thisProcess.addOSCRecvFunc(this)
@@ -332,9 +323,6 @@ class OSCMessageDispatcher(AbstractWrappingDispatcher):
 
 
 class OSCMessagePatternDispatcher(OSCMessageDispatcher):
-    def __init__(self):
-        super().__init__()
-
     def __call__(self, msg, time, addr, recv_port):
         pattern = msg[0]
         for key, funcs in self.active.items():
@@ -370,7 +358,7 @@ class OSCFunc(AbstractResponderFunc):
     _trace_func = _trace_func_show_status
     _trace_running = False
 
-    def __init__(self, func, path, src_id=None, recv_port=None,
+    def __init__(self, func, path, src_id=None, *, recv_port=None,
                  arg_template=None, dispatcher=None):
         super().__init__()
         if path[0] != '/':
@@ -378,14 +366,18 @@ class OSCFunc(AbstractResponderFunc):
         self.path = path
         self.src_id = src_id
         self.recv_port = recv_port
-        if recv_port is not None\
-        and _libsc3.main.open_udp_port(recv_port): # BUG: implementar, thisProcess openUDPPort(recvPort).not
-            raise Exception('could not open UDP port {}'.format(recv_port))
+        if recv_port is not None:
+            # This whould require to create another OscUdpInterface or
+            # OSCUDPServer which is something I don't want because I don't
+            # know why this is important of if it works for TCP in sclang.
+            # OSCFuncRecvPortMessageMatcher and OSCFuncBothMessageMatcher
+            # are needed only by this feature.
+            _libsc3.main.open_udp_port(recv_port)  # Not implemented.
         self.arg_template = arg_template
         self._func = func
         self.dispatcher = dispatcher or type(self).default_dispatcher
         self.enable()
-        #type(self)._all_func_proxies.add(self) # BUG: enable() hace esta llamada ya
+        # type(self)._all_func_proxies.add(self)  # Called by enable() already.
 
     @classmethod
     def matching(cls, func, path, src_id=None,

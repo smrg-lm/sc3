@@ -416,4 +416,91 @@ class OSCFunc(AbstractResponderFunc):
 
 ### MIDI ###
 
-# TODO...
+# MIDI implementation needs some thought, mostly because there
+# are many libraries and so far sc3 is dependencies free.
+
+class MIDIFuncSrcMessageMatcher(AbstractMessageMatcher):
+    # // If you need to test for srcID func gets wrapped in this.
+    ...
+
+
+class MIDIFuncChanMessageMatcher(AbstractMessageMatcher):
+    # // If you need to test for chan func gets wrapped in this.
+    ...
+
+
+class MIDIFuncChanArrayMessageMatcher(AbstractMessageMatcher):
+    # // If you need to test for chanArray func gets wrapped in this.
+    ...
+
+
+class MIDIFuncSrcMessageMatcherNV(MIDIFuncSrcMessageMatcher):
+    # // Version for message types which don't pass a val.
+    ...
+
+
+class MIDIFuncSrcSysMessageMatcher(MIDIFuncSrcMessageMatcher):
+    # // Version for message types which don't pass a val.
+    ...
+
+
+class MIDIFuncSrcSysMessageMatcherND(MIDIFuncSrcMessageMatcher):
+    ...
+
+
+class MIDIFuncBothMessageMatcher(AbstractMessageMatcher):
+    # // If you need to test for chan and srcID func gets wrapped in this.
+    ...
+
+
+class MIDIFuncBothCAMessageMatcher(AbstractMessageMatcher):
+    # // If you need to test for chanArray and srcID func gets wrapped in this.
+    ...
+
+
+class MIDIValueMatcher(AbstractMessageMatcher):
+    # // If you want to test for the actual message value,
+    # // the func gets wrapped in this.
+    ...
+
+
+class MIDIMessageDispatcher(AbstractWrappingDispatcher):
+    # // For 'note_on', 'note_off', 'control', 'polytouch'.
+    ...
+
+
+class MIDIMessageDispatcherNV(MIDIMessageDispatcher):
+    # // For 'touch', 'program', 'bend'.
+    ...
+
+
+class MIDISysexDispatcher(MIDIMessageDispatcher):
+    # // For 'sysex'.
+    ...
+
+
+class MIDISysDataDispatcher(MIDIMessageDispatcher):
+    # // sysrt with data.
+    ...
+
+class MIDISysDataDropIndDispatcher(MIDISysDataDispatcher):
+    ...
+
+
+class MIDISysNoDataDispatcher(MIDISysDataDispatcher):
+    ...
+
+
+class MIDIMTCtoSMPTEDispatcher(MIDISysexDispatcher):
+    ...
+
+
+class MIDISMPTEAssembler(AbstractMessageMatcher):
+    # // Thanks to nescivi for code from MTC class!!
+    ...
+
+
+class MIDIFunc(AbstractResponderFunc):
+    ...
+
+# class MIDIdef(MIDIFunc):

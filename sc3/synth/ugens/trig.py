@@ -15,7 +15,7 @@ class Trig1(ugn.UGen):
         return cls._multi_new('control', input, dur)
 
     @classmethod
-    def signal_range(self):  # override
+    def signal_range(cls):  # override
         return 'unipolar'
 
 

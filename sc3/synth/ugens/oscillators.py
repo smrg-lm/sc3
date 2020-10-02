@@ -133,7 +133,7 @@ class LFPulse(ugn.PureUGen):
         return cls._multi_new('control', freq, iphase, width)
 
     @classmethod
-    def signal_range(cls):
+    def signal_range(cls):  # override
         return 'unipolar'
 
 
@@ -157,7 +157,7 @@ class Impulse(ugn.PureUGen):
         return cls._multi_new('control', freq, phase)
 
     @classmethod
-    def signal_range(self):
+    def signal_range(cls):  # override
         return 'unipolar'
 
 

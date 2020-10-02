@@ -295,7 +295,7 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
         return self._inputs
 
     @classmethod
-    def signal_range(self):
+    def signal_range(cls):
         return 'bipolar'
 
     @classmethod

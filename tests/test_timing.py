@@ -30,7 +30,6 @@ from sc3.all import *
 import sys
 import gc
 import time
-import math
 
 # these options make no real differece.
 sys.setswitchinterval(0.000001)  # 0.005 common value
@@ -40,9 +39,9 @@ gc.disable()
 def rout():
     n = 100
     wait_time = 0.1
-    maxim = -math.inf
-    minim = math.inf
-    maxpp = -math.inf
+    maxim = float('-inf')
+    minim = float('inf')
+    maxpp = float('-inf')
     prev_time = result = avg = 0
     for i in range(n):
         prev_time = time.perf_counter()

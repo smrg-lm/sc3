@@ -1,7 +1,6 @@
 
 import heapq
 import itertools
-import math
 
 
 __all__ = ['TaskQueue']
@@ -75,13 +74,13 @@ class TaskQueue():
 
     def _small_key(self, item):
         if item[2] is type(self)._REMOVED:
-            return [math.inf] * 2
+            return [float('inf')] * 2
         else:
             return item[:2]
 
     def _large_key(self, item):
         if item[2] is type(self)._REMOVED:
-            return [-math.inf] * 2
+            return [float('-inf')] * 2
         else:
             return item[:2]
 

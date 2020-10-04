@@ -3,7 +3,6 @@ Utility classes and functions from sclang style.
 """
 
 import itertools
-import math
 import operator
 import logging
 import importlib
@@ -74,7 +73,7 @@ class UniqueID():  # *** BUG: use itertools.count (in main?) instead.
 
 def counter(stop):
     '''Possibly infinite counter, range replacement for patterns.'''
-    if stop == math.inf:
+    if stop == float('inf'):
         return itertools.count()
     else:
         return range(stop)

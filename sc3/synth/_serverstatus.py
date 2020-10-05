@@ -196,10 +196,12 @@ class ServerStatusWatcher():
             new_max_logins = msg[3] if len(msg) > 3 else None
             fail_osc_func.free()
             if self._server_booting:
+                self._notified = True
                 if new_client_id is not None:
                     self._handle_login_done(new_client_id, new_max_logins)
                 self._finalize_boot_done()
             elif self._server_registering:
+                self._notified = True
                 if new_client_id is not None:
                     self._handle_login_done(new_client_id, new_max_logins)
                 self._finalize_register_done()
@@ -208,7 +210,7 @@ class ServerStatusWatcher():
                 _logger.info(f"'{self.server.name}': unregistration done")
                 self._perform_actions('unregister', 'on_complete')
             else:
-                raise Exception(
+                _logger.error(
                     'something went wrong, server status is inconsistent')
 
         done_osc_func = rdf.OSCFunc(
@@ -229,7 +231,7 @@ class ServerStatusWatcher():
             elif self._server_unregistering:
                 self._perform_actions('unregister', 'on_failure')
             else:
-                raise Exception(
+                _logger.error(
                     'something went wrong, server status is inconsistent')
 
         fail_osc_func = rdf.OSCFunc(
@@ -283,7 +285,6 @@ class ServerStatusWatcher():
             yield from self.server.sync()
             self.server.init_tree()  # forks
             yield from self.server.sync()
-            self._notified = True
             self._perform_actions('boot', 'on_complete')
             mdl.NotificationCenter.notify(self.server, 'server_running')  # NOTE: esta notificación la hace en varios lugares cuando cambia el estado de running no cuando running es True.
 
@@ -293,7 +294,6 @@ class ServerStatusWatcher():
         def finalize_register_task():
             # sac.ServerBoot.run(self.server)  # *** VER SI VA O NO.
             yield from self.server.sync()
-            self._notified = True
             self._perform_actions('register', 'on_complete')
 
         stm.Routine.run(finalize_register_task, clk.AppClock)

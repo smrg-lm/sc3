@@ -41,7 +41,7 @@ def init(mode='rt'):
     _init_logger()
 
     import sc3.base.main
-    import sc3.base.utils
+    import sc3.base.classlibrary
 
     mode = mode.lower()
     if mode == 'rt':
@@ -52,5 +52,5 @@ def init(mode='rt'):
         raise ValueError(f"invalid mode '{mode}'")
 
     sc3.base.main.main._init()
-    sc3.base.utils.ClassLibrary.init()
+    sc3.base.classlibrary.ClassLibrary.init()
     _libsc3_initialized = True

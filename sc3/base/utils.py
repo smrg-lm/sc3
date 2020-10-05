@@ -1,69 +1,11 @@
 """
-Utility classes and functions from sclang style.
+Functions used to process lists as in sclang.
+At the moment they are mostly for internal use.
 """
 
 import itertools
 import operator
-import logging
-import importlib
-import sys
 
-
-_logger = logging.getLogger(__name__)
-
-
-class ClassLibrary():
-    '''
-    This class is a hack to avoid class attribute initialization problems caused
-    by very nasty nested cyclic imports. init() is called at the end of main.
-    '''
-
-    _init_list = []
-    _imports_list = []
-    _initialized = False
-
-    @classmethod
-    def add(cls, item, func):
-        if cls._initialized:
-            func(item)
-        else:
-            entry = {'item': item, 'func': func}
-            cls._init_list.append(entry)
-
-    @classmethod
-    def late_imports(cls, module_name, *imports):
-        '''
-        For imports in cyclic conflict used only at runtime. Hack: late imports
-        own imports still can have cyclic conflicts.
-        '''
-        cls._imports_list.append((module_name, imports))
-        if cls._initialized:
-            cls._init_imports()
-
-    @classmethod
-    def init(cls):
-        cls._init_imports()
-        while len(cls._init_list) > 0:
-            entry = cls._init_list.pop()
-            entry['func'](entry['item'])
-            _logger.debug('+ init: %s', entry['item'].__name__)
-        cls._initialized = True
-
-    @classmethod
-    def _init_imports(cls):
-        while len(cls._imports_list) > 0:
-            name, imports = cls._imports_list.pop()
-            for item in imports:
-                if isinstance(item, tuple):
-                    module = importlib.import_module(item[0])
-                    alias = item[1]
-                    sys.modules[name].__dict__.update({alias: module})
-                else:
-                    module = importlib.import_module(item)
-                    sys.modules[name].__dict__.update({item: module})
-
-
-# Lists
 
 def as_list(obj):
     '''
@@ -78,10 +20,10 @@ def as_list(obj):
         return [obj]
 
 
-def unbubble(obj): # only one level
+def unbubble(obj):
     '''If obj is a list of one item or any other object unbubble(obj)
     returns the item, otherwise returns the list or object unchanged.'''
-    if isinstance(obj, list) and len(obj) == 1:
+    if isinstance(obj, list) and len(obj) == 1:  # only one level
         return obj[0]
     else:
         return obj
@@ -92,7 +34,7 @@ def flat(inlist):
     def _(inlist, outlist):
         for item in inlist:
             if isinstance(item, list):
-                _(item[:], outlist) # TODO: no estoy seguro si es copia, la dejo por si las dudas
+                _(item[:], outlist)  # TODO: Not sure if has to be a copy.
             else:
                 outlist.append(item)
     outlist = []
@@ -100,14 +42,12 @@ def flat(inlist):
     return outlist
 
 
-# NOTE: 1. también hay flatten2 y flatBelow
-# NOTE: 2. para flatten se puede usar itertools.chain.from_iterable, está en las recetas de la documentación.
 def flatten(inlist, n_levels=1):
     def _(inlist, outlist, n):
         for item in inlist:
             if n < n_levels:
                 if isinstance(item, list):
-                    _(item[:], outlist, n + 1) # TODO: no estoy seguro si es copia, la dejo por si las dudas
+                    _(item[:], outlist, n + 1)  # TODO: Not sure if has to be a copy.
                 else:
                     outlist.append(item)
             else:
@@ -141,7 +81,7 @@ def reshape_like(one, another):
 
     def func(*discard):
         nonlocal index
-        item = one_flat[index % len(one_flat)] # indexing='wrapAt'
+        item = one_flat[index % len(one_flat)]
         index += 1
         return item
     return deep_collect(another, 0x7FFFFFFF, func)
@@ -151,18 +91,22 @@ def deep_collect(inlist, depth, func, index=0, rank=0):
     if depth is None:
         rank += 1
         if isinstance(inlist, list):
-            return [deep_collect(item, depth, func, i, rank) for i, item in enumerate(inlist)]
+            return [
+                deep_collect(item, depth, func, i, rank)
+                for i, item in enumerate(inlist)]
         else:
             return func(inlist, index, rank)
     if depth <= 0:
         if func:
-            return func(inlist, index, rank) # inlist es un objeto no lista en este caso, creo.
+            return func(inlist, index, rank)
         else:
             return None
     depth -= 1
     rank += 1
     if isinstance(inlist, list):
-        return [deep_collect(item, depth, func, i, rank) for i, item in enumerate(inlist)]
+        return [
+            deep_collect(item, depth, func, i, rank)
+            for i, item in enumerate(inlist)]
     else:
         return func(inlist, index, rank)
 
@@ -187,7 +131,7 @@ def wrap_extend(lst, n):
 
 def list_unop(op, a, t=None):
     t = t or list
-    t_seq = (list, tuple)  # *** BUG: comprobar
+    t_seq = (list, tuple)  # TODO: check.
     if isinstance(a, t_seq):
         if any(isinstance(i, t_seq) for i in a):
             return t(list_unop(op, i, type(i)) for i in a)
@@ -206,10 +150,10 @@ def list_binop(op, a, b, t=None):
     Tuples are termporary converted to lists to process. All this is needed
     because multichannel expansion behaviour (e.g. in Env).
     '''
-    # NOTE: The other option is to leave tuples as tuples, could be better, the
-    # problem is outside UGen operations as in Env.
+    # NOTE: The other option is to leave tuples as tuples, could be
+    # better, the problem is outside UGen operations as in Env.
     t = t or list
-    t_seq = (list, tuple)  # *** BUG: comprobar
+    t_seq = (list, tuple)  # TODO: check.
     if isinstance(a, t_seq) and isinstance(b, t_seq):
         if len(a) >= len(b):
             b = wrap_extend(list(b), len(a))
@@ -247,9 +191,9 @@ def list_binop(op, a, b, t=None):
         return op(a, b)
 
 
-def list_narop(op, a, *args, t=None):  # t is keyword only.
+def list_narop(op, a, *args, t=None):
     t = t or list
-    t_seq = (list, tuple)  # *** BUG: comprobar
+    t_seq = (list, tuple)  # TODO: check.
     if isinstance(a, t_seq):
         if any(isinstance(i, t_seq) for i in a):
             return t(list_narop(op, i, *args, t=type(i)) for i in a)
@@ -301,18 +245,17 @@ def list_max(lst, t=None):
 
 #def reshape_like(this, that); # or that this like sclang?
 
-# flop [(a[i], b[i]) for i in range(len(a))] pero len(a) >= len(b)
-# las funciones integradas filter() y itertools.filterfalse() son select/reject más pythonico pero necesitan list.
+# flop [(a[i], b[i]) for i in range(len(a))] but len(a) >= len(b)
+# filter() y itertools.filterfalse() are select/reject.
 # select [x for x in self.control_names if x.rate == 'noncontrol']
 # reject [x for x in self.control_names if x.rate != 'noncontrol']
 # any with predicate (a generator) como en sclang any(x > 10 for x in l)
-# también está la función all en Python.
+# Python's all()
 
-# detect sería:
+# detect could be:
 # for item in sequence:
 #     if item == something:
 #         return item
-# pero no es nada compacto, tal vez haya un truco
 
 # clump [l[i:i + n] for i in range(0, len(l), n)] https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
 # ver también grouper en Itertools Recipes
@@ -331,7 +274,7 @@ def gen_cclumps(l, n=1):
     return (l[i:i + n] for i in range(0, len(l) - (n - 1), n))
 
 
-# para doAdjacentPairs, de Python Itertools Recipes: https://docs.python.org/3/library/itertools.html#itertools-recipes
+# doAdjacentPairs, Itertools Recipes: https://docs.python.org/3/library/itertools.html#itertools-recipes
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
     a, b = itertools.tee(iterable)
@@ -341,19 +284,16 @@ def pairwise(iterable):
 
 # dup [UGen] * n
 # collect if else ['todo' if isinstance(x, A) else 'nada' for x in arr]
-#[0] * (len(names) - len(rates)) # VER: sclang extend, pero no trunca
+# [0] * (len(names) - len(rates)) # VER: sclang extend, pero no trunca
 # [l[i%len(l)] for i in range(8)] # wrapExtend
-# VER si la cantidad y necesidad en distintos lugares crece, si no sacar.
 
-# producto cartesiano, es combinatoria
+# Cartesian product, is combinatorial (itertools.product).
 # https://stackoverflow.com/questions/10973766/understanding-the-map-function
-#[(a, b) for a in iterable_a for b in iterable_b]
+# [(a, b) for a in iterable_a for b in iterable_b]
 
-# map sirve como collect
-#map(función, iterable)
-
-# pero también se puede usar list comprehensions como sugiere el link
-#[f(x) for x in iterable]
+# map as collect
+# map(función, iterable)
+# [f(x) for x in iterable]
 
 
 def lace(lst, size=None):
@@ -365,23 +305,23 @@ def lace(lst, size=None):
 
 
 def flop(lst):
-    lst = [[None] if x is None else as_list(x) for x in lst] # NOTE: as_list convierte None en []
+    lst = [[None] if x is None else as_list(x) for x in lst]  # NOTE: as_list converts None in []
     n = len(lst)
     if n == 0:
-        return [[]] # NOTE: es una columna vacía, así es en sclang.
+        return [[]]  # NOTE: empty column as in sclang.
     length = max(len(l) for l in lst)
     ret = [[None for _ in range(n)] for _ in range(length)]
     for i in range(length):
         for j in range(n):
             try:
-                ret[i][j] = lst[j][i % len(lst[j])] # NOTE: *** en sclang i % 0 es cero *** es el caso de listas vacías acá.
+                ret[i][j] = lst[j][i % len(lst[j])]  # NOTE: i % 0 == 0 in sclang, and is also empty list.
             except ZeroDivisionError:
-                ret[i][j] = [] # NOTE: *** y a = []; a[0] es nil, pero este método está implementado a bajo nivel y no lo miré, 0 o nil es [] acá.
+                ret[i][j] = []  # NOTE: a = []; a[0] is nil, 0 or nil is [].
     return ret
 
 
-# # otras implementaciones de flop, comparar
-# #[[None] * length] * n # al multiplicar copia la misma lista n veces
+# # other flop.
+# # [[None] * length] * n
 # def flop(lst):
 #     # agregar lst = [as_list(x) for x in lst]
 #     n = len(lst)

@@ -13,12 +13,13 @@ with its own interface.
 
 from math import isnan
 
+from ..base import classlibrary as clb
 from ..base import utils as utl
 from . import _specialindex as _si
 from . import _fmtrw as frw
 
 
-utl.ClassLibrary.late_imports(__name__,
+clb.ClassLibrary.late_imports(__name__,
     ('sc3.synth.server', 'srv'),
     ('sc3.synth.node', 'nod'),
     ('sc3.synth.ugens.line', 'lne')

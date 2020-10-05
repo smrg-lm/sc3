@@ -4,6 +4,7 @@ import inspect
 import operator
 import logging
 
+from ..base import classlibrary as clb
 from ..base import utils as utl
 from ..base import builtins as bi
 from ..base import absobject as aob
@@ -12,7 +13,7 @@ from . import _graphparam as gpp
 from . import _fmtrw as frw
 
 
-utl.ClassLibrary.late_imports(__name__,
+clb.ClassLibrary.late_imports(__name__,
     ('sc3.base.main', '_libsc3'),
     ('sc3.synth.ugens.trig', 'trg'),
     ('sc3.synth.ugens.pan', 'pan'),

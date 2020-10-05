@@ -7,7 +7,7 @@ import sys
 import traceback
 import weakref
 
-from . import utils as utl
+from . import classlibrary as clb
 from . import main as _libsc3
 from . import builtins as bi
 from . import functions as fn
@@ -106,7 +106,7 @@ class MetaSystemClock(MetaClock):
                 cls._pure_nrt = True
                 cls._elapsed_osc_offset = 0.0
 
-        utl.ClassLibrary.add(cls, init_func)
+        clb.ClassLibrary.add(cls, init_func)
 
 
 class SystemClock(Clock, metaclass=MetaSystemClock):
@@ -476,7 +476,7 @@ class MetaAppClock(MetaClock):
             else:
                 cls._pure_nrt = True
 
-        utl.ClassLibrary.add(cls, init_func)
+        clb.ClassLibrary.add(cls, init_func)
 
 
 class AppClock(Clock, metaclass=MetaAppClock):
@@ -696,7 +696,7 @@ class MetaTempoClock(MetaClock):
             cls.default.permanent = True
             sac.CmdPeriod.add(cls.__on_cmd_period)
 
-        utl.ClassLibrary.add(cls, init_func)
+        clb.ClassLibrary.add(cls, init_func)
 
     def __on_cmd_period(cls):
         for clock in cls.all:

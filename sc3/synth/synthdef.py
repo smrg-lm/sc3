@@ -5,6 +5,7 @@ import logging
 import io
 import pathlib
 
+from ..base import classlibrary as clb
 from ..base import utils as utl
 from ..base import platform as plf
 from ..base import systemactions as sac
@@ -39,7 +40,7 @@ class MetaSynthDef(type):
                     f'at {plf.Platform.support_dir}')
             plf.Platform.synthdef_dir.mkdir(parents=True, exist_ok=True)
 
-        utl.ClassLibrary.add(cls, init_func)
+        clb.ClassLibrary.add(cls, init_func)
 
     def generate_tmp_name(cls):
         name = cls.tmp_name_prefix + str(cls._tmp_def_count)

@@ -7,6 +7,7 @@ import io
 from ..base import platform as plf
 from ..base import utils as utl
 from ..base import systemactions as sac
+from ..base import classlibrary as clb
 from ..base import model as mdl
 from ..base import main as _libsc3
 from . import spec as spc
@@ -384,7 +385,7 @@ class MetaSynthDescLib(type):
             cls.default = cls('default')  # Was global in sclang.
             sac.ServerBoot.add('all', cls.__on_server_boot)  # *** NOTE: *send calls global.send if server has booted, see below.
 
-        utl.ClassLibrary.add(cls, init_func)
+        clb.ClassLibrary.add(cls, init_func)
 
 
     ### System Actions ###

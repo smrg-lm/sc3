@@ -8,10 +8,10 @@ import sys
 import subprocess
 import threading
 
-from . import utils as utl
+from . import classlibrary as clb
 
 
-utl.ClassLibrary.late_imports(__name__, ('sc3.base.main', '_libsc3'))
+clb.ClassLibrary.late_imports(__name__, ('sc3.base.main', '_libsc3'))
 
 
 __all__ = ['Platform']

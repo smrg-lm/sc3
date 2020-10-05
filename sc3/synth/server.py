@@ -10,6 +10,7 @@ import time
 
 from ..base import main as _libsc3
 from ..base import utils as utl
+from ..base import classlibrary as clb
 from ..base import netaddr as nad
 from ..base import model as mdl
 from ..base import systemactions as sac
@@ -371,7 +372,7 @@ class MetaServer(type):
             # cls.internal = cls(
             #     'internal', nad.NetAddr(None, None))  # No internal by now.
 
-        utl.ClassLibrary.add(cls, init_func)
+        clb.ClassLibrary.add(cls, init_func)
 
     @property
     def default(cls):

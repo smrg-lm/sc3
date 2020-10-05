@@ -2,10 +2,10 @@
 import operator
 import math
 
-from . import utils as utl
+from . import classlibrary as clb
 
 
-utl.ClassLibrary.late_imports(__name__, ('sc3.base.builtins', 'bi'))
+clb.ClassLibrary.late_imports(__name__, ('sc3.base.builtins', 'bi'))
 
 
 class AbstractObject():

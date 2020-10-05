@@ -339,7 +339,7 @@ class SynthDesc():
         if 'gate' in names:
             self.has_gate = True
 
-    def send(self, server, completion_msg):
+    def send(self, server, completion_msg=None):
         self.sdef.send(server, completion_msg)
 
     def write_metadata(self, path, md_plugin=None):

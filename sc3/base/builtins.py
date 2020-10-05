@@ -1313,3 +1313,21 @@ def choices(lst, weights=None, *, cum_weights=None, k=1):  # wchoose
     return _libsc3.main.rgen.choices(lst, weights, cum_weights=cum_weights, k=k)
 
 # ...
+
+
+### Utilities ###
+
+
+_uid_counter = itertools.count()
+
+def uid():
+    '''Library wise counter used to get unique ids for server replies.'''
+    return next(_uid_counter)
+
+
+def counter(stop):
+    '''Possibly infinite counter, range replacement for patterns.'''
+    if stop == float('inf'):
+        return itertools.count()
+    else:
+        return range(stop)

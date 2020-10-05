@@ -3,6 +3,7 @@
 import inspect
 
 from ...base import stream as stm
+from ...base import builtins as bi
 from .. import pattern as ptt
 
 
@@ -60,7 +61,7 @@ class Pfuncn(ptt.Pattern):
         self.repeats = repeats
 
     def __embed__(self, inval):
-        for i in utl.counter(self.repeats):
+        for i in bi.counter(self.repeats):
             if self._func_has_inval:
                 inval = yield self.func(inval)
             else:

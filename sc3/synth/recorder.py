@@ -8,7 +8,6 @@ from ..base import model as mdl
 from ..base import responsedefs as rdf
 from ..base import main as _libsc3
 from ..base import builtins as bi
-from ..base import utils as utl
 from ..base import stream as stm
 from ..base import clock as clk
 from . import _graphparam as gpp
@@ -192,7 +191,7 @@ class Recorder():
         # if self._record_buf is None: raise Exception("could not allocate buffer")  # *** BUG: it can't be nil in sclang either
         self._path = path
         self._num_channels = num_channels
-        self._id = utl.UniqueID.next()
+        self._id = bi.uid()
 
         def graph_func(input, bufnum, duration):
             tick = ugns.Impulse.kr(1)

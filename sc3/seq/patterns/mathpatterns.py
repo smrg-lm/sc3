@@ -1,6 +1,5 @@
 """From Patterns.sc"""
 
-from ...base import utils as utl
 from ...base import builtins as bi
 from ...base import stream as stm
 from .. import pattern as ptt
@@ -22,7 +21,7 @@ class Pseries(ptt.Pattern):
         step_stream = stm.stream(self.step)
         outval = stepval = None
         try:
-            for _ in utl.counter(length):
+            for _ in bi.counter(length):
                 stepval = step_stream.next(inval)
                 outval = cur
                 cur += stepval
@@ -47,7 +46,7 @@ class Pgeom(ptt.Pattern):
         grow_stream = stm.stream(self.grow)
         outval = growval = None
         try:
-            for _ in utl.counter(length):
+            for _ in bi.counter(length):
                 growval = grow_stream.next(inval)
                 outval = cur
                 cur *= growval
@@ -75,7 +74,7 @@ class Pbrown(ptt.Pattern):
             hival = hi_stream.next(inval)
             stepval = step_stream.next(inval)
             current = bi.rrand(loval, hival)
-            for _ in utl.counter(self.length):
+            for _ in bi.counter(self.length):
                 loval = lo_stream.next(inval)
                 hival = hi_stream.next(inval)
                 stepval = step_stream.next(inval)
@@ -108,7 +107,7 @@ class Pwhite(ptt.Pattern):
         hi_stream = stm.stream(self.hi)
         hival = loval = None
         try:
-            for _ in utl.counter(self.length):
+            for _ in bi.counter(self.length):
                 loval = lo_stream.next(inval)
                 hival = hi_stream.next(inval)
                 inval = yield bi.rrand(loval, hival)
@@ -136,7 +135,7 @@ class Pprob(ptt.Pattern):
         hi_stream = stm.stream(self.hi)
         lval = hval = None
         try:
-            for _ in utl.counter(self.length):
+            for _ in bi.counter(self.length):
                 lval = lo_stream.next(inval)
                 hval = hi_stream.next(inval)
                 inval = yield (bi.table_rand(table) * (hval - lval)) + lval

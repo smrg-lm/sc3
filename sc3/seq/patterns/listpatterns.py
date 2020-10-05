@@ -2,7 +2,6 @@
 
 import collections
 
-from ...base import utils as utl
 from ...base import stream as stm
 from ...base import builtins as bi
 from .. import pattern as ptt
@@ -38,7 +37,7 @@ class Pseq(ListPattern):
         # if (inval.eventAt('reverse') == true, { # Not good.
         lst = self.lst
         offset = self.offset
-        for _ in utl.counter(self.repeats):
+        for _ in bi.counter(self.repeats):
             for item in lst[offset:]:
                 inval = yield from stm.embed(item, inval)
             for item in lst[:offset]:
@@ -53,7 +52,7 @@ class Pser(Pseq):
         lst = self.lst
         offset = self.offset
         size = len(lst)
-        for i in utl.counter(self.repeats):
+        for i in bi.counter(self.repeats):
             inval = yield from stm.embed(lst[(i + offset) % size], inval)
         return inval
 
@@ -73,7 +72,7 @@ class Pser(Pseq):
 #         indx_pattern = self.indx_pattern
 #         lst = size = None
 #         try:
-#             for _ in utl.counter(self.repeats):
+#             for _ in bi.counter(self.repeats):
 #                 lst = lst_stream.next(inval)  # raises StopStream
 #                 size = len(lst)
 #                 indx_stream = stm.stream(indx_pattern)
@@ -120,7 +119,7 @@ class Pswitch1(Pswitch):
 
 class Ptuple(ListPattern):
     def __embed__(self, inval):
-        for _ in utl.counter(self.repeats):
+        for _ in bi.counter(self.repeats):
             stream_lst = [stm.stream(i) for i in self.lst]
             try:
                 while True:
@@ -138,7 +137,7 @@ class Place(Pseq):
         lst = self.lst
         offset = self.offset
         lst = lst[offset:] + lst[:offset]
-        for j in utl.counter(self.repeats):
+        for j in bi.counter(self.repeats):
             for item in lst:
                 if isinstance(item, (list, tuple)):
                     item = item[j % len(item)]
@@ -154,7 +153,7 @@ class Placep(Pseq):  # Was Ppatlace.
         stream_lst = [stm.stream(i) for i in lst[offset:]]
         stream_lst += [stm.stream(i) for i in lst[:offset]]
         done = 0
-        for _ in utl.counter(self.repeats):
+        for _ in bi.counter(self.repeats):
             for item in stream_lst:
                 try:
                     inval = yield item.next(inval)
@@ -173,7 +172,7 @@ class Pshuffle(ListPattern):  # Pshuf
     def __embed__(self, inval):
         slist = self.lst[:]
         bi.shuffle(slist)
-        for _ in utl.counter(self.repeats):
+        for _ in bi.counter(self.repeats):
             for item in slist:
                 inval = yield from stm.embed(item)
         return inval
@@ -184,7 +183,7 @@ class Prand(ListPattern):
     def __embed__(self, inval):
         lst = self.lst
         size = len(lst)
-        for _ in utl.counter(self.repeats):
+        for _ in bi.counter(self.repeats):
             inval = yield from stm.embed(lst[bi.rand(size)], inval)
         return inval
 
@@ -195,7 +194,7 @@ class Pxrand(ListPattern):
         lst = self.lst
         size = len(lst)
         index = bi.rand(size)
-        for _ in utl.counter(self.repeats):
+        for _ in bi.counter(self.repeats):
             index = (index + bi.rand(size - 1) + 1) % size
             inval = yield from stm.embed(lst[index], inval)
         return inval
@@ -216,7 +215,7 @@ class Pwrand(ListPattern):
         indx = None
         wstream = stm.stream(weights)
         try:
-            for _ in utl.counter(self.repeats):
+            for _ in bi.counter(self.repeats):
                 indx = bi.choices(ilst, wstream.next(inval))[0]  #, cum_weights=cw, k=k)
                 inval = yield from stm.embed(lst[indx], inval)
         except stm.StopStream:
@@ -248,7 +247,7 @@ class Pslide(ListPattern):
         len_stream = stm.stream(self.length)
         lval = None
         try:
-            for _ in utl.counter(self.repeats):
+            for _ in bi.counter(self.repeats):
                 lval = len_stream.next(inval)  # raises StopStream
                 if wrap:
                     for j in range(lval):
@@ -309,7 +308,7 @@ class Pfsm(ListPattern):
         lst = self.lst
         index = None
         max_state = ((len(lst) - 1) // 2) - 1
-        for _ in utl.counter(self.repeats):
+        for _ in bi.counter(self.repeats):
             index = 0
             while True:
                 if lst[index] is None:
@@ -334,7 +333,7 @@ class Pdfsm(ListPattern):
         num_states = len(lst) - 1
         curr_state = sig_state = None
         sig = state = out_stream = None
-        for _ in utl.counter(self.repeats):
+        for _ in bi.counter(self.repeats):
             curr_state = start_state
             sig_state = stm.stream(lst[0])
             try:

@@ -4,7 +4,7 @@ import logging
 import copy
 
 from ...base import stream as stm
-from ...base import utils as utl
+from ...base import builtins as bi
 from ...base import functions as fn
 from ...base import _taskq as tsq
 from .. import pattern as ptt
@@ -28,7 +28,7 @@ class Pkey(ptt.Pattern):
     def __embed__(self, inevent):
         key_stream = stm.stream(self.key)
         try:
-            for _ in utl.counter(self.length):
+            for _ in bi.counter(self.length):
                 inevent = (yield inevent[key_stream.next(inevent)]) or dict()
         except (stm.StopStream, KeyError):
             pass

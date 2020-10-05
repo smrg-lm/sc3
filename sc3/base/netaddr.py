@@ -5,7 +5,7 @@ import socket
 
 from . import stream as stm
 from . import main as _libsc3
-from . import utils as utl
+from . import builtins as bi
 from . import responsedefs as rdf
 from . import _oscinterface as osci
 
@@ -156,7 +156,7 @@ class NetAddr():
                 yield from condition.wait()
 
     def _make_sync_responder(self, condition):
-        id = utl.UniqueID.next()
+        id = bi.uid()
 
         def resp_func(msg, *_):
             if msg[1] == id:

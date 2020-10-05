@@ -63,22 +63,6 @@ class ClassLibrary():
                     sys.modules[name].__dict__.update({item: module})
 
 
-class UniqueID():  # *** BUG: use itertools.count (in main?) instead.
-    _id = 1000
-    @classmethod
-    def next(cls):
-        cls._id += 1
-        return cls._id
-
-
-def counter(stop):
-    '''Possibly infinite counter, range replacement for patterns.'''
-    if stop == float('inf'):
-        return itertools.count()
-    else:
-        return range(stop)
-
-
 # Lists
 
 def as_list(obj):

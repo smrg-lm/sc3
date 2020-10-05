@@ -34,10 +34,10 @@ class Pn(FilterPattern):
         pattern = self.pattern
         key = self.key
         if key is None:
-            for _ in utl.counter(self.repeats):
+            for _ in bi.counter(self.repeats):
                 inevent = yield from pattern.__embed__(inevent)
         else:
-            for _ in utl.counter(self.repeats):
+            for _ in bi.counter(self.repeats):
                 inevent[key] = True
                 inevent = yield from pattern.__embed__(inevent)
             inevent[key] = False
@@ -51,7 +51,7 @@ class Pgate(Pn):
         pattern = self.pattern
         key = self.key
         stream = output = None
-        for _ in utl.counter(self.repeats):
+        for _ in bi.counter(self.repeats):
             stream = stm.stream(pattern)
             try:
                 while True:

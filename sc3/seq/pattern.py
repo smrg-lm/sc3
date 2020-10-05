@@ -4,7 +4,6 @@ import inspect
 
 from ..base import absobject as aob
 from ..base import stream as stm
-from ..base import utils as utl
 from . import eventstream as est
 from . import event as evt
 
@@ -204,7 +203,7 @@ def pattern(gfunc):
         hi = stream(hi)
         loval = hival = None
         try:
-            for _ in utl.counter(length):
+            for _ in bi.counter(length):
                 loval = next(lo)
                 hival = next(hi)
                 yield bi.rrand(loval, hival)

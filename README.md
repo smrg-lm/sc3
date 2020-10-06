@@ -1,5 +1,6 @@
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/sc3)
 ![PyPI](https://img.shields.io/pypi/v/sc3)
+[![Documentation Status](https://readthedocs.org/projects/sc3/badge/?version=latest)](https://sc3.readthedocs.io/en/latest/?badge=latest)
 
 sc3
 ===

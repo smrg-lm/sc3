@@ -195,23 +195,23 @@ class Pnarop(Pattern): # BUG: nombre cambiado
 
 def pattern(gfunc):
     '''
-    Decorator to create value patterns from generator functions.
+    Decorator to create value patterns from generator functions. ::
 
-    @pattern
-    def pwhite(lo=0.0, hi=1.0, length=float('inf')):
-        lo = stream(lo)
-        hi = stream(hi)
-        loval = hival = None
-        try:
-            for _ in bi.counter(length):
-                loval = next(lo)
-                hival = next(hi)
-                yield bi.rrand(loval, hival)
-        except StopIteration:
-            return
+        @pattern
+        def pwhite(lo=0.0, hi=1.0, length=float('inf')):
+            lo = stream(lo)
+            hi = stream(hi)
+            loval = hival = None
+            try:
+                for _ in bi.counter(length):
+                    loval = next(lo)
+                    hival = next(hi)
+                    yield bi.rrand(loval, hival)
+            except StopIteration:
+                return
 
-    p = stream(pwhite(length=3) ** 2)
-    next(p)
+        p = stream(pwhite(length=3) ** 2)
+        next(p)
     '''
 
     if not inspect.isgeneratorfunction(gfunc):

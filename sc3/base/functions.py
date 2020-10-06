@@ -11,9 +11,10 @@ __all__ = ['value', 'Function', 'function']
 
 def value(obj, *args, **kwargs):
     '''
-    Utility function for optional value/function parameters like completion_msg.
-    If obj is function it gets evaluated with *args and **kwargs and the result
-    is returned, else obj is returned as is. Spare parameters are discarded.
+    Utility function for optional value/function parameters like
+    completion_msg. If obj is a function it gets evaluated with `*args`
+    and `**kwargs` and the result is returned, else obj is returned as is.
+    Spare parameters are discarded.
     '''
     if callable(obj):
         parameters = inspect.signature(obj).parameters

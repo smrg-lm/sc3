@@ -47,8 +47,8 @@ class Process(type):
         # Main library lock.
         cls._main_lock = threading.RLock()
 
-        # Mode switch lock.
-        cls._switch_cond = threading.Condition(cls._main_lock)
+        # Mode switch lock. Not defined behaviour.
+        # cls._switch_cond = threading.Condition(cls._main_lock)
 
         # Main TimeThread random generator.
         cls._rgen = random.Random()
@@ -128,11 +128,9 @@ class RtMain(metaclass=Process):
         cls._time_of_initialization = time.time()  # time_since_epoch
         cls._perf_counter_time_of_initialization = time.perf_counter()  # monotonic clock.
         cls.main_tt = stm._MainTimeThread()
+        cls.current_tt = cls.main_tt
         cls._osc_interface = osci.OscUdpInterface()
         cls._osc_interface.start()
-
-        with cls._switch_cond:  # ******************************* BORRAR/CAMBIAR
-            cls.current_tt = cls.main_tt
 
     @classmethod
     def elapsed_time(cls):
@@ -171,12 +169,10 @@ class NrtMain(metaclass=Process):
     def _init(cls):
         cls._time_of_initialization = 0.0
         cls.main_tt = stm._MainTimeThread()
+        cls.current_tt = cls.main_tt
         cls._clock_scheduler = clk.ClockScheduler()
         cls._osc_interface = osci.OscNrtInterface()
         cls._osc_interface.init()
-
-        with cls._switch_cond:  # ******************************* BORRAR/CAMBIAR
-            cls.current_tt = cls.main_tt  # *** BUG: see no reset case.
 
     @classmethod
     def elapsed_time(cls):

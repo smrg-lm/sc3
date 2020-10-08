@@ -7,12 +7,17 @@ import threading
 import random
 import logging
 
-from . import classlibrary as clb
+from . import main as _libsc3
 from . import absobject as aob
 from . import clock as clk
 
 
-clb.ClassLibrary.late_imports(__name__, ('sc3.base.main', '_libsc3'))
+# NRT uses the name _libsc3 through _init before ClassLibrary initialization.
+# OscScore may be created on a different way later. This late import was
+# originally defined to reduce cyclic relations and import time when the
+# library doesn't need to be completely initialized to write an extension.
+# from . import classlibrary as clb
+# clb.ClassLibrary.late_imports(__name__, ('sc3.base.main', '_libsc3'))
 
 
 __all__ = [

@@ -111,7 +111,7 @@ class OscInterface(ABC):
         self._send(self._build_bundle([time, *elements]), target)
 
     def _get_timetag(self, time):
-        if time is None:
+        if time is None or time < 0.0:
             return oli.IMMEDIATELY
         else:
             time += _libsc3.main.current_tt._seconds
@@ -408,7 +408,7 @@ class OscNrtInterface(OscInterface):
         self._osc_score.add([time, *elements])
 
     def _get_timetag(self, time):  # override
-        if time is None:
+        if time is None or time < 0.0:
             time = 0.0  # IMMEDIATELY is not needed in nrt.
         time += _libsc3.main.current_tt._seconds
         return int(time * clk.SystemClock._SECONDS_TO_OSC)
@@ -431,7 +431,7 @@ class OscScore():
         self._lst_score = []
         self._raw_score = bytearray()
         self._finished = False
-        self.add([int(0), ["/g_new", 1, 0, 0]])  # Root node.
+        self.add([0.0, ["/g_new", 1, 0, 0]])  # Root node.
 
     @property
     def duration(self):
@@ -442,22 +442,38 @@ class OscScore():
             raise Exception('already finished score')
         msg = _libsc3.main._osc_interface._build_bundle(bndl)  # Raises Exception.
         msg = msg.size.to_bytes(4, 'big') + msg.dgram
+        bndl = self._process_bndl_time(bndl)
         self._scoreq.add(bndl[0], type(self)._Entry(bndl, msg))
 
-    def finish(self, time, on_complete=None):
+    def _process_bndl_time(self, bndl):
+        # Process time in seconds to store in the score and
+        # support sub-bundles relative time like _build_bundle.
+        for i, element in enumerate(bndl[1:], 1):
+            if isinstance(element[0], (int, float, type(None))):
+                bndl[i] = self._process_bndl_time(element)
+            elif not isinstance(element[0], str):
+                raise ValueError(
+                    'elements within bundles must be valid '
+                    f'OSC messages or bundles: {element}')
+        bndl = bndl[:]
+        bndl[0] = self._get_logical_time(bndl[0])
+        return bndl
+
+    def _get_logical_time(self, time):
+        # Same as OscNrtInterface._get_timetag but in logical time.
+        if time is None or time < 0.0:
+            time = 0.0
+        return time + _libsc3.main.current_tt._seconds
+
+    def finish(self, time=0.0):
+        # This method uses the logical time of its call as the others.
         if self._finished:
             return
-
-        def finish_task():
-            self.add(  # Dummy cmd.
-                [int(time * clk.SystemClock._SECONDS_TO_OSC), ['/c_set', 0, 0]])
-            for _, entry in self._scoreq:
-                self._lst_score.append(entry.bndl)
-                self._raw_score.extend(entry.msg)
-            self._finished = True
-            fn.value(on_complete, self)
-
-        clk.SystemClock.sched_abs(time, finish_task)  # Add to queue, abs time.
+        self.add([time, ['/c_set', 0, 0]])  # Dummy cmd.
+        for _, entry in self._scoreq:
+            self._lst_score.append(entry.bndl)
+            self._raw_score.extend(entry.msg)
+        self._finished = True
 
     def write(self, path):
         if not self._finished:

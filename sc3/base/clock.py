@@ -17,7 +17,8 @@ from . import _taskq as tsq
 from . import stream as stm
 
 
-__all__ = ['SystemClock', 'Scheduler', 'AppClock', 'Quant', 'TempoClock']
+__all__ = [
+    'SystemClock', 'Scheduler', 'AppClock', 'Quant', 'TempoClock', 'defer']
 
 
 _logger = logging.getLogger(__name__)
@@ -1132,10 +1133,16 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             return self._thread is not None and self._thread.is_alive()
 
 
-def defer(item, delta=None):
-    if callable(item):
+def defer(func, delta=None, clock=None):
+    '''
+    Convenience function to defer lambda functions on a clock without
+    creating a `Routine` or `sched` call. Default value for `delta` is 0.0,
+    default `clock` is `AppClock`. Argument `func` can be any callable.
+    '''
+    if callable(func):
         def df():
-            item()  # Wrapped because lambda always return its expression value.
+            func()  # Wrapped because lambda always return its expression value.
     else:
-        raise TypeError('item is not callable')
-    AppClock.sched(delta or 0, df)
+        raise TypeError('func is not callable')
+    clock = clock or AppClock
+    clock.sched(delta or 0, df)

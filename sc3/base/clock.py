@@ -725,7 +725,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # TempoClock::TempoClock()
         self._tempo = tempo
         self._beat_dur = 1.0 / tempo
-        self._base_seconds = seconds or 0.0
+        self._base_seconds = seconds or _libsc3.main.current_tt._seconds
         self._base_beats = beats or 0.0
         self._beats = 0.0
 

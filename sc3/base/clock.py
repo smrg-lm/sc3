@@ -509,7 +509,7 @@ class AppClock(Clock, metaclass=MetaAppClock):
         if cls.mode == _libsc3.main.NRT_MODE:
             if not hasattr(item, '__awake__'):
                 item = fn.Function(item)
-            item._clock = self
+            item._clock = cls
             if delta == float('inf'):
                 return
             ClockTask(delta, cls, item, _libsc3.main._clock_scheduler)

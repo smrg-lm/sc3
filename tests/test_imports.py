@@ -17,6 +17,7 @@ class ImportsTestCase(unittest.TestCase):
         cls.all_modules = []
         for module_info in pkgutil.walk_packages(path, name + '.'):
             cls.all_modules.append(module_info.name)
+        cls.all_modules.remove('sc3.__main__')
         if sys.platform != 'win32':
             cls.all_modules.remove('sc3.base._knownpaths')
 

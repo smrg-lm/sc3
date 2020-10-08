@@ -88,8 +88,8 @@ class AbstractObject():
     def sign(self):
         return self._compose_unop(bi.sign)
 
-    def log(self, base=math.e):
-        return self._compose_binop(bi.log, base)  # *** BUG: sclang unary, possible si problem
+    def log(self):  #, base=math.e):  # In SI is unary, can't change the base.
+        return self._compose_unop(bi.log)
 
     def log2(self):
         return self._compose_unop(bi.log2)

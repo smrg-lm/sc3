@@ -2,10 +2,13 @@
 import unittest
 import operator
 
-from sc3.utils import list_unop, list_binop, list_narop
-from sc3.ugen import ChannelList, UGen, BinaryOpUGen
-from sc3.ugens.osc import SinOsc
-import sc3.builtins as bi
+import sc3
+import sc3.base.builtins as bi
+from sc3.base.utils import list_unop, list_binop, list_narop
+from sc3.synth.ugen import ChannelList, BinaryOpUGen
+from sc3.synth.ugens.oscillators import SinOsc
+
+sc3.init()
 
 
 class SeqOpTestCase(unittest.TestCase):
@@ -307,7 +310,7 @@ class ChannelListTestCase(unittest.TestCase):
         # other cases?
 
     def test_binary_operations(self):
-        l2c = ChannelList([UGen(), [40, 50, 60]])
+        l2c = ChannelList([SinOsc(), [40, 50, 60]])
         l2c = l2c * 2
         self.assertIs(type(l2c), ChannelList)
         self.assertIs(type(l2c[0]), BinaryOpUGen)
@@ -315,7 +318,7 @@ class ChannelListTestCase(unittest.TestCase):
         self.assertEqual(l2c[1], [80, 100, 120])
 
         # in place
-        l2c = ChannelList([UGen(), [40, 50, 60]])
+        l2c = ChannelList([SinOsc(), [40, 50, 60]])
         l2c *= 2
         self.assertIs(type(l2c), ChannelList)
         self.assertIs(type(l2c[0]), BinaryOpUGen)
@@ -323,7 +326,7 @@ class ChannelListTestCase(unittest.TestCase):
         self.assertEqual(l2c[1], [80, 100, 120])
 
         # with tuple (operations are performed as if were lists)
-        l2c = ChannelList([UGen(), (40, 50, 60)])
+        l2c = ChannelList([SinOsc(), (40, 50, 60)])
         l2c = l2c * 2
         self.assertIs(type(l2c), ChannelList)
         self.assertIs(type(l2c[0]), BinaryOpUGen)
@@ -331,7 +334,7 @@ class ChannelListTestCase(unittest.TestCase):
         self.assertEqual(l2c[1], (80, 100, 120))
 
         # nested list (not really a use case in graphs)
-        l2c = ChannelList([[10, 20, 30, [40, 50, 60]], UGen()])
+        l2c = ChannelList([[10, 20, 30, [40, 50, 60]], SinOsc()])
         l2c = l2c * 2
         self.assertIs(type(l2c), ChannelList)
         self.assertIs(type(l2c[0]), list)
@@ -342,7 +345,7 @@ class ChannelListTestCase(unittest.TestCase):
         self.assertIs(type(l2c[1]), BinaryOpUGen)
 
         # nested tuple (not really a use case in graphs), in place
-        l2c = ChannelList([[10, 20, 30, (40, 50, 60)], UGen()])
+        l2c = ChannelList([[10, 20, 30, (40, 50, 60)], SinOsc()])
         l2c *= 2
         self.assertIs(type(l2c), ChannelList)
         self.assertIs(type(l2c[0]), list)

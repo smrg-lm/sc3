@@ -2,9 +2,12 @@
 import unittest
 import operator
 
-import sc3.builtins as bi
-from sc3.functions import (Function, function, UnaryOpFunction,
-                           BinaryOpFunction, NAryOpFunction)
+import sc3
+import sc3.base.builtins as bi
+from sc3.base.functions import (
+    Function, function, UnaryOpFunction, BinaryOpFunction, NAryOpFunction)
+
+sc3.init()
 
 
 class FunctionTestCase(unittest.TestCase):
@@ -43,18 +46,16 @@ class FunctionTestCase(unittest.TestCase):
         unops = ['log', 'log2', 'log10', 'exp', 'sin', 'cos', 'tan', 'asin',
                  'acos', 'atan', 'sinh', 'cosh', 'tanh']
         for op in unops:
-            f = getattr(f1, op)()
-            try:
-                if op == 'log':
-                    self.assertIs(type(f), NAryOpFunction)
-                else:
+            with self.subTest(op=op):
+                f = getattr(f1, op)()
+                try:
                     self.assertIs(type(f), UnaryOpFunction)
-                self.assertIs(f.a, f1)
-                self.assertEqual(f.selector, getattr(bi, op))
-                self.assertEqual(f(), getattr(bi, op)(res))
-            except ValueError as e:
-                self.assertEqual(e.args[0], 'math domain error')
-                self.assertTrue(op in {'asin', 'acos', 'atan'})
+                    self.assertIs(f.a, f1)
+                    self.assertEqual(f.selector, getattr(bi, op))
+                    self.assertEqual(f(), getattr(bi, op)(res))
+                except ValueError as e:
+                    self.assertEqual(e.args[0], 'math domain error')
+                    self.assertTrue(op in {'asin', 'acos', 'atan'})
 
         unops = ['midicps', 'cpsmidi', 'midiratio', 'ratiomidi', 'octcps',
                  'cpsoct', 'ampdb', 'dbamp', 'squared', 'cubed', 'sqrt']

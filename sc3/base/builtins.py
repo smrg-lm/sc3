@@ -254,7 +254,7 @@ def log10(x):
     return math.log10(x)
 
 @scbuiltin.unop
-def log(x):  #, base=math.e):
+def log(x):  #, base=math.e):  # In SI is unary, can't change the base.
     if x == 0: return float('-inf')
     return math.log(x)
 

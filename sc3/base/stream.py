@@ -161,7 +161,7 @@ class PauseStream(StopStream):
 class YieldAndReset(Exception):
     def __init__(self, yield_value=None):
         super().__init__()  # Doesn't store yield_value in self.args.
-        self.yield_value = value
+        self.yield_value = yield_value
 
 
 class AlwaysYield(Exception):
@@ -413,10 +413,15 @@ class Routine(TimeThread, Stream):
                             self._iterator = self.func()
                         self._last_value = next(self._iterator)
                     else:
+                        # Comon functions for routines generate nil streams
+                        # in sclang, return value doesn't count. Check over.
                         if self._func_has_inval:
-                            raise AlwaysYield(self.func(inval))
+                            # raise AlwaysYield(self.func(inval))
+                            self.func(inval)
                         else:
-                            raise AlwaysYield(self.func())
+                            # raise AlwaysYield(self.func())
+                            self.func()
+                        raise AlwaysYield(None)
                 else:
                     self._last_value = self._iterator.send(inval)
                 self.state = self.State.Suspended

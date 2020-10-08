@@ -1,7 +1,10 @@
 
 import unittest
 
-from sc3.stream import routine, StopStream, AlwaysYield, YieldAndReset
+import sc3
+from sc3.base.stream import routine, StopStream, AlwaysYield, YieldAndReset
+
+sc3.init()
 
 
 class RoutineTestCase(unittest.TestCase):

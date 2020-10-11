@@ -110,13 +110,6 @@ class OscInterface(ABC):
         # sub-bundles relative time by calling _get_timetag().
         self._send(self._build_bundle([time, *elements]), target)
 
-    def _get_timetag(self, time):
-        if time is None or time < 0.0:
-            return oli.IMMEDIATELY
-        else:
-            time += _libsc3.main.current_tt._seconds
-            return clk.SystemClock.elapsed_time_to_osc(time)
-
     @abstractmethod
     def _send(self, msg, target):
         pass
@@ -159,12 +152,30 @@ class OscInterface(ABC):
             if isinstance(arg[0], str):
                 bndl_builder.add_content(self._build_msg(arg))
             elif isinstance(arg[0], (int, float, type(None))):
+                self._check_subtime(arg_list[0], arg[0])
                 bndl_builder.add_content(self._build_bundle(arg))
             else:
                 raise ValueError(
                     'elements within bundles must be valid '
                     f'OSC messages or bundles: {arg}')
         return bndl_builder.build()
+
+    @staticmethod
+    def _get_timetag(time):
+        if time is None or time < 0.0:
+            return oli.IMMEDIATELY
+        else:
+            time += _libsc3.main.current_tt._seconds
+            return clk.SystemClock.elapsed_time_to_osc(time)
+
+    @staticmethod
+    def _check_subtime(time, subtime):
+        # OSC spec. 1.0. This check should be done by _osclib.
+        if time is None:
+            return
+        if subtime is None or time > subtime:
+            raise ValueError(
+                'nested bundle time must be >= enclosing bundle time')
 
     def __str__(self):
         return f'{type(self).__name__} port {self._port}'
@@ -407,7 +418,8 @@ class OscNrtInterface(OscInterface):
         # sub-bundles relative time by calling _get_timetag().
         self._osc_score.add([time, *elements])
 
-    def _get_timetag(self, time):  # override
+    @staticmethod
+    def _get_timetag(time):  # override
         if time is None or time < 0.0:
             time = 0.0  # IMMEDIATELY is not needed in nrt.
         time += _libsc3.main.current_tt._seconds
@@ -448,6 +460,7 @@ class OscScore():
     def _process_bndl_time(self, bndl):
         # Process time in seconds to store in the score and
         # support sub-bundles relative time like _build_bundle.
+        # _check_subtime is done by _build_bundle before calling this method.
         for i, element in enumerate(bndl[1:], 1):
             if isinstance(element[0], (int, float, type(None))):
                 bndl[i] = self._process_bndl_time(element)

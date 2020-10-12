@@ -219,7 +219,7 @@ class Recorder():
                 if msg[2] == self._id:
                     self._duration = msg[3]
                     self._changed_server('/recording_duration', self._duration)
-            self._responder = rdf.OSCFunc(
+            self._responder = rdf.OscFunc(
                 resp_recording_func, '/recording_duration', self._server.addr)
         else:
             self._responder.enable()

@@ -164,7 +164,7 @@ class NetAddr():
                 condition.test = True
                 condition.signal()
 
-        resp = rdf.OSCFunc(resp_func, '/synced', self)
+        resp = rdf.OscFunc(resp_func, '/synced', self)
         return id
 
     def _clump_bundle(self, elements, size=8192):

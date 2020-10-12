@@ -71,7 +71,7 @@ time_steps = []
 def recv_func(*args):
     time_steps.append(args[1])
 
-recv = OSCFunc(recv_func, '/test')
+recv = OscFunc(recv_func, '/test')
 
 @routine
 def ro():

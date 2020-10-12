@@ -13,7 +13,7 @@ from . import utils as utl
 from ._oscmatch import osc_rematch_pattern as _match_osc_address_pattern
 
 
-__all__ = ['OSCFunc']
+__all__ = ['OscFunc']
 
 
 _logger = logging.getLogger(__name__)
@@ -232,7 +232,7 @@ class AbstractResponderFunc(ABC):
 ### OSC ###
 
 
-class OSCFuncAddrMessageMatcher(AbstractMessageMatcher):
+class OscFuncAddrMessageMatcher(AbstractMessageMatcher):
     # // If you need to test for address func gets wrapped in this.
     def __init__(self, addr, func):
         self.addr = addr
@@ -244,7 +244,7 @@ class OSCFuncAddrMessageMatcher(AbstractMessageMatcher):
             fn.value(self.func, msg, time, addr, recv_port)
 
 
-class OSCFuncRecvPortMessageMatcher(AbstractMessageMatcher):
+class OscFuncRecvPortMessageMatcher(AbstractMessageMatcher):
     # // If you need to test for recvPort func gets wrapped in this.
     def __init__(self, recv_port, func):
         self.recv_port = recv_port
@@ -255,7 +255,7 @@ class OSCFuncRecvPortMessageMatcher(AbstractMessageMatcher):
             fn.value(self.func, msg, time, addr, recv_port)
 
 
-class OSCFuncBothMessageMatcher(AbstractMessageMatcher):
+class OscFuncBothMessageMatcher(AbstractMessageMatcher):
     def __init__(self, addr, recv_port, func):
         self.addr = addr
         self.recv_port = recv_port
@@ -294,11 +294,11 @@ class OSCMessageDispatcher(AbstractWrappingDispatcher):
         if arg_template is not None:
             func = OSCArgsMatcher(arg_template, func)
         if src_id is not None and recv_port is not None:
-            return OSCFuncBothMessageMatcher(src_id, recv_port, func)
+            return OscFuncBothMessageMatcher(src_id, recv_port, func)
         elif src_id is not None:
-            return OSCFuncAddrMessageMatcher(src_id, func)
+            return OscFuncAddrMessageMatcher(src_id, func)
         elif recv_port is not None:
-            return OSCFuncRecvPortMessageMatcher(recv_port, func)
+            return OscFuncRecvPortMessageMatcher(recv_port, func)
         else:
             return func
 
@@ -334,7 +334,7 @@ class OSCMessagePatternDispatcher(OSCMessageDispatcher):
         return 'OSC matched'
 
 
-class OSCFunc(AbstractResponderFunc):
+class OscFunc(AbstractResponderFunc):
     _all_func_proxies = set()
     default_dispatcher = OSCMessageDispatcher()
     default_matching_dispatcher = OSCMessagePatternDispatcher()
@@ -370,7 +370,7 @@ class OSCFunc(AbstractResponderFunc):
             # This whould require to create another OscUdpInterface or
             # OSCUDPServer which is something I don't want because I don't
             # know why this is important of if it works for TCP in sclang.
-            # OSCFuncRecvPortMessageMatcher and OSCFuncBothMessageMatcher
+            # OscFuncRecvPortMessageMatcher and OscFuncBothMessageMatcher
             # are needed only by this feature.
             _libsc3.main.open_udp_port(recv_port)  # Not implemented.
         self.arg_template = arg_template
@@ -411,7 +411,7 @@ class OSCFunc(AbstractResponderFunc):
             f'{self.recv_port}, {self.arg_template})')
 
 
-# class OSCDef(OSCFunc):
+# class OscDef(OscFunc):
 
 
 ### MIDI ###
@@ -419,41 +419,41 @@ class OSCFunc(AbstractResponderFunc):
 # MIDI implementation needs some thought, mostly because there
 # are many libraries and so far sc3 is dependencies free.
 
-class MIDIFuncSrcMessageMatcher(AbstractMessageMatcher):
+class MidiFuncSrcMessageMatcher(AbstractMessageMatcher):
     # // If you need to test for srcID func gets wrapped in this.
     ...
 
 
-class MIDIFuncChanMessageMatcher(AbstractMessageMatcher):
+class MidiFuncChanMessageMatcher(AbstractMessageMatcher):
     # // If you need to test for chan func gets wrapped in this.
     ...
 
 
-class MIDIFuncChanArrayMessageMatcher(AbstractMessageMatcher):
+class MidiFuncChanArrayMessageMatcher(AbstractMessageMatcher):
     # // If you need to test for chanArray func gets wrapped in this.
     ...
 
 
-class MIDIFuncSrcMessageMatcherNV(MIDIFuncSrcMessageMatcher):
+class MidiFuncSrcMessageMatcherNV(MidiFuncSrcMessageMatcher):
     # // Version for message types which don't pass a val.
     ...
 
 
-class MIDIFuncSrcSysMessageMatcher(MIDIFuncSrcMessageMatcher):
+class MidiFuncSrcSysMessageMatcher(MidiFuncSrcMessageMatcher):
     # // Version for message types which don't pass a val.
     ...
 
 
-class MIDIFuncSrcSysMessageMatcherND(MIDIFuncSrcMessageMatcher):
+class MidiFuncSrcSysMessageMatcherND(MidiFuncSrcMessageMatcher):
     ...
 
 
-class MIDIFuncBothMessageMatcher(AbstractMessageMatcher):
+class MidiFuncBothMessageMatcher(AbstractMessageMatcher):
     # // If you need to test for chan and srcID func gets wrapped in this.
     ...
 
 
-class MIDIFuncBothCAMessageMatcher(AbstractMessageMatcher):
+class MidiFuncBothCAMessageMatcher(AbstractMessageMatcher):
     # // If you need to test for chanArray and srcID func gets wrapped in this.
     ...
 
@@ -500,7 +500,7 @@ class MIDISMPTEAssembler(AbstractMessageMatcher):
     ...
 
 
-class MIDIFunc(AbstractResponderFunc):
+class MidiFunc(AbstractResponderFunc):
     ...
 
-# class MIDIdef(MIDIFunc):
+# class MidiDef(MidiFunc):

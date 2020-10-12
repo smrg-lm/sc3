@@ -175,7 +175,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
                 # // We want "value," which is at index 2.
                 action(msg[2])
 
-            rdf.OSCFunc(
+            rdf.OscFunc(
                 get_func, '/c_set', self._server.addr,
                 arg_template=[self._index]).one_shot()
             self._server.send_msg('/c_get', self._index)
@@ -201,7 +201,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
             # // We want the values, which are at indexes 3 and above.
             action(msg[3:])
 
-        rdf.OSCFunc(
+        rdf.OscFunc(
             getn_func, '/c_setn', self._server.addr,
             arg_template=[self._index]).one_shot()
         if count is None:

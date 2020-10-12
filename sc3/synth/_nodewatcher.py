@@ -19,7 +19,7 @@ class NodeWatcher():
         self._is_watching = False
         for cmd in self.cmds:
             method = '_' + cmd[1:]
-            osc_func = rdf.OSCFunc(
+            osc_func = rdf.OscFunc(
                 (lambda mthd: lambda msg, *_: self.respond(mthd, msg))(method),
                 cmd, self._server.addr)
             osc_func.permanent = True

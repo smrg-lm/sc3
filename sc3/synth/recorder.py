@@ -193,7 +193,7 @@ class Recorder():
         self._num_channels = num_channels
         self._id = bi.uid()
 
-        def graph_func(input, bufnum, duration):
+        def func(input, bufnum, duration):
             tick = ugns.Impulse.kr(1)
             timer = ugns.PulseCount.kr(tick) - 1
             done_action = 0 if self._duration <= 0 else 2
@@ -201,8 +201,7 @@ class Recorder():
             ugns.SendReply.kr(tick, '/recording_duration', (timer,), self._id)
             ugns.DiskOut.ar(bufnum, ugns.In.ar(input, num_channels))
 
-        self._synthdef = sdf.SynthDef(
-            sdf.SynthDef.generate_tmp_name(), graph_func)
+        self._synthdef = sdf.SynthDef(sdf.SynthDef.generate_tmp_name(), func)
         self._synthdef.send(self._server)
 
         _logger.info(f"preparing recording on '{self._server.name}'")

@@ -49,6 +49,13 @@ class MetaSynthDef(type):
 
 
 class SynthDef(metaclass=MetaSynthDef):
+    """
+    SynthDef instances build the instructions to create synthesis nodes
+    in the server from a function containing interconnected UGen objects.
+    In order for the server to have the synthesis definition available it
+    should be sent using `add`, `load`, `send` or `store` methods.
+    """
+
     _SUFFIX = 'scsyndef'
 
     @classmethod
@@ -78,8 +85,28 @@ class SynthDef(metaclass=MetaSynthDef):
 
         return obj
 
-    def __init__(self, name, graph_func, rates=None,
-                 prepend_args=None, variants=None, metadata=None):
+    def __init__(self, name, func, rates=None, prepend=None,
+                 variants=None, metadata=None):
+        """
+        Args:
+            name: The name of the synthesis definition used by the server
+                to create synth nodes.
+            func: A common function containing UGen objects.
+            rates: An optional list of rate specifications that map to the
+                `func` defined parameters. If value is `None` (default)
+                control rate instances will be created instead. Possible
+                values are `'ar'`, `'kr'`, `'ir'`, `'tr'` or a number
+                (indicating lag control with that value). This parameter
+                overrides rates defined by function annotations.
+            prepend: An optional list of values that will be passed to `func`
+                when evaluated. This prevents controls from being created.
+            variants: An optional dictionary with different keys that specify
+                sets of default values to create synthesis nodes in the server.
+                When using variants, synthesis definition names are composed
+                as `'synthname.variantkey'`.
+            metadata: An user defined JSON serializable dictionary to provide
+                information about the synthesis definition.
+        """
         self._name = name
         self._func = None
         self._variants = variants or dict()
@@ -102,16 +129,16 @@ class SynthDef(metaclass=MetaSynthDef):
         self._width_first_ugens = []
         self._rewrite_in_progress = False
 
-        self._build(graph_func, rates or [], prepend_args or [])
+        self._build(func, rates or [], prepend or [])
 
-    def _build(self, graph_func, rates, prepend_args):
+    def _build(self, func, rates, prepend):
         with _libsc3.main._def_build_lock:
             try:
                 _libsc3.main._current_synthdef = self
                 self._init_build()
-                self._build_ugen_graph(graph_func, rates, prepend_args)
+                self._build_ugen_graph(func, rates, prepend)
                 self._finish_build()
-                self._func = graph_func
+                self._func = func
                 _libsc3.main._current_synthdef = None
             except Exception:
                 _libsc3.main._current_synthdef = None
@@ -130,10 +157,10 @@ class SynthDef(metaclass=MetaSynthDef):
         return self._variants
 
     @classmethod
-    def wrap(cls, func, rates=None, prepend_args=None):
+    def wrap(cls, func, rates=None, prepend=None):
         if _libsc3.main._current_synthdef is not None:
             return _libsc3.main._current_synthdef._build_ugen_graph(
-                func, rates or [], prepend_args or [])
+                func, rates or [], prepend or [])
         else:
             raise Exception(
                 'SynthDef wrap should be called inside '
@@ -147,13 +174,13 @@ class SynthDef(metaclass=MetaSynthDef):
         self._control_index = 0
         self._max_local_bufs = None
 
-    def _build_ugen_graph(self, graph_func, rates, prepend_args):
+    def _build_ugen_graph(self, func, rates, prepend):
         # // Save/restore controls in case of SynthDef.wrap.
         save_ctl_names = self._control_names
         self._control_names = []
-        prepend_args = utl.as_list(prepend_args)
-        self._args_to_controls(graph_func, rates, len(prepend_args))
-        result = graph_func(*(prepend_args + self._build_controls()))
+        prepend = utl.as_list(prepend)
+        self._args_to_controls(func, rates, len(prepend))
+        result = func(*(prepend + self._build_controls()))
         self._control_names = save_ctl_names
         return result
 
@@ -217,7 +244,7 @@ class SynthDef(metaclass=MetaSynthDef):
                     ret.append(list(param.default))
                 else:
                     _logger.warning(
-                        "graph_func invalid value as default argument "
+                        "invalid value as default argument, "
                         f"'{param.default}' replaced by None")
                     ret.append(None)
             else:
@@ -730,15 +757,15 @@ class SynthDef(metaclass=MetaSynthDef):
 
 ### Decorator syntax ###
 
-def _create_synthdef(graph_func, **kwargs):
-    sdef = SynthDef(graph_func.__name__, graph_func, **kwargs)
+def _create_synthdef(func, **kwargs):
+    sdef = SynthDef(func.__name__, func, **kwargs)
     sdef.add()  # Running servers or offline patterns.
     sac.ServerBoot.add('all', lambda server: sdef.add())  # Next boot.
     return sdef
 
-def synthdef(graph_func=None, **kwargs):
-    if graph_func is None:
+def synthdef(func=None, **kwargs):
+    if func is None:
         # action: 'load', 'send', 'store', 'add'? (needs kwargs filtering).
-        return lambda graph_func: _create_synthdef(graph_func, **kwargs)
+        return lambda func: _create_synthdef(func, **kwargs)
     else:
-        return _create_synthdef(graph_func)
+        return _create_synthdef(func)

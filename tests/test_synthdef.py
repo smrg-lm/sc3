@@ -10,9 +10,6 @@ sc3.init()
 
 
 class SynthDefTestCase(unittest.TestCase):
-    def test_dummy(self):
-        ...
-
     def test_build(self):
         def graph():
             Out.ar(0, DC.ar(0.5) * 1)
@@ -69,7 +66,6 @@ class SynthDefTestCase(unittest.TestCase):
 
     # test or remove store_once.
     # remove store_at.
-    # write_def and write_def_list should be internal.
 
     def test_decorator(self):
         ...

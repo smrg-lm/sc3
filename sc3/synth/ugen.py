@@ -1075,7 +1075,7 @@ class UnaryOpUGen(BasicOpUGen):
 
 class BinaryOpUGen(BasicOpUGen):
     @classmethod
-    def _new1(cls, rate, selector, a, b):
+    def _new1(cls, rate, selector, a, b):  # override
         # OC: eliminate degenerate cases
         if selector == '*':
             if a == 0.0: return 0.0
@@ -1319,7 +1319,7 @@ class MulAdd(UGen):
         return cls._multi_new_list([rate] + args)
 
     @classmethod
-    def _new1(cls, rate, input, mul, add):
+    def _new1(cls, rate, input, mul, add):  # override
         # OC: eliminate degenerate cases
         if mul == 0.0: return add
         minus = mul == -1.0
@@ -1363,7 +1363,7 @@ class Sum3(UGen):
         return cls._multi_new(None, in0, in1, in2)
 
     @classmethod
-    def _new1(cls, dummy_rate, in0, in1, in2):
+    def _new1(cls, _, in0, in1, in2):  # override
         if in2 == 0.0: return in0 + in1
         if in1 == 0.0: return in0 + in2
         if in0 == 0.0: return in1 + in2
@@ -1381,7 +1381,7 @@ class Sum4(UGen):
         return cls._multi_new(None, in0, in1, in2, in3)
 
     @classmethod
-    def _new1(cls, dummy_rate, in0, in1, in2, in3):
+    def _new1(cls, _, in0, in1, in2, in3):  # override
         if in0 == 0.0: return Sum3._new1(None, in1, in2, in3)
         if in1 == 0.0: return Sum3._new1(None, in0, in2, in3)
         if in2 == 0.0: return Sum3._new1(None, in0, in1, in3)

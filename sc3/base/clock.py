@@ -991,7 +991,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # NOTE: Code is complicated because the lock. In RT the lock prevents
         # to calculate a time here and then, because threading, to excecute
         # a greater time element from the queue before this one is added. To
-        # leave a real lock as dummy is no an option because is a system
+        # leave a real lock as dummy is not an option because is a system
         # resource, if was a fake lock wouldn't be clear. Also, _sched_add
         # needs to be called already locked because is used from outside and
         # within the _run loop.

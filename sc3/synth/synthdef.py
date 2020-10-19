@@ -59,7 +59,8 @@ class SynthDef(metaclass=MetaSynthDef):
     _SUFFIX = 'scsyndef'
 
     @classmethod
-    def dummy(cls, name):
+    def _dummy(cls, name):
+        # Creates an empty object used by SynthDesc.
         obj = cls.__new__(cls)
 
         obj._name = name
@@ -539,7 +540,7 @@ class SynthDef(metaclass=MetaSynthDef):
     def as_bytes(self):
         if self._bytes is None:
             stream = io.BytesIO()
-            self.write_def_list([self], stream)
+            self._write_def_list([self], stream)
             self._bytes = stream.getbuffer()
         return self._bytes
 
@@ -550,23 +551,23 @@ class SynthDef(metaclass=MetaSynthDef):
             path = dir / f'{self._name}.{self._SUFFIX}'
             if overwrite or not path.exists():
                 with open(path, 'wb') as file:
-                    self.write_def_list([self], file)
+                    self._write_def_list([self], file)
                 desc = sdc.SynthDesc.new_from(self)
                 sdc.SynthDesc.populate_metadata_func(desc)
                 desc.write_metadata(dir, md_plugin)
                 sdc.SynthDescLib.get_lib('default').add(desc)
 
     @staticmethod
-    def write_def_list(lst, file):
+    def _write_def_list(lst, file):
         # This method is Collection-writeDef in sclang, is the only one
         # that creates the header. Called from as_bytes.
         file.write(b'SCgf')  # putString 'a null terminated String'
         frw.write_i32(file, 2)  # // file version
         frw.write_i16(file, len(lst))  # // number of defs in file.
         for synthdef in lst:
-            synthdef.write_def(file)
+            synthdef._write_def(file)
 
-    def write_def(self, file):
+    def _write_def(self, file):
         try:
             frw.write_pascal_str(file, self._name)
             self._write_constants(file)
@@ -717,7 +718,7 @@ class SynthDef(metaclass=MetaSynthDef):
         path = dir / f'{self._name}.{self._SUFFIX}'
         if not self.metadata.get('reconstructed', False):
             with open(path, 'wb') as file:
-                self.write_def_list([self], file)
+                self._write_def_list([self], file)
             desc = sdc.SynthDesc.new_from(self)
             desc.metadata = self.metadata
             sdc.SynthDesc.populate_metadata_func(desc)

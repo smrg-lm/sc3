@@ -190,7 +190,7 @@ class SynthDesc():
 
                 self.name = frw.read_pascal_str(stream)
 
-                self.sdef = sdf.SynthDef.dummy(self.name)
+                self.sdef = sdf.SynthDef._dummy(self.name)
                 _libsc3.main._current_synthdef = self.sdef
 
                 num_constants = frw.read_i32(stream)

@@ -9,6 +9,10 @@ sc3.init()
 
 
 class BundleTestCase(unittest.TestCase):
+    def test_sc3_special_cases(self):
+        # blob from arrays, arrays, special cases like None, etc.
+        ...
+
     def test_nested_bundle_time(self):
         # ValueError('nested bundle time must be >= enclosing bundle time').
         n = NetAddr('127.0.0.1', NetAddr.lang_port())

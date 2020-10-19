@@ -142,8 +142,9 @@ class LagControl(Control):
             lags = utl.as_list(lags)
 
         if len(values) != len(lags):
-            _logger.warning(f'{cls.__name__} len(values) is not len(lags), '
-                            f'{cls.__name__}.kr returns None')
+            _logger.warning(
+                f'{cls.__name__} len(values) is not len(lags), '
+                f'{cls.__name__}.kr returns None')
             return None
 
         n = 16

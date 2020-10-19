@@ -57,6 +57,7 @@ class SynthDef(metaclass=MetaSynthDef):
     """
 
     _SUFFIX = 'scsyndef'
+    _RATE_NAMES = ('ar', 'kr', 'ir', 'tr')
 
     @classmethod
     def _dummy(cls, name):
@@ -93,20 +94,21 @@ class SynthDef(metaclass=MetaSynthDef):
             name: The name of the synthesis definition used by the server
                 to create synth nodes.
             func: A common function containing UGen objects.
-            rates: An optional list of rate specifications that map to the
-                `func` defined parameters. If value is `None` (default)
+            rates: An optional list of rate specifications that map to
+                the `func` defined parameters. If value is `None` (default)
                 control rate instances will be created instead. Possible
                 values are `'ar'`, `'kr'`, `'ir'`, `'tr'` or a number
-                (indicating lag control with that value). This parameter
+                (indicating lag value for `'kr'` controls). This parameter
                 overrides rates defined by function annotations.
-            prepend: An optional list of values that will be passed to `func`
-                when evaluated. This prevents controls from being created.
-            variants: An optional dictionary with different keys that specify
-                sets of default values to create synthesis nodes in the server.
-                When using variants, synthesis definition names are composed
-                as `'synthname.variantkey'`.
-            metadata: An user defined JSON serializable dictionary to provide
-                information about the synthesis definition.
+            prepend: An optional list of positional values that will be
+                passed to `func` when evaluated. This prevents controls
+                from being created for that arguments.
+            variants: An optional dictionary with different keys that
+                specify sets of default values to create synthesis nodes
+                in the server. When using variants, synthesis definition
+                names are composed as `'synthname.variantkey'`.
+            metadata: An user defined JSON serializable dictionary to
+                provide information about the synthesis definition.
         """
         self._name = name
         self._func = None
@@ -187,47 +189,68 @@ class SynthDef(metaclass=MetaSynthDef):
 
     def _args_to_controls(self, func, rates, skip_args=0):  # Was addControlsFromArgsOfFunc.
         if not inspect.isfunction(func):
-            raise TypeError('@synthdef only apply to functions')
+            raise TypeError('func argument is not a function')
 
         sig = inspect.signature(func)
         params = list(sig.parameters.values())
-        names = [x.name for x in params]
-        if len(names) < 1:
-            return None
+
+        if not params:
+            return
+
+        pork = inspect.Parameter.POSITIONAL_OR_KEYWORD
+        for p in params:
+            if p.kind != pork:
+                raise ValueError(
+                    'all func parameters must be POSITIONAL_OR_KEYWORD')
+
+        for p in params[skip_args:]:
+            if isinstance(p.default, tuple)\
+            and any(isinstance(v, (tuple, list)) for v in p.default):
+                raise ValueError(f"tuple rank > 1 for parameter '{p.name}'")
 
         # // What we do here is separate the ir, tr and kr rate arguments,
         # // create one Control ugen for all of each rate, and then construct
         # // the argument array from combining the OutputProxies of these two
         # // Control ugens in the original order.
+        names = [x.name for x in params]
         names = names[skip_args:]
         values = self._get_valid_arg_values(params)
         values = values[skip_args:]
         values = self._apply_metadata_specs(names, values)
 
         empty = inspect.Signature.empty
-        annotations = [x.annotation if x != empty else None for x in params]
+        annotations = [
+            x.annotation if x.annotation != empty else None for x in params]
         annotations = annotations[skip_args:]
 
         rates += [0] * (len(names) - len(rates))
         rates = [x if x is not None else 0.0 for x in rates]
 
-        for i, name in enumerate(names):
-            note = annotations[i]
-            value = values[i]
-            lag = rates[i]
-            msg = 'Lag value {} for {} arg {} will be ignored'
+        rate_names = self._RATE_NAMES
 
-            if (lag == 'ir') or (note == 'ir'):
-                if isinstance(lag, (int, float)) and lag != 0:
-                    _logger.warning(msg.format(lag, 'i-rate', name))
+        for a in annotations:
+            if a is not None and a not in rate_names:
+                raise ValueError(
+                    f'rate annotation {repr(a)} not in {rate_names}')
+
+        for i, name in enumerate(names):
+            value = values[i]
+            annot = annotations[i]
+            lag = rates[i]
+
+            if annot and annot != 'kr'\
+            and isinstance(lag, (int, float)) and lag != 0:
+                _logger.warning(
+                    f"lag value {lag} for '{annot}' parameter "
+                    f"'{name}' will be ignored")
+
+            overridden = lag in rate_names
+
+            if lag == 'ir' or annot == 'ir' and not overridden:
                 self._add_ir(name, value)
-            elif (lag == 'tr') or (note == 'tr'):
-                if isinstance(lag, (int, float)) and lag != 0:
-                    _logger.warning(msg.format(lag, 'trigger', name))
+            elif lag == 'tr' or annot == 'tr' and not overridden:
                 self._add_tr(name, value)
-            elif (lag == 'ar') or (note == 'ar'):
-                if isinstance(lag, (int, float)) and lag != 0:
-                    _logger.warning(msg.format(lag, 'audio', name))
+            elif lag == 'ar' or annot == 'ar' and not overridden:
                 self._add_ar(name, value)
             else:
                 if lag == 'kr': lag = 0.0
@@ -347,7 +370,7 @@ class SynthDef(metaclass=MetaSynthDef):
                     lags.extend(utl.wrap_extend(utl.as_list(cn.lag), valsize))
                 else:
                     lags.append(cn.lag)
-            index = self._control_index # TODO: esto puede ir abajo si los kr no cambian el índice.
+            index = self._control_index
 
             if any(x != 0 for x in lags):
                 ctrl_ugens = iou.LagControl.kr(utl.flat(values), lags)  # LagControl.kr(values.flat, lags) //.asArray.reshapeLike(values);
@@ -367,9 +390,8 @@ class SynthDef(metaclass=MetaSynthDef):
         return arguments
 
     def _set_control_names(self, ctrl_ugens, cn):
-        # *** BUG: can't find where is this name change is used (name getter of OutputProxy)
         if isinstance(ctrl_ugens, list):
-            for ctrl_ugen in ctrl_ugens: # TODO:, posible BUG? Este loop me da la pauta de que no soporta más que un nivel de anidamiento? (!) Qué pasaba si hay más de un nivel acá?
+            for ctrl_ugen in ctrl_ugens:
                 ctrl_ugen.name = cn.name
         else:
             ctrl_ugens.name = cn.name

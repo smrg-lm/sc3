@@ -48,7 +48,6 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-
 # -- Options for HTML output -------------------------------------------------
 
 master_doc = 'index'
@@ -62,3 +61,11 @@ html_theme = 'default'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+# -- Extensions configuration_ -----------------------------------------------
+
+# Autodoc. Join class and __init__ docstring.
+# autoclass_content = 'both'
+
+# Autodoc. Sort by member type
+# autodoc_member_order = 'groupwise'

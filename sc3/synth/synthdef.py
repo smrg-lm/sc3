@@ -4,6 +4,7 @@ import inspect
 import logging
 import io
 import pathlib
+from collections import Container
 
 from ..base import classlibrary as clb
 from ..base import utils as utl
@@ -205,7 +206,7 @@ class SynthDef(metaclass=MetaSynthDef):
 
         for p in params[skip_args:]:
             if isinstance(p.default, tuple)\
-            and any(isinstance(v, (tuple, list)) for v in p.default):
+            and any(isinstance(v, Container) for v in p.default):
                 raise ValueError(f"tuple rank > 1 for parameter '{p.name}'")
 
         # // What we do here is separate the ir, tr and kr rate arguments,

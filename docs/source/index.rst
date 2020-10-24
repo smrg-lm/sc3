@@ -2,9 +2,10 @@ SuperCollider library for Python
 ================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
+   api/modules
 
 Indices and tables
 ==================

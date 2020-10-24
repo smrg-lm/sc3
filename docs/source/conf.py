@@ -4,19 +4,19 @@
 
 # Modules to document need to be added to sys.path.
 
-# import os
-# import sys
-# from sphinx.ext import apidoc  # Sphinx >= 1.7
-#
-# root = os.path.abspath('../../')
-# module = os.path.join(root, "sc3")
-# output = os.path.join(root, "docs/source/api")
-# sys.path.insert(0, root)
-#
-# try:
-#     apidoc.main(['-f', '-o', output, module])
-# except Exception as e:
-#     print(f"Running `sphinx-apidoc` failed!\n{e}")
+import os
+import sys
+from sphinx.ext import apidoc  # Sphinx >= 1.7
+
+root = os.path.abspath('../../')
+module = os.path.join(root, "sc3")
+output = os.path.join(root, "docs/source/api")
+sys.path.insert(0, root)
+
+try:
+    apidoc.main(['-f', '-o', output, module])
+except Exception as e:
+    print(f"Running `sphinx-apidoc` failed!\n{e}")
 
 
 # -- Project information -----------------------------------------------------
@@ -35,8 +35,8 @@ release = '1.0.0a'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    # 'sphinx.ext.autodoc',
-    # 'sphinx.ext.autosummary',
+    'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinx.ext.napoleon'
 ]
 
@@ -68,4 +68,4 @@ html_static_path = ['_static']
 # autoclass_content = 'both'
 
 # Autodoc. Sort by member type
-# autodoc_member_order = 'groupwise'
+autodoc_member_order = 'groupwise'

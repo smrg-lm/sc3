@@ -175,9 +175,6 @@ class SynthDefTestCase(unittest.TestCase):
     def test_as_bytes(self):
         ...
 
-    # test or remove store_once.
-    # remove store_at.
-
     def test_decorator(self):
         ...
 

@@ -50,11 +50,39 @@ class MetaSynthDef(type):
 
 
 class SynthDef(metaclass=MetaSynthDef):
-    """
+    """Build the instructions to create synthesis nodes in the server.
+
     SynthDef instances build the instructions to create synthesis nodes
     in the server from a function containing interconnected UGen objects.
     In order for the server to have the synthesis definition available it
-    should be sent using `add`, `load`, `send` or `store` methods.
+    should be sent using ``add``, ``load``, ``send`` or ``store`` methods.
+
+    Parameters
+    ----------
+    name : str
+        The name of the synthesis definition used by the server
+        to create synth nodes.
+    func: function
+        A common function containing UGen objects.
+    rates : list
+        An optional list of rate specifications that map to
+        the ``func`` defined parameters. If value is `None` (default)
+        control rate instances will be created instead. Possible
+        values are `'ar'`, `'kr'`, `'ir'`, `'tr'` or a number
+        (indicating lag value for `'kr'` controls). This parameter
+        overrides rates defined by function annotations.
+    prepend : list
+        An optional list of positional values that will be
+        passed to ``func`` when evaluated. This prevents controls
+        from being created for that arguments.
+    variants : dict
+        An optional dictionary with different keys that
+        specify sets of default values to create synthesis nodes
+        in the server. When using variants, synthesis definition
+        names are composed as `'synthname.variantkey'`.
+    metadata : dict
+        An user defined JSON serializable dictionary to
+        provide information about the synthesis definition.
     """
 
     _SUFFIX = 'scsyndef'
@@ -90,27 +118,6 @@ class SynthDef(metaclass=MetaSynthDef):
 
     def __init__(self, name, func, rates=None, prepend=None,
                  variants=None, metadata=None):
-        """
-        Args:
-            name: The name of the synthesis definition used by the server
-                to create synth nodes.
-            func: A common function containing UGen objects.
-            rates: An optional list of rate specifications that map to
-                the `func` defined parameters. If value is `None` (default)
-                control rate instances will be created instead. Possible
-                values are `'ar'`, `'kr'`, `'ir'`, `'tr'` or a number
-                (indicating lag value for `'kr'` controls). This parameter
-                overrides rates defined by function annotations.
-            prepend: An optional list of positional values that will be
-                passed to `func` when evaluated. This prevents controls
-                from being created for that arguments.
-            variants: An optional dictionary with different keys that
-                specify sets of default values to create synthesis nodes
-                in the server. When using variants, synthesis definition
-                names are composed as `'synthname.variantkey'`.
-            metadata: An user defined JSON serializable dictionary to
-                provide information about the synthesis definition.
-        """
         self._name = name
         self._func = None
         self._variants = variants or dict()
@@ -520,6 +527,8 @@ class SynthDef(metaclass=MetaSynthDef):
             self._constants[value] = len(self._constants)
 
     def dump_ugens(self):
+        """Print the generated graph instructions in a human readable way."""
+
         print(self._name)
         for ugen in self._children:
             inputs = None
@@ -530,6 +539,27 @@ class SynthDef(metaclass=MetaSynthDef):
             print([ugen._dump_name(), ugen.rate, inputs])
 
     def add(self, libname=None, completion_msg=None, keep_def=True):
+        """Send the definition to the servers and keep a description.
+
+        Adds the synthesis definition to the SynthDescLib specified by
+        ``libname`` and sends it to the library's registered servers.
+        All operations take place in memory (no scsyndef file is written).
+        This method is used for most cases.
+
+        Parameters
+        ----------
+        libname : str
+            SynthDescLib library name. If not specified `'default'` will
+            be used.
+        completion_msg : function
+            A function that receives a server as argument and return an OSC
+            message. This message will be executed in the server after the
+            definition is loaded.
+        keep_def : bool
+            A flag indicating if the function's code will be kept in the
+            SynthDesc object, default value is `True`.
+        """
+
         # // Make SynthDef available to all servers.
         desc = sdc.SynthDesc.new_from(self, keep_def)
         if libname is None:
@@ -561,6 +591,8 @@ class SynthDef(metaclass=MetaSynthDef):
                 _logger.warning(f'SynthDef {self._name} too big for sending')
 
     def as_bytes(self):
+        """Binary format of the synthesis definition."""
+
         if self._bytes is None:
             stream = io.BytesIO()
             self._write_def_list([self], stream)
@@ -672,18 +704,24 @@ class SynthDef(metaclass=MetaSynthDef):
             frw.write_f32(file, item)
 
     # writeOnce, removed, see documentation.
-
-    @classmethod
-    def remove_at(cls, name, libname='default'):  # *** BUG: Este método es de dudosa utilidad para SynthDef en core.
-        lib = sdc.SynthDescLib.get_lib(libname)
-        lib.remove_at(name)
-        for server in lib.servers:
-            server.send_msg('/d_free', name) # BUG: no entiendo por qué usa server.value (que retorna el objeto server). Además, send_msg también es método de String en sclang lo que resulta confuso.
+    # removeAt, discarded, use SynthDescLib directly.
 
 
     # // Methods for special optimizations.
 
     def send(self, server=None, completion_msg=None):
+        """Send the definition to the server.
+
+        Parameters
+        ----------
+        server : Server | list
+            A single server object or list.
+        completion_msg : function
+            A function that receives a server as argument and return an OSC
+            message. This message will be executed in the server after the
+            definition is loaded.
+        """
+
         # // Only send to servers.
         if server is None:
             servers = list(
@@ -718,7 +756,23 @@ class SynthDef(metaclass=MetaSynthDef):
                 f"Server '{server}' is remote, cannot load from disk")
 
     def load(self, server, completion_msg=None, dir=None):
-        # // Send to server and write file.
+        """Write the definition to a file that is loaded from the server.
+
+        This method is used for definitions too large to be sent over UDP.
+
+        Parameters
+        ----------
+        server : Server | list
+            A single server object or list.
+        completion_msg : function
+            A function that receives a server as argument and return an OSC
+            message. This message will be executed in the server after the
+            definition is loaded.
+        dir : str | pathlib.Path
+            Directory in which the file is saved, if not specified
+            platform's default directory is used.
+        """
+
         server = server or srv.Server.default
         completion_msg = fn.value(completion_msg, server)
         if self.metadata.get('reconstructed', False):
@@ -734,6 +788,27 @@ class SynthDef(metaclass=MetaSynthDef):
 
     def store(self, libname='default', dir=None, completion_msg=None,
               md_plugin=None):
+        """Add a description, write the definition to disk and send
+        it to the reigistered servers.
+
+        Similar to add but write to disk.
+
+        Parameters
+        ----------
+        libname : str
+            SynthDescLib library name. If not specified `'default'` will
+            be used.
+        dir : str | pathlib.Path
+            Directory in which the file is saved, if not specified
+            platform's default directory is used.
+        completion_msg : function
+            A function that receives a server as argument and return an OSC
+            message. This message will be executed in the server after the
+            definition is loaded.
+        md_plugin :
+            TODO: Not defined yet.
+        """
+
         # // Write to file and make synth description.
         lib = sdc.SynthDescLib.get_lib(libname)
         dir = dir or plf.Platform.synthdef_dir
@@ -755,19 +830,19 @@ class SynthDef(metaclass=MetaSynthDef):
                 self._load_reconstructed(
                     server, fn.value(completion_msg, server))
 
-    def store_once(self, libname='default', dir=None, completion_msg=None,
-                   md_plugin=None):
-        # // This method needs a reconsideration.
-        dir = dir or plf.Platform.synthdef_dir
-        dir = pathlib.Path(dir)
-        path = dir / f'{self._name}.{self._SUFFIX}'
-        if not path.exists():
-            self.store(libname, dir, completion_msg, md_plugin)
-        else:
-            # // Load synthdesc from disk because
-            # // SynthDescLib still needs to have the info.
-            lib = sdc.SynthDescLib.get_lib(libname)
-            lib.read(path)
+    # def store_once(self, libname='default', dir=None, completion_msg=None,
+    #                md_plugin=None):
+    #     # // This method needs a reconsideration.
+    #     dir = dir or plf.Platform.synthdef_dir
+    #     dir = pathlib.Path(dir)
+    #     path = dir / f'{self._name}.{self._SUFFIX}'
+    #     if not path.exists():
+    #         self.store(libname, dir, completion_msg, md_plugin)
+    #     else:
+    #         # // Load synthdesc from disk because
+    #         # // SynthDescLib still needs to have the info.
+    #         lib = sdc.SynthDescLib.get_lib(libname)
+    #         lib.read(path)
 
     # play
     # def store_args(self):
@@ -788,6 +863,48 @@ def _create_synthdef(func, **kwargs):
     return sdef
 
 def synthdef(func=None, **kwargs):
+    """Decorator function to build and add definitions.
+
+    The name of the decorated function becomes the name of the
+    definition. After instantiation the `add` method is called
+    and is also set to be called at subsequent server's boot.
+
+    It can be used with optional keyword only arguments.
+
+    Examples
+    --------
+    ::
+
+        @synthdef
+        def test(freq=440, amp=0.1, pan=0, gate=1):
+            sig = SinOsc(freq) * amp
+            sig *= EnvGen(Env.asr(), gate)
+            Out(0, Pan2(sig, pan))
+
+        # Same as:
+
+        def test(freq=440, amp=0.1, pan=0, gate=1):
+            ...
+
+        sd = SynthDef('test', test)
+        sd.add()
+
+        # With arguments:
+
+        @synthdef(rates=[0.02, 0.02], variants={'low': {'freq': 110}})
+        def test(freq=440, amp=0.1, pan=0, gate=1):
+            ...
+
+        # Same as:
+
+        def test(freq=440, amp=0.1, pan=0, gate=1):
+            ...
+
+        sd = SynthDef('test', test, [0.02, 0.02], None, {'low': {'freq': 110}})
+        sd.add()
+
+    """
+
     if func is None:
         # action: 'load', 'send', 'store', 'add'? (needs kwargs filtering).
         return lambda func: _create_synthdef(func, **kwargs)

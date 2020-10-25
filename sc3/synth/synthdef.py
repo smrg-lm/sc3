@@ -283,8 +283,11 @@ class SynthDef(metaclass=MetaSynthDef):
                 ret.append(None)
         return ret
 
-    # método agregado
     def _apply_metadata_specs(self, names, values):
+        # This method depends on MdPlugin 'specs' key.
+        # I'm not sure if SynthDef is the right place for it
+        # but it's called when building the definition and may add
+        # a default value for control parameters if they are None.
         new_values = []
         if 'specs' in self.metadata:
             specs = self.metadata['specs']
@@ -292,13 +295,8 @@ class SynthDef(metaclass=MetaSynthDef):
                 if value is not None:
                     new_values.append(value)
                 else:
-                    spec = None
                     if names[i] in specs:
-                        spec = spc.spec(specs[names[i]])
-                    else:
-                        spec = spc.spec(names[i])
-                    if spec is not None:
-                        new_values.append(spec.default)
+                        new_values.append(specs[names[i]].default)
                     else:
                         new_values.append(0.0)
         else:

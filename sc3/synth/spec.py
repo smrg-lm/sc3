@@ -307,7 +307,9 @@ _SPECS = {
 }
 
 def spec(spc):
-    if isinstance(spc, str):
+    if isinstance(spc, ControlSpec):
+        return spc
+    elif isinstance(spc, str):
         try:
             return _SPECS[spc]
         except KeyError:
@@ -324,15 +326,18 @@ def spec(spc):
 
 ### Metadata support ###
 
-def key_encoder(lst):
-    # Receives a list of specs and returns JSON serializable Python objects.
-    return [[
-        spc._minval, spc._maxval, spc._warp.specifier,
-        spc._step, spc._default, spc._units] for spc in lst]
+def key_encoder(dct):
+    # Receives a dict of ControlSpecs, the 'specs' key of SynthDef
+    # metadata and return JSON serializable Python objects.
+    return {
+        k: [v._minval, v._maxval, v._warp.specifier,
+            v._step, v._default, v._units]
+        for k, v in dct.items()}
 
-def key_decoder(lst):
-    # Receives a list of JSON serializable Python objects.
-    return [spec(spc) for spc in lst]
+def key_decoder(dct):
+    # Receives a dict of lists (from a JSON file) for the 'specs'
+    # key of SynthDef and return a dict of ControlSpecs.
+    return {k: spec(v) for k, v in dct.items()}
 
 SpecCodec = namedtuple('SpecCodec', ['key', 'encoder', 'decoder'])
 spec_codec = SpecCodec('specs', key_encoder, key_decoder)

@@ -1,4 +1,14 @@
-"""UGens.sc"""
+"""UGens.sc
+
+Development note for UGen classes
+---------------------------------
+Subclasses should not use __init__ to implement graph logic, interface
+methods are _new1, _multi_new, _multi_new_list, _init_ugen, _init_outputs
+(from MultiOutUGen). UGen instances are created internally with
+_create_ugen_object. This is because ugens build a graph with multichannel
+expansion and optimizations so they might not return an instace object or
+an instance of the same type.
+"""
 
 import inspect
 import operator
@@ -245,7 +255,7 @@ class ChannelList(list, gpp.UGenSequence, aob.AbstractObject):
 
 
 class MetaUGen(type):
-    # Do not use within library.
+    # NOTE: Do not use default rate within the library.
     def __call__(cls, *args, **kwargs):
         if 'urate' in kwargs:
             rate = kwargs.pop('urate')
@@ -256,16 +266,8 @@ class MetaUGen(type):
 
 
 class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
-    '''
-    Subclasses should not use __init__ to implement graph logic, interface
-    methods are _new1, _multi_new, _multi_new_list, _init_ugen, _init_outputs
-    (from MultiOutUGen). UGen instances are created internally with
-    _create_ugen_object. This is because ugens build a graph with multichannel
-    expansion and optimizations so they might not return an instace object or
-    an instance of the same type.
-    '''
-
-    _valid_rates = {'audio', 'control', 'demand', 'scalar', None}  # Sum3 and Sum4 don't define rate before calling _multi_new_list
+    # NOTE: Sum3 and Sum4 don't define rate before calling _multi_new_list.
+    _valid_rates = {'audio', 'control', 'demand', 'scalar', None}
     _default_rate = 'audio'
 
     @classmethod
@@ -273,18 +275,19 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
         obj = cls.__new__(cls)
         super(UGen, obj).__init__(obj)
         obj._rate = rate
-        obj._inputs = ()  # Always tuple.
-        # atributos de instancia privados
-        obj._synthdef = None  # is _libsc3.main._current_synthdef after _add_to_synth
-        obj._channels = []  # MultiOutUGen attribute initialization is related to _synth_index.
+        obj._inputs = ()
+
+        obj._synthdef = None  # Is_current_synthdef after _add_to_synth.
+        obj._channels = []  # For MultiOutUGen, related to _synth_index.
         obj._synth_index = -1  # Order in built graph.
-        obj._output_index = 0  # Is property in OutputProxy, used by UGen.writeInputSpec and SynthDesc.readUGenSpec se obtiene de las inputs.
+        obj._output_index = 0  # Used by OutputProxy.
         obj._special_index = 0  # Server op index.
-        # topo sorting
-        obj._antecedents = None  # set() # estos sets los inicializa SynthDef _init_topo_sort, _antecedents lo transforma en lista luego, por eso los dejo en none.
-        obj._descendants = None  # list() # inicializa en set() y lo transforma en list() inmediatamente después de poblarlo
-        obj._width_first_antecedents = []  # se inicializa con SynthDef _width_first_ugens[:] que es un array
-        # TODO: (sigue) tal vez convenga crea propiedades pero para esta clase sería mucho código.
+
+        # Topo sort.
+        obj._antecedents = None  # set()  # _init_topo_sort
+        obj._descendants = None  # set()  # _init_topo_sort
+        obj._width_first_antecedents = None  # list()  # _width_first_ugens[:].
+
         return obj
 
     @property
@@ -322,7 +325,8 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
         methods delegate to UGen.multiNewList. The first argument is rate, then
         the rest of the arguments as in UGen._new1(rate, *args).
         '''
-        # single channel, one ugen
+
+        # Single channel, one ugen.
         length = 0
         args = gpp.ugen_param(args)._as_ugen_input(cls)
         for item in args:
@@ -331,21 +335,21 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
         if length == 0:
             cls._check_valid_rate_name(args[0])
             return cls._new1(*args)
-        # multichannel expansion
+
+        # Multichannel expansion.
         new_args = [None] * len(args)
         results = [None] * length
-        for i in range(length): # tener en cuenta sclang #[] y `()
+        for i in range(length):
             for j, item in enumerate(args):
-                new_args[j] = item[i % len(item)]\
-                              if isinstance(item, list)\
-                              else item # hace la expansión multicanal
+                new_args[j] = (
+                    item[i % len(item)] if isinstance(item, list) else item)
             cls._check_valid_rate_name(new_args[0])
             results[i] = cls._multi_new(*new_args)
         return ChannelList(results)
 
     @classmethod
     def _check_valid_rate_name(cls, string):
-        # NOTE, VER: Agregada por mi en multi_new_list. Aunque el original comprueba si rate es simbol en new1. Pero las ugens que sobreescribne new1 sin llamar a super no hacen esa comprobación.
+        # Added check, not in sclang.
         if string not in cls._valid_rates:
             raise ValueError(f"{cls.__name__} invalid rate: '{string}'")
 
@@ -586,27 +590,24 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
         # // add the UGen to the tree but keep self as the output
         return self
 
-    # @ { arg y; ^Point.new(this, y) } // dynamic geometry support # ??? no sé qué será ni por qué está acá en el medio...
 
+    ### SynthDef build ###
 
-    # L287
     def _add_to_synth(self):
         self._synthdef = _libsc3.main._current_synthdef
         if self._synthdef is not None:
             self._synthdef._add_ugen(self)
 
-    # L292
     def _collect_constants(self): # pong
         for input in self.inputs:
             if isinstance(input, (int, float)):
                 self._synthdef._add_constant(float(input))
 
-    # L304
-    def _check_inputs(self):  # pong # se llama desde SynthDef _check_inputs(), lo reimplementan muchas sub-clases, es interfaz de UGen
+    def _check_inputs(self):  # pong
         '''Returns error msg or None.'''
         return self._check_valid_inputs()
 
-    def _check_valid_inputs(self):  # este método se usa acá y en otras ugens dentro de _check_inputs
+    def _check_valid_inputs(self):
         '''Returns error msg or None.'''
         for i, input in enumerate(self.inputs):
             if not gpp.ugen_param(input)._is_valid_ugen_input():
@@ -615,7 +616,7 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
                 return f'arg: {arg_name} has bad input: {input}'
         return None
 
-    def _check_n_inputs(self, n): # ídem anterior, deben ser interfaz protejida.
+    def _check_n_inputs(self, n):
         if self.rate == 'audio':
             if n > len(self.inputs):
                 n = len(self.inputs)
@@ -623,9 +624,9 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
                 if gpp.ugen_param(self.inputs[i])._as_ugen_rate() != 'audio':
                     return (f'input {i} is not audio rate: {self.inputs[i]} '
                             f'{gpp.ugen_param(self.inputs[i])._as_ugen_rate()}')
-        return self._check_valid_inputs() # comprueba _is_valid_ugen_input no el rate.
+        return self._check_valid_inputs()
 
-    def _check_sr_as_first_input(self): # checkSameRateAsFirstInput ídem anterior, deben ser interfaz protejida
+    def _check_sr_as_first_input(self):  # Was checkSameRateAsFirstInput.
         if self.rate != gpp.ugen_param(self.inputs[0])._as_ugen_rate():
             return (f'first input is not {self.rate} rate: {self.inputs[0]} '
                     f'{gpp.ugen_param(self.inputs[0])._as_ugen_rate()}')
@@ -644,7 +645,7 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
             if i < len(arg_names):
                 return arg_names[i]
             else:
-                return None # sclang at(i) retorna nil en vez de una excepción. No sé si eso está bien acá, porque claramente puede ser un error de índice si se pide algo que no existe, self.inputs no puede ser distinto.
+                return None
         except AttributeError:
             return None
 
@@ -697,8 +698,8 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
         return str(self._synth_index) + '_' + self.name
 
 
-    @classmethod # VER: la locación de este método, es una utilidad de clase.
-    def _replace_zeroes_with_silence(cls, lst): # es recursiva y la usan Function-asBuffer, (AtkMatrixMix*ar), GraphBuilder-wrapOut, LocalOut*ar, Out*ar, XOut*ar.
+    @classmethod
+    def _replace_zeroes_with_silence(cls, lst):
         # // This replaces zeroes with audio rate silence.
         # // Sub collections are deep replaced.
         num_zeroes = lst.count(0.0)
@@ -743,17 +744,13 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
 
 
     # L426
-    # OC: Complex support
-    #asComplex
-    #performBinaryOpOnComplex
-
-    # L431, el método if que no voy a poner...
-    #if(self, trueugen, falseugen)
+    # // Complex support
+    # asComplex
+    # performBinaryOpOnComplex
 
 
     ### SynthDef binary format ###
 
-    # L470
     def _write_def(self, file):
         try:
             frw.write_pascal_str(file, self.name)
@@ -768,17 +765,15 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
         except Exception as e:
             raise Exception('SynthDef: could not write def') from e
 
-    # L467
     @property
-    def name(self):  # Was method, see OutputPorxy
+    def name(self):  # Was a method, see OutputPorxy
         return type(self).__name__
 
-    def _rate_number(self): # rateNumber # se usa en writeDef/Old y writeOutputSpec
-        # El orden de los tres primeros no importa, pero en otra parte se usa la comparación lt/gt entre strings y este sería el orden lexicográfico.
+    def _rate_number(self):
         if self.rate == 'audio': return 2
         if self.rate == 'control': return 1
         if self.rate == 'demand': return 3
-        return 0 # 'scalar'
+        return 0  # 'scalar'
 
     def _num_inputs(self):
         return len(self.inputs)
@@ -799,14 +794,13 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
 
     ### Topo sort methods ###
 
-    # L488
     def _init_topo_sort(self):  # pong
         for input in self.inputs:
             if isinstance(input, UGen):
-                if isinstance(input, OutputProxy): # Omite los OutputProxy in pone las fuentes en _antecedents, ver BUG? abajo.
-                    ugen = input.source_ugen # VER: source acá es solo propiedad de OutputProxy(es), no se implementa en otras clases.
-                else:                        # OJO: SynthDesc-readUGenSpec llama a source dos veces, la primera sin checar. VER: source es un método/propiedad de varias clases, Array (que returns the source UGen from an Array of OutputProxy(s)) y Nil
-                    ugen = input             # VER: source, Object (devuelve this), Nil (método vacío), OutputProxy (es propiedad) y Array, VER otras clases
+                if isinstance(input, OutputProxy):
+                    ugen = input.source_ugen
+                else:
+                    ugen = input
                 self._antecedents.add(ugen)
                 ugen._descendants.add(self)
         for ugen in self._width_first_antecedents:
@@ -821,7 +815,7 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
         self._antecedents.remove(ugen)
         self._make_available()
 
-    def _arrange(self, out_stack):  # Name changed from schedule
+    def _arrange(self, out_stack):  # Was schedule.
         descendants = list(self._descendants)
         descendants.sort(key=lambda x: x._synth_index)
         for ugen in reversed(descendants):
@@ -831,10 +825,9 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
     def _optimize_graph(self):  # pong
         pass
 
-    def _perform_dead_code_elimination(self):  # Se usa en _optimize_graph de BinaryOpUGen, PureMultiOutUGen, PureUGen y UnaryOpUGen.
-        # TODO: Cuando quedan las synthdef solo con controles que no van a ninguna parte también se podrían optimizar?
+    def _perform_dead_code_elimination(self):
         if len(self._descendants) == 0:
-            #for input in self.inputs: # *** BUG EN SCLANG? NO ES ANTECEDENTS DONDE NO ESTÁN LOS OUTPUTPROXY? en sclang funciona por nil responde a casi todo devolviendo nil.
+            # for input in self.inputs:  # It should be _antecedents, check sclang.
             for input in self._antecedents:
                 if isinstance(input, UGen):
                     input._descendants.remove(self)
@@ -875,10 +868,9 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
             return lne.K2A.ar(self)
         return self
 
-    def _as_ugen_rate(self): # BUG: en sclang es simplemente 'rate' aplicada a cualquier objeto...
+    def _as_ugen_rate(self): # Was rate.
         return self.rate
 
-    # BUG: VER
     # def _perform_binary_op_on_ugen(input, selector, thing):
 
 
@@ -939,18 +931,18 @@ class PureMultiOutUGen(MultiOutUGen):
 
 
 class OutputProxy(UGen):
-    # *** BUG: en el original declara <>name, pero no veo que se use acá, y no tiene subclases, tal vez sobreescribe UGen-name()?
     @classmethod
     def new(cls, rate, source_ugen, index):
         return cls._new1(rate, source_ugen, index)
 
     def _init_ugen(self, source_ugen, index):  # override
-        self.source_ugen = source_ugen  # *** NOTE: OJO: source cambia a source_ugen, y puede no ser necesario inicializarla en init
+        self.source_ugen = source_ugen  # Was just source.
         self._output_index = index
         self._synth_index = source_ugen._synth_index
-        return self  # Must return self.
+        return self  # NOTE: Must return self.
 
-    def _add_to_synth(self):  # override # OutputProxy no se agrega a sí con _add_ugen, por lo tanto no se puebla con _init_topo_sort y no se guarda en _antecedents. _init_topo_sort comprueba if isinstance(input, OutputProxy): y agrega source_ugen
+    def _add_to_synth(self):  # override
+        # OutputProxy is not part of the SynthDef graph but source_ugen.
         self._synthdef = _libsc3.main._current_synthdef
 
     def _dump_name(self):  # override
@@ -959,10 +951,9 @@ class OutputProxy(UGen):
 
     @property
     def name(self):
-        # *** OutputProxy define <>name, Control UGen return OutputPorxy in
-        # *** SynthDef _set_control_names and change this property but can't
-        # *** find where this getter is used (if used).
-        print('@@@ FOUND: OutputPorxy name getter, take note where.')
+        # NOTE: OutputProxy define <>name, Control UGen return OutputPorxy
+        # in SynthDef _set_control_names and change this property but can't
+        # find where this getter is used (if used).
         try:
             return self.__name
         except AttributeError:
@@ -1007,9 +998,9 @@ class BasicOpUGen(UGen):
         self._operator = operator
         self._special_index = index
         if self._special_index < 0:
-            # TODO: ver cuáles son los soportados por el servidor porque Symbol responde a muchos más.
-            raise Exception(f"operator '{value}' applied to a UGen "
-                            "is not supported by the server")
+            raise Exception(
+                f"operator '{value}' applied to a UGen "
+                "is not supported by the server")
 
     @operator.deleter
     def operator(self):
@@ -1027,7 +1018,7 @@ class BasicOpUGen(UGen):
             if i < len(arg_names):
                 return arg_names[i]
             else:
-                return None # sclang at(i) retorna nil en vez de una excepción. No sé si eso está bien acá, porque claramente puede ser un error de índice si se pide algo que no existe, self.inputs no puede ser distinto.
+                return None
         except AttributeError:
             return None
 
@@ -1076,23 +1067,22 @@ class UnaryOpUGen(BasicOpUGen):
 class BinaryOpUGen(BasicOpUGen):
     @classmethod
     def _new1(cls, rate, selector, a, b):  # override
-        # OC: eliminate degenerate cases
         if selector == '*':
             if a == 0.0: return 0.0
             if b == 0.0: return 0.0
             if a == 1.0: return b
-            if a == -1.0: return -b #.neg() # TODO: esto sería neg(b) si los operatores unarios se convierten en funciones.
+            if a == -1.0: return -b  # neg
             if b == 1.0: return a
-            if b == -1.0: return -a #.neg() # TODO: ídem. Además, justo este es neg. UGen usa AbstractFunction __neg__ para '-'
+            if b == -1.0: return -a  # neg
         if selector == '+':
             if a == 0.0: return b
             if b == 0.0: return a
         if selector == '-':
-            if a == 0.0: return b.neg() # TODO: Ídem -a, -b, VER
+            if a == 0.0: return -b  # neg
             if b == 0.0: return a
         if selector == '/':
             if b == 1.0: return a
-            if b == -1.0: return a.neg()
+            if b == -1.0: return -a  # neg
         return super()._new1(rate, selector, a, b)
 
     @classmethod
@@ -1101,7 +1091,6 @@ class BinaryOpUGen(BasicOpUGen):
 
     @classmethod
     def _new_from_desc(cls, rate, num_outputs, inputs, special_index):  # override
-        # *** BUG: this method is missing in sclang
         obj = super()._new_from_desc(rate, num_outputs, inputs, special_index)
         obj._operator = _si.sc_opname_from_index(special_index, 'binary')
         return obj
@@ -1151,7 +1140,6 @@ class BinaryOpUGen(BasicOpUGen):
         if optimized_ugen:
             self._synthdef._replace_ugen(self, optimized_ugen)
 
-    # L239
     def _optimize_to_sum3(self):
         a, b = self.inputs
         if gpp.ugen_param(a)._as_ugen_rate() == 'demand'\
@@ -1180,7 +1168,6 @@ class BinaryOpUGen(BasicOpUGen):
 
         return None
 
-    # L262
     def _optimize_to_sum4(self):
         a, b = self.inputs
         if gpp.ugen_param(a)._as_ugen_rate() == 'demand'\
@@ -1203,7 +1190,6 @@ class BinaryOpUGen(BasicOpUGen):
 
         return None
 
-    # L197
     def _optimize_to_muladd(self):
         a, b = self.inputs
 
@@ -1244,13 +1230,12 @@ class BinaryOpUGen(BasicOpUGen):
 
         return None
 
-    # L168
     def _optimize_addneg(self):
         a, b = self.inputs
 
         if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
         and len(b._descendants) == 1:
-            # OC: a + b.neg -> a - b
+            # // a + b.neg -> a - b
             self._synthdef._remove_ugen(b)
             replacement = a - b.inputs[0]
             # // This is the first time the dependants logic appears. It's
@@ -1265,7 +1250,7 @@ class BinaryOpUGen(BasicOpUGen):
 
         if isinstance(a, UnaryOpUGen) and a.operator == 'neg'\
         and len(a._descendants) == 1:
-            # OC: a.neg + b -> b - a
+            # // a.neg + b -> b - a
             self._synthdef._remove_ugen(a)
             replacement = b - a.inputs[0]
             replacement._descendants = self._descendants
@@ -1274,13 +1259,12 @@ class BinaryOpUGen(BasicOpUGen):
 
         return None
 
-    # L283
     def _optimize_sub(self):
         a, b = self.inputs
 
         if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
         and len(b._descendants) == 1:
-            # OC: a - b.neg -> a + b
+            # // a - b.neg -> a + b
             self._synthdef._remove_ugen(b)
             replacement = BinaryOpUGen.new('+', a, b.inputs[0])
             replacement._descendants = self._descendants
@@ -1290,11 +1274,10 @@ class BinaryOpUGen(BasicOpUGen):
 
         return None
 
-    # L151
-    # // OC: 'this' = old ugen being replaced
-    # // replacement = this's replacement
-    # // deletedUnit = auxiliary unit being removed, not replaced
     def _optimize_update_descendants(self, replacement, deleted_unit):
+        # // 'this' = old ugen being replaced
+        # // replacement = this's replacement
+        # // deletedUnit = auxiliary unit being removed, not replaced
         for input in replacement.inputs:
             if isinstance(input, UGen):
                 if isinstance(input, OutputProxy):
@@ -1305,9 +1288,8 @@ class BinaryOpUGen(BasicOpUGen):
                 input._descendants.discard(self)
                 input._descendants.discard(deleted_unit)
 
-    # L301
-    def _constant_folding(self): # No sé si se usa este método, tal vez fue reemplazado porque está comentada la llamada arriba, pero no está comentado.
-        ... # BUG, boring to copy
+    def _constant_folding(self): # Not sure if used.
+        ... # BUG, boring to copy.
 
 
 class MulAdd(UGen):
@@ -1320,13 +1302,12 @@ class MulAdd(UGen):
 
     @classmethod
     def _new1(cls, rate, input, mul, add):  # override
-        # OC: eliminate degenerate cases
         if mul == 0.0: return add
         minus = mul == -1.0
         nomul = mul == 1.0
         noadd = add == 0.0
         if nomul and noadd: return input
-        if minus and noadd: return input.neg() # *** BUG: ES POSIBLE QUE PUEDA NO SER UNA UGEN, habría que agregar el método a gpp.ugen_param.
+        if minus and noadd: return -input  # neg
         if noadd: return input * mul
         if minus: return add - input
         if nomul: return input + add
@@ -1370,7 +1351,7 @@ class Sum3(UGen):
 
         arg_list = [in0, in1, in2]
         rate = gpp.ugen_param(arg_list)._as_ugen_rate()
-        arg_list.sort(key=lambda x: gpp.ugen_param(x)._as_ugen_rate()) # NOTE: no sé para qué ordena.
+        arg_list.sort(key=lambda x: gpp.ugen_param(x)._as_ugen_rate())  # NOTE: Why sort?
 
         return super()._new1(rate, *arg_list)
 
@@ -1389,7 +1370,7 @@ class Sum4(UGen):
 
         arg_list = [in0, in1, in2, in3]
         rate = gpp.ugen_param(arg_list)._as_ugen_rate()
-        arg_list.sort(key=lambda x: gpp.ugen_param(x)._as_ugen_rate()) # NOTE: no sé para qué ordena.
+        arg_list.sort(key=lambda x: gpp.ugen_param(x)._as_ugen_rate())  # NOTE: Why sort?
 
         return super()._new1(rate, *arg_list)
 

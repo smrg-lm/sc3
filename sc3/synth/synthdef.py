@@ -4,7 +4,7 @@ import inspect
 import logging
 import io
 import pathlib
-from collections import Container
+from collections.abc import Container
 
 from ..base import classlibrary as clb
 from ..base import utils as utl
@@ -76,8 +76,8 @@ class SynthDef(metaclass=MetaSynthDef):
         passed to ``func`` when evaluated. This prevents controls
         from being created for that arguments.
     variants : dict
-        An optional dictionary with different keys that
-        specify sets of default values to create synthesis nodes
+        An optional dictionary with different keys that specify
+        dictionaries of default values to create synthesis nodes
         in the server. When using variants, synthesis definition
         names are composed as `'synthname.variantkey'`.
     metadata : dict

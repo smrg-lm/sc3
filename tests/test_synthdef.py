@@ -2,11 +2,12 @@
 import unittest
 
 import sc3
-from sc3.synth.synthdef import SynthDef, synthdef
+from sc3.synth.synthdef import SynthDef, synthdef, _logger
 from sc3.synth.ugens.line import DC
 from sc3.synth.ugens.inout import Out
 
 sc3.init()
+_logger.setLevel('ERROR')
 
 
 class SynthDefTestCase(unittest.TestCase):

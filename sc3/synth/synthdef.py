@@ -74,7 +74,7 @@ class SynthDef(metaclass=MetaSynthDef):
     prepend : list
         An optional list of positional values that will be
         passed to ``func`` when evaluated. This prevents controls
-        from being created for that arguments.
+        from being created for those parameters.
     variants : dict
         An optional dictionary with different keys that specify
         dictionaries of default values to create synthesis nodes
@@ -789,7 +789,7 @@ class SynthDef(metaclass=MetaSynthDef):
         """Add a description, write the definition to disk and send
         it to the reigistered servers.
 
-        Similar to add but write to disk.
+        Similar to ``add`` but write to disk.
 
         Parameters
         ----------

@@ -25,12 +25,27 @@ class BusAlreadyFreed(BusException):
 
 
 class Bus(gpp.UGenParameter, gpp.NodeParameter):
-    '''
-    rate: Rate of the bus, 'audio' (default) or 'control'.
-    num_channels: Number of channels as int, default is 1.
-    server: A server object.
-    index: Sets the bus index. If index is None bus number is automatically
-           allocated (client side) by the bus allocator class.
+    '''Client side representation of server buses.
+
+    Bus objects are used to keep track and manage the buses being
+    used in the server, they can be passed as arguments instead
+    of using the bus number directly.
+
+    From 'control' buses values can be obtained or assigned via
+    OSC commands.
+
+    Parameters
+    ----------
+    rate : str
+        The rate of the bus, 'audio' (default) or 'control'.
+    num_channels : int
+        Number of channels, default is 1.
+    server : Server
+        Target server.
+    index : int
+        Sets the bus index. If ``index`` is None bus number
+        is automatically allocated (client side) by the bus
+        allocator class.
     '''
 
     def __init__(self, rate='audio', num_channels=1, server=None, index=None):
@@ -218,17 +233,17 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
 
     ### Shared memory interface ###
 
-    def get_synchronous(self):
-        ...
+    # def get_synchronous(self):
+    #     ...
 
-    def getn_synchronous(self, count):
-        ...
+    # def getn_synchronous(self, count):
+    #     ...
 
-    def set_synchronous(self, *values):
-        ...
+    # def set_synchronous(self, *values):
+    #     ...
 
-    def setn_synchronous(self, values):
-        ...
+    # def setn_synchronous(self, values):
+    #     ...
 
 
     def fill(self, value, num_channels):

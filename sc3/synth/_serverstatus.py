@@ -350,7 +350,7 @@ class ServerStatusWatcher():
                             "remained unresponsive during quit")
                     else:
                         _logger.warning(
-                            f"Server '{self.server.name}' failed to"
+                            f"Server '{self.server.name}' failed to "
                             f"quit after {self._timeout} seconds")
                     # // don't accumulate quit-watchers
                     # // if /done doesn't come back

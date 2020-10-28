@@ -19,7 +19,7 @@ class FFT(ffu.PV_ChainUGen):
         return ifu.BufFrames.ir(self.inputs[0])
 
 
-class IFFT(ugn.WidthFirstUGen):
+class IFFT(ugn.WidthFirstUGen, ugn.UGen):
     _default_rate = 'audio'
 
     # @classmethod

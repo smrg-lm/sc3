@@ -27,12 +27,12 @@ class SendTrig(ugn.UGen):
     @classmethod
     def ar(cls, input=0.0, id=0, value=0.0):
         cls._multi_new('audio', input, id, value)
-        return 0.0  # // SendTrig has no output.
+        # return 0.0  # // SendTrig has no output.
 
     @classmethod
     def kr(cls, input=0.0, id=0, value=0.0):
         cls._multi_new('control', input, id, value)
-        return 0.0  # // SendTrig has no output.
+        # return 0.0  # // SendTrig has no output.
 
     def _check_inputs(self):  # override
         return self._check_sr_as_first_input()
@@ -50,14 +50,14 @@ class SendReply(SendTrig):
         # *** NOTE: values must be a tuple, use a list of tuples for multichannel expansion. Can't be a single value.
         for args in utl.flop([trig, cmd_name, values, reply_id]):
             cls._new1('audio', *args)
-        return 0.0  # // SendReply has no output.
+        # return 0.0  # // SendReply has no output.
 
     @classmethod
     def kr(cls, trig=0.0, cmd_name='/reply', values=(), reply_id=-1):
         # *** NOTE: values must be a tuple, use a list of tuples for multichannel expansion. Can't be a single value.
         for args in utl.flop([trig, cmd_name, values, reply_id]):
             cls._new1('control', *args)
-        return 0.0  # // SendReply has no output.
+        # return 0.0  # // SendReply has no output.
 
     @classmethod
     def _new1(cls, rate, trig=0.0, cmd_name='/reply', values=None, reply_id=-1):

@@ -9,17 +9,17 @@ class RandSeed(ugn.WidthFirstUGen):
     @classmethod
     def ar(cls, trig=0.0, seed=56789):
         cls._multi_new('audio', trig, seed)
-        return 0.0  # // RandSeed has no output.
+        # return 0.0  # // RandSeed has no output.
 
     @classmethod
     def kr(cls, trig=0.0, seed=56789):
         cls._multi_new('control', trig, seed)
-        return 0.0  # // RandSeed has no output.
+        # return 0.0  # // RandSeed has no output.
 
     @classmethod
     def ir(cls, trig=0.0, seed=56789):
         cls._multi_new('scalar', trig, seed)
-        return 0.0  # // RandSeed has no output.
+        # return 0.0  # // RandSeed has no output.
 
 
 class RandID(ugn.WidthFirstUGen):
@@ -29,12 +29,12 @@ class RandID(ugn.WidthFirstUGen):
     @classmethod
     def kr(cls, id=0):
         cls._multi_new('control', id)
-        return 0.0  # // RandID has no output.
+        # return 0.0  # // RandID has no output.
 
     @classmethod
     def ir(cls, id=0):
         cls._multi_new('scalar', id)
-        return 0.0  # // RandID has no output.
+        # return 0.0  # // RandID has no output.
 
 
 class Rand(ugn.UGen):

@@ -254,7 +254,7 @@ class ChannelList(list, gpp.UGenSequence, aob.AbstractObject):
         return f'ChannelList({super().__repr__()})'
 
 
-class MetaUGen(type):
+class MetaSynthObject(type):
     # NOTE: Do not use default rate within the library.
     def __call__(cls, *args, **kwargs):
         if 'urate' in kwargs:
@@ -265,7 +265,7 @@ class MetaUGen(type):
         return getattr(cls, rate)(*args, **kwargs)
 
 
-class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
+class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
     # NOTE: Sum3 and Sum4 don't define rate before calling _multi_new_list.
     _valid_rates = {'audio', 'control', 'demand', 'scalar', None}
     _default_rate = 'audio'
@@ -273,7 +273,7 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
     @classmethod
     def _create_ugen_object(cls, rate):
         obj = cls.__new__(cls)
-        super(UGen, obj).__init__(obj)
+        super(SynthObject, obj).__init__(obj)
         obj._rate = rate
         obj._inputs = ()
 
@@ -297,10 +297,6 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
     @property
     def inputs(self):
         return self._inputs
-
-    @classmethod
-    def signal_range(cls):
-        return 'bipolar'
 
     @classmethod
     def _new1(cls, rate, *args):
@@ -373,221 +369,6 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
     def __copy__(self):
         # // You can't really copy a UGen without disturbing the Synth.
         # // Usually you want the same object.
-        return self
-
-
-    ### Convenience methods (sync with ChannelList) ###
-
-    def dup(self, n=2):
-        return ChannelList([self] * n)
-
-    def madd(self, mul=1.0, add=0.0):
-        return MulAdd.new(self, mul, add)
-
-    def range(self, lo=0.0, hi=1.0):
-        if type(self).signal_range() == 'bipolar':
-            mul = (hi - lo) * 0.5
-            add = mul + lo
-        else:
-            mul = (hi - lo)
-            add = lo
-        return MulAdd.new(self, mul, add)
-
-    def exprange(self, lo=0.01, hi=1.0):
-        if type(self).signal_range() == 'bipolar':
-            return self.linexp(-1, 1, lo, hi, None)
-        else:
-            return self.linexp(0, 1, lo, hi, None)
-
-    def curverange(self, lo=0.0, hi=1.0, curve=-4):
-        if type(self).signal_range() == 'bipolar':
-            return self.lincurve(-1, 1, lo, hi, curve, None)
-        else:
-            return self.lincurve(0, 1, lo, hi, curve, None)
-
-    def unipolar(self, mul=1):
-        return self.range(0, mul)
-
-    def bipolar(self, mul=1):
-        return self.range(-mul, mul)
-
-    def clip(self, lo=0.0, hi=1.0):
-        if self.rate == 'demand':
-            bi.max(lo, bi.min(hi, self))
-        else:
-            selector = trg.Clip._method_selector_for_rate(self.rate)
-            return getattr(trg.Clip, selector)(self, lo, hi)
-
-    def fold(self, lo=0.0, hi=0.0):
-        if self.rate == 'demand':
-            raise NotImplementedError('fold is not implemented for dr ugens')
-        else:
-            selector = trg.Fold._method_selector_for_rate(self.rate)
-            return getattr(trg.Fold, selector)(self, lo, hi)
-
-    def wrap(self, lo=0.0, hi=1.0):
-        if self.rate == 'demand':
-            raise NotImplementedError('wrap is not implemented for dr ugens')
-        else:
-            selector = trg.Wrap._method_selector_for_rate(self.rate)
-            return getattr(trg.Wrap, selector)(self, lo, hi)
-
-    def degrad(self):  # override (not to call bi.degrad)
-        return self * (bi.pi / 180.)
-
-    def raddeg(self):  # override (not to call bi.raddeg)
-        return self * (180. / bi.pi)
-
-    def blend(self, other, frac=0.5):
-        if self.range == 'demand' or gpp.ugen_param(other).rate == 'demand':
-            raise NotImplementedError('blend is not implemented for dr ugens')
-        else:
-            pan = bi.linlin(frec, 0.0, 1.0, -1.0, 1.0)
-            if self.rate == 'audio':
-                return pan.XFade2.ar(self, other, pan)
-            if gpp.ugen_param(other).rate == 'audio':
-                return pan.XFade2.ar(other, self, -pan)
-            selector = pan.LinXFade2._method_selector_for_rate(self.rate)
-            return getattr(pan.LinXFade2, selector)(self, other, pan)
-
-    def min_nyquist(self):
-        return bi.min(self, ifu.SampleRate.ir * 0.5)
-
-    def lag(self, time=0.1):
-        selector = flr.Lag._method_selector_for_rate(self.rate)
-        return getattr(flr.Lag, selector)(self, time)
-
-    def lag2(self, time=0.1):
-        selector = flr.Lag2._method_selector_for_rate(self.rate)
-        return getattr(flr.Lag2, selector)(self, time)
-
-    def lag3(self, time=0.1):
-        selector = flr.Lag3._method_selector_for_rate(self.rate)
-        return getattr(flr.Lag3, selector)(self, time)
-
-    def lagud(self, utime=0.1, dtime=0.1):
-        selector = flr.LagUD._method_selector_for_rate(self.rate)
-        return getattr(flr.LagUD, selector)(self, utime, dtime)
-
-    def lag2ud(self, utime=0.1, dtime=0.1):
-        selector = flr.Lag2UD._method_selector_for_rate(self.rate)
-        return getattr(flr.Lag2UD, selector)(self, utime, dtime)
-
-    def lag3ud(self, utime=0.1, dtime=0.1):
-        selector = flr.Lag3UD._method_selector_for_rate(self.rate)
-        return getattr(flr.Lag3UD, selector)(self, utime, dtime)
-
-    def varlag(self, time=0.1, curvature=0, wrap=5, start=None):
-        selector = flr.VarLag._method_selector_for_rate(self.rate)
-        return getattr(flr.VarLag, selector)(self, time, curvature, wrap, start)
-
-    def slew(self, up=1, down=1):
-        selector = flr.Slew._method_selector_for_rate(self.rate)
-        return getattr(flr.Slew, selector)(self, up, down)
-
-    def prune(self, min, max, type='minmax'):
-        if type == 'minmax':
-            return self.clip(min, max)
-        elif type == 'min':
-            return self.max(min)
-        elif type == 'max':
-            return self.min(max)
-        return self
-
-    def snap(self, resolution=1.0, margin=0.05, strengh=1.0):  # NOTE: UGen/SimpleNumber, not in AbstractFunction
-        selector = ocl.Select._method_selector_for_rate(self.rate)
-        diff = round(self, resolution) - self
-        return getattr(ocl.Select, selector)(abs(diff) < margin,
-                                             [self, self + strengh * diff])
-
-    def softround(self, resolution=1.0, margin=0.05, strengh=1.0):  # NOTE: UGen/SimpleNumber, not in AbstractFunction
-        selector = ocl.Select._method_selector_for_rate(self.rate)
-        diff = round(self, resolution) - self
-        return getattr(ocl.Select, selector)(abs(diff) > margin,
-                                             [self, self + strengh * diff])
-
-    def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        selector = lne.LinLin._method_selector_for_rate(self.rate)  # BUG: I see these can fail for ir/dr ugens however sclang implementation semantics is diverse and not clear.
-        return getattr(lne.LinLin, selector)(self.prune(inmin, inmax, clip),
-                                             inmin, inmax, outmin, outmax)
-
-    def linexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        selector = lne.LinExp._method_selector_for_rate(self.rate)
-        return getattr(lne.LinExp, selector)(self.prune(inmin, inmax, clip),
-                                             inmin, inmax, outmin, outmax)
-
-    def explin(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        return (bi.log(self.prune(inmin, inmax, clip) / inmin) /
-                bi.log(inmax / inmin) * (outmax - outmin) + outmin)  # // no separate ugen yet
-
-    def expexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        return pow(outmax / outmin,
-                   bi.log(self.prune(inmin, inmax, clip) / inmin) /
-                   bi.log(inmax / inmin)) * outmin
-
-    def lincurve(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
-        if isinstance(curve, (int, float)) and abs(curve) < 0.125:
-            return self.linlin(inmin, inmax, outmin, outmax, clip)
-        grow = bi.exp(curve)
-        a = (outmax - outmin) / (1.0 - grow)
-        b = outmin + a
-        scaled = (self.prune(inmin, inmax, clip) - inmin) / (inmax - inmin)
-        curved_res = b - a * pow(grow, scaled)
-        if gpp.ugen_param(curve).rate == 'scalar':
-            return curved_res
-        else:
-            selector = ocl.Select._method_selector_for_rate(self.rate)
-            return getattr(ocl.Select, selector)(abs(curve) >= 0.125, [
-                self.linlin(inmin, inmax, outmin, outmax, clip),
-                curved_res])
-
-    def curvelin(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
-        if isinstance(curve, (int, float)) and abs(curve) < 0.125:
-            return self.linlin(inmin, inmax, outmin, outmax, clip)
-        grow = bi.exp(curve)
-        a = (inmax - inmin) / (1.0 - grow)
-        b = inmin + a
-        lin_res = (bi.log((b - this.prune(inmin, inmax, clip)) / a) *
-                   (outmax - outmin) / curve + outmin)
-        if gpp.ugen_param(curve).rate == 'scalar':
-            return lin_res
-        else:
-            selector = ocl.Select._method_selector_for_rate(self.rate)
-            return getattr(ocl.Select, selector)(abs(curve) >= 0.125, [
-                self.linlin(inmin, inmax, outmin, outmax, clip),
-                lin_res])
-
-    def bilin(self, incenter, inmin, inmax, outcenter, outmin, outmax,
-              clip='minmax'):
-        selector = ocl.Select._method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class and doesn't uses _multi_new as above.
-        return getattr(ocl.Select, selector)(self < incenter, [
-            self.linlin(incenter, inmax, outcenter, outmax, clip),
-            self.linlin(inmin, incenter, outmin, outcenter, clip)])
-
-    # biexp is not overridden
-
-    def moddif(self, that=0.0, mod=1.0):
-        selector = trg.ModDif._method_selector_for_rate(self.rate)
-        return getattr(trg.ModDif, selector)(self, that, mod)
-
-    def sanitize(self):
-        selector = tsu.Sanitize._method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class.
-        return getattr(tsu.Sanitize, selector)(self)
-
-    # degreeToKey (I don't know why this method is important)
-
-    # Synth debug convenience methods
-
-    def poll(self, trig=10, label=None, trig_id=-1):
-        return pll.Poll.new(trig, self, label, trig_id)
-
-    def dpoll(self, label=None, run=1, trig_id=-1):
-        return dmd.Dpoll.new(self, label, run, trig_id)
-
-    def check_bad_values(self, id=0, post=2):
-        selector = tsu.CheckBadValues._method_selector_for_rate(self.rate)
-        getattr(tsu.CheckBadValues, selector)(self, id, post)
-        # // add the UGen to the tree but keep self as the output
         return self
 
 
@@ -717,38 +498,6 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
         return lst
 
 
-    ### AbstractObject interface ###
-
-    def _compose_unop(self, selector):
-        selector = _si.sc_opname(selector.__name__)
-        return UnaryOpUGen.new(selector, self)
-
-    def _compose_binop(self, selector, input):
-        param = gpp.ugen_param(input)
-        if param._is_valid_ugen_input():
-            selector = _si.sc_opname(selector.__name__)
-            return BinaryOpUGen.new(selector, self, input)
-        else:
-            return param._perform_binary_op_on_ugen(selector, self)
-
-    def _rcompose_binop(self, selector, input):
-        param = gpp.ugen_param(input)
-        if param._is_valid_ugen_input():
-            selector = _si.sc_opname(selector.__name__)
-            return BinaryOpUGen.new(selector, input, self)
-        else:
-            return param._r_perform_binary_op_on_ugen(selector, self)
-
-    def _compose_narop(self, selector, *args):
-        raise NotImplementedError('UGen _compose_narop is not supported')
-
-
-    # L426
-    # // Complex support
-    # asComplex
-    # performBinaryOpOnComplex
-
-
     ### SynthDef binary format ###
 
     def _write_def(self, file):
@@ -871,10 +620,262 @@ class UGen(gpp.UGenParameter, aob.AbstractObject, metaclass=MetaUGen):
     def _as_ugen_rate(self): # Was rate.
         return self.rate
 
+
+class UGen(SynthObject, aob.AbstractObject):
+    @classmethod
+    def signal_range(cls):
+        return 'bipolar'
+
+
+    ### AbstractObject interface ###
+
+    def _compose_unop(self, selector):
+        selector = _si.sc_opname(selector.__name__)
+        return UnaryOpUGen.new(selector, self)
+
+    def _compose_binop(self, selector, input):
+        param = gpp.ugen_param(input)
+        if param._is_valid_ugen_input():
+            selector = _si.sc_opname(selector.__name__)
+            return BinaryOpUGen.new(selector, self, input)
+        else:
+            return param._perform_binary_op_on_ugen(selector, self)
+
+    def _rcompose_binop(self, selector, input):
+        param = gpp.ugen_param(input)
+        if param._is_valid_ugen_input():
+            selector = _si.sc_opname(selector.__name__)
+            return BinaryOpUGen.new(selector, input, self)
+        else:
+            return param._r_perform_binary_op_on_ugen(selector, self)
+
+    def _compose_narop(self, selector, *args):
+        raise NotImplementedError('UGen _compose_narop is not supported')
+
+    # L426
+    # // Complex support
+    # asComplex
+    # performBinaryOpOnComplex
     # def _perform_binary_op_on_ugen(input, selector, thing):
 
 
-class PureUGen(UGen):
+    ### Convenience methods (sync with ChannelList) ###
+
+    def dup(self, n=2):
+        return ChannelList([self] * n)
+
+    def madd(self, mul=1.0, add=0.0):
+        return MulAdd.new(self, mul, add)
+
+    def range(self, lo=0.0, hi=1.0):
+        if type(self).signal_range() == 'bipolar':
+            mul = (hi - lo) * 0.5
+            add = mul + lo
+        else:
+            mul = (hi - lo)
+            add = lo
+        return MulAdd.new(self, mul, add)
+
+    def exprange(self, lo=0.01, hi=1.0):
+        if type(self).signal_range() == 'bipolar':
+            return self.linexp(-1, 1, lo, hi, None)
+        else:
+            return self.linexp(0, 1, lo, hi, None)
+
+    def curverange(self, lo=0.0, hi=1.0, curve=-4):
+        if type(self).signal_range() == 'bipolar':
+            return self.lincurve(-1, 1, lo, hi, curve, None)
+        else:
+            return self.lincurve(0, 1, lo, hi, curve, None)
+
+    def unipolar(self, mul=1):
+        return self.range(0, mul)
+
+    def bipolar(self, mul=1):
+        return self.range(-mul, mul)
+
+    def clip(self, lo=0.0, hi=1.0):
+        if self.rate == 'demand':
+            bi.max(lo, bi.min(hi, self))
+        else:
+            selector = trg.Clip._method_selector_for_rate(self.rate)
+            return getattr(trg.Clip, selector)(self, lo, hi)
+
+    def fold(self, lo=0.0, hi=0.0):
+        if self.rate == 'demand':
+            raise NotImplementedError('fold is not implemented for dr ugens')
+        else:
+            selector = trg.Fold._method_selector_for_rate(self.rate)
+            return getattr(trg.Fold, selector)(self, lo, hi)
+
+    def wrap(self, lo=0.0, hi=1.0):
+        if self.rate == 'demand':
+            raise NotImplementedError('wrap is not implemented for dr ugens')
+        else:
+            selector = trg.Wrap._method_selector_for_rate(self.rate)
+            return getattr(trg.Wrap, selector)(self, lo, hi)
+
+    def degrad(self):  # override (not to call bi.degrad)
+        return self * (bi.pi / 180.)
+
+    def raddeg(self):  # override (not to call bi.raddeg)
+        return self * (180. / bi.pi)
+
+    def blend(self, other, frac=0.5):
+        if self.range == 'demand' or gpp.ugen_param(other).rate == 'demand':
+            raise NotImplementedError('blend is not implemented for dr ugens')
+        else:
+            pan = bi.linlin(frec, 0.0, 1.0, -1.0, 1.0)
+            if self.rate == 'audio':
+                return pan.XFade2.ar(self, other, pan)
+            if gpp.ugen_param(other).rate == 'audio':
+                return pan.XFade2.ar(other, self, -pan)
+            selector = pan.LinXFade2._method_selector_for_rate(self.rate)
+            return getattr(pan.LinXFade2, selector)(self, other, pan)
+
+    def min_nyquist(self):
+        return bi.min(self, ifu.SampleRate.ir * 0.5)
+
+    def lag(self, time=0.1):
+        selector = flr.Lag._method_selector_for_rate(self.rate)
+        return getattr(flr.Lag, selector)(self, time)
+
+    def lag2(self, time=0.1):
+        selector = flr.Lag2._method_selector_for_rate(self.rate)
+        return getattr(flr.Lag2, selector)(self, time)
+
+    def lag3(self, time=0.1):
+        selector = flr.Lag3._method_selector_for_rate(self.rate)
+        return getattr(flr.Lag3, selector)(self, time)
+
+    def lagud(self, utime=0.1, dtime=0.1):
+        selector = flr.LagUD._method_selector_for_rate(self.rate)
+        return getattr(flr.LagUD, selector)(self, utime, dtime)
+
+    def lag2ud(self, utime=0.1, dtime=0.1):
+        selector = flr.Lag2UD._method_selector_for_rate(self.rate)
+        return getattr(flr.Lag2UD, selector)(self, utime, dtime)
+
+    def lag3ud(self, utime=0.1, dtime=0.1):
+        selector = flr.Lag3UD._method_selector_for_rate(self.rate)
+        return getattr(flr.Lag3UD, selector)(self, utime, dtime)
+
+    def varlag(self, time=0.1, curvature=0, wrap=5, start=None):
+        selector = flr.VarLag._method_selector_for_rate(self.rate)
+        return getattr(flr.VarLag, selector)(self, time, curvature, wrap, start)
+
+    def slew(self, up=1, down=1):
+        selector = flr.Slew._method_selector_for_rate(self.rate)
+        return getattr(flr.Slew, selector)(self, up, down)
+
+    def prune(self, min, max, type='minmax'):
+        if type == 'minmax':
+            return self.clip(min, max)
+        elif type == 'min':
+            return self.max(min)
+        elif type == 'max':
+            return self.min(max)
+        return self
+
+    def snap(self, resolution=1.0, margin=0.05, strengh=1.0):  # NOTE: UGen/SimpleNumber, not in AbstractFunction
+        selector = ocl.Select._method_selector_for_rate(self.rate)
+        diff = round(self, resolution) - self
+        return getattr(ocl.Select, selector)(
+            abs(diff) < margin, [self, self + strengh * diff])
+
+    def softround(self, resolution=1.0, margin=0.05, strengh=1.0):  # NOTE: UGen/SimpleNumber, not in AbstractFunction
+        selector = ocl.Select._method_selector_for_rate(self.rate)
+        diff = round(self, resolution) - self
+        return getattr(ocl.Select, selector)(
+            abs(diff) > margin, [self, self + strengh * diff])
+
+    def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        selector = lne.LinLin._method_selector_for_rate(self.rate)  # BUG: I see these can fail for ir/dr ugens however sclang implementation semantics is diverse and not clear.
+        return getattr(lne.LinLin, selector)(
+            self.prune(inmin, inmax, clip), inmin, inmax, outmin, outmax)
+
+    def linexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        selector = lne.LinExp._method_selector_for_rate(self.rate)
+        return getattr(lne.LinExp, selector)(
+            self.prune(inmin, inmax, clip), inmin, inmax, outmin, outmax)
+
+    def explin(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return (
+            bi.log(self.prune(inmin, inmax, clip) / inmin) /
+            bi.log(inmax / inmin) * (outmax - outmin) + outmin)  # // no separate ugen yet
+
+    def expexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
+        return pow(
+            outmax / outmin,
+            bi.log(self.prune(inmin, inmax, clip) / inmin) /
+            bi.log(inmax / inmin)) * outmin
+
+    def lincurve(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
+        if isinstance(curve, (int, float)) and abs(curve) < 0.125:
+            return self.linlin(inmin, inmax, outmin, outmax, clip)
+        grow = bi.exp(curve)
+        a = (outmax - outmin) / (1.0 - grow)
+        b = outmin + a
+        scaled = (self.prune(inmin, inmax, clip) - inmin) / (inmax - inmin)
+        curved_res = b - a * pow(grow, scaled)
+        if gpp.ugen_param(curve).rate == 'scalar':
+            return curved_res
+        else:
+            selector = ocl.Select._method_selector_for_rate(self.rate)
+            return getattr(ocl.Select, selector)(abs(curve) >= 0.125,
+                [self.linlin(inmin, inmax, outmin, outmax, clip), curved_res])
+
+    def curvelin(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
+        if isinstance(curve, (int, float)) and abs(curve) < 0.125:
+            return self.linlin(inmin, inmax, outmin, outmax, clip)
+        grow = bi.exp(curve)
+        a = (inmax - inmin) / (1.0 - grow)
+        b = inmin + a
+        lin_res = (
+            bi.log((b - this.prune(inmin, inmax, clip)) / a) *
+            (outmax - outmin) / curve + outmin)
+        if gpp.ugen_param(curve).rate == 'scalar':
+            return lin_res
+        else:
+            selector = ocl.Select._method_selector_for_rate(self.rate)
+            return getattr(ocl.Select, selector)(abs(curve) >= 0.125,
+                [self.linlin(inmin, inmax, outmin, outmax, clip), lin_res])
+
+    def bilin(self, incenter, inmin, inmax, outcenter, outmin, outmax,
+              clip='minmax'):
+        selector = ocl.Select._method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class and doesn't uses _multi_new as above.
+        return getattr(ocl.Select, selector)(self < incenter, [
+            self.linlin(incenter, inmax, outcenter, outmax, clip),
+            self.linlin(inmin, incenter, outmin, outcenter, clip)])
+
+    # biexp is not overridden
+
+    def moddif(self, that=0.0, mod=1.0):
+        selector = trg.ModDif._method_selector_for_rate(self.rate)
+        return getattr(trg.ModDif, selector)(self, that, mod)
+
+    def sanitize(self):
+        selector = tsu.Sanitize._method_selector_for_rate(self.rate)  # BUG: in sclang the call is over the wrong class.
+        return getattr(tsu.Sanitize, selector)(self)
+
+    # degreeToKey (I don't know why this method is important)
+
+    # Synth debug convenience methods
+
+    def poll(self, trig=10, label=None, trig_id=-1):
+        return pll.Poll.new(trig, self, label, trig_id)
+
+    def dpoll(self, label=None, run=1, trig_id=-1):
+        return dmd.Dpoll.new(self, label, run, trig_id)
+
+    def check_bad_values(self, id=0, post=2):
+        selector = tsu.CheckBadValues._method_selector_for_rate(self.rate)
+        getattr(tsu.CheckBadValues, selector)(self, id, post)
+        # // add the UGen to the tree but keep self as the output
+        return self
+
+
+class PureUGen():
     # // UGen which has no side effect and can therefore be considered for
     # // a dead code elimination. Read access to buffers/busses are allowed.
     def _optimize_graph(self):  # override
@@ -925,11 +926,6 @@ class MultiOutUGen(UGen):
             output._write_output_spec(file)
 
 
-class PureMultiOutUGen(MultiOutUGen):
-    def _optimize_graph(self):  # override
-        self._perform_dead_code_elimination()
-
-
 class OutputProxy(UGen):
     @classmethod
     def new(cls, rate, source_ugen, index):
@@ -946,8 +942,7 @@ class OutputProxy(UGen):
         self._synthdef = _libsc3.main._current_synthdef
 
     def _dump_name(self):  # override
-        return self.source_ugen._dump_name() + '['\
-               + str(self._output_index) + ']'
+        return f'{self.source_ugen._dump_name()}[{self._output_index}]'
 
     @property
     def name(self):
@@ -964,12 +959,12 @@ class OutputProxy(UGen):
         self.__name = value
 
 
-class WidthFirstUGen(UGen):  # Was in fft.py
+class WidthFirstUGen(SynthObject):  # Was in fft.py
     _default_rate = None
     # bufio.py uses new to create 'scalar'
     # fft uses new to create 'control'
 
-    def _add_to_synth(self):
+    def _add_to_synth(self):  # override
         self._synthdef = _libsc3.main._current_synthdef
         if self._synthdef is not None:
             self._synthdef._add_ugen(self)
@@ -1375,7 +1370,7 @@ class Sum4(UGen):
         return super()._new1(rate, *arg_list)
 
 
-class PseudoUGen(UGen):
+class PseudoUGen(SynthObject):
     # Base class to reinforce the interface. Pseudo UGens never
     # return instances of themselves but of another UGen subclass.
     pass

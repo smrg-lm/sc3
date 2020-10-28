@@ -7,7 +7,7 @@ from . import noise as nse
 from . import pan
 
 
-class Osc(ugn.PureUGen):
+class Osc(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, bufnum, freq=440.0, phase=0.0):
         return cls._multi_new('audio', bufnum, freq, phase)
@@ -17,7 +17,7 @@ class Osc(ugn.PureUGen):
         return cls._multi_new('control', bufnum, freq, phase)
 
 
-class SinOsc(ugn.PureUGen):
+class SinOsc(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, freq=440.0, phase=0.0):
         return cls._multi_new('audio', freq, phase)
@@ -27,7 +27,7 @@ class SinOsc(ugn.PureUGen):
         return cls._multi_new('control', freq, phase)
 
 
-class SinOscFB(ugn.PureUGen):
+class SinOscFB(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, freq=440.0, feedback=0.0):
         return cls._multi_new('audio', freq, feedback)
@@ -37,7 +37,7 @@ class SinOscFB(ugn.PureUGen):
         return cls._multi_new('control', freq, feedback)
 
 
-class OscN(ugn.PureUGen):
+class OscN(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, bufnum, freq=440.0, phase=0.0):
         return cls._multi_new('audio', bufnum, freq, phase)
@@ -47,7 +47,7 @@ class OscN(ugn.PureUGen):
         return cls._multi_new('control', bufnum, freq, phase)
 
 
-class VOsc(ugn.PureUGen):
+class VOsc(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, bufpos, freq=440.0, phase=0.0):
         return cls._multi_new('audio', bufpos, freq, phase)
@@ -57,7 +57,7 @@ class VOsc(ugn.PureUGen):
         return cls._multi_new('control', bufpos, freq, phase)
 
 
-class VOsc3(ugn.PureUGen):
+class VOsc3(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, bufpos, freq1=110.0, freq2=220.0, freq3=440.0):
         return cls._multi_new('audio', bufpos, freq1, freq2, freq3)
@@ -67,7 +67,7 @@ class VOsc3(ugn.PureUGen):
         return cls._multi_new('control', bufpos, freq1, freq2, freq3)
 
 
-class COsc(ugn.PureUGen):
+class COsc(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, bufnum, freq=440.0, beats=0.5):
         return cls._multi_new('audio', bufnum, freq, beats)
@@ -77,13 +77,13 @@ class COsc(ugn.PureUGen):
         return cls._multi_new('control', bufnum, freq, beats)
 
 
-class Formant(ugn.PureUGen):
+class Formant(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, fundfreq=440.0, formfreq=1760.0, bwfreq=880.0):
         return cls._multi_new('audio', fundfreq, formfreq, bwfreq)
 
 
-class LFSaw(ugn.PureUGen):
+class LFSaw(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, freq=440.0, iphase=0.0):
         return cls._multi_new('audio', freq, iphase)
@@ -123,7 +123,7 @@ class LFGauss(ugn.UGen):
         return self.linlin(self._minval, 1, min, max)
 
 
-class LFPulse(ugn.PureUGen):
+class LFPulse(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, freq=440.0, iphase=0.0, width=0.5):
         return cls._multi_new('audio', freq, iphase, width)
@@ -137,7 +137,7 @@ class LFPulse(ugn.PureUGen):
         return 'unipolar'
 
 
-class VarSaw(ugn.PureUGen):
+class VarSaw(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, freq=440.0, iphase=0.0, width=0.5):
         return cls._multi_new('audio', freq, iphase, width)
@@ -147,7 +147,7 @@ class VarSaw(ugn.PureUGen):
         return cls._multi_new('control', freq, iphase, width)
 
 
-class Impulse(ugn.PureUGen):
+class Impulse(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, freq=440.0, phase=0.0):
         return cls._multi_new('audio', freq, phase)
@@ -161,7 +161,7 @@ class Impulse(ugn.PureUGen):
         return 'unipolar'
 
 
-class SyncSaw(ugn.PureUGen):
+class SyncSaw(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, sync_freq=440.0, saw_freq=440.0):
         return cls._multi_new('audio', sync_freq, saw_freq)
@@ -174,7 +174,7 @@ class SyncSaw(ugn.PureUGen):
 # TPulse
 
 
-class Index(ugn.PureUGen):
+class Index(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, bufnum, input=0.0):
         return cls._multi_new('audio', bufnum, input)
@@ -204,7 +204,7 @@ class IndexL(Index):
     pass
 
 
-class DegreeToKey(ugn.PureUGen):
+class DegreeToKey(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, bufnum, input=0.0, octave=12.0):
         return cls._multi_new('audio', bufnum, input, octave)
@@ -214,7 +214,7 @@ class DegreeToKey(ugn.PureUGen):
         return cls._multi_new('control', bufnum, input, octave)
 
 
-class Select(ugn.PureUGen):
+class Select(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, which, lst):
         return cls._multi_new('audio', which, *lst)
@@ -291,7 +291,7 @@ class SelectXFocus(ugn.PseudoUGen):
         return self.new(which, array, focus, wrap)
 
 
-class Vibrato(ugn.PureUGen):
+class Vibrato(ugn.UGen, ugn.PureUGen):
     @classmethod
     def ar(cls, freq=440.0, rate=6, depth=0.02, delay=0.0, onset=0.0,
            rate_variation=0.04, depth_variation=0.1, iphase=0.0, trig=0.0):

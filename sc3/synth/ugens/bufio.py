@@ -118,12 +118,12 @@ class ScopeOut(ugn.UGen):
     @classmethod
     def ar(cls, input_list, bufnum=0):
         self._multi_new('audio', bufnum, *utl.as_list(input_list))
-        return 0.0
+        # return 0.0  # ScopeOut has no output.
 
     @classmethod
     def kr(cls, input_list, bufnum=0):
         self._multi_new('control', bufnum, *utl.as_list(input_list))
-        return 0.0
+        # return 0.0  # ScopeOut has no output.
 
 
 class ScopeOut2(ugn.UGen):
@@ -134,7 +134,7 @@ class ScopeOut2(ugn.UGen):
         self._multi_new(
             'audio', scope_num, max_frames,
             scope_frames, *utl.as_list(input_list))
-        return 0.0
+        # return 0.0  # ScopeOut2 has no output.
 
     @classmethod
     def kr(cls, input_list, scope_num=0, max_frames=4096, scope_frames=None):
@@ -143,7 +143,7 @@ class ScopeOut2(ugn.UGen):
         self._multi_new(
             'control', scope_num, max_frames,
             scope_frames, *utl.as_list(input_list))
-        return 0.0
+        # return 0.0  # ScopeOut2 has no output.
 
 
 class Tap(ugn.UGen):

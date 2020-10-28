@@ -403,7 +403,7 @@ class SynthDef(metaclass=MetaSynthDef):
             ctrl_ugens.name = cn.name
 
     def _finish_build(self):
-        self._add_copies_if_needed()  # ping, only for PV_Chain ugens.
+        self._add_copies_if_needed()  # ping, only for WidthFirstUGen ugens.
         self._optimize_graph()
         self._collect_constants()
         self._check_inputs()  # // Will die on error.
@@ -503,8 +503,8 @@ class SynthDef(metaclass=MetaSynthDef):
         self._children[ugen._synth_index] = None
 
     def _replace_ugen(self, a, b):
-        if not isinstance(b, ugn.UGen):
-            raise Exception('_replace_ugen assumes a UGen')
+        if not isinstance(b, ugn.SynthObject):
+            raise Exception('_replace_ugen assumes a SynthObject')
 
         b._width_first_antecedents = a._width_first_antecedents
         b._descendants = a._descendants
@@ -532,7 +532,7 @@ class SynthDef(metaclass=MetaSynthDef):
             inputs = None
             if ugen.inputs is not None:
                 inputs = [
-                    x._dump_name() if isinstance(x, ugn.UGen)
+                    x._dump_name() if isinstance(x, ugn.SynthObject)
                     else x for x in ugen.inputs]
             print([ugen._dump_name(), ugen.rate, inputs])
 

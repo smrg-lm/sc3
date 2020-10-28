@@ -244,7 +244,7 @@ class InTrig(AbstractIn):
 
 ### Outputs ###
 
-class AbstractOut(ugn.UGen):
+class AbstractOut(ugn.SynthObject):
     def _num_outputs(self):  # override
         return 0
 

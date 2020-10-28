@@ -9,7 +9,7 @@ from . import oscillators as ocl
 from . import envgen as egn
 
 
-class Filter(ugn.PureUGen):
+class Filter(ugn.UGen, ugn.PureUGen):
     def _check_inputs(self):  # override
         return self._check_sr_as_first_input()
 

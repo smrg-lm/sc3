@@ -150,8 +150,11 @@ class Node(gpp.NodeParameter):
     def setn(self, *args):
         self.server.send_msg(*self.setn_msg(*args))
 
-    @classmethod
-    def setn_msg_args(cls, *args):
+    def setn_msg(self, *args):
+        return ['/n_setn', self.node_id] + self._setn_msg_args(*args) # 16
+
+    @staticmethod
+    def _setn_msg_args(*args):
         nargs = []
         args = gpp.node_param(args)._as_control_input()
         for control, more_vals in utl.gen_cclumps(args, 2):
@@ -160,9 +163,6 @@ class Node(gpp.NodeParameter):
             else:
                 nargs.extend([control, 1, more_vals])
         return nargs
-
-    def setn_msg(self, *args):
-        return ['/n_setn', self.node_id] + Node.setn_msg_args(*args) # 16
 
     def fill(self, cname, num_controls, value, *args):
         self.server.send_msg(

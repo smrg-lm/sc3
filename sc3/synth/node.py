@@ -460,6 +460,9 @@ class AbstractGroup(Node):
     def creation_cmd():
         raise NotImplementedError()
 
+    def __repr__(self):
+        return f'{type(self).__name__}({self.node_id})'
+
 
 class Group(AbstractGroup):
     @staticmethod
@@ -536,8 +539,7 @@ class Synth(Node):
             '/s_new', # 9
             self.def_name, self.node_id,
             add_action_id, target.node_id,
-            *gpp.node_param(args or [])._as_osc_arg_list()
-        )
+            *gpp.node_param(args or [])._as_osc_arg_list())
 
     # // does not send (used for bundling)
     @classmethod
@@ -583,8 +585,7 @@ class Synth(Node):
             '/s_new', # 9
             synth.def_name, synth.node_id,
             4, node_to_replace.node_id, # 4 -> 'addReplace'
-            *gpp.node_param(args or [])._as_osc_arg_list()
-        )
+            *gpp.node_param(args or [])._as_osc_arg_list())
         return synth
 
     # node_id -1
@@ -596,8 +597,7 @@ class Synth(Node):
             '/s_new', # 9
             def_name.as_def_name(), -1, # BUG: as_def_name no está implementado puede ser método de Object
             cls.add_actions[add_action], target.node_id,
-            *gpp.node_param(args or [])._as_osc_arg_list()
-        )
+            *gpp.node_param(args or [])._as_osc_arg_list())
 
     def new_msg(self, target=None, args=None, add_action='addToHead'):
         add_action_id = self.add_actions[add_action]
@@ -606,8 +606,9 @@ class Synth(Node):
             self.group = target
         else:
             self.group = target.group
-        return ['/s_new', self.def_name, self.node_id, add_action_id,
-                target.node_id, *gpp.node_param(args or [])._as_osc_arg_list()] # 9
+        return [
+            '/s_new', self.def_name, self.node_id, add_action_id,
+            target.node_id, *gpp.node_param(args or [])._as_osc_arg_list()] # 9
 
     @classmethod
     def after(cls, node, def_name, args=None):
@@ -630,13 +631,15 @@ class Synth(Node):
 
     # // for bundling
     def add_to_head_msg(self, group, args):
-        # // if aGroup is nil set to default group of server specified when basicNew was called
+        # // If group is nil set to default group of the
+        # // server specified when basicNew was called.
         if group is not None:
             self.group = group
         else:
             self.group = self.server.default_group
-        return ['/s_new', self.def_name, self.node_id, 0,
-                self.group.node_id, *gpp.node_param(args)._as_osc_arg_list()] # 9
+        return [
+            '/s_new', self.def_name, self.node_id, 0, self.group.node_id,
+            *gpp.node_param(args)._as_osc_arg_list()] # 9
 
     def add_to_tail_msg(self, group, args):
         # // if aGroup is nil set to default group of server specified when basicNew was called
@@ -644,23 +647,27 @@ class Synth(Node):
             self.group = group
         else:
             self.group = self.server.default_group
-        return ['/s_new', self.def_name, self.node_id, 1,
-                self.group.node_id, *gpp.node_param(args)._as_osc_arg_list()] # 9
+        return [
+            '/s_new', self.def_name, self.node_id, 1, self.group.node_id,
+            *gpp.node_param(args)._as_osc_arg_list()] # 9
 
     def add_after_msg(self, node, args=None):
         self.group = node.group
-        return ['/s_new', self.def_name, self.node_id, 3,
-                node.node_id, *gpp.node_param(args or [])._as_osc_arg_list()] # 9
+        return [
+            '/s_new', self.def_name, self.node_id, 3, node.node_id,
+            *gpp.node_param(args or [])._as_osc_arg_list()] # 9
 
     def add_before_msg(self, node, args=None):
         self.group = node.group
-        return ['/s_new', self.def_name, self.node_id, 2,
-                node.node_id, *gpp.node_param(args or [])._as_osc_arg_list()] # 9
+        return [
+            '/s_new', self.def_name, self.node_id, 2, node.node_id,
+            *gpp.node_param(args or [])._as_osc_arg_list()] # 9
 
     def add_replace_msg(self, node_to_replace, args):
         self.group = node_to_replace.group
-        return ['/s_new', self.def_name, self.node_id, 4,
-                node_to_replace.node_id, *gpp.node_param(args)._as_osc_arg_list()] # 9
+        return [
+            '/s_new', self.def_name, self.node_id, 4, node_to_replace.node_id,
+            *gpp.node_param(args)._as_osc_arg_list()] # 9
 
     def get(self, index, action):
         def resp_func(msg, *_):
@@ -713,8 +720,7 @@ class Synth(Node):
                         osc_msg.append(value)
         self.server.send_msg(
             '/n_set', self.node_id,
-            *gpp.node_param(osc_msg)._as_osc_arg_list()
-        )
+            *gpp.node_param(osc_msg)._as_osc_arg_list())
 
-    # TODO, VER
-    #printOn
+    def __repr__(self):
+        return f'{type(self).__name__}({self.def_name} : {self.node_id})'

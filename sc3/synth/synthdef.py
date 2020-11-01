@@ -787,7 +787,7 @@ class SynthDef(metaclass=MetaSynthDef):
     def store(self, libname='default', dir=None, completion_msg=None,
               md_plugin=None):
         """Add a description, write the definition to disk and send
-        it to the reigistered servers.
+        it to the registered servers.
 
         Similar to ``add`` but write to disk.
 

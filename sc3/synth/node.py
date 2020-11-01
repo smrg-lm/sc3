@@ -21,13 +21,20 @@ _logger = logging.getLogger(__name__)
 
 class Node(gpp.NodeParameter):
     add_actions = {
+        # Traditional.
         'addToHead': 0,
         'addToTail': 1,
         'addBefore': 2,
         'addAfter': 3,
         'addReplace': 4,
-        'h': 0,
-        't': 1,
+        # Simple.
+        'head': 0,
+        'tail': 1,
+        'before': 2,
+        'after': 3,
+        'replace': 4,
+        # Shortcut.
+        'h': 0, 't': 1, 'b': 2, 'a': 3, 'r': 4,
         # // valid action numbers should stay the same
         0: 0, 1: 1, 2: 2, 3: 3, 4: 4
     }

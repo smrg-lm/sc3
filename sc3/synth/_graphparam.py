@@ -1,14 +1,15 @@
 """
-Support for built in or extensions data types as UGen or Node parameters. This
-module is an internal interface. To extend type support classes inherit either
-from UGenParameter or NodeParameter or both, define _param_type() for the
-extending type and override the needed interface methods.
+Support for built in or extensions data types as UGen or Node
+parameters. This module is an internal interface. To extend type
+support classes inherit either from UGenParameter or NodeParameter
+or both, define _param_type() for the extending type and override
+the needed interface methods.
 
-UGenParameter are values intended for UGens parameters. NodeParameter are values
-intended for Node messages. UGen, Node, SynthDef and SynthDescLib classes make
-use of this interface to prepare data in the right format. This functionality
-shoudln't be exposed to the user interface, supported data types must just work
-with its own interface.
+UGenParameter and NodeParameter are values intended for UGens parameters
+and Node messages respectively. UGen, Node, SynthDef and SynthDescLib
+classes make use of this interface to prepare data in the right format.
+This functionality shoudln't be exposed to the user interface, supported
+data types must just work with its own interface.
 """
 
 from math import isnan
@@ -145,7 +146,7 @@ class UGenScalar(UGenParameter):
     ### UGen convenience methods (keep in sync) ###
     # These methods are only for ChannelList _multichannel_perform (multichannel
     # expansion UGen compatibility). Some of them could be used in different
-    # places within ugens however I prefer to avoid its used. For them to work
+    # places within ugens however I prefer to avoid its use. For them to work
     # consistently ugens inputs should be stored as UGenParameter instances and
     # I'm reluctant to do that at least by now, mostly because UGenScalar is
     # the only type compatible with signal operations and graph parameters are
@@ -222,22 +223,24 @@ class UGenScalar(UGenParameter):
         return bi.expexp(self._param_value, inmin, inmax, outmin, outmax, clip)
 
     def lincurve(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
-        return bi.lincurve(self._param_value, inmin, inmax, outmin, outmax,
-                           curve, clip)
+        return bi.lincurve(
+            self._param_value, inmin, inmax, outmin, outmax, curve, clip)
 
     def curvelin(self, inmin, inmax, outmin, outmax, curve=-4, clip='minmax'):
-        return bi.curvelin(self._param_value, inmin, inmax, outmin, outmax,
-                           curve, clip)
+        return bi.curvelin(
+            self._param_value, inmin, inmax, outmin, outmax, curve, clip)
 
     def bilin(self, incenter, inmin, inmax, outcenter, outmin, outmax,
               clip='minmax'):
-        return bi.bilin(self._param_value, incenter, inmin, inmax,
-                        outcenter, outmin, outmax, clip)
+        return bi.bilin(
+            self._param_value, incenter, inmin, inmax,
+            outcenter, outmin, outmax, clip)
 
     def biexp(self, incenter, inmin, inmax, outcenter, outmin, outmax,
               clip='minmax'):
-        return bi.biexp(self._param_value, incenter, inmin, inmax,
-                        outcenter, outmin, outmax, clip)
+        return bi.biexp(
+            self._param_value, incenter, inmin, inmax,
+            outcenter, outmin, outmax, clip)
 
     def moddif(self, that=0.0, mod=1.0):
         return bi.moddif(self._param_value, that, mod)
@@ -254,21 +257,24 @@ class UGenSequence(UGenParameter):
         return True if self._param_value else False  # *** BUG: en sclang, debería comprobar isEmpty porque tira error en SynthDesc (SinOsc.ar() * []). O tal vez cuando construye BinaryOpUGen? Ver el grafo generado, tal vez deba ser None.
 
     def _as_ugen_input(self, *ugen_cls):
-        m = map(lambda x: ugen_param(x)._as_ugen_input(*ugen_cls),
-                self._param_value)
+        m = map(
+            lambda x: ugen_param(x)._as_ugen_input(*ugen_cls),
+            self._param_value)
         return type(self._param_value)(m)
 
     def _as_audio_rate_input(self, *ugen_cls):
-        m = map(lambda x: ugen_param(x)._as_audio_rate_input(*ugen_cls),
-                self._param_value)
+        m = map(
+            lambda x: ugen_param(x)._as_audio_rate_input(*ugen_cls),
+            self._param_value)
         return type(self._param_value)(m)
 
     def _as_ugen_rate(self):
         if len(self._param_value) == 1:
             return ugen_param(self._param_value[0])._as_ugen_rate()
         else:
-            return utl.list_min([ugen_param(item)._as_ugen_rate() or 'scalar'\
-                                 for item in self._param_value])
+            return utl.list_min(
+                [ugen_param(item)._as_ugen_rate() or 'scalar'
+                for item in self._param_value])
 
     def _write_input_spec(self, file, synthdef):
         for item in self._param_value:
@@ -280,8 +286,9 @@ class UGenSequence(UGenParameter):
 class NodeParameter(GraphParameter):
     # asTarget.sc interface
     def _as_target(self):
-        raise TypeError('invalid value for Node target: '
-                        f'{type(self._param_value).__name__}')
+        raise TypeError(
+            'invalid value for Node target: '
+            f'{type(self._param_value).__name__}')
 
     def _as_control_input(self):
         return self._param_value

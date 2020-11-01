@@ -337,6 +337,5 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
     def _as_control_input(self):
         return utl.unbubble(self.envgen_format())
 
-    def _as_osc_arg_embedded_list(self, lst):
-        env_lst = gpp.node_param(self)._as_control_input()
-        return gpp.node_param(env_lst)._as_osc_arg_embedded_list(lst)
+    def _embed_as_osc_arg(self, lst):
+        gpp.node_param(self._as_control_input())._embed_as_osc_arg(lst)

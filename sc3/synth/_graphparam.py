@@ -303,14 +303,10 @@ class NodeParameter(GraphParameter):
     # // have all the arguments be assigned to consecutive controls in the synth.
 
     def _as_osc_arg_list(self):
-        return self._as_control_input()
+        return [self._as_control_input()]
 
-    def _as_osc_arg_embedded_list(self, lst):
+    def _embed_as_osc_arg(self, lst):
         lst.append(self._as_control_input())
-        return lst
-
-    def _as_osc_arg_bundle(self):
-        return self._as_control_input()
 
 
 class NodeNone(NodeParameter):
@@ -320,9 +316,6 @@ class NodeNone(NodeParameter):
 
     def _as_target(self):
         return srv.Server.default.default_group
-
-    def _as_osc_arg_list(self):
-        return self._param_value
 
 
 class NodeScalar(NodeParameter):
@@ -339,25 +332,6 @@ class NodeString(NodeParameter):
     def _param_type(cls):
         return (str,)
 
-    def _as_osc_arg_list(self):
-        return self._param_value
-
-    def _as_osc_arg_embedded_list(self, lst):
-        lst.append(self._param_value)
-        return lst
-
-    # NOTE: porque hereda de RawArray que hereda de SequenceableCollection
-    # le correspondería la misma implementación de NodeSequence, pero creo que
-    # el único método que llama a este es _as_osc_arg_embedded_list que
-    # String sobreescribe de manera distinta por lo que supongo que nunca
-    # usa este método (además de que no parece consistente).
-    def _as_osc_arg_bundle(self):
-        raise Exeption('BUG: NodeString _as_osc_arg_bundle') # *** BUG: TEST
-        lst = []
-        for e in self._param_value:
-            lst.append(node_param(e)._as_osc_arg_list())
-        return lst
-
 
 class NodeSequence(NodeParameter):
     @classmethod
@@ -371,21 +345,14 @@ class NodeSequence(NodeParameter):
     def _as_osc_arg_list(self):
         lst = []
         for e in self._param_value:
-            node_param(e)._as_osc_arg_embedded_list(lst)
+            node_param(e)._embed_as_osc_arg(lst)
         return lst
 
-    def _as_osc_arg_embedded_list(self, lst):
+    def _embed_as_osc_arg(self, lst):
         lst.append('[')
         for e in self._param_value:
-            node_param(e)._as_osc_arg_embedded_list(lst)
+            node_param(e)._embed_as_osc_arg(lst)
         lst.append(']')
-        return lst
-
-    def _as_osc_arg_bundle(self):
-        lst = []
-        for e in self._param_value:
-            lst.append(node_param(e)._as_osc_arg_list())
-        return lst
 
 
 ### Module functions ###

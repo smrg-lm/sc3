@@ -698,8 +698,9 @@ class Synth(Node):
         osc_msg = []
         synth_desc = sdc.SynthDescLib.at(self.def_name)
         if synth_desc is None:
-            msg = 'message seti failed, because SynthDef {} was not added'
-            _logger.warning(msg.format(self.def_name))
+            _logger.warning(
+                f"message seti failed, SynthDef '{self.def_name}' "
+                "not found in SynthDescLib")
             return
         for key, offset, value in utl.gen_cclumps(args, 3):
             if key in synth_desc.control_dict:

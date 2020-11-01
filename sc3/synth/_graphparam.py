@@ -355,6 +355,29 @@ class NodeSequence(NodeParameter):
         lst.append(']')
 
 
+class NodeDictionary(NodeParameter):
+    # Used to convert dict to a flat list of key-value pairs.
+
+    @classmethod
+    def _param_type(cls):
+        return (dict,)
+
+    def _as_control_input(self):
+        return list(
+            node_param(x)._as_control_input()
+            for items in self._param_value.items() for x in items)
+
+    def _as_osc_arg_list(self):
+        return self._as_control_input()
+
+    def _embed_as_osc_arg(self, lst):
+        lst.append('[')
+        for item in self._param_value.items():
+            for e in item:
+                node_param(e)._embed_as_osc_arg(lst)
+        lst.append(']')
+
+
 ### Module functions ###
 
 def _graph_param(obj, param_cls):

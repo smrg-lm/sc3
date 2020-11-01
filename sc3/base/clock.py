@@ -646,7 +646,7 @@ class Quant():
         elif quant is None:
             quant = cls()
         else:
-            msg = f'unsuported type convertion to Quant: {type(quant)}'
+            msg = f'unsuported type conversion to Quant: {type(quant)}'
             raise TypeError(msg)
         return quant
 

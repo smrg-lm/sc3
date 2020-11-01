@@ -165,7 +165,7 @@ class Node(gpp.NodeParameter):
         )
 
     def fill_msg(self, cname, num_controls, value, *args):
-        return ['n_fill', self.node_id, cname, num_controls, value]\
+        return ['/n_fill', self.node_id, cname, num_controls, value]\
             + gpp.node_param(args)._as_control_input() # 17
 
     def release(self, release_time=None):
@@ -604,22 +604,22 @@ class Synth(Node):
 
     @classmethod
     def after(cls, node, def_name, args=None):
-        return cls(def_name, args or [], node, 'addAfter')
+        return cls(def_name, args, node, 'addAfter')
 
     @classmethod
     def before(cls, node, def_name, args=None):
-        return cls(def_name, args or [], node, 'addBefore')
+        return cls(def_name, args, node, 'addBefore')
 
     @classmethod
     def head(cls, group, def_name, args=None):
-        return cls(def_name, args or [], group, 'addToHead')
+        return cls(def_name, args, group, 'addToHead')
 
     @classmethod
     def tail(cls, group, def_name, args=None):
-        return cls(def_name, args or [], group, 'addToTail')
+        return cls(def_name, args, group, 'addToTail')
 
     def replace(self, def_name, args=None, same_id=False):
-        return type(self).new_replace(self, def_name, args or [], same_id)
+        return type(self).new_replace(self, def_name, args, same_id)
 
     # // for bundling
     def add_to_head_msg(self, group, args):

@@ -1,0 +1,97 @@
+.. _glossary:
+
+********
+Glossary
+********
+
+.. if you add new entries, keep the alphabetical sorting!
+.. TODO: preliminar draft written from memory, needs review and to be completed.
+
+.. glossary::
+
+   add action
+      An action number that defines the insertion behavior of a node.
+
+   audio rate
+      The sampling rate of the server.
+
+   block size
+      The size, in samples, of the control rate processing interval
+      of the server.
+
+   buffer
+      Dynamically allocated memory in the server used to store audio
+      data. Buffers are used to load audio files and may have different
+      sample rates.
+      See :class:`sc3.synth.buffer.Buffer`.
+
+   bus
+      A server bus used to connect ugens in different synth nodes.
+      Server's buses are global and ugens write or read from them in
+      the order defined by their position in the node tree.
+
+   completion message
+      An OSC message sent as a binary blob to some asynchronous server
+      commands. These messages are evaluated after the task of the
+      command is finished.
+
+   control rate
+      The rate introduced by csound to perform less computation for
+      signals that don't require sample rate accuracy. It's used to
+      reduce the CPU load.
+
+   default group
+      A server group created by the client application after the server
+      is booted. Default group id is usually 1000 but it may be a
+      different number in multi-user client's setup.
+
+   demand rate
+      A control or audio rate signal that changes at frequency defined
+      by `demand` ugens.
+      See :class:`sc3.synth.ugens.Demand`.
+
+   done action
+      An action performed in the server by certain ugens when finish.
+      Done actions can free or pause server nodes relative to the
+      ugen that fires it.
+      See :class:`sc3.synth.ugens.Done`.
+
+   group
+      A group in the server tree.
+      See :class:`sc3.synth.node.Group`.
+
+   initial rate
+      An special rate that computes values only at initialization.
+
+   node
+      A server tree node.
+      See :class:`sc3.synth.node`.
+
+   root group
+      The root group of a server's node tree. The id of the root node
+      is always 1.
+      See :class:`sc3.synth.node.RootGroup`.
+
+   synth
+      A synthesis node.
+      See :class:`sc3.synth.node.Synth`.
+
+   synthdef
+      A synthesis definition composed of ugens used to create synth
+      nodes.
+      See :class:`sc3.synth.synthdef.SynthDef`.
+
+   trigger
+      An impulsive signal that is created when the value of a bus goes
+      from being less than or equal to to being greater than zero.
+
+   trigger rate
+      A control rate signal that behaves like an impulse, when set
+      to a value it returns to zero immediately after.
+
+   ugen
+      A sound synthesis processing unit.
+
+   wire buffer
+      An internal connection between two ugens. Number of wires is
+      defined at boot time.

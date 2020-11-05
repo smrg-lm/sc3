@@ -1,11 +1,14 @@
 SuperCollider library for Python
 ================================
 
+.. warning:: Documentation is under construction.
+
 .. toctree::
    :maxdepth: 1
    :caption: Contents:
 
    api/modules
+   glossary
 
 Indices and tables
 ==================

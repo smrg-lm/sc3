@@ -7,7 +7,7 @@ python:
   - "nightly"
   - "pypy3"
 install:
-  # - pip3 install -r requirements.txt
-  - python3 setup.py develop --user
+  # - pip install -r requirements.txt
+  - python setup.py install #develop --user  # Fails selectively for different versions.
 script:
-  - python3 -m unittest discover -s tests
+  - python -m unittest discover -s tests

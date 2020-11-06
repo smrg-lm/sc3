@@ -46,7 +46,8 @@ class MdPlugin():
 
     def write(self, synthdef, path):  # Was *write_metadata.
         path = pathlib.Path(path) / f'{synthdef.name}.{self.SUFFIX}'
-        path.unlink(missing_ok=True)
+        if path.exists():
+            path.unlink()
         if synthdef.metadata:
             metadata = synthdef.metadata.copy()
             for key in self.codec:
@@ -71,7 +72,8 @@ class MdPlugin():
 
     def delete(self, synthdef, path):  # Was *clear_metadata.
         path = pathlib.Path(path) / f'{synthdef.name}.{self.SUFFIX}'
-        path.unlink(missing_ok=True)
+        if path.exists():
+            path.unlink()
 
     # def delete_all(self, path):
     #     for file in pahtlib.Path(path).glob(f'*.{self.SUFFIX}'):

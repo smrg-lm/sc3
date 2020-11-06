@@ -7,12 +7,12 @@ with open('README.md', 'r') as f:
 
 setuptools.setup(
     name='sc3',
-    version='0.7.0',
+    version='1.0.0a',
     author='Lucas Samaruga',
     author_email='samarugalucas@gmail.com',
     license='GPLv3',
     platforms='Any',
-    description='SuperCollider 3 class library Python 3 port',
+    description='SuperCollider library for Python',
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/smrg-lm/sc3',
@@ -30,5 +30,5 @@ setuptools.setup(
         'Operating System :: OS Independent',
         'Development Status :: 3 - Alpha'
     ],
-    keywords='SuperCollider sound synthesis music composition'
+    keywords='SuperCollider sound synthesis music-composition'
 )

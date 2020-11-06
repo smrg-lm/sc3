@@ -63,9 +63,20 @@ Glossary
    initial rate
       An special rate that computes values only at initialization.
 
+   logical time
+      The time as measured by :class:`sc3.base.stream.Routine` instances.
+      Logical time is measured in deterministic interval and is not
+      affected by jitter as :term:`physical time`. It's used to precisely
+      define the timetag for OSC bundles.
+
    node
       A server tree node.
-      See :class:`sc3.synth.node`.
+      See :class:`sc3.synth.node.Node`.
+
+   physical time
+      The time as measured by the computer's system clock. When used as
+      wait time is subject to jitter, it depends on non deterministic
+      processing time between calls and is affected by NTP adjustments.
 
    root group
       The root group of a server's node tree. The id of the root node

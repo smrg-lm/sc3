@@ -7,6 +7,12 @@ SuperCollider library for Python
    :maxdepth: 1
    :caption: Contents:
 
+   configuration
+   basicserver
+   basicroutine
+   nonrealtime
+   contribute
+
    api/modules
    glossary
 

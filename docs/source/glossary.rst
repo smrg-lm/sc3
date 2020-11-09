@@ -56,6 +56,11 @@ Glossary
       ugen that fires it.
       See :class:`sc3.synth.ugens.Done`.
 
+   elapsed time
+      In real time is the :term:`physical time` in seconds since the
+      library start. In non real time is the total time in seconds
+      advanced by routines playing on clocks.
+
    group
       A group in the server tree.
       See :class:`sc3.synth.node.Group`.

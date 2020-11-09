@@ -14,7 +14,9 @@ jitter-free OSC timetags.
 
 Instances of routines are created as shown below, their only argument
 is a function or generator function (a function that define yield
-statements):
+statements). When its generator iterator is exhausted routines raise
+a :class:`sc3.base.stream.StopStream` exception which is a subclass
+of ``StopIteration``.
 
 ::
 
@@ -27,6 +29,7 @@ statements):
   next(r)  # 0
   next(r)  # 1
   next(r)  # 2
+  next(r)  # StopStream
 
 Routine objects can be more conveniently created using the decorator
 function syntax as follow:
@@ -42,8 +45,9 @@ function syntax as follow:
   next(r)  # 0
   next(r)  # 1
   next(r)  # 2
+  next(r)  # StopStream
 
-Note that a routine object is both a generator function and an iterator.
+Note that a routine object is both a generator function and iterator.
 To define more than one routine with the same function use the object
 constructor.
 

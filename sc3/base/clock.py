@@ -126,7 +126,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         # _time_of_initialization was moved to main because rt/nrt clock switch.
         cls._host_osc_offset = 0 # int64
         cls._sync_osc_offset_with_tod()
-        cls._host_start_nanos = int(_libsc3.main._time_of_initialization / 1e-9) # to nanos
+        cls._host_start_nanos = int(_libsc3.main._time_of_initialization / 1e-9)
         cls._elapsed_osc_offset = int(
             cls._host_start_nanos * cls._NANOS_TO_OSC
         ) + cls._host_osc_offset
@@ -140,11 +140,12 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         cls._resync_thread.start()
 
     @classmethod
-    def _sync_osc_offset_with_tod(cls): # L314, esto se hace en _rsync_thread
+    def _sync_osc_offset_with_tod(cls):
         # // generate a value gHostOSCoffset such that
         # // (gHostOSCoffset + systemTimeInOSCunits)
         # // is equal to gettimeofday time in OSCunits.
-        # // Then if this machine is synced via NTP, we are synced with the world.
+        # // Then if this machine is synced via NTP
+        # // we are synced with the world.
         # // more accurate way to do this??
         number_of_tries = 8
         diff = 0 # int64
@@ -206,17 +207,18 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         ) + cls._elapsed_osc_offset
 
     @classmethod
-    def osc_to_elapsed_time(cls, osctime: int) -> float:  # L286
+    def osc_to_elapsed_time(cls, osctime: int) -> float:
         return float(
             osctime - cls._elapsed_osc_offset
         ) * cls._OSC_TO_SECONDS
 
     @classmethod
-    def osc_time(cls) -> int:  # L309
+    def osc_time(cls) -> int:
         return cls.elapsed_time_to_osc(_libsc3.main.elapsed_time())
 
     @classmethod
-    def _sched_add(cls, secs, task):  # L353
+    def _sched_add(cls, secs, task):
+        # Call with acquired lock.
         if cls._task_queue.empty():
             prev_time = -1e10
         else:
@@ -225,7 +227,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         # if isinstance(task, pst.PauseStream):
         #     task._next_beat = secs
         if cls._task_queue.peek()[0] != prev_time:
-            cls._sched_cond.notify_all()  # Call with acquired lock.
+            cls._sched_cond.notify_all()
 
     @classmethod
     def _sched_stop(cls):
@@ -300,20 +302,14 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                             'from %s (%s) scheduled on SystemClock',
                             task, task.func.__qualname__, exc_info=1)
 
-    # sclang methods
-
     @classmethod
     def clear(cls):
         if cls.mode == _libsc3.main.NRT_MODE:
             return
         with cls._sched_cond:
-            item = None
-            # BUG: NO SÉ QUE ESTABA PENSANDO CUANOD HICE ESTE, FALTA:
-            # BUG: queue es thisProcess.prSchedulerQueue, VER!
             while not cls._task_queue.empty():
-                item = cls._task_queue.pop()[1]
+                cls._task_queue.pop()
             cls._sched_cond.notify_all()
-            # BUG: llama a prClear, VER!
 
     @classmethod
     def sched(cls, delta, item):
@@ -321,7 +317,6 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
             item = fn.Function(item)
         item._clock = cls
         if cls.mode == _libsc3.main.NRT_MODE:
-            # See note in TempoClock sched.
             seconds = _libsc3.main.current_tt._seconds
             seconds += delta
             if seconds == float('inf'):
@@ -347,15 +342,6 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         else:
             with cls._sched_cond:
                 cls._sched_add(time, item)
-
-    # L542 y L588 setea las prioridades 'rt' para mac o linux, es un parámetro de los objetos Thread
-    # ver qué hace std::move(thread)
-    # def sched_run(cls): # L609, crea el thread de SystemClock
-    #     # esto es simplemente start (sched_run_func es run) con prioridad rt
-    #     # iría en el constructor/inicializador
-    #     ...
-    # L651, comentario importante sobre qué maneja cada reloj
-    # luego ver también las funciones que exporta a sclang al final de todo
 
 
 class Scheduler():
@@ -410,9 +396,8 @@ class Scheduler():
         self.queue.add(time, item)
 
     def clear(self):
-        item = None
         while not self.queue.empty():
-            item = self.queue.pop()
+            self.queue.pop()
 
     def empty(self):
         return self.queue.empty()
@@ -539,14 +524,6 @@ class AppClock(Clock, metaclass=MetaAppClock):
             cls._tick_cond.notify()
         cls._thread.join()
 
-    # NOTE: Este comentario es un recordatorio.
-    # def _sched_notify(cls):
-    # _AppClock_SchedNotify
-    # En SC_TerminalClient _AppClock_SchedNotify es SC_TerminalClient::prScheduleChanged
-    # que llama a la instancia del cliente (de sclang), que llama a su método
-    # sendSignal(sig_sched) con la opción sig_sched que llama a SC_TerminalClient::tick
-    # Acá podría ir todo dentro de sched(), ergo sum chin pum: cls._tick()
-
 
 class ClockScheduler(threading.Thread):
     def __init__(self):
@@ -614,10 +591,11 @@ class ClockTask():
 
 
 ### Quant.sc ###
-# // This class is used to encapsulate quantization issues associated with EventStreamPlayer and TempoClock
-# // quant and phase determine the starting time of something scheduled by a TempoClock
-# // timingOffset is an additional timing factor that allows an EventStream to compute "ahead of time" enough to allow
-# // negative lags for strumming a chord, etc
+# // This class is used to encapsulate quantization issues associated
+# // with EventStreamPlayer and TempoClock, quant and phase determine the
+# // starting time of something scheduled by a TempoClock timingOffset
+# // is an additional timing factor that allows an EventStream to compute
+# // "ahead of time" enough to allow negative lags for strumming a chord, etc.
 
 
 class Quant():
@@ -626,15 +604,8 @@ class Quant():
         self.phase = phase
         self.timing_offset = timing_offset
 
-    # *default # NOTE: no se usa acá, no tiene mucho valor, se pasa como responsabilidad del usuario, si alguna clase lo necesita define su propio default.
+    # *default  # NOTE: Not really needed.
 
-    # NOTE: Quant se usa en TempoClock.play y Event.sync_with_quant (hasta donde vi)
-    # NOTE: Para asQuant los valores válidos son None, int, list, tuple y Quant.
-    # NOTE: Otra opción es que quant pueda ser solo un entero o una tupla y hacer
-    # NOTE: la lógica de Quant.next_time_on_grid en el método play de TempoClock.
-    # NOTE: asQuant { ^this.copy() } lo implementan SimpleNumber { ^Quant(this) }, SequenceableCollection { ^Quant(*this) }, Nil { ^Quant.default } y IdentityDictionary { ^this.copy() }
-    # NOTE: asQuant se usa en EventStreamPlayer.play, Quant.default, PauseStream.play,
-    # NOTE: Routine.play y Stream.play.
     @classmethod
     def as_quant(cls, quant):
         if isinstance(quant, cls):
@@ -650,18 +621,14 @@ class Quant():
             raise TypeError(msg)
         return quant
 
-    # NOTE: Este método es un método de Clock y TempoClock y reciben quant como escalar (!)
-    # NOTE: De los objetos que implementan next_time_on_grid Clock y TempoClock
-    # NOTE: reciben quant como valór numérico. Los demás objetos reciben un
-    # NOTE: reloj y llama al método next_time_on_grid del reloj. Es muy rebuscada
-    # NOTE: la implementación, tal vez algo cambió y esos métodos quedaron
-    # NOTE: confusos. Acá solo lo implemento en Quant, Clock y TempoClock.
     def next_time_on_grid(self, clock):
         return clock.next_time_on_grid(
             self.quant, (self.phase or 0) - (self.timing_offset or 0))
 
-    # printOn
-    # storeArgs
+    def __repr__(self):
+        return (
+            f'{type(self).__name__}(quant={self.quant}, '
+            f'phase={self.phase}, timing_offset={self.timing_offset})')
 
 
 # /*
@@ -684,8 +651,6 @@ class Quant():
 # is always advancing. Logical time only advances when your task yields or
 # returns.
 # */
-# NOTE: Elapsed time, tiempo transcurrido, es el tiempo físico, en
-# NOTE: contraposición al tiempo lógico. La base temporal es el tempo.
 
 
 class MetaTempoClock(MetaClock):
@@ -713,12 +678,51 @@ class MetaTempoClock(MetaClock):
     def all(cls):
         return set(cls._all)
 
+    def stop_all(cls):
+        for clock in list(cls._all):
+            clock.stop()
+
 
 class TempoClock(Clock, metaclass=MetaTempoClock):
-    # BUG: C++ TempoClock_stopAll se usa en ./lang/LangSource/PyrLexer.cpp
-    # BUG: shutdownLibrary(), no importa si hay permanentes, va para Main, VER.
+    """Tempo based scheduler.
 
-    # BUG: A LOS TEMPOCLOCK SE LOS TIENE QUE PODER LLEVAR EL COLECTOR DE BASURA LLAMANDO A STOP().
+    TempoClock is a scheduler like SystemClock, but it schedules
+    relative to a tempo in beats per second.
+
+    Parameters
+    ----------
+    tempo : int | float
+        The initial tempo. Defaults to 1.
+    beats : int | float
+        The time in beats, corresponding to the reference time given
+        with the seconds argument. Defaults to 0.
+    seconds : int | float
+        The reference time in seconds, to which the beats argument
+        corresponds. Defaults to the current Thread's logical time.
+
+    Notes
+    -----
+    The TempoClock will be created as if it started counting beats at
+    the time given in the seconds argument with the starting amount
+    givenin the beats argument. The current count of beats will thus
+    be equal to that starting amount plus the amount of beats that
+    would be counted since the given reference time in seconds,
+    according to the given tempo.
+
+    The default arguments create a TempoClock that starts counting
+    beats with 0 at the current logical time.
+
+    ::
+
+      @routine.run()
+      def example():
+          # Starts counting beats with 5 now.
+          t = TempoClock(2, 5)
+          print('current beats:', t.beats)
+          # As if it started counting beats 5 seconds ago with 0.
+          t = TempoClock(2, 0, main.current_tt.seconds - 5)
+          print('current beats:', t.beats)
+    """
 
     def __init__(self, tempo=None, beats=None, seconds=None):
         # prTempoClock_New
@@ -726,14 +730,13 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         if tempo < 0.0:
             raise ValueError(f'invalid tempo {tempo}')
 
-        # TempoClock::TempoClock()
         self._tempo = tempo
         self._beat_dur = 1.0 / tempo
         self._base_seconds = seconds or _libsc3.main.current_tt._seconds
         self._base_beats = beats or 0.0
         self._beats = 0.0
 
-        # init luego de prStart
+        # init
         self._beats_per_bar = 4.0
         self._bars_per_beat = 0.25
         self._base_bar_beat = 0
@@ -820,14 +823,11 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                             task, task.func.__qualname__, id(self), exc_info=1)
 
     def stop(self):
-        # prStop -> prTempoClock_Free -> StopReq -> StopAndDelete -> Stop
         if self.mode == _libsc3.main.NRT_MODE:
             return
-        # prTempoClock_Free
         if not self.running():
             _logger.debug(f'{self} is not running')
             return
-        # StopReq
         stop_thread = threading.Thread(
             target=self._stop,
             name=f'{type(self).__name__}.stop_thread id: {id(self)}',
@@ -836,15 +836,13 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         _libsc3.main._atexitq.remove(self._stop)
 
     def _stop(self):
-        # StopAndDelete
-        # Stop
         if not self._run_sched:
             return
         with self._sched_cond:
             self._task_queue.clear()
             type(self)._all.remove(self)
             self._run_sched = False
-            self._sched_cond.notify_all()  # In TempoClock::Stop is notify_all
+            self._sched_cond.notify_all()
         self._thread.join()
         self._thread = None
         self._sched_cond = None
@@ -868,21 +866,16 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             raise ClockNotRunning(self)
         return self._tempo
 
-    # // for setting the tempo at the current logical time
-    # // (even another TempoClock's logical time).
     @tempo.setter
     def tempo(self, value):
-        # NOTE: tempo_ llama a setTempoAtBeat (_TempoClock_SetTempoAtBeat)
-        # NOTE: que es privado según la nota. Lo debe hacer porque no puede
-        # NOTE: llamar directamente a la primitiva porque notifica a las
-        # NOTE: dependacy o porque difiere la lógica del objeto en C++.
-        # NOTE: Paso la lógica de setTempoAtBeat y TempoClock::SetTempoAtBeat a este setter.
+        # // For setting the tempo at the current logical time
+        # // (even another TempoClock's logical time).
         # setTempoAtBeat(newTempo, this.beats) -> prTempoClock_SetTempoAtBeat
         if not self.running():
             raise ClockNotRunning(self)
         if value == 0.0:
             raise ValueError("tempo can't be zero")
-        if self._tempo < 0.0: # BUG: NO ES CLARO: usa _tempo (mTempo), que puede ser negativo mediante etempo y en ese caso no deja setear acá, ES RARO.
+        if self._tempo < 0.0:
             raise ValueError(
                 "cannot set tempo from this method. "
                 "The method 'etempo()' can be used instead")
@@ -891,7 +884,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 f"invalid tempo {value}. The method "
                 "'etempo()' can be used instead.")
         # TempoClock::SetTempoAtBeat
-        beats = self.beats # NOTE: hay obtenerlo solo una vez porque el getter cambia al setear las variables, en C++ es el argumento de una función.
+        beats = self.beats
         self._base_seconds = self.beats2secs(beats)
         self._base_beats = beats
         self._tempo = value
@@ -902,10 +895,10 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             return
         else:
             with self._sched_cond:
-                self._sched_cond.notify() # NOTE: es notify_one en C++
+                self._sched_cond.notify()  # NOTE: is notify_one in C++.
 
-    # // for setting the tempo at the current elapsed time.
     def etempo(self, value):
+        # // For setting the tempo at the current elapsed time.
         # TODO: this.setTempoAtSec(newTempo, Main.elapsedTime);
         # _TempoClock_SetTempoAtTime
         if not self.running():
@@ -924,29 +917,25 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             return
         else:
             with self._sched_cond:
-                self._sched_cond.notify() # NOTE: es notify_one en C++
+                self._sched_cond.notify()  # NOTE: is notify_one in C++.
 
     def beat_dur(self):
-        # _TempoClock_BeatDur
         if not self.running():
             raise ClockNotRunning(self)
         return self._beat_dur
 
     def elapsed_beats(self):
-        # _TempoClock_ElapsedBeats
         if not self.running():
             raise ClockNotRunning(self)
         return self.secs2beats(_libsc3.main.elapsed_time())
 
     @property
     def beats(self):
-        # _TempoClock_Beats
-        # // returns the appropriate beats for this clock from any thread
+        """Returns the appropriate beats for this clock from any thread."""
         return self.secs2beats(_libsc3.main.current_tt._seconds)
 
     @beats.setter
     def beats(self, value):
-        # _TempoClock_SetBeats
         if not self.running():
             raise ClockNotRunning(self)
         seconds = _libsc3.main.current_tt._seconds
@@ -957,14 +946,14 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             return
         else:
             with self._sched_cond:
-                self._sched_cond.notify() # NOTE: es notify_one en C++
+                self._sched_cond.notify()  # NOTE: is notify_one in C++
 
     @property
     def seconds(self):
         return _libsc3.main.current_tt._seconds
 
     def _sched_add(self, beats, task):
-        # TempoClock::Add
+        # Call with acquired lock.
         if self._task_queue.empty():
             prev_beat = -1e10
         else:
@@ -973,7 +962,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # if isinstance(task, pst.PauseStream):
         #     task._next_beat = beats
         if self._task_queue.peek()[0] != prev_beat:
-            self._sched_cond.notify()  # *** BUG: usa notify poruqe se llama anidado, cambiar.
+            self._sched_cond.notify()
 
     def _sched_add_nrt(self, beats, task):
         # if isinstance(task, pst.PauseStream):
@@ -986,19 +975,11 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         return beats + delta
 
     def sched(self, delta, item):
-        # _TempoClock_Sched
         if not self.running():
             raise ClockNotRunning(self)
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
         item._clock = self
-        # NOTE: Code is complicated because the lock. In RT the lock prevents
-        # to calculate a time here and then, because threading, to excecute
-        # a greater time element from the queue before this one is added. To
-        # leave a real lock as dummy is not an option because is a system
-        # resource, if was a fake lock wouldn't be clear. Also, _sched_add
-        # needs to be called already locked because is used from outside and
-        # within the _run loop.
         if self.mode == _libsc3.main.NRT_MODE:
             beats = self._calc_sched_beats(delta)
             if beats == float('inf'):
@@ -1012,7 +993,6 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 self._sched_add(beats, item)
 
     def sched_abs(self, beat, item):
-        # _TempoClock_SchedAbs
         if not self.running():
             raise ClockNotRunning(self)
         if not hasattr(item, '__awake__'):
@@ -1027,15 +1007,13 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                 self._sched_add(beat, item)
 
     def clear(self):
-        # clear -> prClear -> _TempoClock_Clear -> TempoClock::Clear
         if self.mode == _libsc3.main.NRT_MODE:
             return
-        if self.running():  # and self._run_sched:  # NOTE: _run_sched check was needed?
-            item = None
+        if self.running():  # and self._run_sched:  # NOTE: Was needed?
             with self._sched_cond:
                 while not self._task_queue.empty():
-                    item = self._task_queue.pop()[1] # de por sí PriorityQueue es thread safe, la implementación de SuperCollider es distinta, ver SystemClock*clear.
-                self._sched_cond.notify() # NOTE: es notify_one en C++
+                    self._task_queue.pop()
+                self._sched_cond.notify()  # NOTE: is notify_one in C++.
 
     @property
     def beats_per_bar(self):
@@ -1057,38 +1035,34 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         self._bars_per_beat = 1 / value
         mdl.NotificationCenter.notify(self, 'meter')
 
-    @property # TODO: no parece tener setter.
+    @property
     def base_bar_beat(self):
         return self._base_bar_beat
 
-    @property # TODO: no parece tener setter.
+    @property
     def base_bar(self):
         return self._base_bar
 
     def beats2secs(self, beats):
-        # _TempoClock_BeatsToSecs
         if not self.running():
             raise ClockNotRunning(self)
         return (beats - self._base_beats) * self._beat_dur + self._base_seconds
 
     def secs2beats(self, seconds):
-        # _TempoClock_SecsToBeats
         if not self.running():
             raise ClockNotRunning(self)
         return (seconds - self._base_seconds) * self._tempo + self._base_beats
 
     def dump(self):
-        # _(pr)TempoClock_Dump -> TepmoClock::Dump
-        # BUG: Pero no usa este método sclang, usa dump de Object (_ObjectDump)
         if self.running():
-            msg = self.__repr__()
-            msg += (f'\n    tempo: {self.tempo}'
-                    f'\n    beats: {self.beats}'
-                    f'\n    seconds: {self.seconds}'
-                    f'\n    _beat_dur: {self._beat_dur}'
-                    f'\n    _base_seconds: {self._base_seconds}'
-                    f'\n    _base_beats: {self._base_beats}')
-            print(msg)
+            print(
+                f'{self.__repr__()}\n'
+                f'    tempo: {self.tempo}\n'
+                f'    beats: {self.beats}\n'
+                f'    seconds: {self.seconds}\n'
+                f'    _beat_dur: {self._beat_dur}\n'
+                f'    _base_seconds: {self._base_seconds}\n'
+                f'    _base_beats: {self._base_beats}')
         else:
             raise ClockNotRunning(self)
 
@@ -1104,8 +1078,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             quant
         ) + self._base_bar_beat + phase
 
-    # // logical time to next beat
     def time_to_next_beat(self, quant=1):
+        """Logical time to next beat."""
         return Quant.as_quant(quant).next_time_on_grid(self) - self.beats
 
     def beats2bars(self, beats):
@@ -1116,18 +1090,20 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         return (bars - self._base_bar) * self._beats_per_bar\
                + self._base_bar_beat
 
-    # // return the current bar.
-    def bar(self): # NOTE: bar podría ser propiedad de solo lectura
+    def bar(self):
+        """Return the current bar."""
         return bi.floor(self.beats2bars(self.beats))
 
-    # // given a number of beats, determine number beats at the next bar line.
     def next_bar(self, beat=None):
+        """Given a number of beats, determine number beats
+        at the next bar line.
+        """
         if beat is None:
             beat = self.beats
         return self.bars2beats(bi.ceil(self.beats2bars(beat)))
 
-    # // return the beat of the bar, range is 0 to < t.beatsPerBar
     def beat_in_bar(self):
+        """Return the beat of the bar, range is 0 to < beats_per_bar."""
         return self.beats - self.bars2beats(self.bar())
 
     def running(self):

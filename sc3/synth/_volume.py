@@ -125,7 +125,7 @@ class Volume():
                 yield from self._server.sync()
                 sac.ServerTree.add(self._server, self.__on_server_tree)
 
-            stm.Routine.run(send_synthdef, clk.TempoClock.default)
+            stm.Routine.run(send_synthdef)
 
     def _update_synth(self):
         amp = bi.dbamp(self.gain) if not self._is_muted else 0.0

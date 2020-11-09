@@ -69,7 +69,6 @@ class CmdPeriod(SystemAction):
     def hard_run(cls):
         clk.SystemClock.clear()
         clk.AppClock.clear()
-        clk.TempoClock.default.clear()
         for action in cls._actions.copy():
             cls._do_action(action)
         srv.Server.hard_free_all()  # // stop all sounds on local servers

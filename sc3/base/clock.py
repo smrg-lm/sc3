@@ -693,8 +693,12 @@ class MetaTempoClock(MetaClock):
         cls._all = weakref.WeakSet()
 
         def init_func(cls):
-            cls.default = cls()
-            cls.default.permanent = True
+            # TempoClock.default was removed. Within the library use
+            # SystemClock or AppClock, in user code create an instance
+            # and use it as default for your script/conding session.
+            # Routines set SystemClock as default.
+            # cls.default = cls()
+            # cls.default.permanent = True
             sac.CmdPeriod.add(cls.__on_cmd_period)
 
         clb.ClassLibrary.add(cls, init_func)

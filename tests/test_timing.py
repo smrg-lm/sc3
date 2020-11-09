@@ -82,6 +82,6 @@ def ro():
     print([round(time_steps[i], 9) == round(time_steps[i + 1], 9)\
            for i in range(0, len(time_steps), 2)])  # equal at nanos.
 
-ro.play(TempoClock.default)
+ro.play()
 # [round(time_steps[i], 9) == round(time_steps[i + 1], 9) for i in range(0, len(time_steps), 2)]
 # recv.free()

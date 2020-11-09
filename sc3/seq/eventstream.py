@@ -124,7 +124,7 @@ class EventStreamPlayer(stm.Routine):
         with self._state_cond:
             if self.state == self.State.Paused:
                 self.state = self.State.Suspended
-                clock = clock or self._clock or clk.TempoClock.default
+                clock = clock or self._clock or clk.SystemClock
                 self._event, quant = self._synch_with_quant(self._event, quant)
                 clock.play(self, quant)
 
@@ -156,7 +156,7 @@ class EventStreamPlayer(stm.Routine):
             if self.state == self.State.Init\
             or self.state == self.state.Paused:
                 self.state = self.State.Suspended
-                clock = clock or clk.TempoClock.default
+                clock = clock or clk.SystemClock
                 self._event, quant = self._synch_with_quant(self._event, quant)
                 clock.play(self, quant)
         # Pattern.play return the stream, maybe for API usage constency

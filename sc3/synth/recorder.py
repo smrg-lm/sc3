@@ -81,7 +81,7 @@ class Recorder():
                 self.prepare(path, num_channels)
                 yield from self._server.sync()
                 self.record(path, self._bus, num_channels, node, duration)
-            stm.Routine.run(record_setup, clk.TempoClock.default)
+            stm.Routine.run(record_setup)
         else:
             if num_channels is not None and num_channels != self._num_channels:
                 _logger.warning(

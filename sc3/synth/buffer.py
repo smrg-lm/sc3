@@ -814,7 +814,11 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         fn.value(self._do_on_info, self)
         self._do_on_info = None
 
-    # printOn
+    def __repr__(self):
+        return (
+            f'{type(self).__name__}({self._bufnum}, {self._num_frames}, '
+            f'{self._num_channels}, {self._sample_rate}, {self._path})')
+
     # *loadDialog # No builtin gui.
 
     def play(self, loop=False, mul=1):

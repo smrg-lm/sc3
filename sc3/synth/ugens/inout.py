@@ -6,6 +6,7 @@ from ...base import utils as utl
 from ...base import main as _libsc3
 from .. import ugen as ugn
 from .. import _graphparam as gpp
+from . import infougens as ifu
 
 
 _logger = logging.getLogger(__name__)
@@ -240,6 +241,20 @@ class InTrig(AbstractIn):
     def _init_ugen(self, num_channels, *arg_bus):  # override
         self._inputs = arg_bus
         return self._init_outputs(num_channels, self.rate)
+
+
+class SoundIn(ugn.PseudoUGen):
+    @classmethod
+    def ar(cls, bus=0):
+        channel_offset = ifu.NumOutputBuses.ir()
+        if not isinstance(bus, list):
+            return In.ar(channel_offset + bus, 1)
+        # // Check to see if channels array is consecutive [n,n+1,n+2...].
+        if all(item == 0 or item == bus[i-1]+1 for i, item in enumerate(bus)):
+            return In.ar(channel_offset + bus[0], len(bus))
+        else:
+            # // Allow In to multi channel expand.
+            return In.ar([channel_offset + item for item in bus])
 
 
 ### Outputs ###

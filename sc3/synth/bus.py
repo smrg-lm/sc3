@@ -314,6 +314,11 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
             (type(self), self._index, self._num_channels,
             self._rate, self._server))
 
+    def __repr__(self):
+        return (
+            f'{type(self).__name__}({self._rate}, {self._index}, '
+            f'{self._num_channels}, {self._server.name})')
+
     @property
     def is_audio_io(self):
         return (self._rate == 'audio' and

@@ -148,7 +148,7 @@ class StopStream(StopIteration):
     pass
 
 
-class PauseStream(StopStream):
+class PausedStream(StopStream):  # Not to be confused with PauseStream which doesn't exists here.
     pass
 
 
@@ -381,7 +381,7 @@ class Routine(TimeThread, Stream):
     def next(self, inval=None):
         with self._state_cond:
             if self.state == self.State.Paused:
-                raise PauseStream
+                raise PausedStream
 
             # Done & AlwaysYield.
             if self.state == self.State.Done:
@@ -533,7 +533,7 @@ class Condition():
             self._waiting_threads.append(_libsc3.main.current_tt.thread_player)
             yield 'hang'  # Arbitrary non numeric value.
         else:
-            return 0
+            yield 0
 
     def hang(self, value='hang'):
         # // Ignore the test, just wait.

@@ -165,7 +165,7 @@ class OscInterface(ABC):
         if time is None or time < 0.0:
             return oli.IMMEDIATELY
         else:
-            time += _libsc3.main.current_tt._seconds
+            time += _libsc3.main.current_tt.seconds
             return clk.SystemClock.elapsed_time_to_osc(time)
 
     @staticmethod
@@ -422,7 +422,7 @@ class OscNrtInterface(OscInterface):
     def _get_timetag(time):  # override
         if time is None or time < 0.0:
             time = 0.0  # IMMEDIATELY is not needed in nrt.
-        time += _libsc3.main.current_tt._seconds
+        time += _libsc3.main.current_tt.seconds
         return int(time * clk.SystemClock._SECONDS_TO_OSC)
 
     def _send(self, msg, target):
@@ -476,7 +476,7 @@ class OscScore():
         # Same as OscNrtInterface._get_timetag but in logical time.
         if time is None or time < 0.0:
             time = 0.0
-        return time + _libsc3.main.current_tt._seconds
+        return time + _libsc3.main.current_tt.seconds
 
     def finish(self, time=0.0):
         # This method uses the logical time of its call as the others.

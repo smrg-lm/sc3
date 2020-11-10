@@ -155,13 +155,13 @@ class RtMain(metaclass=Process):
         now = cls.elapsed_time()
         if seconds is None:
             # Logical time is set to physical time.
-            cls.main_tt._seconds = now
+            cls.main_tt._m_seconds = now
         elif seconds > now:
             raise TimeException(
                 "logical time can't be set to the future of physical time")
         else:
             # Logical time is set to current sched time by clocks.
-            cls.main_tt._seconds = seconds
+            cls.main_tt._m_seconds = seconds
 
 
 class NrtMain(metaclass=Process):
@@ -177,11 +177,11 @@ class NrtMain(metaclass=Process):
     @classmethod
     def elapsed_time(cls):
         '''Physical time is main_Thread.seconds in nrt.'''
-        return float(cls.main_tt._seconds)
+        return float(cls.main_tt.seconds)
 
     @classmethod
     def update_logical_time(cls, seconds=None):
         if seconds is None:
             return
         else:
-            cls.main_tt._seconds = seconds
+            cls.main_tt._m_seconds = seconds

@@ -52,8 +52,7 @@ To define more than one routine with the same function use the object
 constructor.
 
 The meaning of routines start to reveal when they are used along clocks.
-They responde the ``play``, ``pause``, ``resume`` and ``stop`` methods
-like any music player (no fast forward or rewind though).
+They responde the ``play``, ``pause``, ``resume`` and ``stop`` methods.
 The ``play`` method starts playing the routine in a clock, the default
 clock which is :class:`sc3.base.clock.SystemClock`.
 
@@ -108,19 +107,20 @@ to the server will be precise.
 
 Physical time can be accessed from ``main.elapsed__time()``, which is
 the time in seconds since the librar started.
-It is not practically useful to access the routine's logical time but
-to prove what we said above we can use it's internal ``_seconds``
-attribute.
 
 ::
 
   @routine
   def r():
       while True:
-          print(main.elapsed_time(), main.current_tt._seconds)
+          print(main.elapsed_time(), main.current_tt.seconds)
           yield 1
 
   r.play()
+
+.. note::
+   For most common cases it's not necessary to access routine's
+   logical time, the library will manage timing internally.
 
 In the example above we can compare how the decimal part of the logical
 time is always the same while for ``elapsed_time()`` constantly

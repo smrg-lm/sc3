@@ -47,8 +47,6 @@ class TimeThread():
         self.parent = None
         self.state = self.State.Init
         self._state_cond = threading.Condition(threading.RLock())
-        # _seconds need alias to avoid
-        # _MainTimeThread getter in Routine.next().
         self._m_seconds = 0.0
         self._clock = None
         self._thread_player = None
@@ -60,13 +58,13 @@ class TimeThread():
     def __deepcopy__(self, memo):
         return self
 
+    # *** TIENE QUE VOLVER A SER PÚBLICO, SE USA MUCHO EN LA DOCUMENTACIÓN,
+    # *** RECORDAR POR QUÉ EL ALIAS, CREO PORQUE LO CONVERTÍ EN INTERNO,
+    # *** FUE UN ERROR. ANOTAS CON # Updates logical time. LAS LLAMADAS
+    # *** A SECONDS (QUE AHORA SON _SECONDS).
     @property
-    def _seconds(self):
+    def seconds(self):
         return self._m_seconds
-
-    @_seconds.setter
-    def _seconds(self, seconds):
-        self._m_seconds = seconds
 
     @property
     def is_playing(self):
@@ -121,15 +119,11 @@ class _MainTimeThread(TimeThread):
         self._thread_player = None
 
     @property
-    def _seconds(self):  # override
+    def seconds(self):  # override
         # _MainThread set the current physical time when this
         # property is invoked and then spreads to child routines.
         _libsc3.main.update_logical_time()
         return self._m_seconds
-
-    @_seconds.setter
-    def _seconds(self, seconds):
-        self._m_seconds = seconds
 
     @property
     def is_playing(self):
@@ -401,7 +395,7 @@ class Routine(TimeThread, Stream):
             if self._clock:
                 self._m_seconds = self.parent._m_seconds
             else:
-                self._m_seconds = self.parent._seconds
+                self._m_seconds = self.parent.seconds
 
             try:
                 self.state = self.State.Running

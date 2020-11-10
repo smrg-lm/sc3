@@ -53,13 +53,13 @@ class MetaClock(type):
 
     @property
     def seconds(cls):
-        return _libsc3.main.current_tt._seconds
+        return _libsc3.main.current_tt.seconds
 
     # // tempo clock compatibility
 
     @property
     def beats(cls):
-        return _libsc3.main.current_tt._seconds
+        return _libsc3.main.current_tt.seconds
 
     def beats2secs(cls, beats):
         return beats
@@ -317,14 +317,14 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
             item = fn.Function(item)
         item._clock = cls
         if cls.mode == _libsc3.main.NRT_MODE:
-            seconds = _libsc3.main.current_tt._seconds
+            seconds = _libsc3.main.current_tt.seconds
             seconds += delta
             if seconds == float('inf'):
                 return
             ClockTask(seconds, cls, item, _libsc3.main._clock_scheduler)
         else:
             with cls._sched_cond:
-                seconds = _libsc3.main.current_tt._seconds
+                seconds = _libsc3.main.current_tt.seconds
                 seconds += delta
                 if seconds == float('inf'):
                     return
@@ -374,7 +374,7 @@ class Scheduler():
         if self._drift:
             from_time = _libsc3.main.elapsed_time()
         else:
-            from_time = self.seconds = _libsc3.main.current_tt._seconds
+            from_time = self.seconds = _libsc3.main.current_tt.seconds
         self.queue.add(from_time + delta, item)
 
     def sched(self, delta, item):
@@ -711,17 +711,27 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     The default arguments create a TempoClock that starts counting
     beats with 0 at the current logical time.
-
     ::
 
       @routine.run()
       def example():
-          # Starts counting beats with 5 now.
+          # Starts from zero by default.
+          t = TempoClock(2)
+          print('current beats:', t.beats)
+          # Starts counting beats from 5.
           t = TempoClock(2, 5)
           print('current beats:', t.beats)
-          # As if it started counting beats 5 seconds ago with 0.
+          # Counting beats as if it started 5 seconds ago from 0.
           t = TempoClock(2, 0, main.current_tt.seconds - 5)
           print('current beats:', t.beats)
+
+    If the above example was run without a souronding routine the
+    actual `beats` value will not be precise. When running in real
+    time, the base time reference is elapsed time and every call that
+    requires current time is relativelly synced to it. The same
+    happens in sclang when each instruction is evaluated separatelly,
+    the difference is that sclang updates the base time only once per
+    intepreter call which is not possible to do in a python library.
     """
 
     def __init__(self, tempo=None, beats=None, seconds=None):
@@ -732,7 +742,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
         self._tempo = tempo
         self._beat_dur = 1.0 / tempo
-        self._base_seconds = seconds or _libsc3.main.current_tt._seconds
+        self._base_seconds = seconds or _libsc3.main.current_tt.seconds
         self._base_beats = beats or 0.0
         self._beats = 0.0
 
@@ -932,13 +942,13 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     @property
     def beats(self):
         """Returns the appropriate beats for this clock from any thread."""
-        return self.secs2beats(_libsc3.main.current_tt._seconds)
+        return self.secs2beats(_libsc3.main.current_tt.seconds)
 
     @beats.setter
     def beats(self, value):
         if not self.running():
             raise ClockNotRunning(self)
-        seconds = _libsc3.main.current_tt._seconds
+        seconds = _libsc3.main.current_tt.seconds
         self._base_seconds = seconds
         self._base_beats = value
         self._beat_dur = 1.0 / self._tempo
@@ -950,7 +960,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     @property
     def seconds(self):
-        return _libsc3.main.current_tt._seconds
+        return _libsc3.main.current_tt.seconds
 
     def _sched_add(self, beats, task):
         # Call with acquired lock.
@@ -970,7 +980,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         ClockTask(beats, self, task, _libsc3.main._clock_scheduler)
 
     def _calc_sched_beats(self, delta):
-        seconds = _libsc3.main.current_tt._seconds
+        seconds = _libsc3.main.current_tt.seconds
         beats = self.secs2beats(seconds)
         return beats + delta
 

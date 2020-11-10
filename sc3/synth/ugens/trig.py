@@ -206,11 +206,11 @@ class Sweep(ugn.UGen):
 class Phasor(ugn.UGen):
     @classmethod
     def ar(cls, trig=0.0, rate=1.0, start=0.0, end=1.0, reset_pos=0.0):
-        return self._multi_new('audio', trig, rate, start, end, reset_pos)
+        return cls._multi_new('audio', trig, rate, start, end, reset_pos)
 
     @classmethod
     def kr(cls, trig=0.0, rate=1.0, start=0.0, end=1.0, reset_pos=0.0):
-        return self._multi_new('control', trig, rate, start, end, reset_pos)
+        return cls._multi_new('control', trig, rate, start, end, reset_pos)
 
 
 class PeakFollower(ugn.UGen):
@@ -256,11 +256,11 @@ class InRange(ugn.UGen):
 class InRect(ugn.UGen):
     @classmethod
     def ar(cls, x=0.0, y=0.0, rect=(0.0, 0.0, 0.0, 0.0)):  # left, top, right, bottom (x, y, x, y lines on screen)
-        return self._multi_new('audio', x, y, *rect)
+        return cls._multi_new('audio', x, y, *rect)
 
     @classmethod
     def kr(cls, x=0.0, y=0.0, rect=(0.0, 0.0, 0.0, 0.0)):  # left, top, right, bottom (x, y, x, y lines on screen)
-        return self._multi_new('control', x, y, *rect)
+        return cls._multi_new('control', x, y, *rect)
 
 
 # Trapezoid, commented UGen.

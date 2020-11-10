@@ -1017,7 +1017,7 @@ class BasicOpUGen(UGen):
         except AttributeError:
             return None
 
-    def _arg_names_inputs_offset(self):
+    def _arg_names_inputs_offset(self):  # override
         return 1  # One less than sclang
 
     def dump_args(self):  # override

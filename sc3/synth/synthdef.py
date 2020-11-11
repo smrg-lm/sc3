@@ -465,7 +465,7 @@ class SynthDef(metaclass=MetaSynthDef):
             if err: # *** TODO EN SCLANG ES ASIGNA A err Y COMPRUEBA notNil, acá puede ser none, pero ver qué retornan de manera sistemática, ver return acá abajo.
                 # err = ugen.class.asString + err;
                 # err.postln;
-                # ugen.dump_args
+                # ugen._dump_args
                 if first_err is None:
                     first_err = ugen.name + ' ' + err
         if first_err:

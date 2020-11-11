@@ -461,7 +461,7 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
         # return None  # original behaviour
         raise AttributeError(f'{cls.__name__} has no {rate} rate constructor')
 
-    def dump_args(self):
+    def _dump_args(self):
         '''Used for error messages.'''
         msg = 'ARGS:\n'
         tab = ' ' * 4
@@ -1020,7 +1020,7 @@ class BasicOpUGen(UGen):
     def _arg_names_inputs_offset(self):  # override
         return 1  # One less than sclang
 
-    def dump_args(self):  # override
+    def _dump_args(self):  # override
         msg = 'ARGS:\n'
         tab = ' ' * 4
         msg += tab + 'operator: ' + self.operator + '\n'

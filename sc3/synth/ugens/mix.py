@@ -54,7 +54,7 @@ class Mix(ugn.PseudoUGen):
                 rate = gpp.ugen_param(item)._as_ugen_rate()
                 if rate == 'audio':
                     print(f'{type(item).__name__} {rate}')
-                    item.dump_args()
+                    item._dump_args()
                     lst[i] = lne.A2K.kr(item)
         result = cls.new(lst)
         rate = result._as_ugen_rate()

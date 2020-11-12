@@ -716,13 +716,13 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
       @routine.run()
       def example():
           # Starts from zero by default.
-          t = TempoClock(2)
+          t = TempoClock(1)
           print('current beats:', t.beats)
           # Starts counting beats from 5.
-          t = TempoClock(2, 5)
+          t = TempoClock(1, 5)
           print('current beats:', t.beats)
           # Counting beats as if it started 5 seconds ago from 0.
-          t = TempoClock(2, 0, main.current_tt.seconds - 5)
+          t = TempoClock(1, 0, main.current_tt.seconds - 5)
           print('current beats:', t.beats)
 
     If the above example was run without a souronding routine the

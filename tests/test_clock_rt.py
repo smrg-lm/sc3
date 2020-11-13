@@ -1,6 +1,7 @@
 
 import unittest
 from threading import Thread, Barrier
+import math
 
 import sc3
 sc3.init('rt')
@@ -28,20 +29,20 @@ class ClockTestCase(unittest.TestCase):
                 beats = clock.beats
                 elapsed_delta = 0
                 t1 = main.current_tt.seconds
-                self.assertEqual(beats, elapsed_delta)
+                self.assertTrue(math.isclose(beats, elapsed_delta))
                 yield delta
 
                 beats = clock.beats
                 elapsed_delta += delta
                 t2 = main.current_tt.seconds
-                self.assertEqual(beats, elapsed_delta)
+                self.assertTrue(math.isclose(beats, elapsed_delta))
                 yield delta
 
                 beats = clock.beats
                 elapsed_delta += delta
                 t3 = main.current_tt.seconds
-                self.assertEqual(beats, elapsed_delta)
-                self.assertEqual(t2 - t1, t3 - t2)
+                self.assertTrue(math.isclose(beats, elapsed_delta))
+                self.assertTrue(math.isclose(t2 - t1, t3 - t2))
 
                 # Clock threads can't be blocked.
                 Thread(target=lambda: barrier.wait(), daemon=True).start()
@@ -59,13 +60,13 @@ class ClockTestCase(unittest.TestCase):
             offset = 5
             # Starts from zero by default.
             t = TempoClock(1)
-            self.assertEqual(t.beats, 0)
+            self.assertTrue(math.isclose(t.beats, 0))
             # Starts counting beats from 'offset'.
             t = TempoClock(1, offset)
-            self.assertEqual(t.beats, offset)
+            self.assertTrue(math.isclose(t.beats, offset))
             # Counting beats as if it started 'offset' seconds ago from 0.
             t = TempoClock(1, 0, main.current_tt.seconds - offset)
-            self.assertEqual(t.beats, offset)
+            self.assertTrue(math.isclose(t.beats, offset))
             Thread(target=lambda: barrier.wait(), daemon=True).start()
 
         barrier.wait()

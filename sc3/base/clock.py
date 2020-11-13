@@ -299,8 +299,9 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                     except Exception:
                         # Always recover.
                         _logger.error(
-                            'from %s (%s) scheduled on SystemClock',
-                            task, task.func.__qualname__, exc_info=1)
+                            '%s(%s) scheduled on SystemClock',
+                            type(task).__name__, task.func.__qualname__,
+                            exc_info=1)
 
     @classmethod
     def clear(cls):
@@ -364,8 +365,8 @@ class Scheduler():
             pass
         except Exception:
             _logger.error(
-                'from %s (%s) scheduled on AppClock',
-                item, item.func.__qualname__, exc_info=1)
+                '%s(%s) scheduled on AppClock',
+                type(item).__name__, item.func.__qualname__, exc_info=1)
 
     def play(self, task):
         self.sched(0, task)
@@ -586,8 +587,9 @@ class ClockTask():
             pass
         except Exception:
             _logger.error(
-                'from %s (%s) scheduled on ClockScheduler',
-                self.task, self.task.func.__qualname__, exc_info=1)
+                '%s(%s) scheduled on ClockScheduler',
+                type(self.task).__name__, self.task.func.__qualname__,
+                exc_info=1)
 
 
 ### Quant.sc ###
@@ -829,8 +831,9 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                         pass
                     except Exception:
                         _logger.error(
-                            'from %s (%s) scheduled on TempoClock id: %s',
-                            task, task.func.__qualname__, id(self), exc_info=1)
+                            '%s(%s) scheduled on TempoClock id %s',
+                            type(task).__name__, task.func.__qualname__,
+                            id(self), exc_info=1)
 
     def stop(self):
         if self.mode == _libsc3.main.NRT_MODE:

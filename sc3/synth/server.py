@@ -7,6 +7,7 @@ import logging
 import os
 import pathlib
 import time
+import errno
 
 from ..base import main as _libsc3
 from ..base import utils as utl
@@ -848,9 +849,22 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                     self._pid = _libsc3.main.pid  # Not implemented yet.
                 else:
                     self._disconnect_shared_memory()  # Not implemented yet.
-                    self._server_process = ServerProcess(
-                        self._on_server_process_exit)
-                    self._server_process.run(self)
+                    try:
+                        self._server_process = ServerProcess(
+                            self._on_server_process_exit)
+                        self._server_process.run(self)
+                    except OSError as e:
+                        self._server_process = None
+                        self._status_watcher._server_booting = False
+                        self._status_watcher._server_rebooting = False
+                        if e.errno == errno.ENOENT\
+                        and e.filename == self.options.program:
+                            _logger.error(
+                                f'{self.name} failed to boot, program '
+                                f'{e.filename} not found')
+                            return
+                        else:
+                            raise
                     self._pid = self._server_process.proc.pid
                     _logger.info(
                         f"booting server '{self.name}' on address "

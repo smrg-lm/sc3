@@ -63,14 +63,6 @@ class UGenParameter(GraphParameter):
         else:
             return self._param_value
 
-    @property
-    def rate(self):
-        # NOTE: Convenience for polimorfism, use _as_ugen_rate. TODO: check if used, it shouldn't, remove later.
-        # NOTE: En ipython completando con obj.<TAB> lo llama (obj siendo instancia de Buffer) y se genera un loop con _as_ugen_rate.
-        # print('*** ERROR: should not call UGenParameter.rate')
-        # return self._as_ugen_rate()
-        raise Exception('*** BUG: should not call UGenParameter().rate')
-
     def _as_ugen_rate(self):  # Was rate for many non UGen objects in sclang.
         try:
             return self.rate

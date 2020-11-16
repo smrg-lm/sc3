@@ -526,42 +526,20 @@ class AppClock(Clock, metaclass=MetaAppClock):
         cls._thread.join()
 
 
-class ClockScheduler(threading.Thread):
+class ClockScheduler():
     def __init__(self):
-        self._sched_cond = threading.Condition(_libsc3.main._main_lock)
         self.queue = tsq.TaskQueue()
-        threading.Thread.__init__(self)
-        self.daemon = True
-        self.start()
-        _libsc3.main._atexitq.add(
-            _libsc3.main._atexitprio.CLOCKS + 3, self.stop)
 
     def run(self):
-        self._run_sched = True
-        with self._sched_cond:
-            while True:
-                while self.queue.empty():
-                    self._sched_cond.wait()
-                    if not self._run_sched:
-                        return
-                while not self.queue.empty():
-                    time, clock_task = self.queue.pop()
-                    clock_task._wakeup(time)
+        while not self.queue.empty():
+            time, clock_task = self.queue.pop()
+            clock_task._wakeup(time)
 
     def add(self, time, clock_task):
-        with self._sched_cond:
-            self.queue.add(time, clock_task)
-            self._sched_cond.notify()
+        self.queue.add(time, clock_task)
 
-    def stop(self):
-        if not self._run_sched:
-            return
-        with self._sched_cond:
-            self.queue.clear()
-            self._run_sched = False
-            self._sched_cond.notify()
-        # self.join() # Who calls???
-        _libsc3.main._atexitq.remove(self.stop)
+    def reset(self):
+        self.queue.clear()
 
 
 class ClockTask():
@@ -569,10 +547,7 @@ class ClockTask():
         self.clock = clock
         self.task = task
         self.scheduler = scheduler
-        if scheduler.is_alive():
-            scheduler.add(clock.beats2secs(beats), self)
-        else:
-            RuntimeError('ClockScheduler is not running')
+        scheduler.add(clock.beats2secs(beats), self)
 
     def _wakeup(self, time):
         try:

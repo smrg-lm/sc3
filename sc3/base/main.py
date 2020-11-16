@@ -172,7 +172,8 @@ class NrtMain(metaclass=Process):
         cls.current_tt = cls.main_tt
         cls._clock_scheduler = clk.ClockScheduler()
         cls._osc_interface = osci.OscNrtInterface()
-        cls._osc_interface.init()
+        cls.osc_score = None
+        cls.reset()
 
     @classmethod
     def elapsed_time(cls):
@@ -185,3 +186,18 @@ class NrtMain(metaclass=Process):
             return
         else:
             cls.main_tt._m_seconds = seconds
+
+    @classmethod
+    def reset(cls):
+        '''Reset sc3 time, scheduler and osc score to initial state.'''
+        cls.main_tt._m_seconds = 0.0
+        cls._clock_scheduler.reset()
+        cls._osc_interface.init()  # Reset OscScore.
+
+    @classmethod
+    def process(cls, delay=0):
+        '''Generate and return the OSC score.'''
+        cls._clock_scheduler.run()
+        cls._osc_interface._osc_score.finish(delay)
+        cls.osc_score = cls._osc_interface._osc_score
+        return cls.osc_score

@@ -422,7 +422,10 @@ class OscNrtInterface(OscInterface):
     def _get_timetag(time):  # override
         if time is None or time < 0.0:
             time = 0.0  # IMMEDIATELY is not needed in nrt.
-        time += _libsc3.main.current_tt.seconds
+        # In NRT bundle's time generated outside a routine is
+        # always absolute time (from zero as reference time).
+        if _libsc3.main.current_tt is not _libsc3.main.main_tt:
+            time += _libsc3.main.current_tt.seconds
         return int(time * clk.SystemClock._SECONDS_TO_OSC)
 
     def _send(self, msg, target):

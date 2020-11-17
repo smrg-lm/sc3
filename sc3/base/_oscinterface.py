@@ -421,6 +421,7 @@ class OscNrtInterface(OscInterface):
 
     @staticmethod
     def _get_timetag(time):  # override
+        # Changes in this method must be synced with OscScore._get_logical_time.
         if time is None or time < 0.0:
             time = 0.0  # IMMEDIATELY is not needed in nrt.
         # In NRT bundle's time generated outside a routine is
@@ -486,15 +487,23 @@ class OscScore():
 
     def _get_logical_time(self, time):
         # Same as OscNrtInterface._get_timetag but in logical time.
+        # Changes in this method must be synced with it, or refactored.
         if time is None or time < 0.0:
             time = 0.0
-        return time + _libsc3.main.current_tt.seconds
+        if _libsc3.main.current_tt is not _libsc3.main.main_tt:
+            time += _libsc3.main.current_tt.seconds
+        return time
 
-    def finish(self, time=0.0):
-        # This method uses the logical time of its call as the others.
+    def finish(self, delay=0.0):
         if self._finished:
             return
-        self.add([time, ['/c_set', 0, 0]])  # Dummy cmd.
+        # This method uses the logical time of its call as the others
+        # when called from a routine but when called from ouside it
+        # needs to undo the check of _get_timetag and _get_logical_time.
+        # Those methods and this one would need refactoring all at once.
+        if _libsc3.main.current_tt is _libsc3.main.main_tt:
+            delay += _libsc3.main.current_tt.seconds
+        self.add([delay, ['/c_set', 0, 0]])  # Dummy cmd.
         for _, entry in self._scoreq:
             self._lst_score.append(entry.bndl)
             self._raw_score.extend(entry.msg)

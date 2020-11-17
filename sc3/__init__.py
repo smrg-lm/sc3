@@ -42,6 +42,7 @@ def init(mode='rt'):
 
     import sc3.base.main
     import sc3.base.classlibrary
+    import sc3.seq.pattern  # Has late_imports and is not imported by main tree.
 
     mode = mode.lower()
     if mode == 'rt':

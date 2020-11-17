@@ -348,9 +348,9 @@ class Pwrap(FilterPattern):
 class Ptrace(FilterPattern):
     _ptrace_logger = logging.getLogger('Ptrace')
 
-    def __init__(self, pattern, prefix='', keys=None):
+    def __init__(self, pattern, prefix=None, keys=None):
         super().__init__(pattern)
-        self.prefix = prefix
+        self.prefix = prefix or ''
         self.keys = keys
 
     def __embed__(self, inval):

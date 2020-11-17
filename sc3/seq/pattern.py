@@ -2,10 +2,15 @@
 
 import inspect
 
+from ..base import classlibrary as clb
 from ..base import absobject as aob
 from ..base import stream as stm
 from . import eventstream as est
 from . import event as evt
+
+
+clb.ClassLibrary.late_imports(__name__,
+    ('sc3.seq.patterns.filterpatterns', 'flp'))
 
 
 __all__ = ['pattern']
@@ -92,8 +97,10 @@ class Pattern(aob.AbstractObject):
     # finDur
     # fin
     #
-    # trace
-    #
+
+    def trace(self, prefix=None, keys=None):
+        return flp.Ptrace(self, prefix, keys)
+
     # differentiate
     # integrate
 

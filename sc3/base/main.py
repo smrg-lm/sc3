@@ -9,6 +9,7 @@ import sys
 
 from . import _taskq as tsq
 from . import platform as plf
+from . import systemactions as sac
 from . import stream as stm
 from . import _oscinterface as osci
 from . import clock as clk
@@ -34,7 +35,7 @@ class Process(type):
 
     class _atexitprio(enum.IntEnum):
         ''' Library predefined _atexitq priority numbers.'''
-        USER = 0
+        CUSTOM = 0
         SERVERS = 500
         PLATFORM = 700
         CLOCKS = 800
@@ -58,7 +59,7 @@ class Process(type):
         cls._def_build_lock = threading.Lock()
 
         cls._init_platform()
-        atexit.register(cls.shutdown)
+        atexit.register(cls._shutdown)
 
     def _init_platform(cls):
         if sys.platform.startswith('linux'):
@@ -74,6 +75,19 @@ class Process(type):
         cls._platform._startup()
         cls._atexitq.add(cls._atexitprio.PLATFORM, cls.platform._shutdown)
 
+    def _startup(cls):
+        from ..synth import systemsynthdefs as ssd
+        cls._platform._startup()
+        ssd.add_system_synthdefs()
+        # TODO: Maybe here, read some kind of config file.
+        sac.StartUp.run()
+
+    def _shutdown(cls):
+        sac.ShutDown.run()
+        while not cls._atexitq.empty():
+            cls._atexitq.pop()[1]()
+        atexit.unregister(cls._shutdown)
+
     @property
     def rgen(cls):
         return cls.current_tt.rgen
@@ -81,20 +95,6 @@ class Process(type):
     @property
     def platform(cls):
         return cls._platform
-
-    def startup(cls):
-        ...
-
-    def run(cls):
-        ...
-
-    def stop(cls):
-        ...
-
-    def shutdown(cls):
-        while not cls._atexitq.empty():
-            cls._atexitq.pop()[1]()
-        atexit.unregister(cls.shutdown)
 
     def open_udp_port(cls, port):
         raise NotImplementedError('multiple UDP ports are not implemented')

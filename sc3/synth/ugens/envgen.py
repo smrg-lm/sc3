@@ -2,7 +2,7 @@
 
 from ...base import utils as utl
 from .. import ugen as ugn
-from .. import env as env
+from .. import env
 
 
 class Done(ugn.UGen):

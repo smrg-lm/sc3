@@ -9,6 +9,7 @@ import socket
 import time
 import subprocess
 import sys
+import pprint
 
 from ..synth import server as srv
 from . import clock as clk
@@ -449,6 +450,14 @@ class OscScore():
         self.add([0.0, ["/g_new", 1, 0, 0]])  # Root node.
 
     @property
+    def list(self):
+        return self._lst_score[:]
+
+    @property
+    def raw(self):
+        return self._raw_score[:]
+
+    @property
     def duration(self):
         return self._scoreq.peek(False)[0] * clk.SystemClock._OSC_TO_SECONDS
 
@@ -536,3 +545,6 @@ class OscScore():
             name=f'{type(self).__name__}.render_wait id: {id(self)}')
         t.daemon = True
         t.start()
+
+    def __str__(self):
+        return pprint.pformat(self._lst_score)

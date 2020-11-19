@@ -58,9 +58,7 @@ class Control(AbstractControl):
             synthdef._add_control_name(
                 ControlName(
                     name, index + i, 'control',
-                    None, synthdef._all_control_names
-                )
-            )
+                    None, synthdef._all_control_names))
 
     @classmethod
     def ir(cls, values):
@@ -104,9 +102,7 @@ class AudioControl(AbstractControl):
             synthdef._add_control_name(
                 ControlName(
                     name, index + i, 'audio',
-                    None, synthdef._all_control_names
-                )
-            )
+                    None, synthdef._all_control_names))
 
     @classmethod
     def ar(cls, values):
@@ -162,10 +158,9 @@ class LagControl(Control):
 
     @classmethod
     def ar(cls, values, lags):
-        return AudioControl.ar(values).lag(lags)  # *** BUG: no está implementada Lag
+        return AudioControl.ar(values).lag(lags)
 
     def _init_ugen(self, *stuff):  # override
-        # *** BUG: in sclang, lags variable not used.
         size = len(stuff)
         size2 = size >> 1  # size // 2
         self.values = list(stuff)[size2:size]

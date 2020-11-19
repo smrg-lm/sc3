@@ -12,6 +12,13 @@ from . import infougens as ifu
 _logger = logging.getLogger(__name__)
 
 
+# NOTE: Instead of transcribing NamedControl it could be better to
+# refactor Control, AudioControl, TrigControl and LagControlto so they
+# call add_name when instantiated, e.g. Control('ctlname', values), but
+# it requires refactoring in SynthDef which process _args_to_controls
+# and _build_controls separatelly.
+
+
 ### Controls ###
 
 class ControlName():
@@ -50,15 +57,13 @@ class Control(AbstractControl):
         self.values = []
 
     @classmethod
-    def names(cls, names):
+    def add_name(cls, name):  # Was names.
         synthdef = _libsc3.main._current_synthdef
         index = synthdef._control_index
-        names = utl.as_list(names)
-        for i, name in enumerate(names):
-            synthdef._add_control_name(
-                ControlName(
-                    name, index + i, 'control',
-                    None, synthdef._all_control_names))
+        synthdef._add_control_name(
+            ControlName(
+                name, index, 'control',
+                None, synthdef._all_control_names))
 
     @classmethod
     def ir(cls, values):
@@ -94,15 +99,13 @@ class AudioControl(AbstractControl):
         self.values = []
 
     @classmethod
-    def names(cls, names):
+    def add_name(cls, name):  # Was names.
         synthdef = _libsc3.main._current_synthdef
         index = synthdef._control_index
-        names = utl.as_list(names)
-        for i, name in enumerate(names):
-            synthdef._add_control_name(
-                ControlName(
-                    name, index + i, 'audio',
-                    None, synthdef._all_control_names))
+        synthdef._add_control_name(
+            ControlName(
+                name, index, 'audio',
+                None, synthdef._all_control_names))
 
     @classmethod
     def ar(cls, values):

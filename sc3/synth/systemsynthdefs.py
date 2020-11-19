@@ -11,8 +11,9 @@ MAX_TMP_DEF_NAMES = 512
 _tmp_def_count = 0
 
 
-def generate_tmp_name(cls):
-    name = PREFIX + _tmp_def_count
+def generate_tmp_name():
+    global _tmp_def_count
+    name = PREFIX + str(_tmp_def_count)
     _tmp_def_count += 1
     _tmp_def_count %= MAX_TMP_DEF_NAMES
     return name
@@ -20,7 +21,7 @@ def generate_tmp_name(cls):
 
 def add_system_synthdefs():
     @sdf.synthdef
-    def default(freq=220, index=2, fmh=2, amp=0.1, pan=0, gate=1):
+    def default(freq=220, index=2.5, fmh=1, amp=0.1, pan=0, gate=1):
         fc = freq
         fm = fc * fmh.lag()
         d = index.lag() * fm

@@ -21,40 +21,34 @@ or run in both modes without changes.
    different ways. To run a NRT script from a RT library instance could
    be done by creating a sub-process that starts a new interpreter.
 
+The following example can be run as command line script:
+
 ::
 
   #!/usr/bin/env python3
 
-  import time
-
-  # Explicitly call sc3.init function.
   import sc3
-  sc3.init('nrt')
-
-  # All import as usual.
+  sc3.init('nrt')  # Needs to be initialized in NRT before all star import.
   from sc3.all import *
+
+  # Load default synthdef.
+  SystemDefs.add_sdef('default')
 
   @routine
   def r1():
-      for i in range(3):
+      for n in [58, 62, 64, 69, 60, 66, 73]:
+          play(midinote=n, sustain=2)
           yield 1
 
-  @routine
-  def r2():
-      for i in range(4):
-          yield 1
+  r1.play(TempoClock(3))
 
-  clock1 = TempoClock(3)
-  clock2 = TempoClock(4)
-
-  r1.play(clock1)  # Fork!
-  r2.play(clock2)  # Fork!
-  et = main.elapsed_time()  # Will probably return 0.0 if evaluated
-                            # before forked routines advance the time.
-  print('elapse time before sleep:', et)
-
-  time.sleep(2)  # Arbitrary processing wait time.
-  et = main.elapsed_time()  # Will return 1.0.
-  print('elapse time after sleep:', et)
+  # Generate the OSC score.
+  score = main.process(2)
+  # Elapsed time is the sum of all yielded values without last delay.
+  print('elapsed time =', main.elapsed_time())
+  # Dump OSC commands score.
+  print(score)
+  # Render the score.
+  score.render('test.aiff')
 
 .. Collection of OSC bundles.

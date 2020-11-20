@@ -41,8 +41,6 @@ def init(mode='rt'):
     _init_logger()
 
     import sc3.base.main
-    import sc3.base.classlibrary
-    import sc3.seq.pattern  # Has late_imports and is not imported by main tree.
 
     mode = mode.lower()
     if mode == 'rt':
@@ -53,12 +51,4 @@ def init(mode='rt'):
         raise ValueError(f"invalid mode '{mode}'")
 
     sc3.base.main.main._init()
-    sc3.base.classlibrary.ClassLibrary.init()
-    if mode == 'nrt':
-        # This is only for user convenience.
-        import sc3.synth.server as srv
-        srv.Server.default.latency = 0
-        srv.Server.default.boot()  # Sets _status_watcher._has_booted = True
-    sc3.base.main.main._startup()
-
     _libsc3_initialized = True

@@ -12,7 +12,11 @@ from . import platform as plf
 from . import systemactions as sac
 from . import stream as stm
 from . import _oscinterface as osci
+from . import classlibrary as clb
 from . import clock as clk
+
+# Have late_imports and is not in the above tree.
+from ..seq import pattern as _
 
 
 __all__ = ['main', 'RtMain', 'NrtMain']
@@ -76,11 +80,7 @@ class Process(type):
         cls._atexitq.add(cls._atexitprio.PLATFORM, cls.platform._shutdown)
 
     def _startup(cls):
-        from ..synth import systemsynthdefs as ssd
-        cls._platform._startup()
-        ssd.add_system_synthdefs()
-        # TODO: Maybe here, read some kind of config file.
-        sac.StartUp.run()
+        pass
 
     def _shutdown(cls):
         sac.ShutDown.run()
@@ -132,6 +132,16 @@ class RtMain(metaclass=Process):
         cls._osc_interface = osci.OscUdpInterface()
         cls._osc_interface.start()
 
+        clb.ClassLibrary.init()
+        cls._startup()
+
+    @classmethod
+    def _startup(cls):
+        from ..synth import systemsynthdefs as ssd
+        ssd.add_system_synthdefs()
+        # TODO: Maybe here, read some kind of config file.
+        sac.StartUp.run()
+
     @classmethod
     def elapsed_time(cls):
         '''Physical time since library initialization.'''
@@ -169,11 +179,24 @@ class NrtMain(metaclass=Process):
     def _init(cls):
         cls._time_of_initialization = 0.0
         cls.main_tt = stm._MainTimeThread()
+        cls.main_tt._m_seconds = 0.0
         cls.current_tt = cls.main_tt
         cls._clock_scheduler = clk.ClockScheduler()
         cls._osc_interface = osci.OscNrtInterface()
+        cls._osc_interface.init()
         cls.osc_score = None
-        cls.reset()
+
+        clb.ClassLibrary.init()
+        cls._startup()
+
+    @classmethod
+    def _startup(cls):
+        # Server setup and boot is only for user convenience.
+        import sc3.synth.server as srv
+        srv.Server.default.latency = 0
+        srv.Server.default.boot()  # Sets _status_watcher._has_booted = True
+        # TODO: Maybe here, read some kind of config file.
+        sac.StartUp.run()
 
     @classmethod
     def elapsed_time(cls):

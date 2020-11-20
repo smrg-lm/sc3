@@ -1,5 +1,6 @@
 """SystemSynthdefs.sc // synthdefs needed by classes."""
 
+from ..base import classlibrary as clb
 from ..base import systemactions as sac
 from . import synthdef as sdf
 from . import ugens as ugns
@@ -17,7 +18,7 @@ class MetaSystemDefs(type):
     _sdefs = dict()
 
     def __init__(cls, *_):
-        cls._build()
+        clb.ClassLibrary.add(cls, lambda _: cls._build())
 
     @property
     def synthdefs(cls):

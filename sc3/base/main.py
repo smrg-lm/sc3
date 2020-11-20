@@ -137,8 +137,8 @@ class RtMain(metaclass=Process):
 
     @classmethod
     def _startup(cls):
-        from ..synth import systemsynthdefs as ssd
-        ssd.add_system_synthdefs()
+        from ..synth import systemdefs as sds
+        sds.SystemDefs.add_all()
         # TODO: Maybe here, read some kind of config file.
         sac.StartUp.run()
 

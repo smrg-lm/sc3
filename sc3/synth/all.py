@@ -9,3 +9,4 @@ from . synthdesc import *
 from . spec import *
 # from . ugen import *  # Done by ugens.
 from . ugens import *
+from . systemdefs import *

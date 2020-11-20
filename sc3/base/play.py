@@ -11,7 +11,7 @@ from ..synth import _graphparam as gpp
 from ..synth import ugen as ugn
 from ..synth import ugens as ugns
 from ..synth import env
-from ..synth import systemsynthdefs as ssd
+from ..synth import systemdefs as sds
 from ..synth import node as nod
 
 
@@ -48,7 +48,7 @@ def _play_func(func, target=None, outbus=0, fade=0.01,
             rate = gpp.ugen_param(result)._as_ugen_rate()
             ugns.Out._multi_new(rate, _iout, *result)
 
-    synthdef = sdf.SynthDef(ssd.generate_tmp_name(), wrapper)
+    synthdef = sdf.SynthDef(sds.SystemDefs.generate_tmp_name(), wrapper)
     synth = nod.Synth.basic_new(synthdef.name, server)
     rdf.OscFunc(
         # // Use the /n_end signal to remove the temp synthdef.

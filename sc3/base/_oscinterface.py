@@ -515,8 +515,8 @@ class OscScore():
         with open(path, 'wb') as file:
             file.write(self._raw_score)
 
-    def render(self, path=None, input_file=None, server=None,
-               on_complete=None, on_failure=None):
+    def render(self, path=None, input_file=None, server=None):
+        # This method blocks until cmd finish and returns its exit code.
         if self._finished:
             self.finish(self.duration + 1)
 
@@ -529,7 +529,6 @@ class OscScore():
         cmd.extend(
             server.options.options_list(None, osc_file, input_file, path))
 
-        # TODO: A more elaborate monitoring and handling like Server.
         self._render_proc = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,  # DEVNULL?
@@ -538,22 +537,8 @@ class OscScore():
             bufsize=1,
             universal_newlines=True)
 
-        def render_wait_thread():
-            # clk.defer is used so code is excecuted within _main_lock.
-            self._render_proc.wait()
-            exit_code = self._render_proc.poll()
-            if exit_code == 0:
-                clk.defer(lambda: fn.value(on_complete, path))
-            else:
-                _logger.error(
-                    f'render process exited with exit code {exit_code}')
-                clk.defer(lambda: fn.value(on_failure, exit_code))
-
-        t = threading.Thread(
-            target=render_wait_thread,
-            name=f'{type(self).__name__}.render_wait id: {id(self)}')
-        t.daemon = True
-        t.start()
+        self._render_proc.wait()
+        return self._render_proc.poll()
 
     def __str__(self):
         return pprint.pformat(self._lst_score)

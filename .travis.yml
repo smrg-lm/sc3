@@ -11,7 +11,7 @@ install:
   - python setup.py install #develop --user  # Fails selectively for different versions.
 script:
   # - python -m unittest discover -s tests
-  - for f in tests/test_*.py; do (python -m unittest $f); if [ $? -ne 0 ]; then break; fi; done  # Tests need to run each in a different instance.
+  - for f in tests/test_*.py; do (python -m unittest $f); if [ $? -ne 0 ]; then exit 1; fi; done  # Tests need to run each in a different instance.
 deploy:
   provider: pipy
   username: __token__

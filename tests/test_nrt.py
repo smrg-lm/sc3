@@ -1,7 +1,9 @@
 
 import unittest
+import logging
 import math
 import pathlib
+import shutil
 
 import sc3
 sc3.init('nrt')
@@ -11,6 +13,10 @@ from sc3.base.stream import routine
 from sc3.base.play import play
 from sc3.base.clock import TempoClock
 from sc3.synth.systemdefs import SystemDefs
+from sc3.synth.server import Server
+
+
+logger = logging.getLogger(__name__)
 
 
 class NrtTestCase(unittest.TestCase):
@@ -50,13 +56,17 @@ class NrtTestCase(unittest.TestCase):
             if i != 1:
                 self.assertEqual(res[1], exp[1])
 
-        # Test file exist and stat.
-        file = pathlib.Path('test.aiff')
-        self.assertFalse(file.exists())
-        score.render(file)
-        self.assertTrue(file.exists())
-        self.assertEqual(file.stat().st_size, 1764456)
-        file.unlink()
+        if shutil.which(Server.default.options.program):
+            # Test file exist and stat.
+            file = pathlib.Path('test.aiff')
+            self.assertFalse(file.exists())
+            score.render(file)
+            self.assertTrue(file.exists())
+            self.assertEqual(file.stat().st_size, 1764456)
+            file.unlink()
+        else:
+            logger.warning(
+                f'{Server.default.options.program} server not installed')
 
         # Test reset time/tempo.
         main.reset()

@@ -21,12 +21,14 @@ except Exception as e:
 
 # -- Project information -----------------------------------------------------
 
+import sc3
+
 project = 'sc3'
 copyright = '2020, Lucas Samaruga'
 author = 'Lucas Samaruga'
 
 # The full version, including alpha/beta/rc tags
-release = '1.0.0a'
+release = sc3.__version__
 
 
 # -- General configuration ---------------------------------------------------

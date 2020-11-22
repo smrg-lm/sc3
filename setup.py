@@ -1,5 +1,6 @@
 
 import setuptools
+import sc3
 
 
 with open('README.md', 'r') as f:
@@ -7,7 +8,7 @@ with open('README.md', 'r') as f:
 
 setuptools.setup(
     name='sc3',
-    version='1.0.0a',
+    version=sc3.__version__,
     author='Lucas Samaruga',
     author_email='samarugalucas@gmail.com',
     license='GPLv3',

@@ -72,7 +72,7 @@ def play(obj=None, *args, **kwargs):
     those keys and plays it.
 
     If ``obj`` defines the method ``play`` just calls it with
-    *args and **kwargs.
+    `*args` and `**kwargs`.
 
     If ``obj`` is a dict, it creates an event and plays it adding
     kwargs if any. Only keyword arguments are allowed for this case.

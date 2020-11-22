@@ -26,9 +26,8 @@ The following example can be run as command line script:
 
   #!/usr/bin/env python3
 
-  import sc3
-  sc3.init('nrt')  # Needs to be initialized in NRT before all star import.
-  from sc3.all import *
+  # Init NRT mode and import all.
+  from sc3.all_nrt import *
 
   # Load default synthdef.
   SystemDefs.add_sdef('default')
@@ -43,7 +42,7 @@ The following example can be run as command line script:
 
   # Generate the OSC score.
   score = main.process(2)
-  # Elapsed time is the sum of all yielded values without last delay.
+  # Elapsed time is the sum of all yielded values without tail.
   print('elapsed time =', main.elapsed_time())
   # Dump OSC commands score.
   print(score)

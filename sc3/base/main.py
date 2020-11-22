@@ -218,9 +218,9 @@ class NrtMain(metaclass=Process):
         cls._osc_interface.init()  # Reset OscScore.
 
     @classmethod
-    def process(cls, delay=0):
+    def process(cls, tail=0):
         '''Generate and return the OSC score.'''
         cls._clock_scheduler.run()
-        cls._osc_interface._osc_score.finish(delay)
+        cls._osc_interface._osc_score.finish(tail)
         cls.osc_score = cls._osc_interface._osc_score
         return cls.osc_score

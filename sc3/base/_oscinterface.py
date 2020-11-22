@@ -517,9 +517,6 @@ class OscScore():
 
     def render(self, path=None, input_file=None, server=None):
         # This method blocks until cmd finish and returns its exit code.
-        if self._finished:
-            self.finish(self.duration + 1)
-
         osc_file = plf.Platform.tmp_dir
         osc_file /= 'SC_' + time.strftime('%Y%m%d_%H%M%S') + '.osc'
         self.write(osc_file)
@@ -531,13 +528,14 @@ class OscScore():
 
         self._render_proc = subprocess.Popen(
             cmd,
-            stdin=subprocess.PIPE,  # DEVNULL?
+            stdin=subprocess.DEVNULL,
             stdout=sys.stdout,
             stderr=sys.stderr,
             bufsize=1,
             universal_newlines=True)
 
         self._render_proc.wait()
+        osc_file.unlink()
         return self._render_proc.poll()
 
     def __str__(self):

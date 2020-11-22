@@ -5,8 +5,6 @@
 Non real time mode
 ==================
 
-.. TODO (Also missing bits of the implementation).
-
 The library can also run in non real time (NRT) mode. This mode is
 based on the NRTClock quark with the addition that the whole library
 timing is managed in NRT.
@@ -16,10 +14,11 @@ interface as real time. It was made so code can be easily adapted
 or run in both modes without changes.
 
 .. note::
-   It's not possible to run the library in RT and NRT at the same time
-   because clocks and :term:`elapsed time` are internally managed in
-   different ways. To run a NRT script from a RT library instance could
-   be done by creating a sub-process that starts a new interpreter.
+   It's not possible to run the library in both RT and NRT at the
+   same time because clocks and :term:`elapsed time` are internally
+   managed in different ways. To run a NRT script from a RT library
+   instance could be done by creating a sub-process that starts a
+   new interpreter.
 
 The following example can be run as command line script:
 

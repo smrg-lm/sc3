@@ -72,7 +72,7 @@ Glossary
       The time as measured by :class:`sc3.base.stream.Routine` instances.
       Logical time is measured in deterministic interval and is not
       affected by jitter as :term:`physical time`. It's used to precisely
-      define the timetag for OSC bundles.
+      define the :term:`timetag` for OSC bundles.
 
    node
       A server tree node.
@@ -96,6 +96,14 @@ Glossary
       A synthesis definition composed of ugens used to create synth
       nodes.
       See :class:`sc3.synth.synthdef.SynthDef`.
+
+   timetag
+      An OSC-timetag. It's the time at which bundled instructions are
+      scheduled to be executed in the server. Although the term is used
+      to refer to the time of bundles, within the library time is measured
+      in seconds (or beats for :class:`sc3.base.clock.TempoClock`)
+      relative to :term:`elapsed time` and is converted to the actual
+      timetag representation when sent.
 
    trigger
       An impulsive signal that is created when the value of a bus goes

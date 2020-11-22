@@ -10,7 +10,7 @@ Routines, streams and logical time
 Routines in SuperCollider are a special kind of generators that can be
 scheduled in clocks and keep track of the passing of :term:`logical time`.
 They are needed to schedule sequences in time that will generate
-jitter-free OSC timetags.
+jitter-free OSC term:`timetags`.
 
 Instances of routines are created as shown below, their only argument
 is a function or generator function (a function that define yield
@@ -89,10 +89,10 @@ Timing
 .. this section is more like a theoretical explanation.
 
 When routines are scheduled on clocks their yield value is used as wait
-time for a next call or cancel it's execution. When the return value is
-a number (``int`` of ``float``) the clock takes this value to re-schedule
+time for a next call or cancel its execution. When the return value is
+a number (``int`` or ``float``) the clock takes this value to re-schedule
 the routine after waiting that much seconds (if no tempo is used). When
-the generator returns, or yields another type of value the clocks leaves
+the generator returns, or yields another type of value, the clocks leaves
 the routine.
 
 The yielded values, as time, are used to wait (in :term:`physical time`)
@@ -102,8 +102,8 @@ the yielded values so far.
 
 This way, when a routine is scheduled in Python its next call time may not
 be precise, it may even have noticiable jitter under load, but if we use
-the logical time to generate a timetag each iteration the wait time sent
-to the server will be precise.
+the logical time to generate a :term:`timetag` each iteration the wait
+time sent to the server will be precise.
 
 Physical time can be accessed from ``main.elapsed__time()``, which is
 the time in seconds since the librar started.
@@ -125,7 +125,7 @@ the time in seconds since the librar started.
 In the example above we can compare how the decimal part of the logical
 time is always the same while for ``elapsed_time()`` constantly
 changing. Whenever an OSC bundle is sent from a routine playing on a
-clock the time used to define its timetag is the logical time.
+clock the time used to define its :term:`timetag` is the logical time.
 
 This is important to keep in mind because is the only way to have
 precise timing for rhythmic secuencies in real time. And this is one of

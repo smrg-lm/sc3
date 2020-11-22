@@ -250,9 +250,6 @@ class ServerOptions():
     def first_private_bus(self):
         return self.output_channels + self.input_channels
 
-    def boot_in_process(self):
-        raise NotImplementedError('in process server is not available')
-
 
 class ServerShmInterface():
     def __init__(self, port):
@@ -399,9 +396,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         type(self).all.add(self)
 
         # These attributes are initialized through addr setter.
-        # self.is_local
-        # self.in_process
-        # self.remote_controlled
+        # self._is_local
+        # self._in_process
 
         self.options = options or ServerOptions()
         self.latency = 0.2
@@ -446,9 +442,17 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         if any(s.addr == value for s in type(self).all):
             raise ValueError(f'{value} already in use by other server')
         self._addr = value
-        self.in_process = self._addr.addr == 0
-        self.is_local = self.in_process or self._addr.is_local
-        self.remote_controlled = not self.is_local
+        self._in_process = self._addr.addr == 0
+        self._is_local = self._in_process or self._addr.is_local
+
+    # @property
+    # def in_process(self):
+    #     return self._in_process
+
+    @property
+    def is_local(self):
+        "Return true if the server is in localhost."
+        return self._is_local
 
     @property
     def name(self):
@@ -577,7 +581,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     # shm for GUI.
     # def _new_scope_buffer_allocators(self):
-    #     if self.is_local:
+    #     if self._is_local:
     #         self._scope_buffer_allocator = eng.StackNumberAllocator(0, 127)
 
     def next_buffer_number(self, n):
@@ -713,14 +717,14 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     ### Shared memory interface ###
 
-    def _disconnect_shared_memory(self):
+    def _disconnect_shm(self):  # Was _disconnect_shared_memory
         ...
 
-    def _connect_shared_memory(self):
+    def _connect_shm(self):  # Was _connect_shared_memory.
         ...
 
     @property
-    def has_shm_interface(self):
+    def has_shm(self):  # Was has_shm_interface.
         return self._shm_interface is not None
 
 
@@ -834,7 +838,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         self._status_watcher._add_action('boot', _on_complete, _on_failure)
 
-        if self.remote_controlled:
+        if not self._is_local:
             _logger.info(f"remote server '{self.name}' needs manual boot")
         else:
             def boot_task():
@@ -843,12 +847,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 if self._pid is not None:  # Is or was running.
                     yield from self._pid_release_condition.hang()
 
-                if self.in_process:
+                if self._in_process:
                     _logger.info('booting internal server')
-                    self.boot_in_process()  # Not implemented yet.
+                    self._boot_in_process()  # Not implemented yet.
                     self._pid = _libsc3.main.pid  # Not implemented yet.
                 else:
-                    self._disconnect_shared_memory()  # Not implemented yet.
+                    self._disconnect_shm()  # Not implemented yet.
                     try:
                         self._server_process = ServerProcess(
                             self._on_server_process_exit)
@@ -873,7 +877,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 if register:
                     # Needs delay to avoid registering to another local server
                     # from another client in case of address already in use.
-                    if self.options.protocol == 'tcp' and not self.in_process:
+                    if self.options.protocol == 'tcp' and not self._in_process:
                         def success():
                             self._status_watcher._start_alive_thread(1)
                         def failure():
@@ -889,7 +893,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def _boot_init(self):
         if self.dump_mode != 0:
             self.send_msg('/dumpOSC', self.dump_mode)
-        self._connect_shared_memory()  # BUG: not implemented yet
+        self._connect_shm()  # BUG: not implemented yet
 
     def _on_server_process_exit(self, exit_code):
         # This method is called after quit or crash.
@@ -921,7 +925,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             return
 
         # // func is evaluated when server is off.
-        if not self.is_local:
+        if not self._is_local:
             _logger.info("can't reboot a remote server")
             return
 
@@ -944,7 +948,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             self.boot(on_failure=on_failure)
 
     @property
-    def application_running(self):
+    def program_running(self):
         if self._server_process is None:
             return False
         return self._server_process.running()
@@ -986,8 +990,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._status_watcher._quit(watch_shutdown)
         self.addr.send_msg('/quit')  # Send quit after responders are in place.
 
-        if self.in_process:
-            self.quit_in_process()  # Not implemented.
+        if self._in_process:
+            self._quit_in_process()  # Not implemented.
             _logger.info('internal server has quit')
         else:
             _logger.info(f"'/quit' message sent to server '{self.name}'")
@@ -1000,7 +1004,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     @classmethod
     def quit_all(cls, watch_shutdown=True):
         for server in cls.all:
-            if server.is_local:
+            if server._is_local:
                 server.quit(watch_shutdown)
 
     @classmethod
@@ -1011,7 +1015,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                     server.free_nodes()
         else:
             for server in cls.all:
-                if server.is_local and server._status_watcher.server_running:
+                if server._is_local and server._status_watcher.server_running:
                     server.free_nodes()
 
     def free_nodes(self):  # Instance free_all in sclang.
@@ -1033,20 +1037,22 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 server.free_nodes()
         else:
             for server in cls.all:
-                if server.is_local:
+                if server._is_local:
                     server.free_nodes()
 
 
     # L1203
     ### internal server commands ###
     # TODO
+    # def _boot_in_process(self):
+    # def _quit_in_process(self):
 
     # L1232
     # /* CmdPeriod support for Server-scope and Server-record and Server-volume */
     # TODO
 
     def query_tree(self, query_controls=False, timeout=3):
-        if self.is_local and self._pid is not None:  # Also needs stdout access.
+        if self._is_local and self._pid is not None:  # Also needs stdout access.
             nod.RootNode(self).dump_tree(query_controls)
         else:
             nod.RootNode(self).query_tree(query_controls, timeout)

@@ -76,12 +76,12 @@ class ServerStatusWatcher():
             self._has_booted = value
             if not value:
                 sac.ServerQuit.run(self.server)
-                self.server._disconnect_shared_memory()
+                self.server._disconnect_shm()
                 if self.server._recorder.is_recording:
                     self.server._recorder.stop()
                 clk.defer(lambda: mdl.NotificationCenter.notify(
                     self.server, 'did_quit')) # BUG: ver comentario en sclang
-                if not self.server.is_local:
+                if not self.server._is_local:
                     self._notified = False
 
     @property
@@ -239,7 +239,7 @@ class ServerStatusWatcher():
             arg_template=['/notify', None, None])
         fail_osc_func.one_shot()
 
-        self.server.send_msg('/notify', int(flag))  # OMITIDO PARA PROBAR, ES LO MISMO, VER SUPERNOVA, self.server.client_id)
+        self.server.send_msg('/notify', int(flag), self.server.client_id)
 
         if flag:
             _logger.info(f"'{self.server.name}': requested registration id")
@@ -248,7 +248,7 @@ class ServerStatusWatcher():
 
     def _handle_login_done(self, new_client_id, new_max_logins):
         # // only set maxLogins if not internal server
-        if not self.server.in_process and new_max_logins is not None:
+        if not self.server._in_process and new_max_logins is not None:
             self._max_logins = new_max_logins
         _logger.info(
             f"'{self.server.name}': setting client_id to {new_client_id}")

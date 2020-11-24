@@ -107,28 +107,28 @@ class Platform(metaclass=MetaPlatform):
         return sys.platform
 
     @property
-    def home_dir(self):
+    def home_dir(self):  # Was userHomeDir.
         return Path.home()
 
     @property
-    def support_dir(self):  # userAppSupportDir
-        raise NotImplementedError()
+    def support_dir(self):  # Was userAppSupportDir.
+        raise NotImplementedError
 
     @property
-    def config_dir(self):
-        raise NotImplementedError()
+    def config_dir(self):  # Was userConfigDir.
+        raise NotImplementedError
 
     @property
-    def resource_dir(self):  # userAppSupportDir/supportDir
-        raise NotImplementedError()
+    def resource_dir(self):  # userAppSupportDir.
+        raise NotImplementedError
 
     @property
     def synthdef_dir(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @property
     def recording_dir(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @property
     def tmp_dir(self):
@@ -149,7 +149,7 @@ class Platform(metaclass=MetaPlatform):
 
     @property
     def bin_dir(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class UnixPlatform(Platform):

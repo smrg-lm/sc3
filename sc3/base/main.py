@@ -80,7 +80,17 @@ class Process(type):
         cls._atexitq.add(cls._atexitprio.PLATFORM, cls.platform._shutdown)
 
     def _startup(cls):
-        pass
+        raise NotImplementedError
+
+    def _exec_startup_file(cls):
+        # NOTE: This may change to a special kind
+        # of file that only allows to set up certain
+        # parameters like platform or server options.
+        path = plf.Platform.config_dir / 'startup.py'
+        if path.exists():
+            with open(path, 'r') as file:
+                ast = compile(file.read(), path, 'exec')
+                exec(ast, dict(), dict())
 
     def _shutdown(cls):
         sac.ShutDown.run()
@@ -137,9 +147,9 @@ class RtMain(metaclass=Process):
 
     @classmethod
     def _startup(cls):
-        from ..synth import systemdefs as sds
+        import sc3.synth.systemdefs as sds
         sds.SystemDefs.add_all()
-        # TODO: Maybe here, read some kind of config file.
+        cls._exec_startup_file()
         sac.StartUp.run()
 
     @classmethod
@@ -195,7 +205,7 @@ class NrtMain(metaclass=Process):
         import sc3.synth.server as srv
         srv.Server.default.latency = 0
         srv.Server.default.boot()  # Sets _status_watcher._has_booted = True
-        # TODO: Maybe here, read some kind of config file.
+        cls._exec_startup_file()
         sac.StartUp.run()
 
     @classmethod

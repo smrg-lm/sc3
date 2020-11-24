@@ -1,11 +1,9 @@
-.. _basicroutine:
+.. _routine:
 
 .. warning:: Under construction.
 
 Routines, streams and logical time
 ==================================
-
-.. This section is a very basic tutorial-like introduction.
 
 Routines in SuperCollider are a special kind of generators that can be
 scheduled in clocks and keep track of the passing of :term:`logical time`.
@@ -82,11 +80,8 @@ it will hang everything.
 
 .. TODO: An actual bundle example, maybe with event.
 
-
 Timing
 ------
-
-.. this section is more like a theoretical explanation.
 
 When routines are scheduled on clocks their yield value is used as wait
 time for a next call or cancel its execution. When the return value is
@@ -131,7 +126,6 @@ This is important to keep in mind because is the only way to have
 precise timing for rhythmic secuencies in real time. And this is one of
 the two core features of this library (the other being :term:`synthdef`
 building capabilities).
-
 
 Streams
 -------

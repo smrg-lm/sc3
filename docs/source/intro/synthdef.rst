@@ -1,0 +1,6 @@
+.. _synthdef:
+
+SynthDef
+========
+
+Blank.

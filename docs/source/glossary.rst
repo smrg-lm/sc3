@@ -83,6 +83,9 @@ Glossary
       wait time is subject to jitter, it depends on non deterministic
       processing time between calls and is affected by NTP adjustments.
 
+   quark
+      A SuperCollider extension library written in :term:`sclang`.
+
    root group
       The root group of a server's node tree. The id of the root node
       is always 1.

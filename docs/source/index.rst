@@ -1,18 +1,20 @@
 SuperCollider library for Python
 ================================
 
-.. warning:: Documentation is under construction.
+.. warning::
+   Documentation is under construction.
 
-   To get the latest version of this library clone it from
-   `GitHub <https://github.com/smrg-lm/sc3>`_ and install
-   in develop mode.
+To get the latest version of this library clone it from
+`GitHub <https://github.com/smrg-lm/sc3>`_ and install
+in develop mode.
 
 ::
+
   git clone https://github.com/smrg-lm/sc3.git
   cd sc3
   python3 setup.py develop --user
 
-   Or the latest alpha release (usually outdated) with pip.
+Or the latest alpha release (usually outdated) with pip.
 
 ::
 
@@ -33,12 +35,14 @@ SuperCollider library for Python
    api/modules
    glossary
 
+
 Indices and tables
 ==================
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
 
 Documentation license
 =====================

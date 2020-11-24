@@ -53,6 +53,15 @@ class MetaSystemDefs(type):
             ugns.Out.ar(0, ugns.Pan2.ar(res, pan))
 
         cls._sdefs['default'] = sdf.SynthDef('default', default)
+        cls._sdefs['fm'] = sdf.SynthDef('fm', default)
+
+        def test(out, amp=0.1, gate=1):
+            sig = ugns.PinkNoise.ar() * amp
+            env = ugns.EnvGen.kr(
+                evp.Env.asr(0.01, 1, 0.01), gate, done_action=2)
+            ugns.Out(out, sig * env)
+
+        cls._sdefs['test'] = sdf.SynthDef('test', test)
 
         # There are other defs in not used by now.
 

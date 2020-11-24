@@ -88,6 +88,16 @@ Glossary
       is always 1.
       See :class:`sc3.synth.node.RootGroup`.
 
+   sclang
+      The original language of SuperCollider.
+
+   scsynth
+      The original server of SuperCollider.
+
+   supernova
+      An new alternative implementation of the server with SIMD
+      capabilities and parallel group processing.
+
    synth
       A synthesis node.
       See :class:`sc3.synth.node.Synth`.

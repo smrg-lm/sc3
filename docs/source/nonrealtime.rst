@@ -5,9 +5,9 @@
 Non real time mode
 ==================
 
-The library can also run in non real time (NRT) mode. This mode is
-based on the NRTClock quark with the addition that the whole library
-timing is managed in NRT.
+The library can also run in non real time (NRT) mode. This mode
+is based on the `NRTClock` :term:`quark`, with the addition that
+the whole library timing is managed in NRT.
 
 In NRT, clocks, routines and random generators work with the same
 interface as real time. It was made so code can be easily adapted
@@ -49,4 +49,22 @@ The following example can be run as command line script:
   # Render the score.
   score.render('test.aiff')
 
-.. Collection of OSC bundles.
+Timing in NRT
+-------------
+
+In NRT all commands and messages are synchronous because the
+mode captures the term:`logical time` and create the OSC
+instructions with the proper :term:`timetag`. No server is
+running and no message is sent, all server instructions are
+stored in an `OSC score` (which is a collection of bundles
+ordered by time) that is later rendered by the command line
+server program.
+
+When commands are issued from outside a routine, the time used
+to create the :term:`timetag` is absolute, it means that the
+time reference is always zero. Conversely, when they are issued
+from within routines :term:`logical time` is used and time values
+are considered deltas from the current :term:`elapsed time`.
+
+::
+  # Missing Example...

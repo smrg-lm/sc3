@@ -2,7 +2,7 @@
 
 from ...base import utils as utl
 from .. import ugen as ugn
-from .. import env
+from .. import envelope as evp
 
 
 class Done(ugn.UGen):
@@ -74,36 +74,36 @@ class Free(NodeControlUGen):
 
 class EnvGen(ugn.UGen):
     @classmethod
-    def ar(cls, envelope, gate=1.0, level_scale=1.0, level_bias=0.0,
+    def ar(cls, env, gate=1.0, level_scale=1.0, level_bias=0.0,
            time_scale=1.0, done_action=0):
         '''
-        envelope can be a tuple, a list of tuples for multiple channels
+        ``env`` can be a tuple, a list of tuples for multiple channels
         or an instance of Env.
         '''
-        if isinstance(envelope, env.Env):
-            envelope = utl.unbubble(envelope.envgen_format())  # Was as_multichannel_list.
+        if isinstance(env, evp.Env):
+            env = utl.unbubble(env.envgen_format())  # Was asMultichannelArray.
         return cls._multi_new('audio', gate, level_scale, level_bias,
-                              time_scale, done_action, envelope)
+                              time_scale, done_action, env)
 
     @classmethod
-    def kr(cls, envelope, gate=1.0, level_scale=1.0, level_bias=0.0,
+    def kr(cls, env, gate=1.0, level_scale=1.0, level_bias=0.0,
            time_scale=1.0, done_action=0):
         '''
-        envelope can be a tuple, a list of tuples for multiple channels
+        env can be a tuple, a list of tuples for multiple channels
         or an instance of Env.
         '''
-        if isinstance(envelope, env.Env):
-            envelope = utl.unbubble(envelope.envgen_format())  # Was as_multichannel_list.
+        if isinstance(env, evp.Env):
+            env = utl.unbubble(env.envgen_format())  # Was asMultichannelArray.
         return cls._multi_new('control', gate, level_scale, level_bias,
-                              time_scale, done_action, envelope)
+                              time_scale, done_action, env)
 
     @classmethod
     def _new1(cls, rate, *args):
         obj = cls._create_ugen_object(rate)
         obj._add_to_synth()
         args = list(args)
-        envelope = args.pop()
-        return obj._init_ugen(*args, *envelope)
+        env = args.pop()
+        return obj._init_ugen(*args, *env)
 
     # Override may be an optimization in sclang.
     # def _init_ugen(self, inputs)  # override

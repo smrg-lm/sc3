@@ -10,7 +10,7 @@ from ..synth import synthdef as sdf
 from ..synth import _graphparam as gpp
 from ..synth import ugen as ugn
 from ..synth import ugens as ugns
-from ..synth import env
+from ..synth import envelope as evp
 from ..synth import systemdefs as sds
 from ..synth import node as nod
 
@@ -42,7 +42,7 @@ def _play_func(func, target=None, outbus=0, fade=0.01,
                 ugns.Control.add_name('gate')
                 gate = ugns.Control.kr(1.0)
                 result *= ugns.EnvGen.kr(
-                    env.Env.asr(fade, 1, fade, 'lin'), gate, 1, 0, 1, 2)
+                    evp.Env.asr(fade, 1, fade, 'lin'), gate, 1, 0, 1, 2)
             result = ugn.SynthObject._replace_zeroes_with_silence(
                 utl.as_list(result))
             rate = gpp.ugen_param(result)._as_ugen_rate()

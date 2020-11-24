@@ -1,7 +1,7 @@
 
 from . buffer import *
 from . bus import *
-from . env import *
+from . envelope import *
 from . node import *
 from . server import *
 from . synthdef import *

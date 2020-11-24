@@ -4,9 +4,9 @@ from .. import ugen as ugn
 from .. import _graphparam as gpp
 
 # Only for VarLag
-from .. import env
+from .. import envelope as evp
 from . import oscillators as ocl
-from . import envgen as egn
+from . import envgen as evg
 
 
 class Filter(ugn.UGen, ugn.PureUGen):
@@ -163,11 +163,11 @@ class VarLag(Filter):
         if start is None:
             start = input
         try:
-            curve = env.Env._SHAPE_NAMES[warp]
+            curve = evp.Env._SHAPE_NAMES[warp]
         except KeyError:
             curve = warp
         if curve != 1:
-            env = env.Env([start, input], [time], warp).envgen_format()
+            env = evp.Env([start, input], [time], warp).envgen_format()
             env = list(env[0])
             env[6] = curve
             env[7] = curvature
@@ -176,7 +176,7 @@ class VarLag(Filter):
                    getattr(ocl.Impulse, selector)(0)
             if gpp.ugen_para(time)._as_ugen_rate() != 'scalar':
                 trig += Changed.kr(time)
-            return getattr(egn.EnvGen, selector)(env, trig)
+            return getattr(evg.EnvGen, selector)(env, trig)
         else:
             obj = cls._create_ugen_object(rate)
             obj._add_to_synth()

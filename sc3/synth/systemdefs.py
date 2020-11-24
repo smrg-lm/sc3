@@ -4,7 +4,7 @@ from ..base import classlibrary as clb
 from ..base import systemactions as sac
 from . import synthdef as sdf
 from . import ugens as ugns
-from . import env
+from . import envelope as evp
 
 
 __all__ = ['SystemDefs']
@@ -48,7 +48,7 @@ class MetaSystemDefs(type):
             mod = ugns.SinOsc.ar(fm) * d
             car = ugns.SinOsc.ar(fc + mod) * amp.lag()
             res = car * ugns.EnvGen.kr(
-                env.Env.adsr(0.05, 0.1, 0.8, 0.1), gate, done_action=2)
+                evp.Env.adsr(0.05, 0.1, 0.8, 0.1), gate, done_action=2)
             res = ugns.LPF.ar(res, freq * 3)
             ugns.Out.ar(0, ugns.Pan2.ar(res, pan))
 

@@ -94,8 +94,6 @@ class MetaPlatform(type):
 
 
 class Platform(metaclass=MetaPlatform):
-    # default_startup_file = ...  # *initClass this.userConfigDir +/+ "startup.scd"
-
     def _startup(self):
         pass
 
@@ -104,38 +102,47 @@ class Platform(metaclass=MetaPlatform):
 
     @property
     def name(self):
+        '''The name of the platform as returned by `sys.platform`.'''
         return sys.platform
 
     @property
     def home_dir(self):  # Was userHomeDir.
+        '''User home directory.'''
         return Path.home()
 
     @property
     def support_dir(self):  # Was userAppSupportDir.
+        '''The directory containing SuperCollider user resources.'''
         raise NotImplementedError
 
     @property
     def config_dir(self):  # Was userConfigDir.
+        '''The directory containing SuperCollider user configuration.'''
         raise NotImplementedError
 
     @property
     def resource_dir(self):  # userAppSupportDir.
+        '''The directory containing SuperCollider installation resources.'''
         raise NotImplementedError
 
     @property
     def synthdef_dir(self):
+        '''The directory where synthdef files are sotred by default.'''
         raise NotImplementedError
 
     @property
     def recording_dir(self):
+        '''The directory where recording files are sotred by default.'''
         raise NotImplementedError
 
     @property
     def tmp_dir(self):
+        '''The temporal directory, set to system default `tmp` directory.'''
         return Path(tempfile.gettempdir())
 
     @property
     def installation_dir(self):
+        '''Installation directory, in OSX it's the app bundle.'''
         return Path(self._installation_dir)
 
     @installation_dir.setter
@@ -149,6 +156,7 @@ class Platform(metaclass=MetaPlatform):
 
     @property
     def bin_dir(self):
+        '''The directory where the server programs are located.'''
         raise NotImplementedError
 
 

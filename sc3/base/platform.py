@@ -170,7 +170,7 @@ class LinuxPlatform(UnixPlatform):
         # // can still be overridden with JACK_NO_START_SERVER
         os.environ['JACK_START_SERVER'] = 'true'
 
-        self._installation_dir = '/usr/local'  # whereis scsynth ../
+        self._installation_dir = '/usr'  # whereis scsynth ../
         os.environ['PATH'] += os.pathsep + str(self.bin_dir)
         self.default_server_cmd = self.SCSYNTH_CMD
         # // load user startup file

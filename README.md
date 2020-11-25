@@ -1,15 +1,15 @@
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/sc3)
-![PyPI](https://img.shields.io/pypi/v/sc3)
+[![PyPI](https://img.shields.io/pypi/v/sc3)](https://pypi.org/project/sc3)
 [![Documentation Status](https://readthedocs.org/projects/sc3/badge/?version=latest)](https://sc3.readthedocs.io/en/latest/?badge=latest)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/sc3)
 
-sc3
-===
+SuperCollider library for Python
+================================
 
-Port of core features from SuperCollider's language to Python 3. It is intended to be the same library in a different language and to keep sclang elegance in a pythonic way (if possible).
+This project is a port of core features of SuperCollider's language to Python 3. It is intended to be the same library in a different language and to keep sclang elegance in a pythonic way (if possible).
 
 The main reason for this port is Python's capacity of interaction with other libraries applicable to composition, sonic-art and research. My wish is for this project to be useful for the SuperCollider community.
 
-Note that this project is still under development and there are missing parts, bugs you are welcome to report, and is no such a thing like "documentation" here by now. The best way to learn about SuperCollider is going to the [source](https://supercollider.github.io).
+Note that this project is still under development and there are missing parts, bugs you are welcome to report, and documentation is under construction. The best way to learn about SuperCollider is going to the [source](https://supercollider.github.io).
 
 Example
 -------
@@ -55,13 +55,13 @@ s.quit()  # Stop server at the end of interactive session or just quit ipython.
 Install
 -------
 
-From PyPI:
+From PyPI (usually outdated by now):
 
 ```
 pip3 install sc3
 ```
 
-From source in develop mode:
+From source in develop mode (recommended for the moment):
 
 ```
 python3 setup.py develop --user

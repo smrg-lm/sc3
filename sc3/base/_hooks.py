@@ -6,6 +6,7 @@ import importlib as _importlib
 import pkgutil as _pkgutil
 import inspect as _inspect
 import sys as _sys
+import warnings as _warnings
 
 
 def import_all_module(name, package=None, *, bind):
@@ -37,3 +38,32 @@ def import_all_package(path, name, *, bind):
         _sys.modules[bind].__dict__.update(mapping)
         ret.update(mapping)
     return ret
+
+
+class DependencyWarning(Warning):
+    pass
+
+
+def opt_import(name, package=None):
+    '''
+    Function to perform optional imports. Parameters name and
+    package are the arguments of importlib.import_module().
+    Returns the module or a DependencyWarning object that can
+    be used with `requires` decorator.
+    '''
+    try:
+        return _importlib.import_module(name, package)
+    except ModuleNotFoundError:
+        return DependencyWarning(f'{name} is not installed')
+
+
+def requires(module):
+    '''Decorator to check optional dependencies.'''
+    def _requires(func, *args, **kwargs):
+        def wrapper(*args, **kwargs):
+            if isinstance(module, DependencyWarning):
+                _warnings.warn(module, None, 2)
+                return
+            return func(*args, **kwargs)
+        return wrapper
+    return _requires

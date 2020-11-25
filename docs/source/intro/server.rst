@@ -29,7 +29,8 @@ Custom server location
 ----------------------
 
 If the server is installed in a non standard location it can
-be configured in the :class:`sc3.base.platform.Platform` class.
+be configured in the :class:`Platform<sc3.base.platform.Platform>`
+class.
 
 ::
 

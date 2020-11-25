@@ -13,8 +13,8 @@ jitter-free OSC term:`timetags`.
 Instances of routines are created as shown below, their only argument
 is a function or generator function (a function that define yield
 statements). When its generator iterator is exhausted routines raise
-a :class:`sc3.base.stream.StopStream` exception which is a subclass
-of ``StopIteration``.
+a :class:`StopStream<sc3.base.stream.StopStream>` exception which is
+a subclass of ``StopIteration``.
 
 ::
 
@@ -52,7 +52,7 @@ constructor.
 The meaning of routines start to reveal when they are used along clocks.
 They responde the ``play``, ``pause``, ``resume`` and ``stop`` methods.
 The ``play`` method starts playing the routine in a clock, the default
-clock which is :class:`sc3.base.clock.SystemClock`.
+clock which is :class:`SystemClock<sc3.base.clock.SystemClock>`.
 
 ::
 

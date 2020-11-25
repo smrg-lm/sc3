@@ -23,7 +23,7 @@ Glossary
       Dynamically allocated memory in the server used to store audio
       data. Buffers are used to load audio files and may have different
       sample rates.
-      See :class:`sc3.synth.buffer.Buffer`.
+      See :class:`Buffer<sc3.synth.buffer.Buffer>`.
 
    bus
       A server bus used to connect ugens in different synth nodes.
@@ -48,13 +48,13 @@ Glossary
    demand rate
       A control or audio rate signal that changes at frequency defined
       by `demand` ugens.
-      See :class:`sc3.synth.ugens.Demand`.
+      See :class:`Demand<sc3.synth.ugens.Demand>`.
 
    done action
       An action performed in the server by certain ugens when finish.
       Done actions can free or pause server nodes relative to the
       ugen that fires it.
-      See :class:`sc3.synth.ugens.Done`.
+      See :class:`Done<sc3.synth.ugens.Done>`.
 
    elapsed time
       In real time is the :term:`physical time` in seconds since the
@@ -63,20 +63,20 @@ Glossary
 
    group
       A group in the server tree.
-      See :class:`sc3.synth.node.Group`.
+      See :class:`Group<sc3.synth.node.Group>`.
 
    initial rate
       An special rate that computes values only at initialization.
 
    logical time
-      The time as measured by :class:`sc3.base.stream.Routine` instances.
-      Logical time is measured in deterministic interval and is not
-      affected by jitter as :term:`physical time`. It's used to precisely
-      define the :term:`timetag` for OSC bundles.
+      The time as measured by :class:`Routine<sc3.base.stream.Routine>`
+      instances. Logical time is measured in deterministic interval
+      and is not affected by jitter as :term:`physical time`. It's
+      used to precisely define the :term:`timetag` for OSC bundles.
 
    node
       A server tree node.
-      See :class:`sc3.synth.node.Node`.
+      See :class:`Node<sc3.synth.node.Node>`.
 
    physical time
       The time as measured by the computer's system clock. When used as
@@ -89,7 +89,7 @@ Glossary
    root group
       The root group of a server's node tree. The id of the root node
       is always 1.
-      See :class:`sc3.synth.node.RootGroup`.
+      See :class:`RootGroup<sc3.synth.node.RootGroup>`.
 
    sclang
       The original language of SuperCollider.
@@ -103,18 +103,18 @@ Glossary
 
    synth
       A synthesis node.
-      See :class:`sc3.synth.node.Synth`.
+      See :class:`Synth<sc3.synth.node.Synth>`.
 
    synthdef
       A synthesis definition composed of ugens used to create synth
       nodes.
-      See :class:`sc3.synth.synthdef.SynthDef`.
+      See :class:`SynthDef<sc3.synth.synthdef.SynthDef>`.
 
    timetag
       An OSC-timetag. It's the time at which bundled instructions are
       scheduled to be executed in the server. Although the term is used
       to refer to the time of bundles, within the library time is measured
-      in seconds (or beats for :class:`sc3.base.clock.TempoClock`)
+      in seconds (or beats for :class:`TempoClock<sc3.base.clock.TempoClock>`)
       relative to :term:`elapsed time` and is converted to the actual
       timetag representation when sent.
 

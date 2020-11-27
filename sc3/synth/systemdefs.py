@@ -25,7 +25,7 @@ class MetaSystemDefs(type):
         return list(cls._sdefs.values())
 
     def generate_tmp_name(cls):
-        name = PREFIX + str(cls._tmp_def_count)
+        name = cls.PREFIX + str(cls._tmp_def_count)
         cls._tmp_def_count += 1
         cls._tmp_def_count %= cls.MAX_TMP_DEF_NAMES
         return name

@@ -1,3 +1,4 @@
+import argparse
 from sc3.all import *
 
 parser = argparse.ArgumentParser(prog='sc3')

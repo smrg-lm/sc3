@@ -2,6 +2,7 @@
 import argparse
 import logging
 import sys
+import runpy
 
 import sc3
 
@@ -48,7 +49,5 @@ sc3.init(sc3.LIB_MODE, logging.getLevelName(args.verbosity))
 ### Run script ###
 
 if args.file:
-    with open(args.file) as file:
-        code = file.read()
-        sys.argv = [args.file, *args.args]  # Simulate script args.
-        exec(code)
+    sys.argv = [args.file, *args.args]  # Simulate script args.
+    runpy.run_path(args.file)

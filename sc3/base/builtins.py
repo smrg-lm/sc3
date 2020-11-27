@@ -115,12 +115,12 @@ class scbuiltin():
 def rand(x):
     # *** TODO: See the actual implementations.
     if type(x) is float:
-        return _libsc3.main._current_tt._rgen.random() * x
+        return _libsc3.main._rgen.random() * x
     elif type(x) is int:
         if x >= 1:
-            return _libsc3.main._current_tt._rgen.randrange(0, x, 1)
+            return _libsc3.main._rgen.randrange(0, x, 1)
         elif x <= -1:
-            return _libsc3.main._current_tt._rgen.randrange(0, x, -1)
+            return _libsc3.main._rgen.randrange(0, x, -1)
         else:
             return 0
     raise TypeError
@@ -128,28 +128,28 @@ def rand(x):
 @scbuiltin.unop
 def rand2(x):
     if type(x) is float:
-        return _libsc3.main._current_tt._rgen.random() * x * 2 - x  # random.uniform
+        return _libsc3.main._rgen.random() * x * 2 - x  # random.uniform
     elif type(x) is int:
         if x >= 0:
-            return _libsc3.main._current_tt._rgen.randint(-x, x)
+            return _libsc3.main._rgen.randint(-x, x)
         else:
-            return _libsc3.main._current_tt._rgen.randint(x, -x)
+            return _libsc3.main._rgen.randint(x, -x)
     raise TypeError
 
 @scbuiltin.unop
 def linrand(x):
     if type(x) is float:
-        a = _libsc3.main._current_tt._rgen.random()
-        b = _libsc3.main._current_tt._rgen.random()
+        a = _libsc3.main._rgen.random()
+        b = _libsc3.main._rgen.random()
         return min(a, b) * x
     elif type(x) is int:
         if x >= 1:
-            a = _libsc3.main._current_tt._rgen.randrange(0, x, 1)
-            b = _libsc3.main._current_tt._rgen.randrange(0, x, 1)
+            a = _libsc3.main._rgen.randrange(0, x, 1)
+            b = _libsc3.main._rgen.randrange(0, x, 1)
             return min(a, b)
         elif x <= -1:
-            a = _libsc3.main._current_tt._rgen.randrange(0, x, -1)
-            b = _libsc3.main._current_tt._rgen.randrange(0, x, -1)
+            a = _libsc3.main._rgen.randrange(0, x, -1)
+            b = _libsc3.main._rgen.randrange(0, x, -1)
             return min(a, b)
         else:
             return 0
@@ -158,17 +158,17 @@ def linrand(x):
 @scbuiltin.unop
 def bilinrand(x):
     if type(x) is float:
-        a = _libsc3.main._current_tt._rgen.random()
-        b = _libsc3.main._current_tt._rgen.random()
+        a = _libsc3.main._rgen.random()
+        b = _libsc3.main._rgen.random()
         return a - b
     elif type(x) is int:
         if x >= 1:
-            a = _libsc3.main._current_tt._rgen.randrange(0, x, 1)
-            b = _libsc3.main._current_tt._rgen.randrange(0, x, 1)
+            a = _libsc3.main._rgen.randrange(0, x, 1)
+            b = _libsc3.main._rgen.randrange(0, x, 1)
             return a - b
         elif x <= -1:
-            a = _libsc3.main._current_tt._rgen.randrange(0, x, -1)
-            b = _libsc3.main._current_tt._rgen.randrange(0, x, -1)
+            a = _libsc3.main._rgen.randrange(0, x, -1)
+            b = _libsc3.main._rgen.randrange(0, x, -1)
             return a - b
         else:
             return 0
@@ -178,15 +178,15 @@ def bilinrand(x):
 def sum3rand(x):
     # // Larry Polansky's poor man's gaussian generator.
     return (
-        (_libsc3.main._current_tt._rgen.random() +
-        _libsc3.main._current_tt._rgen.random() +
-        _libsc3.main._current_tt._rgen.random() - 1.5) *
+        (_libsc3.main._rgen.random() +
+        _libsc3.main._rgen.random() +
+        _libsc3.main._rgen.random() - 1.5) *
         0.666666667 * x)
 
 @scbuiltin.unop
 def coin(x):
     if type(x) is float:  # sclang Float method.
-        return _libsc3.main._current_tt._rgen.random() < x
+        return _libsc3.main._rgen.random() < x
     elif type(x) is int:  # sclang SimpleNumber behaviour.
         if x == 0:
             return False
@@ -197,20 +197,20 @@ def coin(x):
 @scbuiltin.binop
 def rrand(a, b):
     if type(a) is float or type(b) is float:
-        return a + _libsc3.main._current_tt._rgen.random() * (b - a)
+        return a + _libsc3.main._rgen.random() * (b - a)
     elif type(a) is type(b) is int:
         if a <= b:
             if b - a >= 1:
-                return _libsc3.main._current_tt._rgen.randrange(a, b, 1)
+                return _libsc3.main._rgen.randrange(a, b, 1)
             else:
                 return a
         else:
-            return _libsc3.main._current_tt._rgen.randrange(a, b, -1)
+            return _libsc3.main._rgen.randrange(a, b, -1)
     raise TypeError
 
 @scbuiltin.binop
 def exprand(a, b):  # exprandrng
-    return a * exp(log(b / a) * _libsc3.main._current_tt._rgen.random())
+    return a * exp(log(b / a) * _libsc3.main._rgen.random())
 
 # Don't have special index.
 
@@ -1243,7 +1243,7 @@ def normsum(lst):  # normalizeSum/normalize_sum
     return list(map(operator.truediv, lst, itertools.repeat(sum(lst))))
 
 def shuffle(lst, random=None):  # scramble
-    return _libsc3.main._current_tt._rgen.shuffle(lst, random)  # In place.
+    return _libsc3.main._rgen.shuffle(lst, random)  # In place.
 
 # mirror, mirror1, mirror2  # one mirror with mode.
 # stutter, rotate, pyramid, pyramidg, sputter(rand), etc.
@@ -1310,10 +1310,10 @@ def table_rand(lst):
 ### SequenceableCollection ###
 
 def choice(lst):  # choose
-    return _libsc3.main._current_tt._rgen.choice(lst)
+    return _libsc3.main._rgen.choice(lst)
 
 def choices(lst, weights=None, *, cum_weights=None, k=1):  # wchoose
-    return _libsc3.main._current_tt._rgen.choices(
+    return _libsc3.main._rgen.choices(
         lst, weights, cum_weights=cum_weights, k=k)
 
 # ...

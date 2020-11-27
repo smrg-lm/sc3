@@ -104,6 +104,10 @@ class Process(type):
         atexit.unregister(cls._shutdown)
 
     @property
+    def _rgen(cls):
+        return cls.current_tt._rgen
+
+    @property
     def platform(cls):
         return cls._platform
 

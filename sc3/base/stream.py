@@ -50,7 +50,7 @@ class TimeThread():
         self._m_seconds = 0.0
         self._clock = None
         self._thread_player = None
-        self._rgen = _libsc3.main.current_tt.rgen
+        self._rgen = _libsc3.main.current_tt._rgen
 
     def __copy__(self):
         return self
@@ -85,10 +85,6 @@ class TimeThread():
     @thread_player.setter
     def thread_player(self, player):
         self._thread_player = player
-
-    @property
-    def rgen(self):
-        return self._rgen
 
     def rand_seed(self, x):
         # Routine's rgen are inherited from parent and
@@ -130,8 +126,8 @@ class _MainTimeThread(TimeThread):
         return True
 
     @property
-    def rgen(self):  # override
-        return _libsc3.main._rgen
+    def _rgen(self):  # override
+        return _libsc3.main._m_rgen
 
     def rand_seed(self, x):  # override
         pass

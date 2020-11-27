@@ -58,7 +58,7 @@ class Process(type):
         # cls._switch_cond = threading.Condition(cls._main_lock)
 
         # Main TimeThread random generator.
-        cls._rgen = random.Random()
+        cls._m_rgen = random.Random()
 
         # SynthDef graph build's global state.
         cls._current_synthdef = None
@@ -102,10 +102,6 @@ class Process(type):
         while not cls._atexitq.empty():
             cls._atexitq.pop()[1]()
         atexit.unregister(cls._shutdown)
-
-    @property
-    def rgen(cls):
-        return cls.current_tt.rgen
 
     @property
     def platform(cls):

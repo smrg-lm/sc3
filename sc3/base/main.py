@@ -7,6 +7,7 @@ import time
 import random
 import sys
 
+import sc3
 from . import _taskq as tsq
 from . import platform as plf
 from . import systemactions as sac
@@ -86,7 +87,7 @@ class Process(type):
         # NOTE: This may change to a special kind
         # of file that only allows to set up certain
         # parameters like platform or server options.
-        path = plf.Platform.config_dir / 'startup.py'
+        path = sc3.LIB_SETUP_FILE or plf.Platform.config_dir / 'startup.py'
         if path.exists():
             with open(path, 'r') as file:
                 ast = compile(file.read(), path, 'exec')
@@ -139,7 +140,8 @@ class RtMain(metaclass=Process):
         cls._perf_counter_time_of_initialization = time.perf_counter()  # monotonic clock.
         cls.main_tt = stm._MainTimeThread()
         cls.current_tt = cls.main_tt
-        cls._osc_interface = osci.OscUdpInterface()
+        cls._osc_interface = osci.OscUdpInterface(
+            sc3.LIB_PORT, sc3.LIB_PORT_RANGE)
         cls._osc_interface.start()
 
         clb.ClassLibrary.init()

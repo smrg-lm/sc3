@@ -229,7 +229,7 @@ class OscInterface(ABC):
 class OscUdpInterface(OscInterface):
     '''OSC over UDP server.'''
 
-    def __init__(self, port=57120, port_range=10):
+    def __init__(self, port, port_range=10):
         super().__init__(port, port_range)
         self._server = None
         self._server_thread = None
@@ -289,7 +289,7 @@ class OscTcpInterface(OscInterface):
     OSC client over TCP. OscTcpInterface instances aren't reusable.
     '''
 
-    def __init__(self, port=57120, port_range=10):
+    def __init__(self, port, port_range=10):
         super().__init__(port, port_range)
         self._tcp_thread = None
         self._run_thread = False

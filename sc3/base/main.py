@@ -3,6 +3,7 @@
 import enum
 import threading
 import atexit
+import pathlib
 import time
 import random
 import sys
@@ -87,7 +88,10 @@ class Process(type):
         # NOTE: This may change to a special kind
         # of file that only allows to set up certain
         # parameters like platform or server options.
-        path = sc3.LIB_SETUP_FILE or plf.Platform.config_dir / 'startup.py'
+        if sc3.LIB_SETUP_FILE:
+            path = pathlib.Path(sc3.LIB_SETUP_FILE)
+        else:
+            path = plf.Platform.config_dir / 'startup.py'
         if path.exists():
             with open(path, 'r') as file:
                 ast = compile(file.read(), path, 'exec')

@@ -31,7 +31,7 @@ class BufferException(Exception):
 class BufferAlreadyFreed(BufferException):
     def __init__(self, method=None):
         if method is not None:
-            self.args = (f"'{method}' method called",)
+            self.args = (f"'{method}' called",)
 
 
 class Buffer(gpp.UGenParameter, gpp.NodeParameter):
@@ -819,13 +819,6 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         return (
             f'{type(self).__name__}({self._bufnum}, {self._frames}, '
             f'{self._channels}, {self._sample_rate}, {self._path})')
-
-    # *loadDialog # No builtin gui.
-
-    def play(self, loop=False, mul=1):
-        print('*** implementar Buffer.play tal vez mejor como función play(buffer) que retorna el objeto player y que cada clase implemente __play__') # TODO
-
-    # duration, pasada arriba como propiedead de solo lectura.
 
 
     ### UGen graph parameter interface ###

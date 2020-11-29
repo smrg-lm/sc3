@@ -13,6 +13,7 @@ from ..synth import ugens as ugns
 from ..synth import envelope as evp
 from ..synth import systemdefs as sds
 from ..synth import node as nod
+from ..synth import buffer as bff
 
 
 __all__ = ['play']
@@ -58,8 +59,22 @@ def _play_func(func, target=None, outbus=0, fade=0.01,
     synth_msg = synth.new_msg(
         target, ['_iout', outbus, 'out', outbus, *args], add_action)
     synthdef._do_send(server, synth_msg)
-    print('*** synthdef.dump_ugens:'); synthdef.dump_ugens()
     return synth
+
+
+def _play_buf(buf, loop=False, mul=1, **kwargs):
+    if buf._bufnum is None:
+        raise bff.BufferAlreadyFreed('_play_buf')
+
+    def buffer_player():
+        sig = ugns.PlayBuf.ar(
+            buf._channels, buf._bufnum,
+            ugns.BufRateScale.kr(buf._bufnum), loop=loop)
+        if not loop:
+            ugns.FreeSelfWhenDone.kr(sig)
+        return sig * mul
+
+    return _play_func(buffer_player, buf._server, **kwargs)
 
 
 def play(obj=None, *args, **kwargs):
@@ -97,6 +112,8 @@ def play(obj=None, *args, **kwargs):
     elif inspect.isfunction(obj):
         # Decorator or play(lmbd, s, 0, ...).
         return _play_func(obj, *args, **kwargs)
+    elif isinstance(obj, bff.Buffer):
+        return _play_buf(obj, *args, **kwargs)
     elif obj is None and not args and kwargs:
         # As a keyword only call makes an event.
         return evt.event(kwargs).play()

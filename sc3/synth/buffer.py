@@ -37,8 +37,7 @@ class BufferAlreadyFreed(BufferException):
 class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     _server_caches = dict()
 
-    def __init__(self, server=None, num_frames=None,
-                 num_channels=None, bufnum=None):
+    def __init__(self, frames=None, channels=None, server=None, bufnum=None):
         super(gpp.UGenParameter, self).__init__(self)
         # // Doesn't send.
         self._server = server or srv.Server.default
@@ -46,13 +45,21 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             self._bufnum = self._server.next_buffer_number(1)
         else:
             self._bufnum = bufnum
-        self._num_frames = num_frames
-        self._num_channels = num_channels
+        self._frames = frames
+        self._channels = channels
         self._sample_rate = self._server._status_watcher.sample_rate
         self._path = None
-        self._start_frame = None
+        self.__frame = None
         self._do_on_info = None
         self._cache()
+
+    @property
+    def frames(self):
+        return self._frames
+
+    @property
+    def channels(self):
+        return self._channels
 
     @property
     def server(self):
@@ -61,14 +68,6 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     @property
     def bufnum(self):
         return self._bufnum
-
-    @property
-    def num_frames(self):
-        return self._num_frames
-
-    @property
-    def num_channels(self):
-        return self._num_channels
 
     @property
     def start_frame(self):
@@ -84,165 +83,78 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     @property
     def duration(self):
-        if self._num_frames is None or self._sample_rate is None:
+        if self._frames is None or self._sample_rate is None:
             raise ValueError('duration parameters (frames/sr) not initialized')
-        return self._num_frames / self._sample_rate
+        return self._frames / self._sample_rate
+
+    ### Constructors ###
 
     @classmethod
-    def new_alloc(cls, server=None, num_frames=None, num_channels=1,
-                  completion_msg=None, bufnum=None):
-        obj = cls(server, num_frames, num_channels, bufnum)
+    def new_alloc(cls, frames=1024, channels=1, server=None,
+                  bufnum=None, completion_msg=None):
+        obj = cls(frames, channels, server, bufnum)
         obj.alloc(completion_msg)
         # obj._cache() # BUG: sclang dos veces porque alloc_msg llama this.cache. Además, cache() solo registra el servidor en el diccionario y el responder para '/b_info' que no se usa en los constructores. Acá se llama solamente en __init__.
         return obj
 
     @classmethod
-    def new_alloc_consecutive(cls, num_bufs=1, server=None, num_frames=None,
-                              num_channels=1, completion_msg=None, bufnum=None):
+    def new_consecutive(cls, num_bufs=1, frames=1024, channels=1,
+                        server=None, bufnum=None, completion_msg=None):
         if bufnum is None:
             buf_base = server.next_buffer_number(num_bufs)
         else:
             buf_base = bufnum
         buf_list = []
         for i in range(num_bufs):
-            new_buf = cls(server, num_frames, num_channels, buf_base + i)
-            server.send_msg('/b_alloc', buf_base + i, num_frames,
-                            num_channels, fn.value(completion_msg, new_buf, i))
+            new_buf = cls(frames, channels, server, buf_base + i)
+            server.send_msg(
+                '/b_alloc', buf_base + i, frames,
+                channels, fn.value(completion_msg, new_buf, i))
             # new_buf._cache() # NOTE: __init__ llama a _cache
             buf_list.append(new_buf)
         return buf_list
 
     @classmethod
-    def new_read(cls, server, path, start_frame=0, num_frames=-1,
+    def new_read(cls, path, start_frame=0, frames=-1, server=None,
                  bufnum=None, action=None):
         # // read whole file into memory for PlayBuf etc.
         # // Adds a query as a completion message.
-        obj = cls(server, None, None, bufnum)
+        obj = cls(None, None, server, bufnum)
         obj._do_on_info = action
         # obj._cache() # NOTE: __init__ llama a _cache
         obj.alloc_read(
-            path, start_frame, num_frames, lambda buf: ['/b_query', buf.bufnum])
+            path, start_frame, frames, lambda buf: ['/b_query', buf.bufnum])
         return obj
 
     @classmethod
-    def new_read_no_update(cls, server, path, start_frame=0, num_frames=-1,
+    def new_read_no_update(cls, path, start_frame=0, frames=-1, server=None,
                            bufnum=None, completion_msg=None):
-        obj = cls(server, None, None, bufnum)
-        # BUG: este constructor no llama a cache() en sclang, será el no update
-        # BUG: REVISAR DE NUEVO QUÉ ACTUALIZA CACHE, NO VEO LA DIFERENCIA,
-        # BUG: SIEMPRE SE LLAMA SALVO ACÁ Y SE LLAMABA DOS VECES. AGREGAR FLAG A __init__.
-        obj.alloc_read(path, start_frame, num_frames, completion_msg)
+        obj = cls(None, None, server, bufnum)
+        obj.alloc_read(path, start_frame, frames, completion_msg)
         return obj
 
     @classmethod
-    def new_read_channel(cls, server, path, start_frame=0, num_frames=-1,
-                         channels=None, bufnum=None, action=None):
+    def new_read_channel(cls, path, start_frame=0, frames=-1, channels=None,
+                         server=None, bufnum=None, action=None):
         obj = cls(server, None, None, bufnum)
         obj._do_on_info = action
-        # obj._cache() # NOTE: __init__ llama a _cache
-        obj.alloc_read_channel(path, start_frame, num_frames, channels,
-                               lambda buf: ['/b_query', buf.bufnum])
+        obj.alloc_read_channel(
+            path, start_frame, frames, channels,
+            lambda buf: ['/b_query', buf.bufnum])
         return obj
 
-    # // preload a buffer for use with DiskIn
     @classmethod
-    def new_cue(cls, server, path, start_frame=0, num_channels=2,
-                buffer_size=32768, completion_msg=None):
+    def new_cue(cls, path, start_frame=0, channels=1, buffer_size=32768,
+                server=None, bufnum=None, completion_msg=None):
+        # // Preload a buffer for use with DiskIn
         obj = cls.new_alloc(
-            server, buffer_size, num_channels, lambda buf: buf.read_msg(
+            buffer_size, channels, server, bufnum,
+            lambda buf: buf.read_msg(
                 path, start_frame, buffer_size, 0, True, completion_msg))
-        # self._cache() # NOTE: __init__ llama a _cache a través de alloc.
         return obj
 
-    def alloc(self, completion_msg=None): # NOTE: es alloc de instancia
-        self._server.send_msg(*self.alloc_msg(completion_msg))
-
-    def alloc_msg(self, completion_msg=None):
-        # self._cache() # NOTE: __init__ llama a _cache
-        return ['/b_alloc', self._bufnum, self._num_frames,
-                self._num_channels, fn.value(completion_msg, self)]  # NOTE: no veo por qué solo startFrame.asInteger en sclang.
-
-    def alloc_read(self, path, start_frame=0, num_frames=-1,
-                   completion_msg=None):
-        self._path = path
-        self._start_frame = start_frame
-        self._server.send_msg(*self.alloc_read_msg(
-            path, start_frame, num_frames, completion_msg)) # NOTE: no veo por qué solo startFrame.asInteger en sclang.
-
-    def alloc_read_msg(self, path, start_frame=0, num_frames=-1,
-                       completion_msg=None):
-        # self._cache() # NOTE: __init__ llama a _cache
-        self._path = path
-        self._start_frame = start_frame
-        return ['/b_allocRead', self._bufnum, path,
-                start_frame, num_frames, fn.value(completion_msg, self)]  # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
-
-    def alloc_read_channel(self, path, start_frame=0, num_frames=-1,
-                           channels=None, completion_msg=None):
-        self._path = path
-        self._start_frame = start_frame
-        self._server.send_msg(*self.alloc_read_channel_msg(
-            path, start_frame, num_frames, channels, completion_msg)) # NOTE: no veo por qué solo startFrame.asInteger en sclang.
-
-    def alloc_read_channel_msg(self, path, start_frame=0, num_frames=-1,
-                               channels=None, completion_msg=None):
-        # self._cache() # NOTE: __init__ llama a _cache
-        self._path = path
-        self._start_frame = start_frame
-        return ['/b_allocReadChannel', self._bufnum, path, start_frame,
-                num_frames, *channels, fn.value(completion_msg, self)] # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
-
-    def read(self, path, file_start_frame=0, num_frames=-1,
-             buf_start_frame=0, leave_open=False, action=None):
-        # self._cache() # NOTE: __init__ llama a _cache
-        self._do_on_info = action
-        self._server.send_msg(*self.read_msg(
-            path, file_start_frame, num_frames, buf_start_frame,
-            leave_open, lambda buf: ['/b_query', buf.bufnum]))
-
-    def read_no_update(self, path, file_start_frame=0, num_frames=-1,
-                       buf_start_frame=0, leave_open=False,
-                       completion_msg=None):
-        self._server.send_msg(*self.read_msg(
-            path, file_start_frame, num_frames,
-            buf_start_frame, leave_open, completion_msg))
-
-    def read_msg(self, path, file_start_frame=0, num_frames=-1,
-                 buf_start_frame=0, leave_open=False, completion_msg=None):
-        self._path = path
-        return ['/b_read', self._bufnum, path, file_start_frame, num_frames,
-                buf_start_frame, leave_open, fn.value(completion_msg, self)]  # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
-
-    def read_channel(self, path, file_start_frame=0, num_frames=-1,
-                     buf_start_frame=0, leave_open=False,
-                     channels=None, action=None):
-        # self._cache() # NOTE: __init__ llama a _cache
-        self._do_on_info = action
-        self._server.send_msg(*self.read_channel_msg(
-            path, file_start_frame, num_frames, buf_start_frame,
-            leave_open, channels, lambda buf: ['/b_query', buf.bufnum]))
-
-    def read_channel_msg(self, path, file_start_frame=0, num_frames=-1,
-                         buf_start_frame=0, leave_open=False, channels=None,
-                         completion_msg=None):
-        # // doesn't set my numChannels etc.
-        self._path = path
-        return ['/b_readChannel', self._bufnum, path, file_start_frame,
-                num_frames, buf_start_frame, leave_open, *channels,
-                fn.value(completion_msg, self)]  # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
-
-    def cue(self, path, start_frame=0, completion_msg=None):  # Was cue_soundfile
-        # // Preload a buffer for use with DiskIn.
-        self._path = path
-        self._server.send_msg(*self.cue_msg(path, start_frame, completion_msg))
-        # NOTE: no llama a cache()
-
-    def cue_msg(self, path, start_frame=0, completion_msg=None):  # Was cue_soundfile_msg
-        return ['/b_read', self._bufnum, path, start_frame, 0, 1,  # NOTE: no veo por qué solo startFrame.asInteger y comprueba num_frames en sclang si no lo hace con el resto.
-                self._num_frames, fn.value(completion_msg, self)]  # *** BUG: pone 1 en vez de True, porque es el mensaje, pero no lo hace siempre.
-
     @classmethod
-    def new_load_list(cls, server, channel_lst, action=None):  # Was new_load_collection
+    def new_load_list(cls, channel_lst, server=None, action=None):  # Was new_load_collection
         # Difference: this version receives a list of channel data (lists).
         # // Transfer a collection of numbers to a buffer through a file.
         server = server or srv.Server.default
@@ -270,10 +182,117 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         else:
             _logger.warning("cannot call 'new_load' with a non-local Server")
 
+    @classmethod
+    def new_send_list(cls, lst, channels=1, server=None, wait=-1, action=None):  # Was send_collection
+        # // Send a Collection to a buffer one UDP sized packet at a time.
+        lst = list(array.array('f', lst))  # Type check & cast.
+        buffer = cls(server, bi.ceil(len(lst) / channels), channels)
+        # It was forkIfNeeded, can't be implemented in Python because
+        # yield statment scope is different. The check for need was:
+        # if isinstance(_libsc3.main.current_tt, Routine). Always fork here
+        # is even a bit more clear, use action to sync externally.
+        def send_func():
+            buffer.alloc()
+            yield from server.sync()
+            buffer.send_list(lst, 0, wait, action)
+
+        stm.Routine.run(send_func)
+        return buffer
+
+
+    def alloc(self, completion_msg=None):
+        self._server.send_msg(*self.alloc_msg(completion_msg))
+
+    def alloc_msg(self, completion_msg=None):
+        return [
+            '/b_alloc', self._bufnum, self._frames,
+            self._channels, fn.value(completion_msg, self)]
+
+    def alloc_read(self, path, start_frame=0, frames=-1,
+                   completion_msg=None):
+        self._path = path
+        self._start_frame = start_frame
+        self._server.send_msg(*self.alloc_read_msg(
+            path, start_frame, frames, completion_msg))
+
+    def alloc_read_msg(self, path, start_frame=0, frames=-1,
+                       completion_msg=None):
+        self._path = path
+        self._start_frame = start_frame
+        return [
+            '/b_allocRead', self._bufnum, path,
+            start_frame, frames, fn.value(completion_msg, self)]
+
+    def alloc_read_channel(self, path, start_frame=0, frames=-1,
+                           channels=None, completion_msg=None):
+        self._path = path
+        self._start_frame = start_frame
+        self._server.send_msg(*self.alloc_read_channel_msg(
+            path, start_frame, frames, channels, completion_msg))
+
+    def alloc_read_channel_msg(self, path, start_frame=0, frames=-1,
+                               channels=None, completion_msg=None):
+        self._path = path
+        self._start_frame = start_frame
+        return [
+            '/b_allocReadChannel', self._bufnum, path, start_frame,
+            frames, *channels, fn.value(completion_msg, self)]
+
+    def read(self, path, file_start_frame=0, frames=-1,
+             buf_start_frame=0, leave_open=False, action=None):
+        # self._cache() # NOTE: __init__ llama a _cache
+        self._do_on_info = action
+        self._server.send_msg(*self.read_msg(
+            path, file_start_frame, frames, buf_start_frame,
+            leave_open, lambda buf: ['/b_query', buf.bufnum]))
+
+    def read_no_update(self, path, file_start_frame=0, frames=-1,
+                       buf_start_frame=0, leave_open=False,
+                       completion_msg=None):
+        self._server.send_msg(*self.read_msg(
+            path, file_start_frame, frames,
+            buf_start_frame, leave_open, completion_msg))
+
+    def read_msg(self, path, file_start_frame=0, frames=-1,
+                 buf_start_frame=0, leave_open=False, completion_msg=None):
+        self._path = path
+        return [
+            '/b_read', self._bufnum, path, file_start_frame, frames,
+            buf_start_frame, leave_open, fn.value(completion_msg, self)]
+
+    def read_channel(self, path, file_start_frame=0, frames=-1,
+                     buf_start_frame=0, leave_open=False,
+                     channels=None, action=None):
+        self._do_on_info = action
+        self._server.send_msg(*self.read_channel_msg(
+            path, file_start_frame, frames, buf_start_frame,
+            leave_open, channels, lambda buf: ['/b_query', buf.bufnum]))
+
+    def read_channel_msg(self, path, file_start_frame=0, frames=-1,
+                         buf_start_frame=0, leave_open=False, channels=None,
+                         completion_msg=None):
+        # // doesn't set my numChannels etc.
+        self._path = path
+        return [
+            '/b_readChannel', self._bufnum, path, file_start_frame,
+            frames, buf_start_frame, leave_open, *channels,
+            fn.value(completion_msg, self)]
+
+    def cue(self, path, start_frame=0, completion_msg=None):
+        # // Preload a buffer for use with DiskIn.
+        self._path = path
+        self._server.send_msg(*self.cue_msg(path, start_frame, completion_msg))
+        # NOTE: Doesn't call _cache()
+
+    def cue_msg(self, path, start_frame=0, completion_msg=None):
+        return [
+            '/b_read', self._bufnum, path, start_frame, 0, 1,
+            self._frames, fn.value(completion_msg, self)]  # NOTE: Uses 1 instead of True but not always.
+
     def load_list(self, channel_lst, start_frame=0, action=None):  # Was load_collection
         if self._server.is_local:
-            framesize = (self._num_frames - start_frame) * self._num_channels
-            # if len(channel_lst) > self._num_channels:
+            framesize = (self._frames - start_frame) * self._channels
+            # if len(channel_lst) > self._channels:
             #     # Channel mismatch is reported by Server.
             #     _logger.warning('channel_lst has more channels than buffer')
             for i, chn in enumerate(channel_lst[:]):
@@ -305,23 +324,6 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         else:
             _logger.warning("cannot call 'load' with a non-local Server")
 
-    @classmethod
-    def new_send_list(cls, server, lst, num_channels=1, wait=-1, action=None):  # Was send_collection
-        # // Send a Collection to a buffer one UDP sized packet at a time.
-        lst = list(array.array('f', lst))  # Type check & cast.
-        buffer = cls(server, bi.ceil(len(lst) / num_channels), num_channels)
-        # It was forkIfNeeded, can't be implemented in Python because
-        # yield statment scope is different. The check for need was:
-        # if isinstance(_libsc3.main.current_tt, Routine). Always fork here
-        # is even a bit more clear, use action to sync externally.
-        def send_func():
-            buffer.alloc()
-            yield from server.sync()
-            buffer.send_list(lst, 0, wait, action)
-
-        stm.Routine.run(send_func)
-        return buffer
-
     def send_list(self, lst, start_frame=0, wait=-1, action=None):  # Was send_collection
         number = (int, float)
         if not isinstance(start_frame, number):
@@ -330,10 +332,10 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             raise TypeError('wait must be int of float')
         lst = list(array.array('f', lst))  # Type check & cast.
         size = len(lst)
-        if size > (self._num_frames - start_frame) * self._num_channels:
+        if size > (self._frames - start_frame) * self._channels:
             _logger.warning('list larger than available number of frames')
         self._stream_list(
-            lst, size, start_frame * self._num_channels, wait, action)
+            lst, size, start_frame * self._channels, wait, action)
 
     def _stream_list(self, lst, size, start_frame=0, wait=-1, action=None):  # Was streamCollection
         def stream_func():
@@ -386,7 +388,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         max_udp_size = 1633  # // Max size for getn under udp.
         pos = index = int(index)
         if count is None:
-            count = int(self._num_frames * self._num_channels)
+            count = int(self._frames * self._channels)
         array = []  # [0.0] * count
         ref_count = int(bi.roundup(count / max_udp_size))
         count += pos
@@ -426,7 +428,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         clk.SystemClock.sched(timeout, timeout_func)
 
     def write(self, path=None, header_format="aiff", sample_format="int24",
-              num_frames=-1, start_frame=0, leave_open=False,
+              frames=-1, start_frame=0, leave_open=False,
               completion_msg=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('write')
@@ -441,17 +443,17 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 path = pathlib.Path(str(path) + '.' + header_format)
 
         self._server.send_msg(*self.write_msg(
-            str(path), header_format, sample_format, num_frames,
+            str(path), header_format, sample_format, frames,
             start_frame, leave_open, completion_msg))
 
     def write_msg(self, path, header_format="aiff", sample_format="int24",
-                  num_frames=-1, start_frame=0, leave_open=False,
+                  frames=-1, start_frame=0, leave_open=False,
                   completion_msg=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('write_msg')
         # // Doesn't change my path.
         return ['/b_write', self._bufnum, path, header_format, sample_format,
-                int(num_frames), int(start_frame), int(leave_open),
+                int(frames), int(start_frame), int(leave_open),
                 fn.value(completion_msg, self)]
 
     def free(self, completion_msg=None):
@@ -466,7 +468,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         self._uncache()
         self._server._buffer_allocator.free(self._bufnum)
         msg = ['/b_free', self._bufnum, fn.value(completion_msg, self)]
-        self._bufnum = self._num_frames = self._num_channels = None
+        self._bufnum = self._frames = self._channels = None
         self._sample_rate = self._path = self._start_frame = None
         return msg
 
@@ -554,15 +556,15 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             raise BufferAlreadyFreed('getn_msg')
         return ['b_getn', self._bufnum, index, count]
 
-    def fill(self, start, num_frames, values):
+    def fill(self, start, frames, values):
         if self._bufnum is None:
             raise BufferAlreadyFreed('fill')
-        self._server.send_msg(*self.fill_msg(start, num_frames, *values))
+        self._server.send_msg(*self.fill_msg(start, frames, *values))
 
-    def fill_msg(self, start, num_frames, *values):
+    def fill_msg(self, start, frames, *values):
         if self._bufnum is None:
             raise BufferAlreadyFreed('fill_msg')
-        return ['/b_fill', self._bufnum, start, int(num_frames), *values]  # *** NOTE: puede enviar más values que frames, ignora el servidor, los checks de tipos y valores en estas clases son raros.
+        return ['/b_fill', self._bufnum, start, int(frames), *values]  # *** NOTE: puede enviar más values que frames, ignora el servidor, los checks de tipos y valores en estas clases son raros.
 
 
     ### Gen commands ###
@@ -714,12 +716,11 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         if self._bufnum is None:
             raise BufferAlreadyFreed('query')
         if action is None:
-            def action(addr, bufnum, num_frames,
-                            num_channels, sample_rate):
+            def action(addr, bufnum, frames, channels, sample_rate):
                 _logger.info(
                     f'bufnum: {bufnum}\n'
-                    f'num_frames: {num_frames}\n'
-                    f'num_channels: {num_channels}\n'
+                    f'frames: {frames}\n'
+                    f'channels: {channels}\n'
                     f'sample_rate: {sample_rate}')  # *** BUG: o estos son print? Lo mismo pasa con s.query_tree().
 
         def resp_func(msg, *_):
@@ -771,8 +772,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             def resp_func(msg, *_):
                 try:
                     buffer = cls._server_caches[server][msg[1]]
-                    buffer._num_frames = msg[2]
-                    buffer._num_channels = msg[3]
+                    buffer._frames = msg[2]
+                    buffer._channels = msg[3]
                     buffer._sample_rate = msg[4]
                     buffer._query_done()
                 except KeyError:
@@ -816,8 +817,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     def __repr__(self):
         return (
-            f'{type(self).__name__}({self._bufnum}, {self._num_frames}, '
-            f'{self._num_channels}, {self._sample_rate}, {self._path})')
+            f'{type(self).__name__}({self._bufnum}, {self._frames}, '
+            f'{self._channels}, {self._sample_rate}, {self._path})')
 
     # *loadDialog # No builtin gui.
 
@@ -849,31 +850,31 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
 import struct
 
-def _wave_header(num_frames, num_channels, sample_rate):
+def _wave_header(frames, channels, sample_rate):
     return (
         b'RIFF' +
-        struct.pack('<L', num_frames + 36) +  # Remaining size
+        struct.pack('<L', frames + 36) +  # Remaining size
         b'WAVE' +
         # Format chunk.
         b'fmt ' +
         struct.pack('<L', 16) +  # Size
         struct.pack('<H', 3) +  # IEEE float PCM
-        struct.pack('<H', num_channels) +
+        struct.pack('<H', channels) +
         struct.pack('<L', sample_rate) +
-        struct.pack('<L', 4 * sample_rate * num_channels) +
-        struct.pack('<H', 4 * num_channels) +
+        struct.pack('<L', 4 * sample_rate * channels) +
+        struct.pack('<H', 4 * channels) +
         struct.pack('<H', 32) +
         # Data chunk
         b'data' +
-        struct.pack('<L', 4 * num_frames * num_channels)  # Size
+        struct.pack('<L', 4 * frames * channels)  # Size
     )
 
 def _write_wave_file(path, data, sample_rate):
     # data is [ch1[float, float, ...], ch2[], ...]
     with open(path, 'w+b') as file:
-        num_channels = len(data)
-        fmt = '<' + 'f' * num_channels
-        file.write(_wave_header(len(data[0]), num_channels, sample_rate))
+        channels = len(data)
+        fmt = '<' + 'f' * channels
+        file.write(_wave_header(len(data[0]), channels, sample_rate))
         for frame in zip(*data):
             file.write(struct.pack(fmt, *frame))
 
@@ -881,9 +882,9 @@ def _read_wave_file(path):
     ret = []
     with open(path, 'r+b') as file:
         file.seek(22)
-        num_channels = struct.unpack('<H', file.read(2))[0]
-        fmt = '<' + 'f' * num_channels
-        size = 4 * num_channels
+        channels = struct.unpack('<H', file.read(2))[0]
+        fmt = '<' + 'f' * channels
+        size = 4 * channels
 
         # b'fmt ' chunk length
         file.seek(16)

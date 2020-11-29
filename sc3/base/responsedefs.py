@@ -98,7 +98,7 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
             self.active[key].remove(func)
         del self.wrapped_funcs[func_proxy]
         if len(self.active) == 0:
-            self.unregiter()
+            self.unregister()
 
     def update_func_for_func_proxy(self, func_proxy):
         func = self.wrap_func(func_proxy)
@@ -194,7 +194,7 @@ class AbstractResponderFunc(ABC):
         self.func = None
 
     @classmethod
-    def all_func_proxies(cls):
+    def _all_func_proxies(cls):
         result = dict()
         for func_proxy in cls._all_func_proxies:
             key = func_proxy.dispatcher.type_key()

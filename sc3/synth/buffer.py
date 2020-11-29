@@ -675,7 +675,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         return ['/b_gen', self._bufnum, 'cheby', oflags, *amps]
 
     def copy_data(self, dst_buffer, dst_start=0, start=0,
-                  num_sapmles=-1, action=None):
+                  num_samples=-1, action=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('copy_data')
 

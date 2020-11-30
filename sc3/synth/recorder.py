@@ -113,7 +113,7 @@ class Recorder():
                 f'already recording from bus {self._bus} '
                 f'({self._duration} seconds)')
             return
-        n = bus.num_channels
+        n = bus.channels
         if num_channels is not None:  # and n is not None:
             n = min(num_channels, n)
         self.record(path, bus.index, n, node, duration)

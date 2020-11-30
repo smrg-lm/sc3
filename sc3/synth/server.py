@@ -1062,12 +1062,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     # TODO
 
     def input_bus(self):  # utility
-        return bus.Bus(
-            'audio', self.options.input_channels,
+        return bus.AudioBus(
+            self.options.input_channels,
             self, self.options.output_channels)
 
     def output_bus(self):  # utility
-        return bus.Bus('audio', self.options.output_channels, self, 0)
+        return bus.AudioBus(self.options.output_channels, self, 0)
 
 
     ### Node parameter interface ###

@@ -135,13 +135,13 @@ class Node(gpp.NodeParameter):
                 kr_values.extend([
                     gpp.node_param(control)._as_control_input(),
                     bus.index,
-                    bus.num_channels
+                    bus.channels
                 ])
             elif bus.rate == 'audio':
                 ar_values.extend([
                     gpp.node_param(control)._as_control_input(),
                     bus.index,
-                    bus.num_channels
+                    bus.channels
                 ])
             # // no default case, ignore others
         if len(kr_values) > 0:

@@ -71,8 +71,9 @@ class Volume():
     @num_channels.setter
     def num_channels(self, value):
         if self._amp_synth is not None and value != self.num_channels:
-            _logger.warning('Change in number of channels will not take '
-                            'effect until gain is reset to 0dB')
+            _logger.warning(
+                'Change in number of channels will not take '
+                'effect until gain is reset to 0dB')
         else:
             self._num_channels = value
 

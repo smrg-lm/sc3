@@ -37,7 +37,8 @@ class BufferAlreadyFreed(BufferException):
 class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     _server_caches = dict()
 
-    def __init__(self, frames=1024, channels=1, server=None, bufnum=None):
+    def __init__(self, frames=1024, channels=1, server=None, bufnum=None,
+                 *, alloc=True, completion_msg=None):
         super(gpp.UGenParameter, self).__init__(self)
         # // Doesn't send.
         self._server = server or srv.Server.default
@@ -52,6 +53,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         self._start_frame = None
         self._do_on_info = None
         self._cache()
+        if alloc:
+            self.alloc(completion_msg)
 
     @property
     def frames(self):
@@ -87,15 +90,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             raise ValueError('duration parameters (frames/sr) not initialized')
         return self._frames / self._sample_rate
 
-    ### Constructors ###
 
-    @classmethod
-    def new_alloc(cls, frames=1024, channels=1, server=None,
-                  bufnum=None, completion_msg=None):
-        obj = cls(frames, channels, server, bufnum)
-        obj.alloc(completion_msg)
-        # obj._cache() # BUG: sclang dos veces porque alloc_msg llama this.cache. Además, cache() solo registra el servidor en el diccionario y el responder para '/b_info' que no se usa en los constructores. Acá se llama solamente en __init__.
-        return obj
+    ### Specialized Constructors ###
 
     @classmethod
     def new_consecutive(cls, num_bufs=1, frames=1024, channels=1,
@@ -106,7 +102,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             buf_base = bufnum
         buf_list = []
         for i in range(num_bufs):
-            new_buf = cls(frames, channels, server, buf_base + i)
+            new_buf = cls(frames, channels, server, buf_base + i, alloc=False)
             server.send_msg(
                 '/b_alloc', buf_base + i, frames,
                 channels, fn.value(completion_msg, new_buf, i))
@@ -119,7 +115,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                  bufnum=None, action=None):
         # // read whole file into memory for PlayBuf etc.
         # // Adds a query as a completion message.
-        obj = cls(None, None, server, bufnum)
+        obj = cls(None, None, server, bufnum, alloc=False)
         obj._do_on_info = action
         # obj._cache() # NOTE: __init__ llama a _cache
         obj.alloc_read(
@@ -129,14 +125,14 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     @classmethod
     def new_read_no_update(cls, path, start_frame=0, frames=-1, server=None,
                            bufnum=None, completion_msg=None):
-        obj = cls(None, None, server, bufnum)
+        obj = cls(None, None, server, bufnum, alloc=False)
         obj.alloc_read(path, start_frame, frames, completion_msg)
         return obj
 
     @classmethod
     def new_read_channel(cls, path, start_frame=0, frames=-1, channels=None,
                          server=None, bufnum=None, action=None):
-        obj = cls(server, None, None, bufnum)
+        obj = cls(server, None, None, bufnum, alloc=False)
         obj._do_on_info = action
         obj.alloc_read_channel(
             path, start_frame, frames, channels,
@@ -186,7 +182,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def new_send_list(cls, lst, channels=1, server=None, wait=-1, action=None):  # Was send_collection
         # // Send a Collection to a buffer one UDP sized packet at a time.
         lst = list(array.array('f', lst))  # Type check & cast.
-        buffer = cls(server, bi.ceil(len(lst) / channels), channels)
+        buffer = cls(
+            server, bi.ceil(len(lst) / channels), channels, alloc=False)
         # It was forkIfNeeded, can't be implemented in Python because
         # yield statment scope is different. The check for need was:
         # if isinstance(_libsc3.main.current_tt, Routine). Always fork here

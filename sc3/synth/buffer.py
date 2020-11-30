@@ -37,7 +37,7 @@ class BufferAlreadyFreed(BufferException):
 class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     _server_caches = dict()
 
-    def __init__(self, frames=None, channels=None, server=None, bufnum=None):
+    def __init__(self, frames=1024, channels=1, server=None, bufnum=None):
         super(gpp.UGenParameter, self).__init__(self)
         # // Doesn't send.
         self._server = server or srv.Server.default
@@ -49,7 +49,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         self._channels = channels
         self._sample_rate = self._server._status_watcher.sample_rate
         self._path = None
-        self.__frame = None
+        self._start_frame = None
         self._do_on_info = None
         self._cache()
 
@@ -70,16 +70,16 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         return self._bufnum
 
     @property
+    def path(self):
+        return self._path
+
+    @property
     def start_frame(self):
         return self._start_frame
 
     @property
     def sample_rate(self):
         return self._sample_rate
-
-    @property
-    def path(self):
-        return self._path
 
     @property
     def duration(self):

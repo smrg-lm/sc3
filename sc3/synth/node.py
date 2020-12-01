@@ -120,9 +120,9 @@ class Node(gpp.NodeParameter):
     def map(self, *args):
         bundle = self.map_msg(*args)
         if isinstance(bundle[0], str):
-            self.server.send_bundle(None, bundle)
+            self.server.send_bundle(0, bundle)
         else:
-            self.server.send_bundle(None, *bundle)
+            self.server.send_bundle(0, *bundle)
 
     def map_msg(self, *args):
         kr_values = []

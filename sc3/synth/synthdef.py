@@ -17,6 +17,8 @@ from . import ugen as ugn
 from . import server as srv
 from . import synthdesc as sdc
 from . import _fmtrw as frw
+from . import _graphparam as gpp
+from . import node as nod
 from .ugens import inout as iou
 from .ugens import fftunpacking as ffu
 
@@ -140,6 +142,9 @@ class SynthDef(metaclass=MetaSynthDef):
         self._width_first_ugens = []
         self._rewrite_in_progress = False
 
+        # callable interface
+        # self._callable_args = None
+
         self._build(func, rates or [], prepend or [])
 
     def _build(self, func, rates, prepend):
@@ -200,6 +205,7 @@ class SynthDef(metaclass=MetaSynthDef):
             raise TypeError('func argument is not a function')
 
         sig = inspect.signature(func)
+        self._callable_args = list(sig.parameters.keys())
         params = list(sig.parameters.values())
 
         if not params:
@@ -850,6 +856,14 @@ class SynthDef(metaclass=MetaSynthDef):
     # can_release_synth Is used by GraphBuilder.sc for automatic outputs
     # creation (e.g. in {}.play) with *wrapOut in Function-asSynthDef.
     # hasGateControl Used in canReleaseSynth.
+
+    def __call__(self, *args, target=None, add_action='addToHead',
+                 register=False, **kwargs):
+        # NOTE: kwargs can duplicate args.
+        arg_list = [v for p in zip(self._callable_args, args) for v in p]
+        arg_list += [v for p in kwargs.items() for v in p]
+        with gpp.node_param(target)._as_target().server.bind():
+            return nod.Synth(self.name, arg_list, target, add_action, register)
 
 
 ### Decorator syntax ###

@@ -202,19 +202,21 @@ class Node(gpp.NodeParameter):
         return ['/n_fill', self.node_id, cname, num_controls, value]\
             + gpp.node_param(args)._as_control_input() # 17
 
-    def release(self, release_time=None):
-        self.server.send_msg(*self.release_msg(release_time))
+    def release(self, time=None):
+        # Sends a bundle so it can be used as
+        # counterpart of SynthDef__call__.
+        self.server.send_bundle(0, self.release_msg(time))
 
-    def release_msg(self, release_time=None):
+    def release_msg(self, time=None):
         # // assumes a control called 'gate' in the synth
-        if release_time is not None:
-            if release_time <= 0:
-                release_time = -1
+        if time is not None:
+            if time <= 0:
+                time = -1
             else:
-                release_time = -(release_time + 1)
+                time = -(time + 1)
         else:
-            release_time = 0
-        return ['/n_set', self.node_id, 'gate', release_time] # 15
+            time = 0
+        return ['/n_set', self.node_id, 'gate', time] # 15
 
     def trace(self):
         self.server.send_msg('/n_trace', self.node_id) # 10

@@ -240,7 +240,7 @@ class NetAddr():
 
 class BundleNetAddr(NetAddr):
     # Important difference: This class is a context manager. forkIfNeeded
-    # can't be implemented, addr.sync() use it in sclang. Here sync calls are
+    # can't be implemented, addr.sync() uses it in sclang. Here sync calls are
     # handled different doing yield from directly within the with statement.
     # I don't see a significant difference with sending all sync messages
     # together at the end.

@@ -42,7 +42,7 @@ n.set('amp', 0.05)
 n.set('freq', 550)
 ```
 ```python
-s.query_tree(True)
+s.dump_tree(True)
 ```
 ```python
 n.release()

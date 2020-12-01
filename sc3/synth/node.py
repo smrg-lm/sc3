@@ -417,26 +417,44 @@ class AbstractGroup(Node):
     def deep_free_msg(self):
         return ['/g_deepFree', self.node_id] # 50
 
-    # // Introspection
+    def dump_tree(self, controls=False):
+        '''
+        Ask the server to dump this node tree to stdout.
 
-    def dump_tree(self, post_controls=False):
-        self.server.send_msg('/g_dumpTree', self.node_id, int(post_controls))
+        Parameters
+        ----------
+        controls: bool
+            If `True` also print synth controls with current values.
+        '''
 
-    def query_tree(self, query_controls=False, timeout=3):
+        self.server.send_msg('/g_dumpTree', self.node_id, int(controls))
+
+    def query_tree(self, controls=False, action=None, timeout=3):
+        '''
+        Query the groups's node tree.
+
+        Parameters
+        ----------
+        controls: bool
+            If `True` also request synth controls values.
+        action: function
+            A responder function that receives the data in JSON format.
+        timeout: int | float
+            Request timeout in seconds.
+        '''
+
         done = False
 
         def resp_func(msg, *_):
+            print_controls = bool(msg[1])
+            key_name = f'Group({msg[2]})'
+            outdct = dict()
+            outdct[key_name] = dict()
             i = 2
-            tabs = 0
-            if msg[1] != 0:
-                print_controls = True
-            else:
-                print_controls = False
-            outstr = f'NODE TREE Group {msg[2]}\n'
+
             if msg[3] > 0:
-                def dump_func(num_children):
-                    nonlocal i, tabs, outstr
-                    tabs += 1
+                def dump_func(outdct, num_children):
+                    nonlocal i
                     for _ in range(num_children):
                         if msg[i + 1] >= 0:
                             i += 2
@@ -444,31 +462,31 @@ class AbstractGroup(Node):
                             if print_controls:
                                 i += msg[i + 3] * 2 + 1
                             i += 3
-                        outstr += '   ' * tabs + f'{msg[i]}' # // nodeID
+                        node_id = f'{msg[i]}'
                         if msg[i + 1] >= 0:
-                            outstr += ' group\n'
+                            key_name = f'Group({node_id})'
+                            outdct[key_name] = dict()
                             if msg[i + 1] > 0:
-                                dump_func(msg[i + 1])
+                                dump_func(outdct[key_name], msg[i + 1])
                         else:
-                            outstr += f' {msg[i + 2]}\n' # // defname
+                            key_name = f'Synth({node_id}, {msg[i + 2]})'
+                            outdct[key_name] = dict()
                             if print_controls:
-                                if msg[i + 3] > 0:
-                                    outstr += ' ' + '   ' * tabs
                                 j = 0
                                 for _ in range(msg[i + 3]):
-                                    outstr += ' '
-                                    if type(msg[i + 4 + j]) is str:
-                                        outstr += f'{msg[i + 4 + j]}: '
-                                    outstr += f'{msg[i + 5 + j]}'
+                                    outdct[key_name][f'{msg[i + 4 + j]}'] =\
+                                        msg[i + 5 + j]
                                     j += 2
-                                outstr += '\n'
-                    tabs -= 1
 
-                dump_func(msg[3])
+                dump_func(outdct[key_name], msg[3])
 
-            print(outstr)
             nonlocal done
             done = True
+
+            if action:
+                fn.value(action, outdct)
+            else:
+                self._pretty_tree(outdct)
 
         resp = rdf.OscFunc(resp_func, '/g_queryTree.reply', self.server.addr)
         resp.one_shot()
@@ -480,8 +498,19 @@ class AbstractGroup(Node):
                     f"server '{self.server.name}' failed to respond "
                     f"to '/g_queryTree' after {timeout} seconds")
 
-        self.server.send_msg('/g_queryTree', self.node_id, int(query_controls))
+        self.server.send_msg('/g_queryTree', self.node_id, int(controls))
         clk.SystemClock.sched(timeout, timeout_func)
+
+    def _pretty_tree(self, d, indent=0, tab=2):
+        for key, value in d.items():
+            _logger.info(' ' * tab * indent + str(key))
+            if key.startswith('Synth'):
+                log = ' ' * tab * (indent + 1)
+                for k, v in value.items():
+                    log += f'{k}: {v} '
+                _logger.info(log)
+            elif isinstance(value, dict):
+                self._pretty_tree(value, indent+1)
 
     @staticmethod
     def creation_cmd():

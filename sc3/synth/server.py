@@ -1051,11 +1051,22 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     # /* CmdPeriod support for Server-scope and Server-record and Server-volume */
     # TODO
 
-    def query_tree(self, query_controls=False, timeout=3):
-        if self._is_local and self._pid is not None:  # Also needs stdout access.
-            nod.RootNode(self).dump_tree(query_controls)
-        else:
-            nod.RootNode(self).query_tree(query_controls, timeout)
+    def dump_tree(self, controls=False):
+        '''
+        Ask the server to dump its node tree to stdout.
+
+        Parameters
+        ----------
+        controls: bool
+            If `True` also print synth controls with current values.
+        '''
+
+        if not self._is_local:
+            _logger.info(f'server {self.name} is not local')
+        elif self._pid is None:
+            _logger.info(f'server {self.name} is not running')
+            return
+        nod.RootNode(self).dump_tree(controls)  # Also needs stdout access.
 
     # L1315
     # funciones set/getControlBug*

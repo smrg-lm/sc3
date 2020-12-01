@@ -718,7 +718,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                     f'bufnum: {bufnum}\n'
                     f'frames: {frames}\n'
                     f'channels: {channels}\n'
-                    f'sample_rate: {sample_rate}')  # *** BUG: o estos son print? Lo mismo pasa con s.query_tree().
+                    f'sample_rate: {sample_rate}')
 
         def resp_func(msg, *_):
             fn.value(action, *msg)

@@ -28,10 +28,6 @@ class Rest(opd.Operand):
         # unwrapBoolean
         return self.value
 
-    # In sclang: \, \r, \rest, Rest and Rest() are rest values for any
-    # key stream, also (type: \rest) and (isRest: true) at event level.
-    # SEE: "event support" with asControlInput, playAndDelta & isRest.
-
 
 def silent(dur=1.0, inevent=None):
     if inevent is None:
@@ -427,9 +423,6 @@ class ServerKeys(PartialEvent):
 
     @keyfunction
     def group(self):
-        # BUG: *** en NodeEvents.sc está definido como:
-        # BUG: *** this.parent = Event.parentEvents[\groupEvent] y retorna self.
-        # BUG: *** PERO SÍ SE LLAMA LA LLAVE CON e[\group] O ~group en 'note'!
         if 'group' in self:
             return self['group']
         else:
@@ -445,12 +438,6 @@ class ServerKeys(PartialEvent):
             return self['send_gate']
         else:
             return self('has_gate')
-
-    # Reemplazar (nombre) get_msg_func, msg_func, SynthDesc msg_func por una
-    # función que devuelva simplemente una lista de los nombres de los
-    # argumentos (menos gate?). El problema también es que las llaves están
-    # repartidas.
-    # msg_func = self.server.msg_func
 
     def _get_msg_params(self):  # Was get_msg_func
         msg_params = self('msg_params')
@@ -482,8 +469,6 @@ class ServerKeys(PartialEvent):
                 'pan', self('pan'), 'out', self('out')]
 
     def _synthdef_name(self):
-        # # // allow `nil to cancel a variant in a pattern # BUG: no entiendo por qué no alcanza solamente con nil en sclang.
-        # variant = variant.dereference;
         if self('variant') is not None\
         and self('synth_desc') is not None\
         and self('synth_desc').has_variants():
@@ -491,9 +476,6 @@ class ServerKeys(PartialEvent):
         else:
             return self('instrument')
 
-    # *** NOTE: Ver notas en event.py y pasar las necesarias.
-    # BUG: lag y offset pierden el tiempo lógico del tt que llama, en esta implementación,
-    # BUG: al hacer sched de una Function u otra Routine, ver para qué sirven.
     # def _sched_bundle(self, lag, offset, server, msg, latency=None):
     #     # // "lag" is a tempo independent absolute lag time (in seconds)
     #     # // "offset" is the delta time for the clock (usually in beats)
@@ -547,20 +529,6 @@ class NoteEvent(EventType, partial_events=(
                 ['/n_set', node_id, 'gate', 0])
 
         self['is_playing'] = True
-
-        # *** BUG: In scsynth, sub-bundles time is intepreted a both cmd and
-        # timetag throwing "FAILURE IN SERVER:  Command not found".
-        # elements = []
-        # on_msg = ['/s_new', instrument, node_id, add_action, group]
-        # on_msg.extend(param_list)
-        # on_msg = gpp.node_param(on_msg)._as_osc_arg_list()
-        # elements.append(on_msg)
-        # if self('send_gate'):
-        #     elements.append(  # off_bndl
-        #         [server.latency + self('sustain'), ['/n_set', node_id, 'gate', 0]])  # *** Not using latency key.
-        # # *** BUG: socket.sendto and/or threading mixin use too much cpu.
-        # server.send_bundle(server.latency, *elements)  # *** Not using latency key.
-        # self['is_playing'] = True
 
 
 class _MonoOnEvent(EventType, partial_events=(

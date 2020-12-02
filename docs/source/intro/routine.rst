@@ -131,6 +131,56 @@ capabilities).
 Streams
 -------
 
-.. TODO
+Streams are the counter part of Python's generators iterators but in a
+SuperCollider way. Routines are the most commonly used stream but not all
+streams are routines.
 
-Streams are the counter part of Python's generators iterators.
+Streams support mathematical operations and behave, in concept, in a similar
+way to signals represented by :term:`ugens`. In the next example, the routine
+object ``r`` is transposed by ``2`` and creates a
+:class:`sc3.base.stream.BinaryOpStream`, the stream resulting from applying the
+binary operator ``+``.
+
+::
+
+  @routine
+  def r():
+      for i in range(12):
+          yield i
+
+  t = r + 60
+  next(t)  # 60
+  next(t)  # 61
+
+Special `builtin` methods like :meth:`sc3.AbstractObject.midicps` also apply
+to streams.
+
+::
+
+  t = t.midicps()
+  next(t)  # MIDI note 63 is ca. 293.6647 Hz.
+
+
+Random numbers
+--------------
+
+Each :class:`sc3.base.stream.Routine` instance has a random number generator,
+by default is inherited from its parent routine (or the main time thread) but
+random seeds can be changed per routine object. To make use of this
+functionality its necessary to use the `builtin` random functions or methods
+which are aware of routines.
+
+::
+
+  @routine
+  def r():
+      while True:
+          yield bi.rrand(48, 60)
+
+  next(r)  # A random number.
+  r.rand_seed = 12345
+  next(r)  # First number.
+  next(r)  # Second number.
+  r.rand_seed = 12345
+  next(r)  # Same first.
+  next(r)  # Same second.

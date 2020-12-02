@@ -50,6 +50,7 @@ class TimeThread():
         self._m_seconds = 0.0
         self._clock = None
         self._thread_player = None
+        self._rand_seed = None
         self._rgen = _libsc3.main.current_tt._rgen
 
     def __copy__(self):
@@ -86,9 +87,20 @@ class TimeThread():
     def thread_player(self, player):
         self._thread_player = player
 
+    @property
+    def rand_seed(self):
+        '''Random seed of the routine.
+
+        By default, Routine's random generators are inherited
+        from the parent routine and only change when seeded.
+        '''
+        return self._rand_seed
+
+    @rand_seed.setter
     def rand_seed(self, x):
         # Routine's rgen are inherited from parent and
-        # only changed when seeded. Use sc3.random.
+        # only changed when seeded. Use sc3.builtins.
+        self._rand_seed = x
         self._rgen = random.Random(x)
 
     @property
@@ -129,6 +141,11 @@ class _MainTimeThread(TimeThread):
     def _rgen(self):  # override
         return _libsc3.main._m_rgen
 
+    @property
+    def rand_seed(self):  # override
+        pass
+
+    @rand_seed.setter
     def rand_seed(self, x):  # override
         pass
 

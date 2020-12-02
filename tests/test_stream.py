@@ -7,6 +7,7 @@ from sc3.base.stream import (
     Routine, routine, StopStream, PausedStream, AlwaysYield,
     YieldAndReset, Condition, FlowVar)
 from sc3.base.clock import TempoClock, defer
+from sc3.base.builtins import rrand
 
 sc3.init()
 
@@ -242,8 +243,19 @@ class RoutineTestCase(unittest.TestCase):
 
         barrier.wait()
 
-    # def test_rgen(self):
-    #     ...
+    def test_rgen(self):
+        @routine
+        def r():
+            while True:
+                yield rrand(0, 127)
+
+        r.rand_seed = 123
+        a = next(r)
+        b = next(r)
+        self.assertEqual(r.rand_seed, 123)
+        r.rand_seed = 123
+        self.assertEqual(next(r), a)
+        self.assertEqual(next(r), b)
 
 
 if __name__ == '__main__':

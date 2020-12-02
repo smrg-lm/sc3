@@ -30,7 +30,7 @@ class MetaSystemDefs(type):
         cls._tmp_def_count %= cls.MAX_TMP_DEF_NAMES
         return name
 
-    def add_sdef(cls, name):
+    def add_synthdef(cls, name):
         sdef = cls._sdefs[name]
         sdef.add()  # Running servers or offline patterns.
         sac.ServerBoot.add('all', lambda server: sdef.add())  # Next boot.

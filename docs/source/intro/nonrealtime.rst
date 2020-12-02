@@ -30,7 +30,7 @@ The following example can be run as command line script:
   from sc3.all_nrt import *
 
   # Load default synthdef.
-  SystemDefs.add_sdef('default')
+  SystemDefs.add_synthdef('default')
 
   @routine
   def r1():
@@ -53,9 +53,9 @@ The following example can be run as command line script:
 Timing in NRT
 -------------
 
-In NRT all commands and messages are synchronous because the mode captures the
-term:`logical time` and create the OSC instructions with the proper
-:term:`timetag`. No server is running and no message is sent, all server
+In NRT all commands and messages are synchronous. The mode runs in
+term:`logical time` and creates the OSC instructions with the proper
+:term:`timetag`. No server is booted and no message is sent, all server
 instructions are stored in an `OSC score` (which is a collection of bundles
 ordered by time) that is later rendered by the command line server program.
 
@@ -67,4 +67,27 @@ time`.
 
 ::
 
-  # Missing Example...
+  from sc3.all_nrt import *
+
+  SystemDefs.add_synthdef('default')
+
+  # Time 0
+  play(midinote=48, sustain=6)
+  play(midinote=55, sustain=6)
+
+  @routine
+  def melo():
+      notes = [65, 64, 62, 63]
+      rhyth = [2, 1, 1, 2]
+      for n, r, in zip(notes, rhyth):
+          play(midinote=n, dur=r, legato=1)
+          yield r
+
+  # Plays at time 0
+  melo.play()
+
+  # Also starts from time 0.
+  play(midinote=60, sustain=6)
+
+  score = main.process(1)
+  score.render('test.aiff')

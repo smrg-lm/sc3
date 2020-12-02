@@ -4,9 +4,9 @@ Server configuration
 ====================
 
 To make use of the library you need to have the SuperCollider server installed.
-The easiest way to download and install the latest release for your platform.
-The Python library will search for the server in the default locations and make
-use of the same platform and user resources and configuration folders.
+The easiest way to do it is to download and install the latest release for your
+platform. The library will search for the server in the default locations and
+make use of the same platform and user resources and configuration folders.
 
 On Linux there are pre-compiled Debian packages and servers can be installed as
 independent programs (useful for SoC platforms).
@@ -121,7 +121,7 @@ local server, and ``register`` to a remote server.
 
 .. note::
 
-  When using booth :term:`sclang` and this library it may happen that an
-  already starter server program is using the default port, if the reference to
+  When using booth :term:`sclang` and this library, it may happen that an
+  already started server program is using the default port, if the reference to
   that server was lost it can be killed from the client with
   ``Platform.killall('supernova')``.

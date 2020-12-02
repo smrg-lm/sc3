@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 class NrtTestCase(unittest.TestCase):
     def test_process(self):
-        SystemDefs.add_sdef('default')
+        SystemDefs.add_synthdef('default')
 
         @routine
         def r1():

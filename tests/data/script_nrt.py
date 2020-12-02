@@ -10,7 +10,7 @@ prefix = 'script_nrt FAILED:'
 if args.script_arg != 'TEST_ARG_VALUE':
     sys.exit(f'{prefix}: TEST_ARG_VALUE')  # Fist test.
 
-SystemDefs.add_sdef('default')
+SystemDefs.add_synthdef('default')
 
 @routine.run()
 def r():

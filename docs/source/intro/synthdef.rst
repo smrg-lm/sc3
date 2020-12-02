@@ -69,10 +69,96 @@ internally converted to basic types.
 Synthesis nodes
 ---------------
 
+The :class:`SynthDef<sc3.synth.synthdef.SynthDef>` implements the callable
+interface to simplfy node creation without sacrificing functionality. In
+sc3 it is possible to create a synth node as follows:
+
+::
+
+  @synthdef
+  def sine(freq=440, amp=0.1, pan=0, gate=1):
+      sig = SinOsc(freq) * amp
+      env = EnvGen(Env.asr(), gate)
+      FreeSelfWhenDone(env)
+      Out(0, Pan2(sig * env, pan))
+
+  x = sine(220, pan=-0.5)
+  x.release()
+
+The SynthDef object represents the composed synthesis function and accept
+positional or keyword arguments as defined by the graph (``sine``) function.
+This interface also sends the message in a bundle so it can be used within
+routines and keep perfect timing.
+
+In addition to the arguments of the function it is also possible to pass the
+parameters of :class:`Synth<sc3.seq.node.Synth>`, ``target``, ``add_action``
+and ``register``. For example:
+
+::
+
+  g = Group()
+  x = sine(target=g)
+
 
 Multichannel expansion
 ----------------------
 
+List perform multichannel expansion as usual:
+
+::
+
+  x = play(lambda: SinOsc([220, 330, 660]).sum() * 0.01)
+  x.free()
+
+Tuples, as basic Python's data structures, have a special meaning when using
+them to construct synthdefs, they define lists of values as a single value
+to prevent multichannel expansion when necessary. For example, to specify
+vector arguments.
+
+::
+
+  @synthdef
+  def multi(freq=(220, 330, 550), amp=0.1):
+      sig = SinOsc(freq) * [0.25, 0.5, 0.3] * amp
+      Out(0, Mix(sig).dup())
+
+  x = multi()
+  x.set('freq', [110, 111, 112])
+  x.free()
+
 
 Rates
 -----
+
+:class:`SynthDef<sc3.synth.SynthDef>` parameters rate is implemented as type
+annotations. Annotating the parameter with the strings ``'ar'``, ``'kr'``,
+``'ir'`` or ``'tr'`` will create the appropriate rate for control ugens and
+number, as annotation, will create lag controls. It is also possible directly
+use the class instead of the decorator with all original parameters.
+
+::
+
+  @synthdef
+  def sine(out=0, freq=440, amp=0.1, trig:'tr'=1):
+      sig = SinOsc(freq) * amp
+      env = EnvGen(Env.perc(0.02, 2), trig)
+      Out(out, sig * env)
+
+  @synthdef
+  def cheaptrem(sig:'ar'=0, freq:'ir'=4, amp:'kr'=1):
+      sig = In(sig)
+      ctl_pan = SinOsc.kr(freq)
+      ctl_amp = ctl_pan.range(0, 1) * amp
+      Out(0, Pan2(sig * ctl_amp, ctl_pan))
+
+  g = Group()
+  b = AudioBus()
+
+  fx = cheaptrem(b, target=g)
+  x = sine(b, target=g, add_action='head')
+
+  x.set('trig', 1)
+  x.set('trig', 1)
+
+  x.free()
+  fx.free()

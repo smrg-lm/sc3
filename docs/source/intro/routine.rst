@@ -136,8 +136,8 @@ SuperCollider way. Routines are the most commonly used stream but not all
 streams are routines.
 
 Streams support mathematical operations and behave, in concept, in a similar
-way to signals represented by :term:`ugens`. In the next example, the routine
-object ``r`` is transposed by ``2`` and creates a
+way to signals represented by :term:`ugens<ugen>`). In the next example, the
+routine object ``r`` is transposed by ``2`` and creates a
 :class:`sc3.base.stream.BinaryOpStream`, the stream resulting from applying the
 binary operator ``+``.
 

@@ -1,6 +1,7 @@
 
 import logging
 
+from ...base import utils as utl
 from .. import ugen as ugn
 from .. import _graphparam as gpp
 from . import line as lne
@@ -18,9 +19,9 @@ class Mix(ugn.PseudoUGen):
         for item in reduced_lst:
             length = len(item)
             if length == 4:
-                mixed_lst.append(Sum4.new(*item))
+                mixed_lst.append(ugn.Sum4.new(*item))
             elif length == 3:
-                mixed_lst.append(Sum3.new(*item))
+                mixed_lst.append(ugn.Sum3.new(*item))
             else:
                 mixed_lst.append(utl.list_sum(item))
         if len(mixed_lst) < 3:
@@ -48,8 +49,9 @@ class Mix(ugn.PseudoUGen):
         # // 'rate' on an array returns the fastest rate
         # // ('audio' takes precedence over 'control' over 'scalar')
         if gpp.ugen_param(lst)._as_ugen_rate() == 'audio':
-            _logger.warning('audio rate input(s) to Mix.kr will '
-                            'result in signal degradation')
+            _logger.warning(
+                'audio rate input(s) to Mix.kr will '
+                'result in signal degradation')
             for i, item in enumerate(lst[:]):
                 rate = gpp.ugen_param(item)._as_ugen_rate()
                 if rate == 'audio':

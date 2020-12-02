@@ -91,3 +91,40 @@ time`.
 
   score = main.process(1)
   score.render('test.aiff')
+
+On the other hand, routines started within another routines will use the
+current logical time of the containing routine.
+
+::
+
+  from sc3.all_nrt import *
+
+  SystemDefs.add_synthdef('default')
+
+  # Use tempo to play.
+  clock = TempoClock(10)
+
+  def melo():
+      notes = Pwalk(
+          [60, 62, 64, 67, 70, 72],
+          Prand(range(-1, 3), 4)
+      )
+      for n in notes:
+          play(midinote=n)
+          yield 1
+
+  @routine
+  def texture():
+      for i in range(20):
+          # Start one after another 20 times.
+          Routine(melo).play(clock)
+          yield 2 + bi.choice([1, 0.5, 0.25])
+
+  texture.play(clock)
+  score = main.process(1)
+  score.render('test.aiff')
+
+.. note:
+
+  There are more easy ways to do sequences with patterns which are not covered
+  here.

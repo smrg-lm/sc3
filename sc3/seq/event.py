@@ -507,6 +507,8 @@ class NoteEvent(EventType, partial_events=(
     is_playing = False
 
     def play(self):  # NOTE: No server parameter.
+        # NOTE: Later, if events are not for storing data there
+        # is no need to update its fields. I haven't decided yet.
         self['freq'] = self._detuned_freq()  # Before _get_msg_params.
         param_list = self._get_msg_params()  # Populates synth_desc.
         self['instrument'] = instrument = self._synthdef_name()

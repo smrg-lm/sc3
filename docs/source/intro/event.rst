@@ -40,10 +40,10 @@ events if invoked with keyword only arguments or by passing in a dict object.
 
 ::
 
-  x = play()  # Plays the default NoteEvent, returns the synth object.
-  x = play(midinote=69, dur=3)  # Keyword only arguments
-  x = play({'midinote': 69, 'dur': 3})  # Dictionary
-  x = play({'midinote': 69}, dur=3)  # Mixed (same interface as dict)
+  play()  # Plays the default NoteEvent.
+  play(midinote=69, dur=3)  # Keyword only arguments
+  play({'midinote': 69, 'dur': 3})  # Dictionary
+  play({'midinote': 69}, dur=3)  # Mixed (same interface as dict)
 
 Using ``play`` as the interface makes it easy to use plain Python dictionaries
 as data structures for storing data while also performing default keys lookup

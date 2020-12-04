@@ -13,10 +13,11 @@ pre-compiled as plugins (dynamic libraries) and can't be modified. However,
 they can be combined to create higher level signal processing algorithms that
 perform more complex tasks and this is done by creating synthdefs.
 
-When we define a synthdef using the language we are not creating an object in
-the server but a blueprint that will be sent to the server that in turn will
-use it to create synthesis nodes, which are some kind of higher level unit
-generators. Synthesis definitions are also non modifiable once the blueprint is
+When a synthdef is defined using the language no object is created in the
+server but a blueprint with the instructions to create that object that will be
+sent to the server which in turn will use it to create synthesis nodes.
+Synthesis nodes can be seen as some kind of higher level sound generators
+instances. Synthesis definitions are also non modifiable once the blueprint is
 in the server, although they can be overwritten.
 
 So far, ugens and synthdefs are static elements, in the sense that they can't
@@ -42,21 +43,30 @@ The following example show the process of creating and sending a synthdef.
   sd = SynthDef('sine', sine)
   sd.add()
 
-The ``sine`` function defines the relation between ugens. Then the function is
-passed to the ``SynthDef`` object constructor that receives the name of the
-synthdef as a string and the function. Finally the synthdef is sent to the
-server by calling its ``add`` method.
+The ``sine`` function defines the relations between ugens. Then the function is
+passed to the :class:`SynthDef<sc3.synth.synthdef.SynthDef>` object constructor
+that receives the name of the synthdef as a string and the function. Finally
+the synthdef is sent to the server by calling its ``add`` method.
 
-The ``sine`` function contains a ``SinOsc`` ugen that receives a scalar
+The ``sine`` function contains a
+:class:`SinOsc<sc3.synth.ugens.oscillators.SinOsc>` ugen that receives a scalar
 argument, ``freq``, and its output signal is then multiplied by another scalar,
-``amp``, which create a `mul` ugen, and the the resulting signal is patched to
-the output ugen ``Out``. The resulting server instructions can be seen with the
-following method:
+``amp``, which creates a ``*`` ugen, and the the resulting signal is patched to
+the output ugen :class:`Out<sc3.synth.ugens.inout.Out>`. The resulting server
+instructions can be seen with the following method:
 
 ::
 
   sd.dump_ugens()
 
+Prints:
+
+::
+
+  sine
+  ['0_SinOsc', 'audio', [440, 0.0]]
+  ['1_*', 'audio', ['0_SinOsc', 0.1]]
+  ['2_Out', 'audio', [0, '1_*']]
 
 As the example shows, ugens can be interconnected by either parameters or
 operations, and also methods that represent operations. Basically, the valid
@@ -65,13 +75,24 @@ containing valid types and other ugens. Some ugens may be able to receive other
 object like strings, buses, buffers or special objects but they will be
 internally converted to basic types.
 
+Synthesis definitions can also be written using the decorator function
+:meth:`synthdef<sc3.synth.synthdef.synthdef>` which creates the
+:class:`SynthDef<sc3.synth.synthdef.SynthDef>` instance with the name of the
+function and adds it to the default running server or at the next boot.
+
+::
+
+  @synthdef
+  def mydef():
+      ...
+
 
 Synthesis nodes
 ---------------
 
-The :class:`SynthDef<sc3.synth.synthdef.SynthDef>` implements the callable
-interface to simplfy node creation without sacrificing functionality. In
-sc3 it is possible to create a synth node as follows:
+:class:`SynthDef<sc3.synth.synthdef.SynthDef>` objects implements the callable
+interface to simplify node creation without sacrificing functionality. In
+sc3 it is possible to create a synthesis definition and node as follows:
 
 ::
 
@@ -85,19 +106,19 @@ sc3 it is possible to create a synth node as follows:
   x = sine(220, pan=-0.5)
   x.release()
 
-The SynthDef object represents the composed synthesis function and accept
-positional or keyword arguments as defined by the graph (``sine``) function.
-This interface also sends the message in a bundle so it can be used within
-routines and keep perfect timing.
+The :class:`SynthDef<sc3.synth.synthdef.SynthDef>` object represents the
+composed synthesis function and accept positional or keyword arguments as
+defined by the graph (``sine``) function. This interface also sends the message
+in a bundle so it can be used within routines and keep perfect timing.
 
 In addition to the arguments of the function it is also possible to pass the
-parameters of :class:`Synth<sc3.seq.node.Synth>`, ``target``, ``add_action``
+parameters of :class:`Synth<sc3.synth.node.Synth>`, ``target``, ``add_action``
 and ``register``. For example:
 
 ::
 
   g = Group()
-  x = sine(target=g)
+  x = sine(target=g, add_action='tail')
 
 
 Multichannel expansion
@@ -110,10 +131,10 @@ List perform multichannel expansion as usual:
   x = play(lambda: SinOsc([220, 330, 660]).sum() * 0.01)
   x.free()
 
-Tuples, as basic Python's data structures, have a special meaning when using
-them to construct synthdefs, they define lists of values as a single value
-to prevent multichannel expansion when necessary. For example, to specify
-vector arguments.
+Tuples, as basic Python's data structures, have a special meaning when used to
+construct synthdefs, they define lists of values as a single value to prevent
+multichannel expansion when necessary. For example, to specify vector
+arguments.
 
 ::
 
@@ -132,8 +153,8 @@ Rates
 
 :class:`SynthDef<sc3.synth.SynthDef>` parameters rate is implemented as type
 annotations. Annotating the parameter with the strings ``'ar'``, ``'kr'``,
-``'ir'`` or ``'tr'`` will create the appropriate rate for control ugens and
-number, as annotation, will create lag controls. It is also possible directly
+``'ir'`` or ``'tr'`` will create the appropriate rate for control ugens.
+Numbers, as annotation, will create lag controls. It is also possible directly
 use the class instead of the decorator with all original parameters.
 
 ::

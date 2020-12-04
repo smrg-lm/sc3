@@ -65,6 +65,7 @@ html_theme = 'default'
 html_static_path = ['_static']
 # html_theme = 'sphinx_rtd_theme'
 # html_logo = "images/picture.png"
+# html_theme_options = {}
 
 # -- Extensions configuration_ -----------------------------------------------
 

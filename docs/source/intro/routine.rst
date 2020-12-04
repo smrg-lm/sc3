@@ -14,7 +14,7 @@ Instances of routines are created as shown below, their only argument is a
 function or generator function (a function that define yield statements).
 When its generator iterator is exhausted routines raise a
 :class:`StopStream<sc3.base.stream.StopStream>` exception which is a subclass
-of ``StopIteration``.
+of `StopIteration`.
 
 ::
 

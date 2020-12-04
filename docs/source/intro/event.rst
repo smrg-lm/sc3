@@ -5,19 +5,20 @@
 Events
 ======
 
-The library has the basic support for events and patterns. However it differs
-from the original implementation to keep the basic functionality as simple and
-fast as possible. Because of that, the only user level supported event type is
+The library has basic support for events and patterns. However it differs from
+the original implementation to keep basic functionality as simple and fast as
+possible. Because of that, the only user level supported event type is
 :class:`NoteEvent<sc3.seq.event.NoteEvent>` which has all the keys sets of the
-original 'note' event. Internally are also implemented the event types
-necessary for :class:`PmonoArtic<sc3.seq.patterns.eventpatterns.PmonoArtic>`.
+original 'note' event. The event types necessary for
+:class:`Pmono<sc3.seq.patterns.eventpatterns.Pmono>` are implemented internally
+(with support for `PmonoArtic` integrated through the ``articulate`` argument).
 Nevertheless, it's easy to create new event types in a possible future.
 
 Events are Python dictionaries with extended functionality that mimics the
 SuperCollider `Environment` class, although they are not environments here
-and don't have exactly the same behavior. So, keep that in mind.
+and don't have exactly the same behavior.
 
-Events are created through the :meth:``sc3.seq.event.event`` which in fact is
+Events are created through the :class:`sc3.seq.event.event` which in fact is
 a subclass `dict` with the particularity that event instances are callables to
 implement default key values.
 

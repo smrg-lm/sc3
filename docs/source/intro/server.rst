@@ -50,8 +50,8 @@ Making configuration persistent
 -------------------------------
 
 Default server options can be made persistent by using a startup file located
-at ``Platform.config_dir``. The place to create that file can is returned by
-the following expression:
+at ``Platform.config_dir``. The place to create that file is returned by the
+following expression:
 
 ::
 
@@ -87,27 +87,27 @@ Server usage
 
 Once the server is installed it has to be booted within an interactive session
 or in a script to be ready for receiving synthesis definitions and events. By
-default, a default Server object is instantiated and assigned to a global
-variable ``s`` which is available when importing ``sc3.all``.
+default, a default Server object is instantiated and assigned to the global
+variable ``s`` which is available when importing from ``sc3.all``.
 
 ::
 
   from sc3.all import *
   s.boot()
 
-By default, the server is configured to use the port 57110 and the library uses
-the first available between 57120 and 57129. If there is no port conflict and
-the audio interface is properly configured a message will be displayed
-indication that the server was booted successfully and the client was given an
-id. The server port can be viewed and changed from the ``s.addr`` attribute.
+The server is configured to use the port 57110 and the library uses the first
+available between 57120 and 57129. If there is no port conflict and the audio
+interface is properly configured a message will be displayed indication that
+the server was booted successfully and the client was given an id. The server
+port can be viewed and changed (before booting) from the ``s.addr`` attribute.
 
-To test if it sounds you can try:
+To test if it sounds try:
 
 ::
 
   play()
 
-To test your speakers you can do:
+To test your speakers do:
 
 ::
 
@@ -116,7 +116,7 @@ To test your speakers you can do:
   play(instr='test', out=2)  # Third...
   ...
 
-To quit the server used ``s.quit()``. There are also methods for ``reboot`` the
+To quit the server use ``s.quit()``. There are also methods for ``reboot`` the
 local server, and ``register`` to a remote server.
 
 .. note::

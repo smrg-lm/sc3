@@ -14,7 +14,7 @@ output = os.path.join(root, "docs/source/api")
 sys.path.insert(0, root)
 
 try:
-    apidoc.main(['-f', '-o', output, module])
+    apidoc.main(['-fMe', '-o', output, module])
 except Exception as e:
     print(f"Running `sphinx-apidoc` failed!\n{e}")
 
@@ -58,14 +58,14 @@ master_doc = 'index'
 # a list of builtin themes.
 #
 html_theme = 'default'
+# html_theme = 'sphinx_rtd_theme'
+# html_logo = "images/picture.png"
+# html_theme_options = {}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
-# html_theme = 'sphinx_rtd_theme'
-# html_logo = "images/picture.png"
-# html_theme_options = {}
 
 # -- Extensions configuration_ -----------------------------------------------
 
@@ -74,3 +74,9 @@ html_static_path = ['_static']
 
 # Autodoc. Sort by member type
 autodoc_member_order = 'groupwise'
+
+# Don't show module path for each class.
+add_module_names = False
+
+# Rates section.
+napoleon_custom_sections=['Rates']

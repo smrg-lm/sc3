@@ -205,7 +205,7 @@ class Node(gpp.NodeParameter):
     def release(self, time=None):
         # Sends a bundle so it can be used as
         # counterpart of SynthDef__call__.
-        self.server.send_bundle(0, self.release_msg(time))
+        self.server.send_bundle(self.server.latency, self.release_msg(time))
 
     def release_msg(self, time=None):
         # // assumes a control called 'gate' in the synth

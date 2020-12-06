@@ -73,6 +73,8 @@ class Free(NodeControlUGen):
 
 
 class EnvGen(ugn.UGen):
+    _default_rate = 'control'
+
     @classmethod
     def ar(cls, env, gate=1.0, level_scale=1.0, level_bias=0.0,
            time_scale=1.0, done_action=0):
@@ -81,9 +83,10 @@ class EnvGen(ugn.UGen):
         or an instance of Env.
         '''
         if isinstance(env, evp.Env):
-            env = utl.unbubble(env.envgen_format())  # Was asMultichannelArray.
-        return cls._multi_new('audio', gate, level_scale, level_bias,
-                              time_scale, done_action, env)
+            env = utl.unbubble(env._envgen_format())  # Was asMultichannelArray.
+        return cls._multi_new(
+            'audio', gate, level_scale, level_bias,
+            time_scale, done_action, env)
 
     @classmethod
     def kr(cls, env, gate=1.0, level_scale=1.0, level_bias=0.0,
@@ -93,12 +96,13 @@ class EnvGen(ugn.UGen):
         or an instance of Env.
         '''
         if isinstance(env, evp.Env):
-            env = utl.unbubble(env.envgen_format())  # Was asMultichannelArray.
-        return cls._multi_new('control', gate, level_scale, level_bias,
-                              time_scale, done_action, env)
+            env = utl.unbubble(env._envgen_format())  # Was asMultichannelArray.
+        return cls._multi_new(
+            'control', gate, level_scale, level_bias,
+            time_scale, done_action, env)
 
     @classmethod
-    def _new1(cls, rate, *args):
+    def _new1(cls, rate, *args):  # override
         obj = cls._create_ugen_object(rate)
         obj._add_to_synth()
         args = list(args)
@@ -107,6 +111,32 @@ class EnvGen(ugn.UGen):
 
     # Override may be an optimization in sclang.
     # def _init_ugen(self, inputs)  # override
+
+    def _arg_names_inputs_offset(self):  # override
+        return 1  # One less than sclang.
+
+
+class IEnvGen(ugn.UGen):
+    # // Envelope index generator.
+    _default_rate = 'control'
+
+    @classmethod
+    def ar(cls, env, index):
+        if isinstance(env, evp.Env):
+            env = utl.unbubble(env._interpolation_format())
+        return cls._multi_new('audio', index, env)
+
+    @classmethod
+    def kr(cls, env, index):
+        if isinstance(env, evp.Env):
+            env = utl.unbubble(env._interpolation_format())
+        return cls._multi_new('control', index, env)
+
+    @classmethod
+    def _new1(cls, rate, index, env):  # override
+        obj = cls._create_ugen_object(rate)
+        obj._add_to_synth()
+        return obj._init_ugen(index, *env)
 
     def _arg_names_inputs_offset(self):  # override
         return 1  # One less than sclang.

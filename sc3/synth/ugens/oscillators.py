@@ -236,7 +236,7 @@ class Select(ugn.PureUGenMixin, ugn.UGen):
 
 class SelectX(ugn.PseudoUGen):
     @classmethod
-    def _new1(cls, rate, which, lst, wrap):  # wrap was never implemented (needs to be a proper UGen)
+    def _new1(cls, rate, which, lst, wrap):  # override  # wrap was never implemented (needs to be a proper UGen)
         selector = cls._method_selector_for_rate(rate)
         return getattr(cls._crossfade_class(), selector)(
             getattr(Select, selector)(bi.round(which, 2), lst),

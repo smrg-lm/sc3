@@ -167,7 +167,7 @@ class VarLag(Filter):
         except KeyError:
             curve = warp
         if curve != 1:
-            env = evp.Env([start, input], [time], warp).envgen_format()
+            env = evp.Env([start, input], [time], warp)._envgen_format()
             env = list(env[0])
             env[6] = curve
             env[7] = curvature

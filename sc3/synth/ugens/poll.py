@@ -25,7 +25,7 @@ class Poll(ugn.UGen):
         return input
 
     @classmethod
-    def _new1(cls, rate, trig, input, label, trig_id):
+    def _new1(cls, rate, trig, input, label, trig_id):  # override
         label = label or f'UGen({type(input).__name__})'
         label = [int(x) for x in bytes(label, 'utf-8')]  # *** TODO: sc ascii method
         # label = [x - 256 if x > 127 else x for x in bytes(label, 'utf-8')]  # sclang uses signed, works the same

@@ -42,8 +42,8 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
         self.release_node = release_node
         self.loop_node = loop_node
         self.offset = offset
-        self._envgen_format = None
-        self._interpolation_format = None
+        self.__envgen_format = None
+        self.__interpolation_format = None
 
     # no newClear
     # no kr
@@ -272,9 +272,9 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
             else:
                 return 0
 
-    def envgen_format(self):  # Was asMultichannelArray.
-        if self._envgen_format:  # this.array
-            return self._envgen_format
+    def _envgen_format(self):  # Was asMultichannelArray.
+        if self.__envgen_format:  # this.array
+            return self.__envgen_format
 
         # prAsArray
         levels = gpp.ugen_param(self.levels)._as_ugen_input()
@@ -300,13 +300,13 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
             contents.append(type(self)._shape_number(curves[i % len(curves)]))
             contents.append(type(self)._curve_value(curves[i % len(curves)]))
 
-        self._envgen_format = [tuple(i) for i in utl.flop(contents)]
-        return self._envgen_format
+        self.__envgen_format = [tuple(i) for i in utl.flop(contents)]
+        return self.__envgen_format
 
-    def interpolation_format(self):
+    def _interpolation_format(self):  # Was asArrayForInterpolation.
         '''This version is for IEnvGen which has a special format.'''
-        if self._interpolation_format:
-            return self._interpolation_format
+        if self.__interpolation_format:
+            return self.__interpolation_format
 
         levels = gpp.ugen_param(self.levels)._as_ugen_input()
         times = gpp.ugen_param(self.times)._as_ugen_input()
@@ -328,14 +328,14 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
             contents.append(type(self)._curve_value(curves[i % len(curves)]))
             contents.append(levels[i + 1])
 
-        self._interpolation_format = [tuple(i) for i in utl.flop(contents)]
-        return self._interpolation_format
+        self.__interpolation_format = [tuple(i) for i in utl.flop(contents)]
+        return self.__interpolation_format
 
 
     ### Node parameter interface ###
 
     def _as_control_input(self):
-        return utl.unbubble(self.envgen_format())
+        return utl.unbubble(self._envgen_format())
 
     def _embed_as_osc_arg(self, lst):
         gpp.node_param(self._as_control_input())._embed_as_osc_arg(lst)

@@ -60,10 +60,11 @@ class SendReply(SendTrig):
         # return 0.0  # // SendReply has no output.
 
     @classmethod
-    def _new1(cls, rate, trig=0.0, cmd_name='/reply', values=None, reply_id=-1):
+    def _new1(cls, rate, trig=0.0, cmd_name='/reply',
+              values=None, reply_id=-1):  # override
         cmd_name = [int(x) for x in bytes(cmd_name, 'utf-8')]  # *** TODO: sc ascii method, sclang uses signed vlaues, see Poll.
-        return super()._new1(rate, trig, reply_id, len(cmd_name), *cmd_name,
-                             *values)
+        return super()._new1(
+            rate, trig, reply_id, len(cmd_name), *cmd_name, *values)
 
 
 class TDelay(Trig1):
@@ -128,13 +129,15 @@ class Stepper(ugn.UGen):
     def ar(cls, trig=0, reset=0, min=0, max=7, step=1, resetval=None):
         if resetval is None:
             resetval = min
-        return cls._multi_new('audio', trig, reset, min, max, step, resetval)
+        return cls._multi_new(
+            'audio', trig, reset, min, max, step, resetval)
 
     @classmethod
     def kr(cls, trig=0, reset=0, min=0, max=7, step=1, resetval=None):
         if resetval is None:
             resetval = min
-        return cls._multi_new('control', trig, reset, min, max, step, resetval)
+        return cls._multi_new(
+            'control', trig, reset, min, max, step, resetval)
 
     def _check_inputs(self):  # override
         return self._check_sr_as_first_input()
@@ -230,9 +233,10 @@ class Pitch(ugn.MultiOutUGen):
     def kr(cls, input=0.0, init_freq=440.0, min_freq=60.0, max_freq=4000.0,
            exec_freq=100.0, max_bins_per_octave=16, median=1,
            amp_threshold=0.01, peak_threshold=0.5, down_sample=1, clar=0):
-        return cls._multi_new('control', input, init_freq, min_freq, max_freq,
-                              exec_freq, max_bins_per_octave, median,
-                              amp_threshold, peak_threshold, down_sample, clar)
+        return cls._multi_new(
+            'control', input, init_freq, min_freq, max_freq,
+            exec_freq, max_bins_per_octave, median,
+            amp_threshold, peak_threshold, down_sample, clar)
 
     def _init_ugen(self, *inputs):  # override
         self._inputs = inputs
@@ -324,20 +328,23 @@ class SendPeakRMS(ugn.UGen):
     @classmethod
     def ar(cls, sig, reply_rate=20.0, peak_lag=3, cmd_name='/reply',
            reply_id=-1):
-        return cls._new1('audio', utl.as_list(sig), reply_rate, peak_lag,
-                         cmd_name, reply_id)
+        return cls._new1(
+            'audio', utl.as_list(sig), reply_rate,
+            peak_lag, cmd_name, reply_id)
 
     @classmethod
     def kr(cls, sig, reply_rate=20.0, peak_lag=3, cmd_name='/reply',
            reply_id=-1):
-        return cls._new1('control', utl.as_list(sig), reply_rate, peak_lag,
-                         cmd_name, reply_id)
+        return cls._new1(
+            'control', utl.as_list(sig), reply_rate,
+            peak_lag, cmd_name, reply_id)
 
     @classmethod
     def _new1(cls, rate, sig, reply_rate, peak_lag, cmd_name, reply_id):
         cmd_name = [int(x) for x in bytes(cmd_name, 'utf-8')]  # *** TODO: sc ascii method, sclang uses signed vlaues, see Poll.
-        return super()._new1(rate, reply_rate, peak_lag, reply_id, len(sig),
-                             *utl.flatten(sig), len(cmd_name), *cmd_name)
+        return super()._new1(
+            rate, reply_rate, peak_lag, reply_id, len(sig),
+            *utl.flatten(sig), len(cmd_name), *cmd_name)
 
     def _num_outputs(self):  # override
         return 0

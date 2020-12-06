@@ -355,6 +355,8 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
         return self or ChannelList (cases of MultiOutUGen). Optimizations
         returning scalars or None (for no output) are usually returned by
         public UGen constructors (ar, kr, dr, ir or new).
+        NOTE: UGens return self here but output ugens usually return
+        self._channels or _init_outputs that returns self._channels.
         '''
         self._inputs = inputs
         return self

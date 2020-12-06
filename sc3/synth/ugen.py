@@ -385,7 +385,10 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
                 self._synthdef._add_constant(float(input))
 
     def _check_inputs(self):  # pong
-        '''Returns error msg or None.'''
+        '''
+        Validate inputs. Must call and return the return value of
+        _check_valid_inputs (maybe through _check_n_inputs) if overridden.
+        '''
         return self._check_valid_inputs()
 
     def _check_valid_inputs(self):
@@ -398,6 +401,7 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
         return None
 
     def _check_n_inputs(self, n):
+        """Check the rate match and validity of the inputs."""
         if self.rate == 'audio':
             if n > len(self.inputs):
                 n = len(self.inputs)
@@ -875,7 +879,7 @@ class UGen(SynthObject, aob.AbstractObject):
         return self
 
 
-class PureUGen():
+class PureUGenMixin():
     # // UGen which has no side effect and can therefore be considered for
     # // a dead code elimination. Read access to buffers/busses are allowed.
     def _optimize_graph(self):  # override

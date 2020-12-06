@@ -4,7 +4,7 @@ from .. import ugen as ugn
 from .. import _graphparam as gpp
 
 
-class Delay1(ugn.UGen, ugn.PureUGen):
+class Delay1(ugn.PureUGenMixin, ugn.UGen):
     @classmethod
     def ar(cls, input=0.0):
         return cls._multi_new('audio', input)  # NOTE: No gpp.ugen_param(input)._as_audio_rate_input().
@@ -20,7 +20,7 @@ class Delay2(Delay1):
 
 # // These delays use real time allocated memory.
 
-class DelayN(ugn.UGen, ugn.PureUGen):
+class DelayN(ugn.PureUGenMixin, ugn.UGen):
     @classmethod
     def ar(cls, input=0.0, max_delay_time=0.2, delay_time=0.2):
         input = gpp.ugen_param(input)._as_audio_rate_input()
@@ -39,7 +39,7 @@ class DelayC(DelayN):
     pass
 
 
-class CombN(ugn.UGen, ugn.PureUGen):
+class CombN(ugn.PureUGenMixin, ugn.UGen):
     @classmethod
     def ar(cls, input=0.0, max_delay_time=0.2, delay_time=0.2, decay_time=0.2):
         input = gpp.ugen_param(input)._as_audio_rate_input()

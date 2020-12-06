@@ -25,7 +25,7 @@ class XLine(ugn.UGen):
         return cls._multi_new('control', start, end, dur, done_action)
 
 
-class LinExp(ugn.UGen, ugn.PureUGen):
+class LinExp(ugn.PureUGenMixin, ugn.UGen):
     @classmethod
     def ar(cls, input=0.0, srclo=0.0, srchi=1.0, dstlo=1.0, dsthi=2.0):
         return cls._multi_new('audio', input, srclo, srchi, dstlo, dsthi)
@@ -61,7 +61,7 @@ class LinLin(ugn.PseudoUGen):
         raise AttributeError(f'{cls.__name__} has no {rate} rate constructor')
 
 
-class AmpComp(ugn.UGen, ugn.PureUGen):
+class AmpComp(ugn.PureUGenMixin, ugn.UGen):
     @classmethod
     def ar(cls, freq=bi.midicps(60), root=bi.midicps(60), exp=0.3333):
         return cls._multi_new('audio', freq, root, exp)
@@ -95,14 +95,14 @@ class AmpCompA(AmpComp):
         return cls._multi_new('scalar', freq, root, min_amp, root_amp)
 
 
-class K2A(ugn.UGen, ugn.PureUGen):
+class K2A(ugn.PureUGenMixin, ugn.UGen):
     # // Control rate to audio rate converter.
     @classmethod
     def ar(cls, input=0.0):
         return cls._multi_new('audio', input)
 
 
-class A2K(ugn.UGen, ugn.PureUGen):
+class A2K(ugn.PureUGenMixin, ugn.UGen):
     # // Audio rate to control rate converter. only needed in specific cases.
     @classmethod
     def kr(cls, input=0.0):
@@ -125,7 +125,7 @@ class T2A(K2A):
         return cls._multi_new('audio', input, offset)
 
 
-class DC(ugn.MultiOutUGen, ugn.PureUGen):
+class DC(ugn.PureUGenMixin, ugn.MultiOutUGen):
     @classmethod
     def ar(cls, input=0.0):
         return cls._multi_new('audio', input)

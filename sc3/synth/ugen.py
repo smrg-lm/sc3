@@ -1,14 +1,11 @@
-"""UGens.sc
+"""UGens.sc"""
 
-Development note for UGen classes
----------------------------------
-Subclasses should not use __init__ to implement graph logic, interface
-methods are _new1, _multi_new, _multi_new_list, _init_ugen, _init_outputs
-(from MultiOutUGen). UGen instances are created internally with
-_create_ugen_object. This is because ugens build a graph with multichannel
-expansion and optimizations so they might not return an instace object or
-an instance of the same type.
-"""
+# Development note for UGen classes: Subclasses should not use __init__ to
+# implement graph logic, interface methods are _new1, _multi_new, _init_ugen,
+# _init_outputs (from MultiOutUGen). UGen instances are created internally with
+# _create_ugen_object. This is because ugens build a graph with multichannel
+# expansion and optimizations so they might not return an object instace or an
+# instance of the same type.
 
 import inspect
 import operator
@@ -266,7 +263,7 @@ class MetaSynthObject(type):
 
 
 class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
-    # NOTE: Sum3 and Sum4 don't define rate before calling _multi_new_list.
+    # NOTE: Sum3 and Sum4 don't define rate before calling _multi_new.
     _valid_rates = {'audio', 'control', 'demand', 'scalar', None}
     _default_rate = 'audio'
 
@@ -302,7 +299,7 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
     def _new1(cls, rate, *args):
         '''
         This method returns a single instance of the UGen, not multichannel
-        expanded. It is called inside _multi_new_list, whenever a new single
+        expanded. It is called inside _multi_new, whenever a new single
         instance is needed.
         '''
         obj = cls._create_ugen_object(rate)
@@ -310,17 +307,15 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
         return obj._init_ugen(*args)
 
     @classmethod
-    def _multi_new(cls, *args):
-        return cls._multi_new_list(list(args))
+    def _multi_new(cls, *args):  # Was multiNewList.
+        '''
+        This method is responsible for multichannel expansion.
+        It calls UGen._new1(rate, *args) for each parallel combination.
+        UGen.ar/kr methods delegate to this method. The first argument is
+        rate, then the rest of the arguments as in UGen._new1(rate, *args).
+        '''
 
-    @classmethod
-    def _multi_new_list(cls, args):
-        '''
-        These methods are responsible for multichannel expansion. They call
-        UGen._new1(rate, *args) for each parallel combination. Most UGen.ar/kr
-        methods delegate to UGen.multiNewList. The first argument is rate, then
-        the rest of the arguments as in UGen._new1(rate, *args).
-        '''
+        args = list(args)
 
         # Single channel, one ugen.
         length = 0
@@ -1299,7 +1294,7 @@ class MulAdd(UGen):
         params = gpp.ugen_param([input, mul, add])
         rate = params._as_ugen_rate()
         args = params._as_ugen_input(cls)
-        return cls._multi_new_list([rate] + args)
+        return cls._multi_new(rate, *args)
 
     @classmethod
     def _new1(cls, rate, input, mul, add):  # override

@@ -67,11 +67,11 @@ class Control(AbstractControl):
 
     @classmethod
     def ir(cls, values):
-        return cls._multi_new_list(['scalar'] + utl.as_list(values))
+        return cls._multi_new('scalar', *utl.as_list(values))
 
     @classmethod
     def kr(cls, values):
-        return cls._multi_new_list(['control'] + utl.as_list(values))
+        return cls._multi_new('control', *utl.as_list(values))
 
     def _init_ugen(self, *values):  # override
         self.values = list(values)
@@ -109,7 +109,7 @@ class AudioControl(AbstractControl):
 
     @classmethod
     def ar(cls, values):
-        return cls._multi_new_list(['audio'] + utl.as_list(values))
+        return cls._multi_new('audio', *utl.as_list(values))
 
     def _init_ugen(self, *values):  # override
         self.values = list(values)
@@ -152,7 +152,7 @@ class LagControl(Control):
         lags = [lags[i:i + n] for i in range(0, len(lags), n)]  # lags.clump(16)
         outputs = ugn.ChannelList()
         for i in range(len(values)):
-            out = cls._multi_new_list(['control'] + values[i] + lags[i])
+            out = cls._multi_new('control', *values[i], *lags[i])
             outputs.extend(utl.as_list(out))
         if len(outputs) == 1:  # *** BUG: sclang retorna siempre array y array vacío si se llama sin argumentos.
             return outputs[0]
@@ -297,12 +297,12 @@ class Out(AbstractOut):
         output = gpp.ugen_param(utl.as_list(output))
         output = output._as_ugen_input(cls)
         output = cls._replace_zeroes_with_silence(output)
-        cls._multi_new_list(['audio', bus] + output)
+        cls._multi_new('audio', bus, *output)
         # return 0.0  # // Out has no output.
 
     @classmethod
     def kr(cls, bus, output):
-        cls._multi_new_list(['control', bus] + utl.as_list(output))
+        cls._multi_new('control', bus, *utl.as_list(output))
         # return 0.0  # // Out has no output.
 
     @classmethod
@@ -327,13 +327,13 @@ class LocalOut(AbstractOut):
         output = gpp.ugen_param(utl.as_list(output))
         output = output._as_ugen_input(cls)
         output = cls._replace_zeroes_with_silence(output)
-        cls._multi_new_list(['audio'] + output)
+        cls._multi_new('audio', *output)
         # return 0.0  # // LocalOut has no output.
 
     @classmethod
     def kr(cls, output):
         output = utl.as_list(output)
-        cls._multi_new_list(['audio'] + output)
+        cls._multi_new('audio', *output)
         # return 0.0  # // LocalOut has no output.
 
     @classmethod
@@ -353,13 +353,13 @@ class XOut(AbstractOut):
         output = gpp.ugen_param(utl.as_list(output))
         output = output._as_ugen_input(cls)
         output = cls._replace_zeroes_with_silence(output)
-        cls._multi_new_list(['audio', bus, xfade] + output)
+        cls._multi_new('audio', bus, xfade, *output)
         # return 0.0  # // XOut has no output.
 
     @classmethod
     def kr(cls, bus, xfade, output):
         output = utl.as_list(output)
-        cls._multi_new_list(['control', bus, xfade] + output)
+        cls._multi_new('control', bus, xfade, *output)
         # return 0.0  # // XOut has no output.
 
     @classmethod

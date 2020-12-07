@@ -9,19 +9,19 @@ from . import oscillators as ocl
 class Poll(ugn.UGen):
     @classmethod
     def ar(cls, trig, input, label=None, trig_id=-1):
-        cls._multi_new_list(['audio', trig, input, label, trig_id])
+        cls._multi_new('audio', trig, input, label, trig_id)
         return input
 
     @classmethod
     def kr(cls, trig, input, label=None, trig_id=-1):
-        cls._multi_new_list(['control', trig, input, label, trig_id])
+        cls._multi_new('control', trig, input, label, trig_id)
         return input
 
     @classmethod
     def new(cls, trig, input, label=None, trig_id=-1):
         rate = [gpp.ugen_param(item)._as_ugen_rate() for item in utl.as_list(input)]
         rate = utl.unbubble(rate)
-        cls._multi_new_list([rate, trig, input, label, trig_id])
+        cls._multi_new(rate, trig, input, label, trig_id)
         return input
 
     @classmethod

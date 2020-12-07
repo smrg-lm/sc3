@@ -20,7 +20,7 @@ from . import _fmtrw as frw
 from . import _graphparam as gpp
 from . import node as nod
 from .ugens import inout as iou
-from .ugens import fftunpacking as ffu
+from .ugens import fft
 
 
 __all__ = ['SynthDef', 'synthdef']
@@ -421,7 +421,7 @@ class SynthDef(metaclass=MetaSynthDef):
     def _add_copies_if_needed(self):
         # // Could also have PV_UGens store themselves in a separate collection.
         for child in self._width_first_ugens:
-            if isinstance(child, ffu.PV_ChainUGen):
+            if isinstance(child, fft.PV_ChainUGen):
                 child._add_copies_if_needed()  # pong
 
 

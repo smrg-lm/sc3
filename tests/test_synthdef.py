@@ -270,6 +270,9 @@ class SynthDefTestCase(unittest.TestCase):
         self.assertEqual(sd._all_control_names[2].default_value, 0.0)
         self.assertEqual(sd._all_control_names[2].lag, 0.0)
 
+    # def test_optimize_graph(sef):
+    #     ...  # To test empty synths.
+
     # def test_add(self):
     #     ...
 

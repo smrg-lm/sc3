@@ -37,8 +37,8 @@ class BufferAlreadyFreed(BufferException):
 class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     _server_caches = dict()
 
-    def __init__(self, frames=1024, channels=1, server=None, bufnum=None,
-                 *, alloc=True, completion_msg=None):
+    def __init__(self, channels=1, frames=1024, server=None, bufnum=None,
+                 completion_msg=None, *, alloc=True):
         super(gpp.UGenParameter, self).__init__(self)
         # // Doesn't send.
         self._server = server or srv.Server.default
@@ -94,7 +94,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     ### Specialized Constructors ###
 
     @classmethod
-    def new_consecutive(cls, num_bufs=1, frames=1024, channels=1,
+    def new_consecutive(cls, num_bufs=1, channels=1, frames=1024,
                         server=None, bufnum=None, completion_msg=None):
         if bufnum is None:
             buf_base = server.next_buffer_number(num_bufs)
@@ -102,7 +102,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             buf_base = bufnum
         buf_list = []
         for i in range(num_bufs):
-            new_buf = cls(frames, channels, server, buf_base + i, alloc=False)
+            new_buf = cls(channels, frames, server, buf_base + i, alloc=False)
             server.send_msg(
                 '/b_alloc', buf_base + i, frames,
                 channels, fn.value(completion_msg, new_buf, i))
@@ -130,23 +130,24 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         return obj
 
     @classmethod
-    def new_read_channel(cls, path, start_frame=0, frames=-1, channels=None,
-                         server=None, bufnum=None, action=None):
-        obj = cls(server, None, None, bufnum, alloc=False)
+    def new_read_channels(cls, path, channels=None, start_frame=0, frames=-1,
+                          server=None, bufnum=None, action=None):
+        obj = cls(None, None, server, bufnum, alloc=False)
         obj._do_on_info = action
-        obj.alloc_read_channel(
-            path, start_frame, frames, channels,
+        obj.alloc_read_channels(
+            path, channels, start_frame, frames,
             lambda buf: ['/b_query', buf.bufnum])
         return obj
 
     @classmethod
-    def new_cue(cls, path, start_frame=0, channels=1, buffer_size=32768,
+    def new_cue(cls, path, channels=1, start_frame=0, buffer_size=32768,
                 server=None, bufnum=None, completion_msg=None):
         # // Preload a buffer for use with DiskIn
-        obj = cls.new_alloc(
-            buffer_size, channels, server, bufnum,
-            lambda buf: buf.read_msg(
-                path, start_frame, buffer_size, 0, True, completion_msg))
+        obj = cls(
+            channels, buffer_size, server, bufnum,
+            ['/b_read', buf._bufnum, path, start_frame, buffer_size,
+            0, True, fn.value(completion_msg, self)])
+        obj._path = path
         return obj
 
     @classmethod
@@ -183,7 +184,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         # // Send a Collection to a buffer one UDP sized packet at a time.
         lst = list(array.array('f', lst))  # Type check & cast.
         buffer = cls(
-            server, bi.ceil(len(lst) / channels), channels, alloc=False)
+            channels, bi.ceil(len(lst) / channels), server, alloc=False)
         # It was forkIfNeeded, can't be implemented in Python because
         # yield statment scope is different. The check for need was:
         # if isinstance(_libsc3.main.current_tt, Routine). Always fork here
@@ -198,93 +199,57 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
 
     def alloc(self, completion_msg=None):
-        self._server.send_msg(*self.alloc_msg(completion_msg))
-
-    def alloc_msg(self, completion_msg=None):
-        return [
+        self._server.send_msg(
             '/b_alloc', self._bufnum, self._frames,
-            self._channels, fn.value(completion_msg, self)]
+            self._channels, fn.value(completion_msg, self))
 
     def alloc_read(self, path, start_frame=0, frames=-1,
                    completion_msg=None):
         self._path = path
         self._start_frame = start_frame
-        self._server.send_msg(*self.alloc_read_msg(
-            path, start_frame, frames, completion_msg))
-
-    def alloc_read_msg(self, path, start_frame=0, frames=-1,
-                       completion_msg=None):
-        self._path = path
-        self._start_frame = start_frame
-        return [
+        self._server.send_msg(
             '/b_allocRead', self._bufnum, path,
-            start_frame, frames, fn.value(completion_msg, self)]
+            start_frame, frames, fn.value(completion_msg, self))
 
-    def alloc_read_channel(self, path, start_frame=0, frames=-1,
-                           channels=None, completion_msg=None):
+    def alloc_read_channels(self, path, channels=None, start_frame=0,
+                            frames=-1, completion_msg=None):
         self._path = path
         self._start_frame = start_frame
-        self._server.send_msg(*self.alloc_read_channel_msg(
-            path, start_frame, frames, channels, completion_msg))
-
-    def alloc_read_channel_msg(self, path, start_frame=0, frames=-1,
-                               channels=None, completion_msg=None):
-        self._path = path
-        self._start_frame = start_frame
-        return [
+        self._server.send_msg(
             '/b_allocReadChannel', self._bufnum, path, start_frame,
-            frames, *channels, fn.value(completion_msg, self)]
+            frames, *channels, fn.value(completion_msg, self))
 
     def read(self, path, file_start_frame=0, frames=-1,
              buf_start_frame=0, leave_open=False, action=None):
-        # self._cache() # NOTE: __init__ llama a _cache
+        self._path = path
         self._do_on_info = action
-        self._server.send_msg(*self.read_msg(
-            path, file_start_frame, frames, buf_start_frame,
-            leave_open, lambda buf: ['/b_query', buf.bufnum]))
+        self._server.send_msg([
+            '/b_read', self._bufnum, path, file_start_frame, frames,
+            buf_start_frame, leave_open, ['/b_query', buf.bufnum]])
 
     def read_no_update(self, path, file_start_frame=0, frames=-1,
                        buf_start_frame=0, leave_open=False,
                        completion_msg=None):
-        self._server.send_msg(*self.read_msg(
-            path, file_start_frame, frames,
-            buf_start_frame, leave_open, completion_msg))
-
-    def read_msg(self, path, file_start_frame=0, frames=-1,
-                 buf_start_frame=0, leave_open=False, completion_msg=None):
         self._path = path
-        return [
+        self._server.send_msg(
             '/b_read', self._bufnum, path, file_start_frame, frames,
-            buf_start_frame, leave_open, fn.value(completion_msg, self)]
+            buf_start_frame, leave_open, fn.value(completion_msg, self))
 
-    def read_channel(self, path, file_start_frame=0, frames=-1,
-                     buf_start_frame=0, leave_open=False,
-                     channels=None, action=None):
+    def read_channels(self, path, channels=None, file_start_frame=0,
+                      frames=-1, buf_start_frame=0, leave_open=False,
+                      action=None):
         self._do_on_info = action
-        self._server.send_msg(*self.read_channel_msg(
-            path, file_start_frame, frames, buf_start_frame,
-            leave_open, channels, lambda buf: ['/b_query', buf.bufnum]))
-
-    def read_channel_msg(self, path, file_start_frame=0, frames=-1,
-                         buf_start_frame=0, leave_open=False, channels=None,
-                         completion_msg=None):
-        # // doesn't set my numChannels etc.
-        self._path = path
-        return [
+        self._server.send_msg(
             '/b_readChannel', self._bufnum, path, file_start_frame,
             frames, buf_start_frame, leave_open, *channels,
-            fn.value(completion_msg, self)]
+            ['/b_query', buf._bufnum])
 
     def cue(self, path, start_frame=0, completion_msg=None):
         # // Preload a buffer for use with DiskIn.
         self._path = path
-        self._server.send_msg(*self.cue_msg(path, start_frame, completion_msg))
-        # NOTE: Doesn't call _cache()
-
-    def cue_msg(self, path, start_frame=0, completion_msg=None):
-        return [
-            '/b_read', self._bufnum, path, start_frame, 0, 1,
-            self._frames, fn.value(completion_msg, self)]  # NOTE: Uses 1 instead of True but not always.
+        self._server.send_msg(
+            '/b_read', self._bufnum, path, start_frame, 0, True,
+            self._frames, fn.value(completion_msg, self))
 
     def load_list(self, channel_lst, start_frame=0, action=None):  # Was load_collection
         if self._server.is_local:
@@ -359,7 +324,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     # // these next two get the data and put it in a float array
     # // which is passed to action
 
-    def load_to_list(self, index=0, count=-1, action=None):
+    def load_to_list(self, action, index=0, count=-1):
         def load_fork():
             path = str(
                 plf.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
@@ -375,13 +340,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
         stm.Routine.run(load_fork)
 
-    def get_to_list(self, index=0, count=None, wait=0.01,
-                    timeout=3, action=None):
+    def get_to_list(self, action, index=0, count=None, wait=0.01, timeout=3):
         # // risky without wait
-        if action is None:
-            raise ValueError('get_to_list without action makes no sense')  # *** NOTE: es que el orden de los parámetros debería ser distinto pero es contrario a la norma.
-
-        # BUG: some methods have an strict type check but some others don't.
+        # TODO: some methods have an strict type check but while others don't.
         max_udp_size = 1633  # // Max size for getn under udp.
         pos = index = int(index)
         if count is None:
@@ -407,7 +368,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             nonlocal pos
             while pos < count:
                 getsize = bi.min(max_udp_size, count - pos)
-                self._server.send_msg(*self.getn_msg(pos, getsize))
+                self._server.send_msg('/b_getn', self._bufnum, pos, getsize)
                 pos += getsize
                 if wait >= 0:
                     yield wait
@@ -456,18 +417,12 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def free(self, completion_msg=None):
         if self._bufnum is None:
             _logger.warning('Buffer has already been freed')
-        self._server.send_msg(*self.free_msg(completion_msg))
-
-    def free_msg(self, completion_msg=None):
-        if self._bufnum is None:
-            _logger.warning(
-                'cannot call free_msg on a Buffer that has been freed')
         self._uncache()
         self._server._buffer_allocator.free(self._bufnum)
         msg = ['/b_free', self._bufnum, fn.value(completion_msg, self)]
         self._bufnum = self._frames = self._channels = None
         self._sample_rate = self._path = self._start_frame = None
-        return msg
+        self._server.send_msg(*msg)
 
     @classmethod
     def free_all(cls, server=None):  # Move up?
@@ -478,38 +433,25 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def zero(self, completion_msg=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('zero')
-        self._server.send_msg(*self.zero_msg(completion_msg))
-
-    def zero_msg(self, completion_msg=None):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('zero_msg')
-        return ['/b_zero', self._bufnum, fn.value(completion_msg, self)]
+        self._server.send_msg(
+            '/b_zero', self._bufnum, fn.value(completion_msg, self))
 
     def set(self, index, value, *more_pairs):
         if self._bufnum is None:
             raise BufferAlreadyFreed('set')
-        self._server.send_msg(*self.set_msg(index, value, *more_pairs))
-
-    def set_msg(self, index, value, *more_pairs):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('set_msg')
-        return ['/b_set', self._bufnum, index, value, *more_pairs]
+        self._server.send_msg(
+            '/b_set', self._bufnum, index, value, *more_pairs)
 
     def setn(self, *args):
         if self._bufnum is None:
             raise BufferAlreadyFreed('setn')
-        self._server.send_msg(*self.setn_msg(*args))
-
-    def setn_msg(self, *args):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('setn_msg')
         nargs = []
         for control, values in utl.gen_cclumps(args, 2):
             if isnstance(values, list):
                 nargs.extend([control, len(values), *values])
             else:
                 nargs.extend([control, 1, values])
-        return ['/b_setn', self._bufnum, *nargs]
+        self._server.send_msg(['/b_setn', self._bufnum, *nargs])
 
     def get(self, index, action):
         if self._bufnum is None:
@@ -525,12 +467,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             resp_func, '/b_set', self._server.addr,
             arg_template=[self._bufnum, index]).one_shot()
 
-        self._server.send_msg(*self.get_msg(index))
-
-    def get_msg(self, index):  # *** BUG: sclang, los *_msg van sin action acá.
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('get_msg')
-        return ['/b_get', self._bufnum, index]
+        self._server.send_msg('/b_get', self._bufnum, index)
 
     def getn(self, index, count, action):
         if self._bufnum is None:
@@ -546,22 +483,13 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             resp_func, '/b_setn', self._server.addr,
             arg_template=[self._bufnum, index]).one_shot()
 
-        self._server.send_msg(*self.getn_msg(index, count))
-
-    def getn_msg(self, index, count):  # *** BUG: sclang, los *_msg van sin action acá.
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('getn_msg')
-        return ['b_getn', self._bufnum, index, count]
+        self._server.send_msg('/b_getn', self._bufnum, index, count)
 
     def fill(self, start, frames, values):
         if self._bufnum is None:
             raise BufferAlreadyFreed('fill')
-        self._server.send_msg(*self.fill_msg(start, frames, *values))
-
-    def fill_msg(self, start, frames, *values):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('fill_msg')
-        return ['/b_fill', self._bufnum, start, int(frames), *values]  # *** NOTE: puede enviar más values que frames, ignora el servidor, los checks de tipos y valores en estas clases son raros.
+        self._server.send_msg(
+            '/b_fill', self._bufnum, start, int(frames), *values)
 
 
     ### Gen commands ###
@@ -585,93 +513,55 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         if self._bufnum is None:
             raise BufferAlreadyFreed('normalize')
         self._gen_action_responder(action)
-        self._server.send_msg(*self.normalize_msg(new_max, as_wavetable))
-
-    def normalize_msg(self, new_max=1, as_wavetable=False):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('normalize_msg')
         if as_wavetable:
             format = 'wnormalize'
         else:
             format = 'normalize'
-        return ['/b_gen', self._bufnum, format, new_max]  # format would be cmd?
+        self._server.send_msg('/b_gen', self._bufnum, format, new_max)
 
     def gen(self, cmd, args=(), normalize=True, as_wavetable=True,
             clear_first=True, action=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('gen')
         self._gen_action_responder(action)
-        self._server.send_msg(*self.gen_msg(
-            cmd, args, normalize, as_wavetable, clear_first))
-
-    def gen_msg(self, cmd, args=(), normalize=True, as_wavetable=True,
-                clear_first=True):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('gen')
         oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
-        return ['/b_gen', self._bufnum, cmd, oflags, *args]
+        self._server.send_msg('/b_gen', self._bufnum, cmd, oflags, *args)
 
     def sine1(self, amps, normalize=True, as_wavetable=True,
               clear_first=True, action=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('sine1')
         self._gen_action_responder(action)
-        self._server.send_msg(*self.sine1_msg(
-            amps, normalize, as_wavetable, clear_first))
-
-    def sine1_msg(self, amps, normalize=True, as_wavetable=True,
-                  clear_first=True):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('sine1_msg')
         oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
-        return ['/b_gen', self._bufnum, 'sine1', oflags, *amps]
+        self._server.send_msg('/b_gen', self._bufnum, 'sine1', oflags, *amps)
 
     def sine2(self, freqs, amps, normalize=True, as_wavetable=True,
               clear_first=True, action=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('sine2')
         self._gen_action_responder(action)
-        self._server.send_msg(*self.sine2_msg(
-            freqs, amps, normalize, as_wavetable, clear_first))
-
-    def sine2_msg(self, freqs, amps, normalize=True, as_wavetable=True,
-                  clear_first=True):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('sine2_msg')
         oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
-        return ['/b_gen', self._bufnum, 'sine2', oflags,
-                utl.lace([freqs, amps], len(freqs) * 2)]
+        self._server.send_msg(
+            '/b_gen', self._bufnum, 'sine2', oflags,
+            utl.lace([freqs, amps], len(freqs) * 2))
 
     def sine3(self, freqs, amps, phases, normalize=True, as_wavetable=True,
               clear_first=True, action=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('sine3')
         self._gen_action_responder(action)
-        self._server.send_msg(*self.sine3_msg(
-            freqs, amps, phases, normalize, as_wavetable, clear_first))
-
-    def sine3_msg(self, freqs, amps, phases, normalize=True,
-                  as_wavetable=True, clear_first=True):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('sine3_msg')
         oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
-        return ['/b_gen', self._bufnum, 'sine3', oflags,
-                utl.lace([freqs, amps, phases], len(freqs) * 2)]
+        self._server.send_msg(
+            '/b_gen', self._bufnum, 'sine3', oflags,
+            utl.lace([freqs, amps, phases], len(freqs) * 2))
 
     def cheby(self, amps, normalize=True, as_wavetable=True,
               clear_first=True, action=None):
         if self._bufnum is None:
             raise BufferAlreadyFreed('cheby')
         self._gen_action_responder(action)
-        self._server.send_msg(*self.cheby_msg(
-            amps, normalize, as_wavetable, clear_first))
-
-    def cheby_msg(self, amps, normalize=True, as_wavetable=True,
-                  clear_first=True):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('cheby_msg')
         oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
-        return ['/b_gen', self._bufnum, 'cheby', oflags, *amps]
+        self._server.send_msg('/b_gen', self._bufnum, 'cheby', oflags, *amps)
 
     def copy_data(self, dst_buffer, dst_start=0, start=0,
                   num_samples=-1, action=None):
@@ -688,26 +578,16 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 resp_func, '/done', self._server.addr,
                 arg_template=['/b_gen', self._bufnum]).one_shot()  # *** BUG: comprobar que filtra por arg_template (no recuerdo si está implementado así).
 
-        self._server.send_msg(*self.copy_msg(
-            dst_buffer, dst_start, start, num_samples))
-
-    def copy_data_msg(self, dst_buffer, dst_start=0, start=0, num_samples=-1):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('copy_data_msg')
-        return ['/b_gen', dst_buffer.bufnum, 'copy', dst_start,
-                self._bufnum, start, num_samples]
-
+        self._server.send_msg(
+            '/b_gen', dst_buffer.bufnum, 'copy', dst_start,
+            self._bufnum, start, num_samples)
 
     def close(self, completion_msg=None):
         # // Close a file, write header, after DiskOut usage.
         if self._bufnum is None:
             raise BufferAlreadyFreed('close')
-        self._server.send_msg(*self.close_msg(completion_msg))
-
-    def close_msg(self, completion_msg):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('close_msg')
-        return ['/b_close', self._bufnum, fn.value(completion_msg, self)]
+        self._server.send_msg(
+            '/b_close', self._bufnum, fn.value(completion_msg, self))
 
     def query(self, action=None):
         if self._bufnum is None:
@@ -727,11 +607,6 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             resp_func, '/b_info', self._server.addr,
             arg_template=[self._bufnum]).one_shot()
         self._server.send_msg('/b_query', self._bufnum)
-
-    def query_msg(self):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('query_msg')
-        return ['/b_query', self._bufnum]
 
     def update_info(self, action):
         # // Add to the array here. That way, update will

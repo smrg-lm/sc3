@@ -265,11 +265,12 @@ class Dunique(ugn.PseudoUGen):
             ird = bio.LocalBuf.new(1)
             ird.clear()
             index = Dbufwr.new(Dseries.new(0, 1, float('inf')), ird)
-            overrun = (Dbufrd.new(self._iwr) - Dbufrd.new(ird)) >\
-                      self._buffer.num_frames
+            overrun = (
+                (Dbufrd.new(self._iwr) - Dbufrd.new(ird)) >
+                self._buffer.frames)
             # // Catch buffer overrun by switching to a zero length series.
             brd = Dswitch1.new([brd, Dseries.new(length=0)], overrun)
         else:
             index = Dseq.new(
-                [Dseries.new(0, 1, self._buffer.num_frames)], float('inf'))
+                [Dseries.new(0, 1, self._buffer.frames)], float('inf'))
         return Dbufrd.new(brd, index, 1)

@@ -129,7 +129,7 @@ class Recorder():
         if self._record_buf is None:
             return None
         else:
-            return self._record_buf.num_frames
+            return self._record_buf.frames
 
     def pause(self):
         if self.is_recording:

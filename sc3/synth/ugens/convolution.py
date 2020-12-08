@@ -1,6 +1,8 @@
 """FFT2.sc & PartConv"""
 
+from ...base import builtins as bi
 from .. import ugen as ugn
+from .. import _graphparam as gpp
 
 
 class Convolution(ugn.UGen):
@@ -55,4 +57,8 @@ class Convolution3(ugn.UGen):
 
 
 class PartConv(ugn.UGen):
-    ...
+    # This ugen uses Buffer's calc_partconv_bufsize and prepare_partconv.
+    @classmethod
+    def ar(cls, input, fftsize, irbuf):
+        irbuf = gpp.ugen_param(irbuf)._as_ugen_input()
+        return cls._multi_new('audio', input, fftsize, irbuf)

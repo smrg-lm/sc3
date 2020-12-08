@@ -741,6 +741,22 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         self._server.send_msg('/b_query', self._bufnum)
 
 
+    ### PartConv ###
+
+    def prepare_partconv(self, buf, fftsize):
+        # self is irbuffer.
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('prepare_partconv')
+        self._server.send_msg(
+            "/b_gen", self.bufnum, "PreparePartConv", buf.bufnum, fftsize);
+
+    @staticmethod
+    def calc_partconv_bufsize(fftsize, irbuffer):
+        partsize = fftsize // 2
+        size = irbuffer.frames
+        return int(fftsize * bi.roundup(size / partsize))
+
+
     ### Cache methods ###
 
     def _cache(self):

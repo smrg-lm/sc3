@@ -11,11 +11,13 @@ from . import bufio as bio
 class Demand(ugn.MultiOutUGen):
     @classmethod
     def ar(cls, trig, reset, demand_ugens):
-        return cls._multi_new('audio', trig, reset, *utl.as_list(demand_ugens))
+        return cls._multi_new(
+            'audio', trig, reset, *utl.as_list(demand_ugens))
 
     @classmethod
     def kr(cls, trig, reset, demand_ugens):
-        return cls._multi_new('control', trig, reset, *utl.as_list(demand_ugens))
+        return cls._multi_new(
+            'control', trig, reset, *utl.as_list(demand_ugens))
 
     def _init_ugen(self, *inputs):  # override
         self._inputs = inputs
@@ -37,8 +39,9 @@ class Duty(ugn.UGen):
             if reset_rate != 'demand'\
             and reset_rate != 'scalar'\
             and reset_rate != self.rate:
-                return (f"reset input is not '{self.rate}' rate: "
-                        f"{self.inputs[1]} is '{reset_rate}' rate")
+                return (
+                    f"reset input is not '{self.rate}' rate: "
+                    f"{self.inputs[1]} is '{reset_rate}' rate")
             else:
                 return None
         else:
@@ -48,13 +51,13 @@ class Duty(ugn.UGen):
 class TDuty(Duty):
     @classmethod
     def ar(cls, dur=1.0, reset=0.0, level=1.0, done_action=0, gap_first=0):
-        return cls._multi_new('audio', dur, reset, done_action,
-                              level, gap_first)
+        return cls._multi_new(
+            'audio', dur, reset, done_action, level, gap_first)
 
     @classmethod
     def kr(cls, dur=1.0, reset=0.0, level=1.0, done_action=0, gap_first=0):
-        return cls._multi_new('control', dur, reset, done_action,
-                              level, gap_first)
+        return cls._multi_new(
+            'control', dur, reset, done_action, level, gap_first)
 
 
 class DemandEnvGen(ugn.UGen):
@@ -68,14 +71,16 @@ class DemandEnvGen(ugn.UGen):
                 gate = lne.K2A.ar(gate)
             if reset_rate != 'audio':
                 reset = lne.K2A.ar(reset)
-        return cls._multi_new('audio', level, dur, shape, curve, gate, reset,
-                              level_scale, level_bias, time_scale, done_action)
+        return cls._multi_new(
+            'audio', level, dur, shape, curve, gate, reset,
+            level_scale, level_bias, time_scale, done_action)
 
     @classmethod
     def kr(cls, level, dur, shape=1, curve=0, gate=1.0, reset=1.0,
            level_scale=1.0, level_bias=0.0, time_scale=1.0, done_action=0):
-        return cls._multi_new('control', level, dur, shape, curve, gate, reset,
-                              level_scale, level_bias, time_scale, done_action)
+        return cls._multi_new(
+            'control', level, dur, shape, curve, gate, reset,
+            level_scale, level_bias, time_scale, done_action)
 
 
 class DUGen(ugn.UGen):
@@ -84,21 +89,25 @@ class DUGen(ugn.UGen):
     # // Some n-ary op special cases.
 
     def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        return ((self.prune(inmin, inmax, clip) - inmin) /
-                (inmax-inmin) * (outmax - outmin) + outMin)
+        return (
+            (self.prune(inmin, inmax, clip) - inmin) /
+            (inmax-inmin) * (outmax - outmin) + outMin)
 
     def linexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        return (bi.pow(outmax / outmin, (self - inmin) / (inmax - inmin)) *
-                outmin).prune(outmin, outmax, clip)
+        return (
+            bi.pow(outmax / outmin, (self - inmin) /
+            (inmax - inmin)) * outmin).prune(outmin, outmax, clip)
 
     def explin(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        return (bi.log(self.prune(inmin, inmax, clip) / inmin) /
-                bi.log(inmax / inmin) * (outmax - outmin) + outmin)
+        return (
+            bi.log(self.prune(inmin, inmax, clip) / inmin) /
+            bi.log(inmax / inmin) * (outmax - outmin) + outmin)
 
     def expexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
-        return bi.pow(outmax / outmin,
-                      bi.log(self.prune(inmin, inmax, clip / inmin) /
-                             bi.log(inmax / inmin)) * outmin)
+        return bi.pow(
+            outmax / outmin,
+            bi.log(self.prune(inmin, inmax, clip / inmin) /
+            bi.log(inmax / inmin)) * outmin)
 
 
 class Dseries(DUGen):
@@ -246,8 +255,8 @@ class Dunique(ugn.PseudoUGen):
             self._iwr = None
             # // Here we can simply loop.
             self._writer = Dbufwr.new(
-                source, self._buffer,
-                Dseq.new([Dseries.new(0, 1, max_buffer_size)], float('inf')), 0)
+                source, self._buffer, Dseq.new(
+                    [Dseries.new(0, 1, max_buffer_size)], float('inf')), 0)
 
     def _as_ugen_input(self, *_):
         # // We call the writer from each reader.

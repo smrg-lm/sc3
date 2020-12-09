@@ -141,9 +141,9 @@ class DC(ugn.PureUGenMixin, ugn.MultiOutUGen):
 
 class Silent(ugn.PseudoUGen):
     @classmethod
-    def ar(cls, num_channels=1):
+    def ar(cls, channels=1):
         sig = DC.ar(0)
-        if num_channels == 1:
+        if channels == 1:
             return sig
         else:
-            return ugn.ChannelList([sig] * num_channels)
+            return ugn.ChannelList([sig] * channels)

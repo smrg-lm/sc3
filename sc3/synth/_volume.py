@@ -17,11 +17,11 @@ _logger = logging.getLogger(__name__)
 
 
 class Volume():
-    def __init__(self, server, start_bus=0, num_channels=None,
+    def __init__(self, server, start_bus=0, channels=None,
                  min=-90, max=6, persist=False):
         self._server = server
         self._start_bus = start_bus
-        self._num_channels = num_channels
+        self._channels = channels
         self._min = min
         self._max = max
         self._persist = persist
@@ -62,20 +62,20 @@ class Volume():
         return self._persist
 
     @property
-    def num_channels(self):
-        if self._num_channels is None:
+    def channels(self):
+        if self._channels is None:
             return self._server.options.output_channels
         else:
-            return self._num_channels
+            return self._channels
 
-    @num_channels.setter
-    def num_channels(self, value):
-        if self._amp_synth is not None and value != self.num_channels:
+    @channels.setter
+    def channels(self, value):
+        if self._amp_synth is not None and value != self.channels:
             _logger.warning(
                 'Change in number of channels will not take '
                 'effect until gain is reset to 0dB')
         else:
-            self._num_channels = value
+            self._channels = value
 
     @property
     def gain(self):
@@ -113,7 +113,7 @@ class Volume():
         if self._server._status_watcher.has_booted:
 
             def send_synthdef():
-                self._num_output_channels = self.num_channels
+                self._num_output_channels = self.channels
                 self._def_name = f'volume_amp_ctrl_{self._num_output_channels}'
 
                 def graph(volume_amp=1, volume_lag=0.1, gate=1, bus=None):

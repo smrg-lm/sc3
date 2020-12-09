@@ -20,19 +20,19 @@ class DiskOut(ugn.UGen):
 
 class DiskIn(ugn.MultiOutUGen):
     @classmethod
-    def ar(cls, num_channels, buf, loop=0):
-        return cls._multi_new('audio', num_channels, buf, loop)
+    def ar(cls, channels, buf, loop=0):
+        return cls._multi_new('audio', channels, buf, loop)
 
-    def _init_ugen(self, num_channels, *inputs):  # override
+    def _init_ugen(self, channels, *inputs):  # override
         self._inputs = inputs
-        return self._init_outputs(num_channels, self.rate)
+        return self._init_outputs(channels, self.rate)
 
 
 class VDiskIn(ugn.MultiOutUGen):
     @classmethod
-    def ar(cls, num_channels, buf, rate=1, loop=0, send_id=0):
-        return cls._multi_new('audio', num_channels, buf, rate, loop, send_id)
+    def ar(cls, channels, buf, rate=1, loop=0, send_id=0):
+        return cls._multi_new('audio', channels, buf, rate, loop, send_id)
 
-    def _init_ugen(self, num_channels, *inputs):  # override
+    def _init_ugen(self, channels, *inputs):  # override
         self._inputs = inputs
-        return self._init_outputs(num_channels, self.rate)
+        return self._init_outputs(channels, self.rate)

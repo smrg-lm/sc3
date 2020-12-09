@@ -24,7 +24,7 @@ class Recorder():
     def __init__(self, server):
         self._server = server
         self._bus = None
-        self._num_channels = None
+        self._channels = None
         self._path = None
 
         self.rec_header_format = None
@@ -52,8 +52,8 @@ class Recorder():
         return self._bus
 
     @property
-    def num_channels(self):
-        return self._num_channels
+    def channels(self):
+        return self._channels
 
     @property
     def paused(self):
@@ -67,7 +67,7 @@ class Recorder():
     def path(self):
         return self._path
 
-    def record(self, path=None, bus=None, num_channels=None,
+    def record(self, path=None, bus=None, channels=None,
                node=None, duration=None):
         if self._server._status_watcher.unresponsive\
         or not self._server._status_watcher.server_running:
@@ -78,12 +78,12 @@ class Recorder():
 
         if self._record_buf is None:
             def record_setup():
-                self.prepare(path, num_channels)
+                self.prepare(path, channels)
                 yield from self._server.sync()
-                self.record(path, self._bus, num_channels, node, duration)
+                self.record(path, self._bus, channels, node, duration)
             stm.Routine.run(record_setup)
         else:
-            if num_channels is not None and num_channels != self._num_channels:
+            if channels is not None and channels != self._channels:
                 _logger.warning(
                     'cannot change recording number of channels while running')
                 return
@@ -97,7 +97,7 @@ class Recorder():
                 self._record(self._bus, node, duration)
                 self._changed_server('recording', True)
                 _logger.info(
-                    f"recording {self._num_channels} channel(s) from "
+                    f"recording {self._channels} channel(s) from "
                     f"bus {self._bus} on path: '{self._path}'")
             else:
                 if self._paused:
@@ -107,15 +107,15 @@ class Recorder():
                         f'recording already ({self._duration} seconds)')
 
     def record_bus(self, bus, duration=None, path=None,
-                   num_channels=None, node=None):
+                   channels=None, node=None):
         if self.is_recording:
             _logger.warning(
                 f'already recording from bus {self._bus} '
                 f'({self._duration} seconds)')
             return
         n = bus.channels
-        if num_channels is not None:  # and n is not None:
-            n = min(num_channels, n)
+        if channels is not None:  # and n is not None:
+            n = min(channels, n)
         self.record(path, bus.index, n, node, duration)
 
     @property
@@ -157,7 +157,7 @@ class Recorder():
         else:
             _logger.warning('not recording')
 
-    def prepare(self, path=None, num_channels=None):
+    def prepare(self, path=None, channels=None):
         if not self._server._status_watcher.server_running:
             _logger.error(f"server '{self.server.name}' is not running")
             return
@@ -174,8 +174,8 @@ class Recorder():
             self.rec_header_format = self._server.options.rec_header_format
         if self.rec_sample_format is None:
             self.rec_sample_format = self._server.options.rec_sample_format
-        if num_channels is None:
-            num_channels = self._server.options.rec_channels
+        if channels is None:
+            channels = self._server.options.rec_channels
 
         if path is None:
             path = self._make_path()
@@ -183,14 +183,14 @@ class Recorder():
         dir.mkdir(exist_ok=True)
 
         self._record_buf = bff.Buffer.new_alloc(
-            self._server, buf_size, num_channels,
+            self._server, buf_size, channels,
             lambda buf: buf.write_msg(
                 path, self.rec_header_format,
                 self.rec_sample_format, 0, 0, True))
 
         # if self._record_buf is None: raise Exception("could not allocate buffer")  # *** BUG: it can't be nil in sclang either
         self._path = path
-        self._num_channels = num_channels
+        self._channels = channels
         self._id = bi.uid()
 
         def func(input, bufnum, duration):
@@ -199,7 +199,7 @@ class Recorder():
             done_action = 0 if self._duration <= 0 else 2
             ugns.Line.kr(0, 0, self._duration, done_action=done_action)
             ugns.SendReply.kr(tick, '/recording_duration', (timer,), self._id)
-            ugns.DiskOut.ar(bufnum, ugns.In.ar(input, num_channels))
+            ugns.DiskOut.ar(bufnum, ugns.In.ar(input, channels))
 
         self._synthdef = sdf.SynthDef(sdf.SynthDef.generate_tmp_name(), func)
         self._synthdef.send(self._server)
@@ -235,7 +235,7 @@ class Recorder():
             _logger.info(f'recording stopped: {pathlib.Path(self._path).name}')
             self._record_buf = None
         self._bus = None
-        self._num_channels = None
+        self._channels = None
         self._path = None
         self._responder.disable()
         self._paused = False

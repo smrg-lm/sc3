@@ -192,7 +192,7 @@ class ChannelList(list, gpp.UGenSequence, aob.AbstractObject):
 
     # in Array.sc
 
-    # num_channels, no (is len, UGen don't really know about channels), TODO: ensure consistency.
+    # channels, no (is len, UGen don't really know about channels), TODO: ensure consistency.
     # source_ugen, no if not needed.
 
     # Synth debug
@@ -905,17 +905,17 @@ class MultiOutUGen(UGen):
         obj._init_outputs(num_outputs, rate)
         return obj
 
-    def _init_outputs(self, num_channels, rate):
+    def _init_outputs(self, channels, rate):
         '''
         Return value of this method is used as return value of _init_ugen
         in subclasses.
         '''
-        if num_channels is None or num_channels < 1:
+        if channels is None or channels < 1:
             raise Exception(
-                f'{self.name}: wrong number of channels ({num_channels})')
+                f'{self.name}: wrong number of channels ({channels})')
         self._channels = ChannelList(
-            [OutputProxy.new(rate, self, i) for i in range(num_channels)])
-        if num_channels == 1:
+            [OutputProxy.new(rate, self, i) for i in range(channels)])
+        if channels == 1:
             return self._channels[0]
         return self._channels
 

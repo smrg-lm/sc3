@@ -36,7 +36,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
 
     Parameters
     ----------
-    num_channels : int
+    channels : int
         Number of channels, default is 1.
     server : Server
         Target server.
@@ -108,10 +108,10 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
     #     if self._index is None:
     #         raise BusAlreadyFreed('realloc')
     #     rate = self._rate
-    #     num_channels = self._channels
+    #     channels = self._channels
     #     self.free()
     #     self._rate = rate
-    #     self._channels = num_channels
+    #     self._channels = channels
     #     self.alloc()
 
     # setAll is fill(value, self._channels)
@@ -147,8 +147,8 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
             self._map_symbol += str(self._index)
         return self._map_symbol
 
-    def sub_bus(self, offset, num_channels=1):
-        return type(self).new_from(self, offset, num_channels)
+    def sub_bus(self, offset, channels=1):
+        return type(self).new_from(self, offset, channels)
 
     # ar
     # kr
@@ -339,12 +339,12 @@ class ControlBus(Bus):
             count = self._channels
         return ['/c_getn', self._index, count]
 
-    def fill(self, value, num_channels):
+    def fill(self, value, channels):
         if self._index is None:
             raise BusAlreadyFreed('fill')
         # // Could throw an error if numChans > numChannels.
         self._server.send_bundle(
-            None, ['/c_fill', self._index, num_channels, value])
+            None, ['/c_fill', self._index, channels, value])
 
     def fill_msg(self, value):
         if self._index is None:

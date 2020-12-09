@@ -162,18 +162,18 @@ class BiPanB2(ugn.MultiOutUGen):
 
 class DecodeB2(ugn.MultiOutUGen):
     @classmethod
-    def ar(cls, num_channels, w, x, y, orientation=0.5):
-        return cls._multi_new('audio', num_channels, w, x, y, orientation)  # *** BUG: en sclang? asigns orientation = 0.5 here again.
+    def ar(cls, channels, w, x, y, orientation=0.5):
+        return cls._multi_new('audio', channels, w, x, y, orientation)  # *** BUG: en sclang? asigns orientation = 0.5 here again.
 
     @classmethod
-    def kr(cls, num_channels, w, x, y, orientation=0.5):
-        return cls._multi_new('control', num_channels, w, x, y, orientation)  # *** BUG: en sclang? asigns orientation = 0.5 here again.
+    def kr(cls, channels, w, x, y, orientation=0.5):
+        return cls._multi_new('control', channels, w, x, y, orientation)  # *** BUG: en sclang? asigns orientation = 0.5 here again.
 
-    def _init_ugen(self, num_channels, *inputs):  # override
+    def _init_ugen(self, channels, *inputs):  # override
         self._inputs = inputs
         self._channels = ugn.ChannelList([
             ugn.OutputProxy.new(self.rate, self, i)
-            for i in range(num_channels)
+            for i in range(channels)
         ])
         return self._channels
 
@@ -183,22 +183,22 @@ class DecodeB2(ugn.MultiOutUGen):
 
 class PanAz(ugn.MultiOutUGen):
     @classmethod
-    def ar(cls, num_channels, input, pos=0.0, level=1.0,
+    def ar(cls, channels, input, pos=0.0, level=1.0,
            width=2.0, orientation=0.5):
-        return cls._multi_new('audio', num_channels, input, pos, level,
+        return cls._multi_new('audio', channels, input, pos, level,
                               width, orientation)
 
     @classmethod
-    def kr(cls, num_channels, input, pos=0.0, level=1.0,
+    def kr(cls, channels, input, pos=0.0, level=1.0,
            width=2.0, orientation=0.5):
-        return cls._multi_new('control', num_channels, input, pos, level,
+        return cls._multi_new('control', channels, input, pos, level,
                               width, orientation)
 
-    def _init_ugen(self, num_channels, *inputs):  # override
+    def _init_ugen(self, channels, *inputs):  # override
         self._inputs = inputs
         self._channels = ugn.ChannelList([
             ugn.OutputProxy.new(self.rate, self, i)
-            for i in range(num_channels)
+            for i in range(channels)
         ])
         return self._channels
 

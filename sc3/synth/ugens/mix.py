@@ -71,10 +71,10 @@ class Mix(ugn.PseudoUGen):
 # This is a later added Pseudo UGen used only by JITLib.
 # class NumChannels(ugn.PseudoUGen):
 #     @classmethod
-#     def ar(cls, input, num_channels=2, mixdown=True):
+#     def ar(cls, input, channels=2, mixdown=True):
 #         input = utl.as_list(input)
 #         if len(input) > 1:
-#             input = utl.clump(input, bi.ceil(len(input) / num_channels))  # *** BUG: in sclang, will work only if len(input) is >= num_channels AND roundup is multiple of num_channels.
+#             input = utl.clump(input, bi.ceil(len(input) / channels))  # *** BUG: in sclang, will work only if len(input) is >= channels AND roundup is multiple of channels.
 #             result = []
 #             for channel in input:
 #                 if len(channel) == 1:
@@ -87,7 +87,7 @@ class Mix(ugn.PseudoUGen):
 #                 return result[0]
 #             else:
 #                 return ugn.ChannelList(result)
-#         elif num_channels == 1:
+#         elif channels == 1:
 #             return input[0]
 #         else:
-#             return ugn.ChannelList(input * num_channels)  # list dup
+#             return ugn.ChannelList(input * channels)  # list dup

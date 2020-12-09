@@ -85,16 +85,16 @@ class SynthDescError(Exception):
 
 
 class IODesc():
-    def __init__(self, rate, num_channels, starting_channel, type):
+    def __init__(self, rate, channels, starting_channel, type):
         self.rate = rate
-        self.num_channels = num_channels
+        self.channels = channels
         self.starting_channel = starting_channel or '?'
         self.type = type
 
     def __repr__(self):  # Was printOn.
         return (
             f"{type(self).__name__}(rate='{self.rate}', "
-            f"num_channels={self.num_channels}, "
+            f"channels={self.channels}, "
             f"starting_channel={self.starting_channel}, "
             f"type={self.type.__name__})")
 
@@ -365,7 +365,7 @@ class SynthDesc():
     #     ugens = self.sdef._children
     #     outs = [x for x in ugens if x._writes_to_bus()]
     #     return [
-    #         {'rate': x.rate, 'num_channels': x._num_audio_channels()}
+    #         {'rate': x.rate, 'channels': x._num_audio_channels()}
     #         for x in outs]
 
     def __str__(self):  # Was printOn.

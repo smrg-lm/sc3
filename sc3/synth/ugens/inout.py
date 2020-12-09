@@ -30,7 +30,7 @@ class ControlName():
         self.arg_num = arg_num
         self.lag = lag or 0.0
 
-    def num_channels(self):
+    def channels(self):
         return len(utl.as_list(self.default_value))
 
     def __repr__(self):  # Was printOn.
@@ -183,62 +183,62 @@ class AbstractIn(ugn.MultiOutUGen):
 
 class In(AbstractIn):
     @classmethod
-    def ar(cls, bus=0, num_channels=1):
-        return cls._multi_new('audio', num_channels, bus)
+    def ar(cls, bus=0, channels=1):
+        return cls._multi_new('audio', channels, bus)
 
     @classmethod
-    def kr(cls, bus=0, num_channels=1):
-        return cls._multi_new('control', num_channels, bus)
+    def kr(cls, bus=0, channels=1):
+        return cls._multi_new('control', channels, bus)
 
-    def _init_ugen(self, num_channels, *arg_bus):  # override
+    def _init_ugen(self, channels, *arg_bus):  # override
         self._inputs = arg_bus
-        return self._init_outputs(num_channels, self.rate)
+        return self._init_outputs(channels, self.rate)
 
 
 class LocalIn(AbstractIn):
     @classmethod
-    def ar(cls, num_channels=1, default=0.0):
-        return cls._multi_new('audio', num_channels, *utl.as_list(default))
+    def ar(cls, channels=1, default=0.0):
+        return cls._multi_new('audio', channels, *utl.as_list(default))
 
     @classmethod
-    def kr(cls, num_channels=1, default=0.0):
-        return cls._multi_new('control', num_channels, *utl.as_list(default))
+    def kr(cls, channels=1, default=0.0):
+        return cls._multi_new('control', channels, *utl.as_list(default))
 
-    def _init_ugen(self, num_channels, *default):  # override
-        self._inputs = utl.wrap_extend(default, num_channels)
-        return self._init_outputs(num_channels, self.rate)
+    def _init_ugen(self, channels, *default):  # override
+        self._inputs = utl.wrap_extend(default, channels)
+        return self._init_outputs(channels, self.rate)
 
 
 class LagIn(AbstractIn):
     _default_rate = 'control'
 
     @classmethod
-    def kr(cls, bus=0, num_channels=1, lag=0.1):
-        return cls._multi_new('control', num_channels, bus, lag)
+    def kr(cls, bus=0, channels=1, lag=0.1):
+        return cls._multi_new('control', channels, bus, lag)
 
-    def _init_ugen(self, num_channels, *inputs):  # override
+    def _init_ugen(self, channels, *inputs):  # override
         self._inputs = inputs
-        return self._init_outputs(num_channels, self.rate)
+        return self._init_outputs(channels, self.rate)
 
 
 class InFeedback(AbstractIn):
     @classmethod
-    def ar(cls, bus=0, num_channels=1):
-        return cls._multi_new('audio', num_channels, bus)
+    def ar(cls, bus=0, channels=1):
+        return cls._multi_new('audio', channels, bus)
 
-    def _init_ugen(self, num_channels, *arg_bus):  # override
+    def _init_ugen(self, channels, *arg_bus):  # override
         self._inputs = arg_bus
-        return self._init_outputs(num_channels, self.rate)
+        return self._init_outputs(channels, self.rate)
 
 
 class InTrig(AbstractIn):
     @classmethod
-    def kr(cls, bus=0, num_channels=1):
-        return cls._multi_new('control', num_channels, bus)
+    def kr(cls, bus=0, channels=1):
+        return cls._multi_new('control', channels, bus)
 
-    def _init_ugen(self, num_channels, *arg_bus):  # override
+    def _init_ugen(self, channels, *arg_bus):  # override
         self._inputs = arg_bus
-        return self._init_outputs(num_channels, self.rate)
+        return self._init_outputs(channels, self.rate)
 
 
 class SoundIn(ugn.PseudoUGen):

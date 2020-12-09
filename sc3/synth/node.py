@@ -776,10 +776,10 @@ class Synth(Node):
         for key, offset, value in utl.gen_cclumps(args, 3):
             if key in synth_desc.control_dict:
                 cname = synth_desc.control_dict[key]
-                if offset < cname.num_channels:
+                if offset < cname.channels:
                     osc_msg.append(cname.index + offset)
                     if isinstance(value, list):
-                        osc_msg.append(value[:cname.num_channels - offset]) # keep
+                        osc_msg.append(value[:cname.channels - offset]) # keep
                     else:
                         osc_msg.append(value)
         self.server.send_msg(

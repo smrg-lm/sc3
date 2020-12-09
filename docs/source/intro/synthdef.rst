@@ -72,8 +72,7 @@ As the example shows, ugens can be interconnected by either parameters or
 operations, and also methods that represent operations. Basically, the valid
 types to combine with ugens are numbers, int or float, lists or tuples
 containing valid types and other ugens. Some ugens may be able to receive other
-object like strings, buses, buffers or special objects but they will be
-internally converted to basic types.
+special objects but they will be internally converted to basic types.
 
 Synthesis definitions can also be written using the decorator function
 :meth:`synthdef<sc3.synth.synthdef.synthdef>` which creates the

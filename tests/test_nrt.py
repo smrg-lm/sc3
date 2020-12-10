@@ -58,12 +58,15 @@ class NrtTestCase(unittest.TestCase):
 
         if shutil.which(Server.default.options.program):
             # Test file exist and stat.
-            file = pathlib.Path('test.aiff')
-            self.assertFalse(file.exists())
-            score.render(file)
-            self.assertTrue(file.exists())
-            self.assertEqual(file.stat().st_size, 1764456)
-            file.unlink()
+            try:
+                file = pathlib.Path('test.aiff')
+                # self.assertFalse(file.exists())  # Test might randomly fail with this assertion.
+                score.render(file)
+                self.assertTrue(file.exists())
+                self.assertEqual(file.stat().st_size, 1764456)
+            finally:
+                if file.exists():
+                    file.unlink()
         else:
             logger.warning(
                 f'{Server.default.options.program} server not installed')

@@ -11,16 +11,19 @@ from ..base import model as mdl
 class NodeWatcher():
     # // Watches registered nodes and sets their isPlaying/isRunning flag.
     # // A node needs to be registered to be addressed, other nodes are ignored.
+    _CMDS = ('/n_go', '/n_end', '/n_off', '/n_on', '/n_move', '/n_info')
 
     def __init__(self, server):
         self._server = server
         self._nodes = dict()
         self._responders = []
         self._is_watching = False
-        for cmd in self.cmds:
+        for cmd in self._CMDS:
             method = '_' + cmd[1:]
             osc_func = rdf.OscFunc(
-                (lambda mthd: lambda msg, *_: self.respond(mthd, msg))(method),
+                (lambda mthd:
+                    lambda msg, *_:
+                        self.respond(mthd, msg))(method),
                 cmd, self._server.addr)
             osc_func.permanent = True
             # osc_func.disable()  # *** NOTE: no sense if self.start() is not manual.
@@ -45,10 +48,6 @@ class NodeWatcher():
     @property
     def is_watching(self):
         return self._is_watching
-
-    @property
-    def cmds(self):
-        return ('/n_go', '/n_end', '/n_off', '/n_on', '/n_move', '/n_info')
 
     def respond(self, method, msg):
         node = self._nodes.get(msg[1])

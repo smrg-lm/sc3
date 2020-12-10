@@ -25,7 +25,7 @@ class Mix(ugn.PseudoUGen):
             else:
                 mixed_lst.append(utl.list_sum(item))
         if len(mixed_lst) < 3:
-            return utl.list_sum(mixed_lst)
+            return ugn.ChannelList(utl.list_sum(mixed_lst))
         elif len(mixed_lst) == 3:
             return ugn.Sum3.new(*mixed_lst)
         else:

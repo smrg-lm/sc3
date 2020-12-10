@@ -4,39 +4,48 @@ from .. import ugen as ugn
 from . import infougens as ifu
 
 
+class PV_ChainUGen(ugn.WidthFirstUGen):
+    # // Conveniences to apply calculations to an FFT chain.
+    ...
+
+
 # // "Unpack FFT" UGens (c) 2007 Dan Stowell.
 # // Magical UGens for treating FFT data as demand-rate streams.
 
-# // Actually this just wraps up a bundle of Unpack1FFT UGens.
 class UnpackFFT(ugn.MultiOutUGen):
-    ...
+    # // Actually this just wraps up
+    # // a bundle of Unpack1FFT UGens.
+    @classmethod
+    def new(cls, bufsize, frombin=0, tobin=None):
+        ...
 
 
 class Unpack1FFT(ugn.UGen):
-    ...
+    @classmethod
+    def new(cls, chain, bufsize, binindex, whichmeasure=0):
+        ...
 
 
-# // Conveniences to apply calculations to an FFT chain.
-class PV_ChainUGen(ugn.WidthFirstUGen):
-    ...
-
-
-# // This does the demanding, to push the data back into an FFT buffer.
 class PackFFT(PV_ChainUGen):
-    ...
+    # // This does the demanding, to push
+    # // the data back into an FFT buffer.
+    @classmethod
+    def new(cls, chain, bufsize, magsphases,
+            frombin=0, tobin=None, zeroothers=0):
+        ...
 
 
 # FFT.sc
 
-# // fft uses a local buffer for holding the buffered audio. wintypes are
-# // defined in the C++ source. 0 is default, Welch; 1 is Hann; -1 is rect.
-
 
 class FFT(PV_ChainUGen):
+    # // fft uses a local buffer for holding the buffered
+    # // audio. wintypes are defined in the C++ source.
+    # // 0 is default, Welch; 1 is Hann; -1 is rect.
     @classmethod
     def new(cls, buffer, input=0.0, hop=0.5, wintype=0, active=1, winsize=0):
-        return cls._multi_new('control', buffer, input, hop,
-                              wintype, active, winsize)
+        return cls._multi_new(
+            'control', buffer, input, hop, wintype, active, winsize)
 
     def fft_size(self):
         return ifu.BufFrames.ir(self.inputs[0])
@@ -195,8 +204,8 @@ class PV_RectComb(PV_ChainUGen):
 class PV_RectComb2(PV_ChainUGen):
     @classmethod
     def new(cls, buffer_a, buffer_b, num_teeth=0.0, phase=0.0, width=0.5):
-        return cls._multi_new('control', buffer_a, buffer_b,
-                              num_teeth, phase, width)
+        return cls._multi_new(
+            'control', buffer_a, buffer_b, num_teeth, phase, width)
 
 
 class PV_RandWipe(PV_ChainUGen):

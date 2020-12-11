@@ -1,49 +1,32 @@
-"""FFTUnpacking.sc, FFT.sc & FFT2.sc"""
+"""FFT.sc, FFT2.sc and FFTUnpacking.sc"""
 
+from ...base import utils as utl
 from .. import ugen as ugn
 from . import infougens as ifu
 
 
 class PV_ChainUGen(ugn.WidthFirstUGen):
     # // Conveniences to apply calculations to an FFT chain.
-    ...
 
+    def fft_size(self):
+        return self._inputs[0].fft_size()
 
-# // "Unpack FFT" UGens (c) 2007 Dan Stowell.
-# // Magical UGens for treating FFT data as demand-rate streams.
-
-class UnpackFFT(ugn.MultiOutUGen):
-    # // Actually this just wraps up
-    # // a bundle of Unpack1FFT UGens.
-    @classmethod
-    def new(cls, bufsize, frombin=0, tobin=None):
-        ...
-
-
-class Unpack1FFT(ugn.UGen):
-    @classmethod
-    def new(cls, chain, bufsize, binindex, whichmeasure=0):
-        ...
-
-
-class PackFFT(PV_ChainUGen):
-    # // This does the demanding, to push
-    # // the data back into an FFT buffer.
-    @classmethod
-    def new(cls, chain, bufsize, magsphases,
-            frombin=0, tobin=None, zeroothers=0):
-        ...
+    # pvcalc
+    # pvcalc2
+    # pvcollect
+    # addCopiesIfNeeded
 
 
 # FFT.sc
-
 
 class FFT(PV_ChainUGen):
     # // fft uses a local buffer for holding the buffered
     # // audio. wintypes are defined in the C++ source.
     # // 0 is default, Welch; 1 is Hann; -1 is rect.
+    _default_rate = 'control'
+
     @classmethod
-    def new(cls, buffer, input=0.0, hop=0.5, wintype=0, active=1, winsize=0):
+    def kr(cls, buffer, input=0.0, hop=0.5, wintype=0, active=1, winsize=0):
         return cls._multi_new(
             'control', buffer, input, hop, wintype, active, winsize)
 
@@ -269,3 +252,46 @@ class PV_HainsworthFoote(PV_ChainUGen):
     def ar(cls, buf, proph=0.0, propf=0.0, threshold=1.0, wait_time=0.04):
         return cls._multi_new(
             'audio', buf, proph, propf, threshold, wait_time)
+
+
+# FFTUnpacking.sc
+# // "Unpack FFT" UGens (c) 2007 Dan Stowell.
+# // Magical UGens for treating FFT data as demand-rate streams.
+
+class UnpackFFT(ugn.PseudoUGen):
+    _default_rate = 'demand'
+
+    @classmethod
+    def dr(cls, chain, bufsize, frombin=0, tobin=None):
+        upperlimit = bufsize // 2
+        tobin = upperlimit if tobin is None else min(tobin, upperlimit)
+        tobin += 1
+        return utl.flatten(utl.flop([
+            [Unpack1FFT(chain, bufsize, i, 0) for i in range(frombin, tobin)],
+            [Unpack1FFT(chain, bufsize, i, 1) for i in range(frombin, tobin)]
+        ]))
+
+
+class Unpack1FFT(ugn.UGen):
+    _default_rate = 'demand'
+
+    @classmethod
+    def dr(cls, chain, bufsize, binindex, which=0):
+        return cls._multi_new('demand', chain, bufsize, binindex, which)
+
+
+class PackFFT(PV_ChainUGen):
+    # // This does the demanding, to push the data back into an FFT buffer.
+    _default_rate = 'control'
+
+    @classmethod
+    def kr(cls, chain, bufsize, magsphases,
+           frombin=0, tobin=None, zeroothers=0):
+        tobin = tobin or bufsize // 2
+        magsphases = utl.as_list(magsphases)
+        return cls._multi_new(
+            'control', chain, bufsize, frombin, tobin,
+            zeroothers, len(magsphases), *magsphases)
+
+    def fft_size(self):
+        return self._inputs[1]

@@ -391,9 +391,9 @@ class OscFunc(AbstractResponderFunc):
         cls.trace(False)
 
     @classmethod
-    def trace(cls, flag=True, hide_status_msg=False):
+    def trace(cls, flag=True, hide_status=True):
         if flag and not cls._trace_running:
-            if hide_status_msg:
+            if hide_status:
                 cls._trace_func = cls._trace_func_hide_status
             else:
                 cls._trace_func = cls._trace_func_show_status

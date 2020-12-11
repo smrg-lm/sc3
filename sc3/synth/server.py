@@ -665,6 +665,27 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             target.node_id, *node_list)
 
     def sync(self, condition=None, latency=None, elements=None):
+        '''
+        Generator method that manages server's '/sync' message and
+        its reply. Use as ``yield from s.sync()`` to sync previous
+        commands sent to the server from within a routine.
+
+        Internally, it sends a '/sync' message to the server, which
+        will reply with the message '/synced', and waits in a Condition
+        until all previous *asynchronous commands* have been completed.
+
+        Parameters
+        ----------
+        condition: Condition
+            An optional instance of Condition that will be used to
+            wait for the reply.
+        latancy: int | float
+            Bundle's latency as in ``send_bundle``.
+        elements: list
+            A list of lists as OSC messages which will be sent
+            before the '/sync' message.
+        '''
+
         if _libsc3.main is _libsc3.NrtMain:
             yield 0  # *** NOTE: Depends on Condition implementation.
         else:

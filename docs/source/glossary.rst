@@ -15,6 +15,11 @@ Glossary
    audio rate
       The sampling rate of the server.
 
+   asynchronous command
+      Commands performed by the server outside the real time thread.
+      Asynchronous commands send a reply to the registered clients
+      when the task is completed.
+
    block size
       The size, in samples, of the control rate processing interval
       of the server.

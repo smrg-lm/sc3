@@ -132,6 +132,24 @@ class NetAddr():
         return self
 
     def sync(self, condition=None, latency=None, elements=None):
+        '''
+        Generator method that internally manages server's '/sync'
+        message. Because it's used to synchronize bundles sent
+        to the server it is primarly used through Server's ``sync``
+        wrapper method.
+
+        Parameters
+        ----------
+        condition: Condition
+            An optional instance of Condition that will be used to
+            wait for the reply.
+        latancy: int | float
+            Bundle's latency as in ``send_bundle``.
+        elements: list
+            A list of lists as OSC messages which will be sent
+            before the '/sync' message.
+        '''
+
         condition = condition or stm.Condition()
         if elements is None:
             id = self._make_sync_responder(condition)
@@ -242,8 +260,6 @@ class BundleNetAddr(NetAddr):
     # Important difference: This class is a context manager. forkIfNeeded
     # can't be implemented, addr.sync() uses it in sclang. Here sync calls are
     # handled different doing yield from directly within the with statement.
-    # I don't see a significant difference with sending all sync messages
-    # together at the end.
 
     class _SYNC_FLAG(): pass
 

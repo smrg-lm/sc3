@@ -113,7 +113,6 @@ class scbuiltin():
 
 @scbuiltin.unop
 def rand(x):
-    # *** TODO: See the actual implementations.
     if type(x) is float:
         return _libsc3.main._rgen.random() * x
     elif type(x) is int:
@@ -733,11 +732,10 @@ def fold(x, lo, hi, range=None, range2=None): # *** BUG: ídem wrap con range y 
         c = range2 - c
     return c + lo
 
-# TODO: define pow, eso no es bueno para mi. *********************************
-# @scbuiltin
-# def pow(a, b):
-#     # return a >= 0.f ? std::pow(a, b) : -std::pow(-a, b);
-#     pass
+@scbuiltin.binop
+def pow(a, b):
+    # return a >= 0.f ? std::pow(a, b) : -std::pow(-a, b);
+    return math.pow(a, b) if a >= 0.0 else math.pow(-a, b)
 
 @scbuiltin.binop
 def div(a, b): # TODO: define div para int devolviendo el dividendo si el divisor es cero, en sclang es el comportamiento de 1 div: 0, en Python 1 // 0 es error.

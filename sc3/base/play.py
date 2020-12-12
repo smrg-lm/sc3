@@ -44,9 +44,9 @@ def _play_func(func, target=None, outbus=0, fade=0.01,
                 gate = ugns.Control.kr(1.0)
                 result *= ugns.EnvGen.kr(
                     evp.Env.asr(fade, 1, fade, 'lin'), gate, 1, 0, 1, 2)
-            result = ugn.SynthObject._replace_zeroes_with_silence(
-                utl.as_list(result))
+            result = utl.as_list(result)
             rate = gpp.ugen_param(result)._as_ugen_rate()
+            result = ugn.SynthObject._replace_zeroes_with_silence(result)
             ugns.Out._multi_new(rate, _iout, *result)
 
     synthdef = sdf.SynthDef(sds.SystemDefs.generate_tmp_name(), wrapper)

@@ -155,11 +155,11 @@ class BHiShelf(BEQSuite):
     @classmethod
     def sc(cls, dummy=None, freq=1200.0, rs=1.0, db=0.0):
         sr = ifu.SampleRate.ir()
-        a = pow(10, db/40)
+        a = bi.pow(10, db/40)
         w0 = bi.pi * 2 * freq * ifu.SampleDur.ir()
         cos_w0 = bi.cos(w0)
         sin_w0 = bi.sin(w0)
-        alpha = sin_w0 * 0.5 * sqrt((a + bi.reciprocal(a)) * (rs - 1) + 2.0)
+        alpha = sin_w0 * 0.5 * bi.sqrt((a + bi.reciprocal(a)) * (rs - 1) + 2.0)
         i = (a+1) * cos_w0
         j = (a-1) * cos_w0
         k = 2 * bi.sqrt(a) * alpha

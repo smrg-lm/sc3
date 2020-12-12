@@ -434,7 +434,7 @@ class SynthDef(metaclass=MetaSynthDef):
         self._init_topo_sort()
 
         self._rewrite_in_progress = True
-        for ugen in self._children[:]:  # ***** Hace _children.copy.do porque modifica los valores de la lista sobre la que itera. VER RECURSIVIDAD: SI MODIFICA UN VALOR ACCEDIDO POSTERIORMENTE None._optimize_graph FALLA??
+        for ugen in self._children[:]:
             ugen._optimize_graph()  # pong
         self._rewrite_in_progress = False
 
@@ -467,17 +467,16 @@ class SynthDef(metaclass=MetaSynthDef):
     def _check_inputs(self):  # ping
         first_err = None
         for ugen in self._children:
-            err = ugen._check_inputs() # pong, en sclang devuelve nil o un string, creo que esos serían todos los casos según la lógica de este bloque.
-            if err: # *** TODO EN SCLANG ES ASIGNA A err Y COMPRUEBA notNil, acá puede ser none, pero ver qué retornan de manera sistemática, ver return acá abajo.
+            err = ugen._check_inputs() # pong
+            if err:
                 # err = ugen.class.asString + err;
                 # err.postln;
                 # ugen._dump_args
                 if first_err is None:
                     first_err = ugen.name + ' ' + err
         if first_err:
-            #"SynthDef % build failed".format(this.name).postln;
             raise ValueError(first_err)
-        return True # porque ugen._check_inputs() retorna nil y acá true
+        return True  # Returns: None, bool, str (True or str is error).
 
     def _topological_sort(self):
         self._init_topo_sort()

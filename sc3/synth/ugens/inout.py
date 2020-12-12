@@ -262,15 +262,13 @@ class AbstractOut(ugn.SynthObject):
         return 0
 
     def _write_output_specs(self, file):  # override
-        pass # Se define como no hacer nada porque las ugens que escriben a buses no tienen señales de salida (cables internos). Es interfaz de polimorfismo desde UGen.
+        pass  # No output signal.
 
     def _check_inputs(self):  # override
         if self.rate == 'audio':
             for i in range(type(self)._num_fixed_args(), len(self.inputs)):
                 if gpp.ugen_param(self.inputs[i])._as_ugen_rate() != 'audio':
-                    return (f'{type(self).__name__}: input at index '
-                            f'{i} ({type(self.inputs[i]).__name__}) '
-                            'is not audio rate')
+                    return (f'input at index {i} is not audio rate')
         elif len(self.inputs) <= type(self)._num_fixed_args():
             return 'missing input at index 1'
         return self._check_valid_inputs()

@@ -208,9 +208,13 @@ class RtMain(metaclass=Process):
             with cond:
                 if cls._main_run_cond:
                     return
-                cls._main_run_cond = cond
-                cls._main_run_cond.wait()
-                cls._main_run_cond = None
+                try:
+                    cls._main_run_cond = cond
+                    cls._main_run_cond.wait()
+                except KeyboardInterrupt:
+                    pass
+                finally:
+                    cls._main_run_cond = None
 
     @classmethod
     def stop(cls):

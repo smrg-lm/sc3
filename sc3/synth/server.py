@@ -285,7 +285,8 @@ class ServerProcess():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             bufsize=1,
-            universal_newlines=True)
+            universal_newlines=True,
+            start_new_session=True)
         self._redirect_outerr()
 
         def popen_wait_thread():

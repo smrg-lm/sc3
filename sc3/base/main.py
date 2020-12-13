@@ -200,8 +200,8 @@ class RtMain(metaclass=Process):
     def run(cls):
         '''Main thread lock.'''
 
-        if cls._current_tt != cls.main_tt:
-            raise Exception('run cannot be called from a TimeThread')
+        if cls.current_tt != cls.main_tt:
+            raise Exception('main.run cannot be called from a TimeThread')
 
         if not cls._main_run_cond:
             cond = threading.Condition(cls._main_lock)
@@ -221,14 +221,14 @@ class RtMain(metaclass=Process):
                 cls._main_run_cond.notify()
 
     @classmethod
-    def sync(cls, server=None):
+    def sync(cls, server):
         '''Main thread blocking sync command.'''
 
         # Whoever comes first, stop or sync, unlocks the main thread.
         # It would take a queue with a counter to make them independent,
         # semaphores can't used I think.
-        if cls._current_tt != cls.main_tt:
-            raise Exception('sync cannot be called from a TimeThread')
+        if cls.current_tt != cls.main_tt:
+            raise Exception('main.sync cannot be called from a TimeThread')
 
         with cls._main_lock:
             id = bi.uid()
@@ -239,7 +239,7 @@ class RtMain(metaclass=Process):
                     cls.stop()
 
             resp = rdf.OscFunc(resp_func, '/synced', server.addr)
-            server.send_bundle(1, ['/sync', id])
+            server.send_msg('/sync', id)
             cls.run()
 
 

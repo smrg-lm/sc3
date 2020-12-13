@@ -16,6 +16,8 @@ from . import stream as stm
 from . import _oscinterface as osci
 from . import classlibrary as clb
 from . import clock as clk
+from . import builtins as bi
+from . import responsedefs as rdf
 
 # Have late_imports and is not in the above tree.
 from ..seq import pattern as _
@@ -147,6 +149,7 @@ class RtMain(metaclass=Process):
         cls._osc_interface = osci.OscUdpInterface(
             sc3.LIB_PORT, sc3.LIB_PORT_RANGE)
         cls._osc_interface.start()
+        cls._main_run_cond = None
 
         clb.ClassLibrary.init()
         cls._startup()
@@ -188,6 +191,56 @@ class RtMain(metaclass=Process):
         else:
             # Logical time is set to current sched time by clocks.
             cls.main_tt._m_seconds = seconds
+
+
+    # Main thread blocking control for scripts.
+    # TODO: VER ctrl-c y estado.
+
+    @classmethod
+    def run(cls):
+        '''Main thread lock.'''
+
+        if cls._current_tt != cls.main_tt:
+            raise Exception('run cannot be called from a TimeThread')
+
+        if not cls._main_run_cond:
+            cond = threading.Condition(cls._main_lock)
+            with cond:
+                if cls._main_run_cond:
+                    return
+                cls._main_run_cond = cond
+                cls._main_run_cond.wait()
+                cls._main_run_cond = None
+
+    @classmethod
+    def stop(cls):
+        '''Unlock main thread.'''
+
+        if cls._main_run_cond:
+            with cls._main_run_cond:
+                cls._main_run_cond.notify()
+
+    @classmethod
+    def sync(cls, server=None):
+        '''Main thread blocking sync command.'''
+
+        # Whoever comes first, stop or sync, unlocks the main thread.
+        # It would take a queue with a counter to make them independent,
+        # semaphores can't used I think.
+        if cls._current_tt != cls.main_tt:
+            raise Exception('sync cannot be called from a TimeThread')
+
+        with cls._main_lock:
+            id = bi.uid()
+
+            def resp_func(msg, *_):
+                if msg[1] == id:
+                    resp.free()
+                    cls.stop()
+
+            resp = rdf.OscFunc(resp_func, '/synced', server.addr)
+            server.send_bundle(1, ['/sync', id])
+            cls.run()
 
 
 class NrtMain(metaclass=Process):

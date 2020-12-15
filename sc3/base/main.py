@@ -196,14 +196,23 @@ class RtMain(metaclass=Process):
     # Main thread blocking control for scripts.
 
     @classmethod
-    def lock(cls):
-        '''Main thread lock.'''
-
+    def _check_main_thread(cls):
         # if cls.current_tt != cls.main_tt:
-        #     raise Exception('main.run cannot be called from a TimeThread')
+        #     raise Exception('main lock called from a TimeThread')
         if threading.main_thread() is not threading.current_thread():
-            raise Exception('main.lock not called from main thread')
+            raise Exception('main lock must be called from the main thread')
 
+    @classmethod
+    def wait(cls, tail=0):
+        '''Main thread lock.
+
+        Parameters
+        ----------
+        tail:
+            Wait time added after resume is called.
+        '''
+
+        cls._check_main_thread()
         if not cls._main_run_cond:
             cond = threading.Condition(cls._main_lock)
             with cond:
@@ -216,9 +225,11 @@ class RtMain(metaclass=Process):
                     pass
                 finally:
                     cls._main_run_cond = None
+        if tail > 0:
+            time.sleep(tail)
 
     @classmethod
-    def unlock(cls):
+    def resume(cls):
         '''Unlock main thread.'''
 
         if cls._main_run_cond:
@@ -227,17 +238,15 @@ class RtMain(metaclass=Process):
 
     @classmethod
     def sync(cls, server):
-        '''Main thread blocking sync command.'''
+        '''Main thread blocking sync command.
 
-        # Whoever comes first, stop or sync, unlocks the main thread.
-        # It would take a queue with a counter to make them independent,
-        # semaphores can't used I think. Then, sync can only be called
-        # from the same thread as block (the python's main thread now).
-        # if cls.current_tt != cls.main_tt:
-        #     raise Exception('main.sync cannot be called from a TimeThread')
-        if threading.main_thread() is not threading.current_thread():
-            raise Exception('main.sync not called from main thread')
+        Parameters
+        ----------
+        server: Server
+            Instance to wait for.
+        '''
 
+        cls._check_main_thread()
         with cls._main_lock:
             id = bi.uid()
 
@@ -288,16 +297,18 @@ class NrtMain(metaclass=Process):
             cls.main_tt._m_seconds = seconds
 
     @classmethod
-    def reset(cls):
-        '''Reset sc3 time, scheduler and osc score to initial state.'''
-        cls.main_tt._m_seconds = 0.0
-        cls._clock_scheduler.reset()
-        cls._osc_interface.init()  # Reset OscScore.
-
-    @classmethod
     def process(cls, tail=0):
         '''Generate and return the OSC score.'''
+
         cls._clock_scheduler.run()
         cls._osc_interface._osc_score.finish(tail)
         cls.osc_score = cls._osc_interface._osc_score
         return cls.osc_score
+
+    @classmethod
+    def reset(cls):
+        '''Reset sc3 time, scheduler and osc score to initial state.'''
+
+        cls.main_tt._m_seconds = 0.0
+        cls._clock_scheduler.reset()
+        cls._osc_interface.init()  # Reset OscScore.

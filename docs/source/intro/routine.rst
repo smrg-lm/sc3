@@ -8,7 +8,7 @@ Routines, streams and logical time
 Routines in SuperCollider are a special kind of generators that can be
 scheduled in clocks and keep track of the passing of :term:`logical time`.
 They are needed to schedule sequences in time that will generate jitter-free
-OSC term:`timetags`.
+OSC :term:`timetags<timetag>`.
 
 Instances of routines are created as shown below, their only argument is a
 function or generator function (a function that define yield statements).
@@ -184,3 +184,34 @@ which are aware of routines.
   r.rand_seed = 12345
   next(r)  # Same first.
   next(r)  # Same second.
+
+
+Blocking the main thread
+------------------------
+
+Because each clock run in its own thread, for real time scripts, the main
+thread needs to block until routines' execution finishes or the script will
+quit before time.
+
+In the next example the main thread blocks after spawning several routines and
+resumes when ``r`` is finished so the script can exit.
+
+::
+
+  #!/usr/bin/env python3
+
+  from sc3.all import *
+
+  @routine
+  def r():
+      for i in range(13):
+          play(midinote=60 + i, sustain=0.05)
+          yield 0.25
+      main.resume()  # Resume the main thread.
+
+  # Play r after the server has booted.
+  s.boot(on_complete=lambda: r.play())
+
+  # Wait on the main thread and compensate
+  # latency with end time before exit.
+  main.wait(s.latency)

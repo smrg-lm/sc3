@@ -188,7 +188,9 @@ class FBSineC(FBSineN):
 ### ODEs ###
 
 class LorenzL(ChaosGen):
-    '''Lorenz chaotic generator.
+    '''LorenzL(freq=None, s=10, r=28, b=2.667, h=0.05, xi=0.1, yi=0, zi=0)
+
+    Lorenz chaotic generator.
 
     Rates
     -----

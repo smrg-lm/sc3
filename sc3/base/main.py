@@ -209,7 +209,7 @@ class RtMain(metaclass=Process):
         Parameters
         ----------
         tail:
-            Wait time added after resume is called.
+            Wait time added after ``resume`` is called.
         '''
 
         cls._check_main_thread()

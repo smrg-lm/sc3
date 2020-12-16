@@ -666,7 +666,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             target.node_id, *node_list)
 
     def sync(self, condition=None, latency=None, elements=None):
-        '''
+        '''Wait for previous asynchronous commands to finish.
+
         Generator method that manages server's '/sync' message and
         its reply. Use as ``yield from s.sync()`` to sync previous
         commands sent to the server from within a routine.
@@ -822,6 +823,28 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             # _logger.info(f"server '{self.name}' requested id unregistration")
 
     def boot(self, register=True, on_complete=None, on_failure=None):
+        '''Start the local server program.
+
+        Parameters
+        ----------
+        register: bool
+            Register the client to receive server notifications.
+        on_complete: function
+            A function to be called after the server boot process is
+            successfully finished. Optionally, the function receives the
+            server object as its only argument.
+        on_failure: function
+            A function to be called after the server boot process fails.
+            Optionally, the function receives the server object as its only
+            argument.
+
+        Notes
+        -----
+        It is not possible to boot a server application in a remote machine.
+        To register to an already running server in a remote machine use
+        the ``register`` method.
+        '''
+
         if _libsc3.main is _libsc3.NrtMain:
             self._status_watcher._boot_nrt()
             return

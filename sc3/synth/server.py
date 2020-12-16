@@ -688,7 +688,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         '''
 
         if _libsc3.main is _libsc3.NrtMain:
-            yield 0  # *** NOTE: Depends on Condition implementation.
+            yield 0
         else:
             yield from self.addr.sync(condition, latency, elements)
 
@@ -823,9 +823,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def boot(self, register=True, on_complete=None, on_failure=None):
         if _libsc3.main is _libsc3.NrtMain:
-            if self._status_watcher.server_running\
-            or self._status_watcher.unresponsive:
-                _logger.error("can't use an rt server in nrt")
             self._status_watcher._boot_nrt()
             return
 
@@ -943,7 +940,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def reboot(self, func=None, on_failure=None):
         if _libsc3.main is _libsc3.NrtMain:
-            _logger.warning("can't reboot a nrt server")
+            # self.quit()
+            self.boot()
             return
 
         # // func is evaluated when server is off.

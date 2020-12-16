@@ -280,6 +280,7 @@ class NrtMain(metaclass=Process):
         # Server setup and boot is only for user convenience.
         import sc3.synth.server as srv
         srv.Server.default.latency = 0
+        srv.Server.default.options.sample_rate = 48000
         srv.Server.default.boot()  # Sets _status_watcher._has_booted = True
         cls._exec_startup_file()
         sac.StartUp.run()

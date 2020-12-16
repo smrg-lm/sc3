@@ -374,18 +374,21 @@ class ServerStatusWatcher():
             self.server, 'server_running'))
 
     def _boot_nrt(self):
-        # Then it would be better to make a base clase with
-        # RtServerStatusWatcher and NrtServerStatusWatcher.
+        # It could be better to make a base clase with
+        # RtServerStatusWatcher and NrtServerStatusWatcher
+        # but there is not much to do.
         if not self._has_booted:
             self._has_booted = True
             self._notified = True
-            # sac.ServerBoot.run(self.server)  # Problems.
+            self._max_logins = 1
+            self.sample_rate = self.server.options.sample_rate
+            # sac.ServerBoot.run(self.server)  # It adds unwanted commands.
 
     def _quit_nrt(self):
         if self._has_booted:
             self._has_booted = False
             self._notified = False
-            # sac.ServerQuit.run(self.server)
+            # sac.ServerQuit.run(self.server)  # May add unwanted commands.
 
     ### Utilities ###
 

@@ -63,7 +63,7 @@ class NrtTestCase(unittest.TestCase):
                 # self.assertFalse(file.exists())  # Test might randomly fail with this assertion.
                 score.render(file)
                 self.assertTrue(file.exists())
-                self.assertEqual(file.stat().st_size, 1764456)
+                self.assertEqual(file.stat().st_size, 1920616)
             finally:
                 if file.exists():
                     file.unlink()

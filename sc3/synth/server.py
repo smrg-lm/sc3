@@ -597,7 +597,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     #         self._scope_buffer_allocator = eng.StackNumberAllocator(0, 127)
 
     def next_buffer_number(self, n):
-        '''Allocate ``n`` consecutive buffers and return the first index.
+        '''Allocate ``n`` consecutive buffer numbers and return the first
+        index.
 
         Raises an exception if the buffers can't be allocated.
         '''
@@ -674,7 +675,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         Notes
         -----
-        Elements can be messages or bundles. Invoked as:
+        Elements lists representing messages or bundles. Invoked as:
 
         ::
 
@@ -709,10 +710,15 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.addr.send_status_msg()
 
     def dump_osc(self, code=1):
-        # 0 - turn dumping OFF.
-        # 1 - print the parsed contents of the message.
-        # 2 - print the contents in hexadecimal.
-        # 3 - print both the parsed and hexadecimal representations of the contents.
+        '''Enable server-side message dumping.
+
+        The flags for ``code`` are as follow:
+          * 0 - turn dumping OFF.
+          * 1 - print the parsed contents of the message.
+          * 2 - print the contents in hexadecimal.
+          * 3 - print both the parsed and hexadecimal representations of the
+                contents.
+        '''
         self.dump_mode = code
         self.send_msg('/dumpOSC', code)
         mdl.NotificationCenter.notify(self, 'dump_osc', code)

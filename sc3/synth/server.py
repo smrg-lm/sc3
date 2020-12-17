@@ -476,8 +476,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def status(self):
-        '''
-        ServerStatusWatcher instance that keeps track of server status.
+        '''ServerStatusWatcher instance that keeps track of server status.
         '''
         # This this read-only property (non-data descritor) is the only
         # intended user interface to ServerStatusWatcher instances. Library's
@@ -619,9 +618,40 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     ### Network messages ###
 
     def send_msg(self, *args):
+        '''Send an OSC message to the server.
+
+        Invoked as:
+
+        ::
+
+            s.send_msg('/osc_addr', p1, p2, ...)
+
+        Parameters
+        ----------
+        *args: items
+            OSC address followed by zero or more values that compose the
+            message.
+        '''
+
         self.addr.send_msg(*args)
 
     def send_bundle(self, time, *elements):
+        '''Send an OSC bundle to the server.
+
+        Elements can be messages or bundles. Invoked as:
+
+        ::
+
+            s.send_bundle(1, ['/msg', ...], [1.2, ['/bndl', ...], ...], ...)
+
+        Parameters
+        ----------
+        time: int | float
+            Latency time from now. Nested bundles can have their own latency
+            but must be >= to the enclosing bundle latency.
+        *elements: lists
+            Each element is a list in the form of an OSC message or bundle.
+        '''
         self.addr.send_bundle(time, *elements)
 
     def send_synthdef(self, name, dir=None):
@@ -834,7 +864,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             successfully finished. Optionally, the function receives the
             server object as its only argument.
         on_failure: function
-            A function to be called after the server boot process fails.
+            A function to be called if the server boot process fails.
             Optionally, the function receives the server object as its only
             argument.
 
@@ -962,6 +992,19 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             event.wait(5)  # _MainThread, set_func runs in AppClock thread.
 
     def reboot(self, func=None, on_failure=None):
+        '''Quit and (re)start the server program.
+
+        Parameters
+        ----------
+        func: function
+            A function to be called after quit and before the server boots
+            again.
+        on_failure: function
+            A function to be called if the server reboot process fails.
+            Optionally, the function receives the server object as its only
+            argument.
+        '''
+
         if _libsc3.main is _libsc3.NrtMain:
             # self.quit()
             self.boot()
@@ -997,6 +1040,22 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         return self._server_process.running()
 
     def quit(self, watch_shutdown=True, on_complete=None, on_failure=None):
+        '''Stop the server program.
+
+        Parameters
+        ----------
+        watch_shutdown: bool
+            Tell the server whether to watch status during shutdown.
+        on_complete: function
+            A function to be called after the server quit process is
+            successfully finished. Optionally, the function receives the
+            server object as its only argument.
+        on_failure: function
+            A function to be called if the server quit process fails.
+            Optionally, the function receives the server object as its only
+            argument.
+        '''
+
         if _libsc3.main is _libsc3.NrtMain:
             self._status_watcher._quit_nrt()
             return

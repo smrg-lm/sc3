@@ -154,7 +154,7 @@ class ServerOptions():
             input_file = '_' if input_file is None else str(input_file)
             o.append(input_file)
             if output_file is None:
-                # TODO: Method in Platform for name generation. See Recorder & Buffer.
+                # *** TODO: Method in Platform for name generation. See Recorder & Buffer.
                 output_file = plf.Platform.recording_dir
                 output_file.mkdir(exist_ok=True)
                 output_file = str(output_file / 'SC_')
@@ -251,19 +251,21 @@ class ServerOptions():
         return self.output_channels + self.input_channels
 
 
-class ServerShmInterface():
-    def __init__(self, port):
-        self.ptr = None # variable de bajo nivel, depende de la implementación.
-        self.finalizer = None # variable de bajo nivel, depende de la implementación.
-        self.connect(port) # llama a una primitiva y debe guardar port a bajo nivel
-
-    # copy # // never ever copy! will cause duplicate calls to the finalizer!
-    def connect(self, port): ... # primitiva
-    def disconnect(self): ... # primitiva
-    def get_control_bus_value(self): ... # primitiva
-    def get_control_bus_values(self): ... # primitiva
-    def set_control_bus_value(self, value): ... # primitiva # BUG: desconozco los parámetros.
-    def set_control_bus_values(self, *values): ... # primitiva # BUG: desconozco los parámetros.
+# class ServerShmInterface():
+#     def __init__(self, port):
+#         # Low level implementation.
+#         self.ptr = None
+#         self.finalizer = None
+#         self.connect(port)
+#
+#     # Primitives.
+#     # copy # // never ever copy! will cause duplicate calls to the finalizer!
+#     def connect(self, port): ...
+#     def disconnect(self): ...
+#     def get_control_bus_value(self): ...
+#     def get_control_bus_values(self): ...
+#     def set_control_bus_value(self, value): ...
+#     def set_control_bus_values(self, *values): ...
 
 
 class ServerProcess():
@@ -281,7 +283,7 @@ class ServerProcess():
         cmd.extend(server.options.options_list(server.addr.port))
 
         self.proc = subprocess.Popen(
-            cmd,  # TODO: maybe a method popen_cmd regarding server, options and platform.
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             bufsize=1,
@@ -436,6 +438,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def addr(self):
+        '''NetAddr of the server.'''
         return self._addr
 
     @addr.setter
@@ -453,11 +456,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     @property
     def is_local(self):
         '''Return true if the server is in localhost.'''
-
         return self._is_local
 
     @property
     def name(self):
+        '''Name of the server.'''
         return self._name
 
     def _set_name(self, value):
@@ -469,16 +472,20 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def default_group(self):
+        '''Servers' default group node (user space).
+
+        Synth and Group target this node by default.
+        '''
         return self._default_group
 
     @property
     def default_groups(self):
+        '''List of default groups in a multi-user scenario.'''
         return self._default_groups
 
     @property
     def status(self):
         '''ServerStatusWatcher instance that keeps track of server status.'''
-
         # This this read-only property (non-data descritor) is the only
         # intended user interface to ServerStatusWatcher instances. Library's
         # style always uses _status_watcher private attribute directly.
@@ -491,14 +498,17 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def volume(self):
+        '''Volume control object.'''
         return self._volume
 
     @property
     def recorder(self):
+        '''Recorder object.'''
         return self._recorder
 
     @property
     def pid(self):
+        '''Process ID of the server program.'''
         return self._pid
 
 
@@ -506,6 +516,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def client_id(self):
+        '''Client ID, usually 0 in a single user scenario.'''
         return self._client_id
 
     def _set_client_id(self, value):
@@ -586,6 +597,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     #         self._scope_buffer_allocator = eng.StackNumberAllocator(0, 127)
 
     def next_buffer_number(self, n):
+        '''Allocate ``n`` consecutive buffers and return the first index.
+
+        Raises an exception if the buffers can't be allocated.
+        '''
+
         bufnum = self._buffer_allocator.alloc(n)
         if bufnum is None:
             if n > 1:
@@ -599,6 +615,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         return bufnum
 
     def free_all_buffers(self):
+        '''Free all the buffers of the server.'''
+
         bundle = []
         for block in self._buffer_allocator.blocks():
             for i in range(block.address, block.address + block.size - 1):
@@ -607,13 +625,18 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.send_bundle(None, *bundle)
 
     def next_node_id(self):
+        '''Return the next available node ID.
+
+        Each time this method is called the node allocator returns a new ID.
+        '''
         return self._node_allocator.alloc()
 
-    def next_perm_node_id(self):
-        return self._node_allocator.alloc_perm()
+    # def next_perm_node_id(self):
+    #     '''Next avaiable permanent (default) node ID.'''
+    #     return self._node_allocator.alloc_perm()
 
-    def free_perm_node_id(self, id):
-        return self._node_allocator.free_perm(id)
+    # def free_perm_node_id(self, id):
+    #     return self._node_allocator.free_perm(id)
 
 
     ### Network messages ###
@@ -778,15 +801,15 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     ### Shared memory interface ###
 
-    def _disconnect_shm(self):  # Was _disconnect_shared_memory
-        ...
+    # def _disconnect_shm(self):  # Was _disconnect_shared_memory
+    #     ...
 
-    def _connect_shm(self):  # Was _connect_shared_memory.
-        ...
+    # def _connect_shm(self):  # Was _connect_shared_memory.
+    #     ...
 
-    @property
-    def has_shm(self):  # Was has_shm_interface.
-        return self._shm_interface is not None
+    # @property
+    # def has_shm(self):  # Was has_shm_interface.
+    #     return self._shm_interface is not None
 
 
     ### Boot and login ###

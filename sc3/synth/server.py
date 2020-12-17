@@ -955,7 +955,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                     self._boot_in_process()  # Not implemented yet.
                     self._pid = _libsc3.main.pid  # Not implemented yet.
                 else:
-                    self._disconnect_shm()  # Not implemented yet.
+                    # self._disconnect_shm()  # Not implemented yet.
                     try:
                         self._server_process = ServerProcess(
                             self._on_server_process_exit)
@@ -996,7 +996,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def _boot_init(self):
         if self.dump_mode != 0:
             self.send_msg('/dumpOSC', self.dump_mode)
-        self._connect_shm()  # BUG: not implemented yet
+        # self._connect_shm()  # Not implemented yet
 
     def _on_server_process_exit(self, exit_code):
         # This method is called after quit or crash.

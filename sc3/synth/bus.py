@@ -137,7 +137,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
     def __repr__(self):
         return (
             f'{type(self).__name__}({self._channels}, '
-            f'{self._index}, {self._server.name})')
+            f'{self._server.name}, {self._index})')
 
     def as_map(self):
         if self._map_symbol is None:

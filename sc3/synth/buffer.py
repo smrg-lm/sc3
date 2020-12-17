@@ -705,8 +705,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     def __repr__(self):
         return (
-            f'{type(self).__name__}({self._bufnum}, {self._frames}, '
-            f'{self._channels}, {self._sample_rate}, {self._path})')
+            f'{type(self).__name__}({self._channels}, {self._frames}, '
+            f'{self._server.name}, {self._bufnum}, {self._sample_rate}, '
+            f'{self._path})')
 
 
     ### UGen graph parameter interface ###

@@ -62,6 +62,3 @@ class Operand(aob.AbstractObject):
 
     def __str__(self):
         return str(self.value)
-
-    # printOn
-    # storeOn

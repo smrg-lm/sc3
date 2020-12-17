@@ -194,19 +194,8 @@ class ContiguousBlock():
         else:
             return [None, None]
 
-    # storeArgs { ^[start, size, used] }
-    # TODO (en general) printOn usa sotreOn que usa storeParamsOn que
-    # usa storeArgs. Acá lo puse todo en __repr__ manualmente.
-    # BUG: el problema es que se usa inconsistentemente en la librería
-    # de clases. En Control se usa como __str__ y acá se usa como __repr__.
-    # BUG: y también acá está mal usado porque la cadena de printOn
-    # llama a obj.simplifyStoreArgs que no filtra los argumentos, o no
-    # se usa, correctamente porque devuelve una llamada al constructor
-    # con un argumento de más ('used').
-    # def __repr__(self):
-    #     string = type(self).__name__
-    #     string += '({}, {})'.format(self.start, self.size)
-    #     return string
+    def __repr__(self):
+        return f'{type(self).__name__}({self.start}, {self.size})'
 
 
 # TODO: comentario duplicado en sclang...

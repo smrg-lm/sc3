@@ -300,10 +300,7 @@ class Node(gpp.NodeParameter):
             msg.append(first.node_id)
         return msg
 
-    # TODO: VER:
-    # ==
-    # hash
-    # printOn
+    # TODO: hash?
 
 
     ### Node parameter interface ###

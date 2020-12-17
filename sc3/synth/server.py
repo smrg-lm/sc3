@@ -452,7 +452,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def is_local(self):
-        "Return true if the server is in localhost."
+        '''Return true if the server is in localhost.'''
+
         return self._is_local
 
     @property
@@ -476,8 +477,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def status(self):
-        '''ServerStatusWatcher instance that keeps track of server status.
-        '''
+        '''ServerStatusWatcher instance that keeps track of server status.'''
+
         # This this read-only property (non-data descritor) is the only
         # intended user interface to ServerStatusWatcher instances. Library's
         # style always uses _status_watcher private attribute directly.
@@ -703,24 +704,26 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def sync(self, condition=None, latency=None, elements=None):
         '''Wait for previous asynchronous commands to finish.
 
-        Generator method that manages server's '/sync' message and
-        its reply. Use as ``yield from s.sync()`` to sync previous
-        commands sent to the server from within a routine.
-
-        Internally, it sends a '/sync' message to the server, which
-        will reply with the message '/synced', and waits in a Condition
-        until all previous *asynchronous commands* have been completed.
-
         Parameters
         ----------
         condition: Condition
-            An optional instance of Condition that will be used to
-            wait for the reply.
+            An optional instance of Condition that will be used to wait for the
+            reply.
         latancy: int | float
             Bundle's latency as in ``send_bundle``.
         elements: list
-            A list of lists as OSC messages which will be sent
-            before the '/sync' message.
+            A list of lists as OSC messages which will be sent before the
+            ``'/sync'`` message.
+
+        Notes
+        -----
+        This method is a generator that manages server's ``'/sync'`` message
+        and its reply. Use as ``yield from s.sync()`` to sync previous commands
+        sent to the server from within a routine.
+
+        Internally, it sends a ``'/sync'`` message to the server, which will
+        reply with the message ``'/synced'``, and waits in a Condition until
+        all previous *asynchronous commands* have been completed.
         '''
 
         if _libsc3.main is _libsc3.NrtMain:

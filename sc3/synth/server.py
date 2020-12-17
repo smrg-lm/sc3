@@ -620,29 +620,25 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def send_msg(self, *args):
         '''Send an OSC message to the server.
 
-        Invoked as:
-
-        ::
-
-            s.send_msg('/osc_addr', p1, p2, ...)
-
         Parameters
         ----------
         *args: items
             OSC address followed by zero or more values that compose the
             message.
+
+        Notes
+        -----
+        Invoked as:
+
+        ::
+
+          s.send_msg('/osc_addr', p1, p2, ...)
         '''
 
         self.addr.send_msg(*args)
 
     def send_bundle(self, time, *elements):
         '''Send an OSC bundle to the server.
-
-        Elements can be messages or bundles. Invoked as:
-
-        ::
-
-            s.send_bundle(1, ['/msg', ...], [1.2, ['/bndl', ...], ...], ...)
 
         Parameters
         ----------
@@ -651,7 +647,16 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             but must be >= to the enclosing bundle latency.
         *elements: lists
             Each element is a list in the form of an OSC message or bundle.
+
+        Notes
+        -----
+        Elements can be messages or bundles. Invoked as:
+
+        ::
+
+          s.send_bundle(1, ['/msg', ...], [1.2, ['/bndl', ...], ...], ...)
         '''
+
         self.addr.send_bundle(time, *elements)
 
     def send_synthdef(self, name, dir=None):

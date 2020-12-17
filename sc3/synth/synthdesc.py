@@ -385,7 +385,7 @@ class MetaSynthDescLib(type):
 
         def init_func(cls):
             cls.default = cls('default')  # Was global in sclang.
-            sac.ServerBoot.add('all', cls.__on_server_boot)  # *** NOTE: *send calls global.send if server has booted, see below.
+            sac.ServerBoot.add('all', cls.__on_server_boot)
 
         clb.ClassLibrary.add(cls, init_func)
 
@@ -419,8 +419,8 @@ class SynthDescLib(metaclass=MetaSynthDescLib):
         self.synth_descs[synth_desc.name] = synth_desc
         mdl.NotificationCenter.notify(self, 'sdesc_added', synth_desc)
 
-    def remove_at(self, name): # BUG: es remove_at porque es un diccionario, pero es interfaz de esta clase que oculta eso, ver qué problemas puede traer.
-        self.synth_descs.pop(name) #, None) # BUG: igualmente self.servers es un set y tirar KeyError con remove
+    def remove_at(self, name):
+        self.synth_descs.pop(name) #, None) # Throw KeyError.
 
     def add_server(self, server):
         self.servers.add(server)
@@ -432,17 +432,18 @@ class SynthDescLib(metaclass=MetaSynthDescLib):
         return self.synth_descs[name]
 
     def match(self, name):
+        # This method is not being used here, no PmonoStream.printIn.
         if '.' in name:
             dot_index = name.index('.')
         else:
-            return self.synth_descs[name] # BUG: tira KeyError, en sclang nil para la variable ~synthDesc puede significar otra cosa. La usa solo en PmonoStream.prInit al parecer.
+            return self.synth_descs[name]  # KeyError, nil in sclang.
 
         if name[:dot_index] in self.synth_descs:
             desc = self.synth_descs[name[:dot_index]]
             if desc.has_variants:
-                return desc # BUG: no me cierra que no compruebe que el nombre de la variente exista, ver PmonoStream.prInit
+                return desc  # Doesn't it check the existence of the variant?
 
-        return self.synth_descs[name] # BUG: tira KeyError, en sclang nil para la variable ~synthDesc puede significar otra cosa. La usa solo en PmonoStream.prInit al parecer.
+        return self.synth_descs[name]  # KeyError, nil in sclang.
 
     def send(self, server=None, try_reconstructed=True):
         server_list = utl.as_list(server) or self.servers

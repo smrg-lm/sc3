@@ -1163,11 +1163,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.init_tree()
 
     def free_default_group(self):
-        self.send_msg('g_freeAll', self._default_group.node_id)
+        self.send_msg('/g_freeAll', self._default_group.node_id)
 
     def free_default_groups(self):
         for group in self._default_groups:
-            self.send_msg('g_freeAll', group.node_id)
+            self.send_msg('/g_freeAll', group.node_id)
 
     @classmethod
     def hard_free_all(cls, even_remote=False):

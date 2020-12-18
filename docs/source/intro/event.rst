@@ -14,8 +14,8 @@ original 'note' event. The event types necessary for
 (with support for `PmonoArtic` integrated through the ``articulate`` argument).
 Nevertheless, it's easy to create new event types in a possible future.
 
-Events are Python dictionaries with extended functionality that mimics the
-SuperCollider `Environment` class, although they are not environments here
+Events are Python dictionaries with extended functionality that mimics
+SuperCollider's `Environment` class, although they are not environments here
 and don't have exactly the same behavior.
 
 Events are created through the :class:`sc3.seq.event.event` which in fact is

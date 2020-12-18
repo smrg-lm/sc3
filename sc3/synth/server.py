@@ -653,9 +653,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         Notes
         -----
-        Invoked as:
-
-        ::
+        Invoked as::
 
           s.send_msg('/osc_addr', p1, p2, ...)
         '''
@@ -675,9 +673,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         Notes
         -----
-        Elements lists representing messages or bundles. Invoked as:
-
-        ::
+        Elements lists representing messages or bundles. Invoked as::
 
           s.send_bundle(1, ['/msg', ...], [1.2, ['/bndl', ...], ...], ...)
         '''
@@ -685,7 +681,17 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.addr.send_bundle(time, *elements)
 
     def send_synthdef(self, name, dir=None):
-        # // Load from disk locally, send remote.
+        '''Read a synthdef file and send the definition to the server.
+
+        Parameters
+        ----------
+        name: str
+            SynthDef name.
+        dir: str | pathlib.Path
+            Path to the synthdef directory, if not set default location is
+            used.
+        '''
+
         dir = dir or plf.Platform.synthdef_dir
         dir = pathlib.Path(dir)
         full_path = dir / f'{name}.{sdf.SynthDef._SUFFIX}'
@@ -697,16 +703,44 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _logger.warning(f'send_synthdef FileNotFoundError: {full_path}')
 
     def load_synthdef(self, name, completion_msg=None, dir=None):
-        # // Tell server to load from disk.
+        '''Ask the server to load a synthdef from disk.
+
+        Parameters
+        ----------
+        name: str
+            SynthDef name.
+        completion_msg: list | function
+            An OSC message to be evaluated by the server after load command
+            finishes.
+        dir: str | pathlib.Path
+            Path to the synthdef directory, if not set default location is
+            used.
+        '''
+
         dir = dir or plf.Platform.synthdef_dir
         dir = pathlib.Path(dir)
         path = str(dir / f'{name}.{sdf.SynthDef._SUFFIX}')
         self.send_msg('/d_load', path, fn.value(completion_msg, self))
 
     def load_directory(self, dir, completion_msg=None):
+        '''Ask the server to load synthdefs from a directory.
+
+        Parameters
+        ----------
+        name: str
+            SynthDef name.
+        completion_msg: list | function
+            An OSC message to be evaluated by the server after load command
+            finishes.
+        '''
+
         self.send_msg('/d_loadDir', dir, fn.value(completion_msg, self))
 
     def send_status_msg(self):
+        '''Send '/status' message.
+
+        The server will respond with '/status.reply'.
+        '''
         self.addr.send_status_msg()
 
     def dump_osc(self, code=1):
@@ -719,6 +753,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
           * 3 - print both the parsed and hexadecimal representations of the
                 contents.
         '''
+
         self.dump_mode = code
         self.send_msg('/dumpOSC', code)
         mdl.NotificationCenter.notify(self, 'dump_osc', code)
@@ -1157,7 +1192,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 if server._is_local and server._status_watcher.server_running:
                     server.free_nodes()
 
-    def free_nodes(self):  # Instance free_all in sclang.
+    def free_nodes(self):  # Was instance freeAll in sclang.
         self.send_msg('/g_freeAll', 0)
         self.send_msg('/clearSched')
         self.init_tree()

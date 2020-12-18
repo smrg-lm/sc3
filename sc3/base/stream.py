@@ -59,10 +59,6 @@ class TimeThread():
     def __deepcopy__(self, memo):
         return self
 
-    # *** TIENE QUE VOLVER A SER PÚBLICO, SE USA MUCHO EN LA DOCUMENTACIÓN,
-    # *** RECORDAR POR QUÉ EL ALIAS, CREO PORQUE LO CONVERTÍ EN INTERNO,
-    # *** FUE UN ERROR. ANOTAS CON # Updates logical time. LAS LLAMADAS
-    # *** A SECONDS (QUE AHORA SON _SECONDS).
     @property
     def seconds(self):
         return self._m_seconds
@@ -110,11 +106,6 @@ class TimeThread():
     @rand_state.setter
     def rand_state(self, data):
         self._rgen.setstate(data)
-
-    # TODO: Maybe for pickling.
-    # storeOn { arg stream; stream << "nil"; }
-    # archiveAsCompileString { ^true }
-    # checkCanArchive { "cannot archive Threads".warn }
 
 
 class _MainTimeThread(TimeThread):

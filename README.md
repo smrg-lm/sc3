@@ -46,7 +46,7 @@ s.dump_tree(True)
 ```
 ```python
 n.release()
-# s.free_all()  # If something went wrong free all nodes.
+# s.free_nodes()  # If something went wrong free all nodes.
 ```
 ```python
 s.quit()  # Stop server at the end of interactive session or just quit ipython.

@@ -443,14 +443,14 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.latency = 0.2
         self.dump_mode = 0
 
-        # These attributes are initialized through self.client_id property setter.
-        # self._node_allocator = None # init in _new_node_allocators()
-        # self._default_group = None # init in _new_node_allocators() -> _make_default_groups()
-        # self._default_groups = None # init in _new_node_allocators() -> _make_default_groups()
-        # self._control_bus_allocator = None # init in _new_bus_allocators()
-        # self._audio_bus_allocator = None # init in _new_bus_allocators()
-        # self._buffer_allocator = None # init in _new_buffer_allocators()
-        # self._scope_buffer_allocator = None # init in _new_scope_buffer_allocators()
+        # These attributes are initialized through self.client_id setter.
+        # self._node_allocator
+        # self._default_group
+        # self._default_groups
+        # self._control_bus_allocator
+        # self._audio_bus_allocator
+        # self._buffer_allocator
+        # self._scope_buffer_allocator
 
         self._status_watcher = sst.ServerStatusWatcher(server=self)
         self._node_watcher = ndw.NodeWatcher(server=self)
@@ -584,7 +584,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def _new_node_allocators(self):
         self._node_allocator = type(self)._node_alloc_class(
             self.client_id, self.options.initial_node_id)
-            #, self._status_watcher.max_logins) # *** BUG: en sclang, _node_alloc_class es eng.NodeIDAllocator por defecto, los alocadores originales reciben 2 parámetros, ContiguousBlockAllocator, que se usa para buses y buffers, recibe uno más, cambia la interfaz. Acá se pasa el tercer parámetro y NodeIDAllocator lo ignora (característica de las funciones de sclang), tengo que ver cómo maneja los ids de los nodos por cliente.
         # // defaultGroup and defaultGroups depend on allocator,
         # // so always make them here:
         self._make_default_groups()
@@ -665,6 +664,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         Each time this method is called the node allocator returns a new ID.
         '''
+
         return self._node_allocator.alloc()
 
     # def next_perm_node_id(self):

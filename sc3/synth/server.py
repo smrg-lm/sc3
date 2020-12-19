@@ -357,12 +357,13 @@ class ServerProcess():
 
 
 class MetaServer(type):
+    sync_s = True
+
     def __init__(cls, *_):
         def init_func(cls):
             cls.DEFAULT_ADDRESS = nad.NetAddr('127.0.0.1', 57110)
             cls.named = dict()
             cls.all = set()
-            cls.sync_s = True
 
             cls._node_alloc_class = eng.NodeIDAllocator
             # // cls._node_alloc_class = ReadableNodeIDAllocator;
@@ -374,6 +375,10 @@ class MetaServer(type):
             #     'internal', nad.NetAddr(None, None))  # No internal by now.
 
         clb.ClassLibrary.add(cls, init_func)
+
+    # NOTE: The next code should go in a multiserver class, it cram the
+    # interface too much. It is here because Python don't like metaclass
+    # attributes and they don't show in autocompletion.
 
     @property
     def default(cls):
@@ -388,6 +393,38 @@ class MetaServer(type):
             s = value
         for server in cls.all:
             mdl.NotificationCenter.notify(server, 'default', value)
+
+    def remove(cls, server):
+        cls.all.remove(server)
+        del cls.named[server.name]
+
+    def _resume_status_threads(cls):  # NOTE: for System Actions.
+        for server in cls.all:
+            server._status_watcher._resume_alive_thread()
+
+    def quit_all(cls, watch_shutdown=True):
+        for server in cls.all:
+            if server._is_local:
+                server.quit(watch_shutdown)
+
+    def free_all(cls, even_remote=False):  # All refers to cls.all.
+        if even_remote:
+            for server in cls.all:
+                if server._status_watcher.server_running:
+                    server.free_nodes()
+        else:
+            for server in cls.all:
+                if server._is_local and server._status_watcher.server_running:
+                    server.free_nodes()
+
+    def hard_free_all(cls, even_remote=False):
+        if even_remote:
+            for server in cls.all:
+                server.free_nodes()
+        else:
+            for server in cls.all:
+                if server._is_local:
+                    server.free_nodes()
 
 
 class Server(gpp.NodeParameter, metaclass=MetaServer):
@@ -430,10 +467,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._pid_release_condition = stm.Condition(lambda: self._pid is None)
         mdl.NotificationCenter.notify(type(self), 'server_added', self)
 
-    def remove(self):
-        type(self).all.remove(self)
-        del type(self).named[self.name]
-
     @property
     def addr(self):
         '''NetAddr of the server.'''
@@ -452,11 +485,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     #     return self._in_process
 
     @property
-    def is_local(self):
-        '''Return true if the server is in localhost.'''
-        return self._is_local
-
-    @property
     def name(self):
         '''Name of the server.'''
         return self._name
@@ -469,17 +497,21 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         type(self).named[value] = self
 
     @property
-    def default_group(self):
+    def default_group(self, all_users=False):
         '''Servers' default group node (user space).
 
         Synth and Group target this node by default.
-        '''
-        return self._default_group
 
-    @property
-    def default_groups(self):
-        '''List of default groups in a multi-user scenario.'''
-        return self._default_groups
+        Parameters
+        ----------
+        all_users: bool
+            If true return a list of all default groups (multiuser setup).
+        '''
+
+        if all_users:
+            return self._default_groups
+        else:
+            return self._default_group
 
     @property
     def status(self):
@@ -508,6 +540,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def pid(self):
         '''Process ID of the server program.'''
         return self._pid
+
+    @property
+    def program_running(self):
+        if self._server_process is None:
+            return False
+        return self._server_process.running()
 
 
     ### Client ID  ##
@@ -594,7 +632,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     #     if self._is_local:
     #         self._scope_buffer_allocator = eng.StackNumberAllocator(0, 127)
 
-    def next_buffer_number(self, n):
+    def _next_buffer_number(self, n):
         '''Allocate ``n`` consecutive buffer numbers and return the first
         index.
 
@@ -613,9 +651,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                     'some buffers before allocating')
         return bufnum
 
-    def free_all_buffers(self):
-        '''Free all the buffers of the server.'''
-
+    def _free_all_buffers(self):
+        '''Free all the buffers of the server. Use Buffer.free_all(server).'''
         bundle = []
         for block in self._buffer_allocator.blocks():
             for i in range(block.address, block.address + block.size - 1):
@@ -623,7 +660,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             self._buffer_allocator.free(block.address)
         self.addr.send_bundle(None, *bundle)
 
-    def next_node_id(self):
+    def _next_node_id(self):
         '''Return the next available node ID.
 
         Each time this method is called the node allocator returns a new ID.
@@ -709,9 +746,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         else:
             yield from self.addr.sync(condition, latency, elements)
 
-
-    ### Network message bundling ###
-
     def bind(self):
         # with s.bind():
         return nad.BundleNetAddr(self)
@@ -738,29 +772,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             self.addr.send_msg('/g_new', group.node_id, 0, 0)
 
 
-    # These atributes are just a wrapper of ServerOptions, use s.options.
-    # @property rec_header_format
-    # @property rec_sample_format
-    # @property rec_channels
-    # @property rec_buf_size
-
-
-    ### Server status ###
-
-    @classmethod
-    def _resume_status_threads(cls):  # NOTE: for System Actions.
-        for server in cls.all:
-            server._status_watcher._resume_alive_thread()
-
-
     ### Shared memory interface ###
 
     # def _disconnect_shm(self):  # Was _disconnect_shared_memory
-    #     ...
-
     # def _connect_shm(self):  # Was _connect_shared_memory.
-    #     ...
-
     # @property
     # def has_shm(self):  # Was has_shm_interface.
     #     return self._shm_interface is not None
@@ -1018,12 +1033,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 func()
             self.boot(on_failure=on_failure)
 
-    @property
-    def program_running(self):
-        if self._server_process is None:
-            return False
-        return self._server_process.running()
-
     def quit(self, watch_shutdown=True, on_complete=None, on_failure=None):
         '''Stop the server program.
 
@@ -1088,75 +1097,31 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         nod.RootNode(self).free_all()
         self._set_client_id(0)
 
-    @classmethod
-    def quit_all(cls, watch_shutdown=True):
-        for server in cls.all:
-            if server._is_local:
-                server.quit(watch_shutdown)
-
-    @classmethod
-    def free_all(cls, even_remote=False):  # All refers to cls.all.
-        if even_remote:
-            for server in cls.all:
-                if server._status_watcher.server_running:
-                    server.free_nodes()
-        else:
-            for server in cls.all:
-                if server._is_local and server._status_watcher.server_running:
-                    server.free_nodes()
-
     def free_nodes(self):  # Was instance freeAll in sclang.
+        '''Free all server's nodes.'''
         self.addr.send_msg('/g_freeAll', 0)
         self.addr.send_msg('/clearSched')
         self._init_tree()
 
-    def free_default_group(self):
-        self.addr.send_msg('/g_freeAll', self._default_group.node_id)
-
-    def free_default_groups(self):
-        for group in self._default_groups:
-            self.addr.send_msg('/g_freeAll', group.node_id)
-
-    @classmethod
-    def hard_free_all(cls, even_remote=False):
-        if even_remote:
-            for server in cls.all:
-                server.free_nodes()
+    def free_default_group(self, all_users=False):
+        '''Free all nodes in default group.'''
+        if all_users:
+            for group in self._default_groups:
+                self.addr.send_msg('/g_freeAll', group.node_id)
         else:
-            for server in cls.all:
-                if server._is_local:
-                    server.free_nodes()
+            self.addr.send_msg('/g_freeAll', self._default_group.node_id)
 
 
-    # L1203
-    ### internal server commands ###
-    # TODO
-    # def _boot_in_process(self):
-    # def _quit_in_process(self):
+    # def input_bus(self):  # utility
+    #     return bus.AudioBus(
+    #         self.options.input_channels,
+    #         self, self.options.output_channels)
 
-    # L1232
-    # /* CmdPeriod support for Server-scope and Server-record and Server-volume */
-    # TODO
-
-    # L1315
-    # funciones set/getControlBug*
-    # TODO
-
-    def input_bus(self):  # utility
-        return bus.AudioBus(
-            self.options.input_channels,
-            self, self.options.output_channels)
-
-    def output_bus(self):  # utility
-        return bus.AudioBus(self.options.output_channels, self, 0)
+    # def output_bus(self):  # utility
+    #     return bus.AudioBus(self.options.output_channels, self, 0)
 
 
     ### Node parameter interface ###
 
     def _as_target(self):
         return self._default_group
-
-    # def scsynth(cls): No.
-    # def supernova(cls): No.
-    # def from_name(cls): No.
-    # def kill_all(cls): No.

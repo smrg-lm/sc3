@@ -43,7 +43,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         # // Doesn't send.
         self._server = server or srv.Server.default
         if bufnum is None:
-            self._bufnum = self._server.next_buffer_number(1)
+            self._bufnum = self._server._next_buffer_number(1)
         else:
             self._bufnum = bufnum
         self._frames = frames
@@ -97,7 +97,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def new_consecutive(cls, num_bufs=1, channels=1, frames=1024,
                         server=None, bufnum=None, completion_msg=None):
         if bufnum is None:
-            buf_base = server.next_buffer_number(num_bufs)
+            buf_base = server._next_buffer_number(num_bufs)
         else:
             buf_base = bufnum
         buf_list = []
@@ -155,7 +155,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         # Difference: this version receives a list of channel data (lists).
         # // Transfer a collection of numbers to a buffer through a file.
         server = server or srv.Server.default
-        if server.is_local:
+        if server.addr.is_local:
             channel_lst = [list(array.array('f', l)) for l in channel_lst]  # Type check & cast.
             path = str(
                 plf.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
@@ -252,7 +252,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             self._frames, fn.value(completion_msg, self))
 
     def load_list(self, channel_lst, start_frame=0, action=None):  # Was load_collection
-        if self._server.is_local:
+        if self._server.addr.is_local:
             framesize = (self._frames - start_frame) * self._channels
             # if len(channel_lst) > self._channels:
             #     # Channel mismatch is reported by Server.
@@ -428,7 +428,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     @classmethod
     def free_all(cls, server=None):  # Move up?
         server = server if server is not None else srv.Server.default
-        server.free_all_buffers()
+        server._free_all_buffers()
         type(self)._clear_server_caches(server) # *** BUG: no hace _clear_server_caches de default si es nil en sclang.
 
     def zero(self, completion_msg=None):

@@ -53,6 +53,7 @@ class NetAddr():
 
     @property
     def is_local(self):
+        '''Return true if the address is in localhost.'''
         return self.match_lang_ip(self._hostname)
 
     @property

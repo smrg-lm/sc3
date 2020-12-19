@@ -581,7 +581,7 @@ class SynthDef(metaclass=MetaSynthDef):
         if len(buffer) < (65535 // 4):  # BUG: size limitation for rt safety, compare with ArrayedCollection:clumpBundles.
             server.addr.send_msg('/d_recv', buffer, completion_msg)
         else:
-            if server.is_local:
+            if server.addr.is_local:
                 _logger.warning(
                     f'SynthDef {self._name} too big for sending. '
                     'Retrying via synthdef file')
@@ -750,7 +750,7 @@ class SynthDef(metaclass=MetaSynthDef):
             f"SynthDef '{self._name}' was reconstructed from a "
             f"{self._SUFFIX} file, it does not contain all the "
             "required structure to send back to the server")
-        if server.is_local:
+        if server.addr.is_local:
             _logger.warning(f"loading from disk instead for Server '{server}'")
             bundle = ['/d_load', self.metadata['load_path'], completion_msg]
             server.addr.send_bundle(None, bundle)

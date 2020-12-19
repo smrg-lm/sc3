@@ -91,7 +91,7 @@ class Node(gpp.NodeParameter):
         super(gpp.NodeParameter, obj).__init__(obj)
         obj.server = server or srv.Server.default
         if node_id is None:
-            obj.node_id = obj.server.next_node_id()
+            obj.node_id = obj.server._next_node_id()
         else:
             obj.node_id = node_id
         obj.group = None
@@ -320,7 +320,7 @@ class AbstractGroup(Node):
         super().__init__()
         target = gpp.node_param(target)._as_target()
         self.server = target.server
-        self.node_id = self.server.next_node_id()
+        self.node_id = self.server._next_node_id()
         add_action_id = type(self).add_actions[add_action]
         if add_action_id < 2:
             self.group = target
@@ -589,7 +589,7 @@ class Synth(Node):
         super().__init__()
         target = gpp.node_param(target)._as_target()
         self.server = target.server
-        self.node_id = self.server.next_node_id()
+        self.node_id = self.server._next_node_id()
         add_action_id = type(self).add_actions[add_action]
         if add_action_id < 2:
             self.group = target

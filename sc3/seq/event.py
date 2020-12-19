@@ -514,7 +514,7 @@ class NoteEvent(EventType, partial_events=(
         self['instrument'] = instrument = self._synthdef_name()
         self['server'] = server = self('server')
 
-        self['node_id'] = node_id = server.next_node_id()
+        self['node_id'] = node_id = server._next_node_id()
         add_action = nod.Node.action_number_for(self('add_action'))
         self['group'] = group = gpp.node_param(
             self('group'))._as_control_input()
@@ -554,7 +554,7 @@ class _MonoOnEvent(EventType, partial_events=(
         self['msg_params'] = self._get_msg_params()  # Populates synth_desc.
         self['has_gate'] = self('has_gate')
         self['server'] = self('server')
-        self['node_id'] = self['server'].next_node_id()
+        self['node_id'] = self['server']._next_node_id()
 
 
 class _MonoSetEvent(EventType, partial_events=(

@@ -721,7 +721,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     ### Default group ###
 
-    def init_tree(self):
+    def _init_tree(self):
         def init_task():
             self._send_default_groups()
             self.tree(self)
@@ -1111,7 +1111,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def free_nodes(self):  # Was instance freeAll in sclang.
         self.addr.send_msg('/g_freeAll', 0)
         self.addr.send_msg('/clearSched')
-        self.init_tree()
+        self._init_tree()
 
     def free_default_group(self):
         self.addr.send_msg('/g_freeAll', self._default_group.node_id)

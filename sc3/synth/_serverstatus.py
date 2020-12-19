@@ -283,7 +283,7 @@ class ServerStatusWatcher():
         def finalize_boot_task():
             sac.ServerBoot.run(self.server)
             yield from self.server.sync()
-            self.server.init_tree()  # forks
+            self.server._init_tree()  # forks
             yield from self.server.sync()
             self._perform_actions('boot', 'on_complete')
             mdl.NotificationCenter.notify(self.server, 'server_running')  # NOTE: esta notificación la hace en varios lugares cuando cambia el estado de running no cuando running es True.

@@ -424,8 +424,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._recorder = rcd.Recorder(server=self)
         self._recorder.notify_server = True
 
-        self.tree = lambda *args: None
-
         self._pid = None
         self._shm_interface = None  # ServerShmInterface
         self._server_process = None  # ServerProcess
@@ -724,7 +722,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def _init_tree(self):
         def init_task():
             self._send_default_groups()
-            self.tree(self)
             yield from self.sync()
             sac.ServerTree.run(self)
             yield from self.sync()

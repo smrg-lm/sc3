@@ -117,7 +117,7 @@ class ServerStatusWatcher():
                 yield delay
                 while True:
                     self._alive = False
-                    self.server.send_status_msg()
+                    self.server.addr.send_status_msg()
                     yield self._alive_thread_period
                     self._update_running_state(self._alive)
 
@@ -239,7 +239,7 @@ class ServerStatusWatcher():
             arg_template=['/notify', None, None])
         fail_osc_func.one_shot()
 
-        self.server.send_msg('/notify', int(flag), self.server.client_id)
+        self.server.addr.send_msg('/notify', int(flag), self.server.client_id)
 
         if flag:
             _logger.info(f"'{self.server.name}': requested registration id")

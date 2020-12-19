@@ -36,7 +36,7 @@ class Volume():
 
         # // Execute immediately if we're already past server tree functions.
         if self._server._status_watcher.server_running:
-            self._send_synthdef()
+            self._send_volume_synthdef()
             self._update_synth()
 
         sac.ServerBoot.add(self._server, self.__on_server_boot)
@@ -109,10 +109,10 @@ class Volume():
     def num_output_channels(self):
         return self._num_output_channels
 
-    def _send_synthdef(self):
+    def _send_volume_synthdef(self):
         if self._server._status_watcher.has_booted:
 
-            def send_synthdef():
+            def send_volume_synthdef():
                 self._num_output_channels = self.channels
                 self._def_name = f'volume_amp_ctrl_{self._num_output_channels}'
 
@@ -126,7 +126,7 @@ class Volume():
                 yield from self._server.sync()
                 sac.ServerTree.add(self._server, self.__on_server_tree)
 
-            stm.Routine.run(send_synthdef)
+            stm.Routine.run(send_volume_synthdef)
 
     def _update_synth(self):
         amp = bi.dbamp(self.gain) if not self._is_muted else 0.0
@@ -184,7 +184,7 @@ class Volume():
 
     def __on_server_boot(self, _):
         self._amp_synth = None
-        self._send_synthdef()
+        self._send_volume_synthdef()
         # // Only create synth now if it won't be created by ServerTree.
         if not self._persist:
             self._update_synth()

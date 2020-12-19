@@ -53,7 +53,7 @@ def _play_func(func, target=None, outbus=0, fade=0.01,
     synth = nod.Synth.basic_new(synthdef.name, server)
     rdf.OscFunc(
         # // Use the /n_end signal to remove the temp synthdef.
-        lambda *_: server.send_msg('/d_free', synthdef.name),
+        lambda *_: server.addr.send_msg('/d_free', synthdef.name),
         '/n_end', server.addr, arg_template=[synth.node_id]).one_shot()
     args = gpp.node_param(args)._as_control_input()
     synth_msg = synth.new_msg(

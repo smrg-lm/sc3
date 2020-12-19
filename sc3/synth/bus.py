@@ -230,7 +230,7 @@ class ControlBus(Bus):
         msg = ['/c_set']
         values = [[self._index + i, val] for i, val in enumerate(values)]
         msg.extend(utl.flat(values))
-        self._server.send_bundle(0, msg)
+        self._server.addr.send_bundle(0, msg)
 
     def set_msg(self, *values):
         if self._index is None:
@@ -245,7 +245,7 @@ class ControlBus(Bus):
             raise BusAlreadyFreed('setn')
         msg = ['/c_setn', self._index, len(values)]
         msg.extend(values)
-        self._server.send_bundle(0, msg)
+        self._server.addr.send_bundle(0, msg)
 
     def setn_msg(self, values):
         if self._index is None:
@@ -261,7 +261,7 @@ class ControlBus(Bus):
         values = [
             [self._index + offset + i, val] for i, val in enumerate(values)]
         msg.extend(utl.flat(values))
-        self._server.send_bundle(0, msg)
+        self._server.addr.send_bundle(0, msg)
 
     def setn_at(self, offset, values):
         if self._index is None:
@@ -269,7 +269,7 @@ class ControlBus(Bus):
         # // could throw an error if values.size > numChannels
         msg = ['/c_setn', self._index + offset, len(values)]
         msg.extend(values)
-        self._server.send_bundle(0, msg)
+        self._server.addr.send_bundle(0, msg)
 
     def set_pairs(self, *pairs):
         if self._index is None:
@@ -278,7 +278,7 @@ class ControlBus(Bus):
         pairs = [[self._index + pair[0], pair[1]]\
                  for pair in utl.gen_cclumps(pairs, 2)]
         msg.extend(utl.flat(pairs))
-        self._server.send_bundle(0, msg)
+        self._server.addr.send_bundle(0, msg)
 
     def get(self, action=None):
         if self._index is None:
@@ -300,7 +300,7 @@ class ControlBus(Bus):
             rdf.OscFunc(
                 get_func, '/c_set', self._server.addr,
                 arg_template=[self._index]).one_shot()
-            self._server.send_msg('/c_get', self._index)
+            self._server.addr.send_msg('/c_get', self._index)
         else:
             self.getn(self._channels, action)
 
@@ -330,7 +330,7 @@ class ControlBus(Bus):
             arg_template=[self._index]).one_shot()
         if count is None:
             count = self._channels
-        self._server.send_msg('/c_getn', self._index, count)
+        self._server.addr.send_msg('/c_getn', self._index, count)
 
     def getn_msg(self, count=None):
         if self._index is None:
@@ -343,7 +343,7 @@ class ControlBus(Bus):
         if self._index is None:
             raise BusAlreadyFreed('fill')
         # // Could throw an error if numChans > numChannels.
-        self._server.send_bundle(
+        self._server.addr.send_bundle(
             None, ['/c_fill', self._index, channels, value])
 
     def fill_msg(self, value):

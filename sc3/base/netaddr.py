@@ -111,9 +111,41 @@ class NetAddr():
     #     self._osc_interface.send_raw(self._target, raw_bytes)
 
     def send_msg(self, *args):
+        '''Send an OSC message to the server.
+
+        Parameters
+        ----------
+        *args: items
+            OSC address followed by zero or more values that compose the
+            message.
+
+        Notes
+        -----
+        Invoked as::
+
+          addr.send_msg('/osc_addr', p1, p2, ...)
+        '''
+
         self._osc_interface.send_msg(self._target, *args)
 
     def send_bundle(self, time, *elements):
+        '''Send an OSC bundle to the server.
+
+        Parameters
+        ----------
+        time: int | float
+            Latency time from now. Nested bundles can have their own latency
+            but must be >= to the enclosing bundle latency.
+        *elements: lists
+            Each element is a list in the form of an OSC message or bundle.
+
+        Notes
+        -----
+        Elements lists representing messages or bundles. Invoked as::
+
+          addr.send_bundle(1, ['/msg', ...], [1.2, ['/bndl', ...], ...], ...)
+        '''
+
         self._osc_interface.send_bundle(self._target, time, *elements)
 
     def send_clumped_bundles(self, time, *elements):
@@ -126,7 +158,68 @@ class NetAddr():
             self.send_bundle(time, *elements)
 
     def send_status_msg(self):
+        '''Send '/status' message to the server.
+
+        The server will respond with '/status.reply'.
+        '''
+
         self._osc_interface.send_msg(self._target, '/status')
+
+    def send_synthdef(self, name, dir=None):
+        '''Read a synthdef file and send the definition to the server.
+
+        Parameters
+        ----------
+        name: str
+            SynthDef name.
+        dir: str | pathlib.Path
+            Path to the synthdef directory, if not set default location is
+            used.
+        '''
+
+        dir = dir or plf.Platform.synthdef_dir
+        dir = pathlib.Path(dir)
+        full_path = dir / f'{name}.{sdf.SynthDef._SUFFIX}'
+        try:
+            with open(full_path, 'rb') as file:
+                buffer = file.read()
+                self.send_msg('/d_recv', buffer)
+        except FileNotFoundError:
+            _logger.warning(f'send_synthdef FileNotFoundError: {full_path}')
+
+    def load_synthdef(self, name, completion_msg=None, dir=None):
+        '''Ask the server to load a synthdef from disk.
+
+        Parameters
+        ----------
+        name: str
+            SynthDef name.
+        completion_msg: list
+            An OSC message to be evaluated by the server after load command
+            finishes.
+        dir: str | pathlib.Path
+            Path to the synthdef directory, if not set default location is
+            used.
+        '''
+
+        dir = dir or plf.Platform.synthdef_dir
+        dir = pathlib.Path(dir)
+        path = str(dir / f'{name}.{sdf.SynthDef._SUFFIX}')
+        self.send_msg('/d_load', path, completion_msg)
+
+    def load_directory(self, dir, completion_msg=None):
+        '''Ask the server to load synthdefs from a directory.
+
+        Parameters
+        ----------
+        name: str
+            SynthDef name.
+        completion_msg: list | function
+            An OSC message to be evaluated by the server after load command
+            finishes.
+        '''
+
+        self.send_msg('/d_loadDir', dir, completion_msg)
 
     def recover(self):
         return self

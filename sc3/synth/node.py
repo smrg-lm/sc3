@@ -105,14 +105,14 @@ class Node(gpp.NodeParameter):
 
     def free(self, send_flag=True):
         if send_flag:
-            self.server.send_msg('/n_free', self.node_id) # 11
+            self.server.addr.send_msg('/n_free', self.node_id) # 11
         self.group = None
 
     def free_msg(self):
         return ('/n_free', self.node_id) # 11
 
     def run(self, flag=True):
-        self.server.send_msg('/n_run', self.node_id, int(flag)) # 12
+        self.server.addr.send_msg('/n_run', self.node_id, int(flag)) # 12
 
     def run_msg(self, flag=True):
         return ('/n_run', self.node_id, int(flag)) # 12
@@ -120,9 +120,9 @@ class Node(gpp.NodeParameter):
     def map(self, *args):
         bundle = self.map_msg(*args)
         if isinstance(bundle[0], str):
-            self.server.send_bundle(0, bundle)
+            self.server.addr.send_bundle(0, bundle)
         else:
-            self.server.send_bundle(0, *bundle)
+            self.server.addr.send_bundle(0, *bundle)
 
     def map_msg(self, *args):
         kr_values = []
@@ -153,7 +153,7 @@ class Node(gpp.NodeParameter):
         return result
 
     def mapn(self, *args):
-        self.server.send_msg(
+        self.server.addr.send_msg(
             '/n_mapn', # 48
             self.node_id,
             *gpp.node_param(args)._as_control_input()
@@ -164,7 +164,7 @@ class Node(gpp.NodeParameter):
             + gpp.node_param(args)._as_control_input() # 48
 
     def set(self, *args):
-        self.server.send_msg(
+        self.server.addr.send_msg(
             '/n_set', # 15
             self.node_id,
             *gpp.node_param(args)._as_osc_arg_list()
@@ -175,7 +175,7 @@ class Node(gpp.NodeParameter):
             + gpp.node_param(args)._as_osc_arg_list() # 15
 
     def setn(self, *args):
-        self.server.send_msg(*self.setn_msg(*args))
+        self.server.addr.send_msg(*self.setn_msg(*args))
 
     def setn_msg(self, *args):
         return ['/n_setn', self.node_id] + self._setn_msg_args(*args) # 16
@@ -192,7 +192,7 @@ class Node(gpp.NodeParameter):
         return nargs
 
     def fill(self, cname, num_controls, value, *args):
-        self.server.send_msg(
+        self.server.addr.send_msg(
             '/n_fill', self.node_id, # 17
             cname, num_controls, value,
             *gpp.node_param(args)._as_control_input()
@@ -205,7 +205,8 @@ class Node(gpp.NodeParameter):
     def release(self, time=None):
         # Sends a bundle so it can be used as
         # counterpart of SynthDef__call__.
-        self.server.send_bundle(self.server.latency, self.release_msg(time))
+        self.server.addr.send_bundle(
+            self.server.latency, self.release_msg(time))
 
     def release_msg(self, time=None):
         # // assumes a control called 'gate' in the synth
@@ -219,7 +220,7 @@ class Node(gpp.NodeParameter):
         return ['/n_set', self.node_id, 'gate', time] # 15
 
     def trace(self):
-        self.server.send_msg('/n_trace', self.node_id) # 10
+        self.server.addr.send_msg('/n_trace', self.node_id) # 10
 
     def query(self, action=None):
         if action is None:
@@ -240,7 +241,7 @@ class Node(gpp.NodeParameter):
             lambda msg, *_: action(*msg),
             '/n_info', self.server.addr,
             arg_template=[self.node_id]).one_shot()
-        self.server.send_msg('/n_query', self.node_id)
+        self.server.addr.send_msg('/n_query', self.node_id)
 
     def register(self, playing=True, running=True):
         self.server._node_watcher.register(self, playing, running)
@@ -263,7 +264,7 @@ class Node(gpp.NodeParameter):
 
     def move_before(self, node):
         self.group = node.group
-        self.server.send_msg('/n_before', self.node_id, node.node_id) # 18
+        self.server.addr.send_msg('/n_before', self.node_id, node.node_id) # 18
 
     def move_before_msg(self, node):
         self.group = node.group # TODO: estos msg podrían tener un parámetros update=True por defecto, pero no sé dónde se usan estas funciones aún.
@@ -271,7 +272,7 @@ class Node(gpp.NodeParameter):
 
     def move_after(self, node):
         self.group = node.group
-        self.server.send_msg('/n_after', self.node_id, node.node_id) # 19
+        self.server.addr.send_msg('/n_after', self.node_id, node.node_id) # 19
 
     def move_after_msg(self, node):
         self.group = node.group
@@ -326,7 +327,7 @@ class AbstractGroup(Node):
         else:
             self.group = target.group
         self._init_register(register)
-        self.server.send_msg(
+        self.server.addr.send_msg(
             self.creation_cmd(), self.node_id,
             add_action_id, target.node_id)
 
@@ -388,7 +389,7 @@ class AbstractGroup(Node):
 
     def move_node_to_head(self, node):
         node.group = self
-        self.server.send_msg('/g_head', self.node_id, node.node_id) # 22
+        self.server.addr.send_msg('/g_head', self.node_id, node.node_id) # 22
 
     def move_node_to_head_msg(self, node):
         node.group = self
@@ -396,7 +397,7 @@ class AbstractGroup(Node):
 
     def move_node_to_tail(self, node):
         node.group = self
-        self.server.send_msg('/g_tail', self.node_id, node.node_id) # 23
+        self.server.addr.send_msg('/g_tail', self.node_id, node.node_id) # 23
 
     def move_node_to_tail_msg(self, node):
         node.group = self
@@ -404,14 +405,14 @@ class AbstractGroup(Node):
 
     def free_all(self):
         # // free my children, but this node is still playing
-        self.server.send_msg('/g_freeAll', self.node_id) # 24
+        self.server.addr.send_msg('/g_freeAll', self.node_id) # 24
 
     def free_all_msg(self):
         # // free my children, but this node is still playing
         return ['/g_freeAll', self.node_id] # 24
 
     def deep_free(self):
-        self.server.send_msg('/g_deepFree', self.node_id) # 50
+        self.server.addr.send_msg('/g_deepFree', self.node_id) # 50
 
     def deep_free_msg(self):
         return ['/g_deepFree', self.node_id] # 50
@@ -426,7 +427,7 @@ class AbstractGroup(Node):
             If `True` also print synth controls with current values.
         '''
 
-        self.server.send_msg('/g_dumpTree', self.node_id, int(controls))
+        self.server.addr.send_msg('/g_dumpTree', self.node_id, int(controls))
 
     def query_tree(self, controls=False, action=None, timeout=3):
         '''
@@ -497,7 +498,7 @@ class AbstractGroup(Node):
                     f"server '{self.server.name}' failed to respond "
                     f"to '/g_queryTree' after {timeout} seconds")
 
-        self.server.send_msg('/g_queryTree', self.node_id, int(controls))
+        self.server.addr.send_msg('/g_queryTree', self.node_id, int(controls))
         clk.SystemClock.sched(timeout, timeout_func)
 
     def _pretty_tree(self, d, indent=0, tab=2):
@@ -596,7 +597,7 @@ class Synth(Node):
             self.group = target.group
         self.def_name = def_name
         self._init_register(register)
-        self.server.send_msg(
+        self.server.addr.send_msg(
             '/s_new', # 9
             self.def_name, self.node_id,
             add_action_id, target.node_id,
@@ -619,7 +620,7 @@ class Synth(Node):
             synth.group = target
         else:
             synth.group = target.group
-        synth.server.send_bundle(
+        synth.server.addr.send_bundle(
             0,
             [
                 '/s_new', # 9
@@ -642,7 +643,7 @@ class Synth(Node):
             new_node_id = None
         server = node_to_replace.server
         synth = cls.basic_new(def_name, server, new_node_id)
-        synth.server.send_msg(
+        synth.server.addr.send_msg(
             '/s_new', # 9
             synth.def_name, synth.node_id,
             4, node_to_replace.node_id, # 4 -> 'addReplace'
@@ -654,7 +655,7 @@ class Synth(Node):
     def grain(cls, def_name, args=None, target=None, add_action='addToHead'):
         target = gpp.node_param(target)._as_target()
         server = target.server
-        server.send_msg(
+        server.addr.send_msg(
             '/s_new', # 9
             def_name.as_def_name(), -1, # BUG: as_def_name no está implementado puede ser método de Object
             cls.add_actions[add_action], target.node_id,
@@ -741,7 +742,7 @@ class Synth(Node):
             resp_func, '/n_set', self.server.addr,
             arg_template=[self.node_id, index]).one_shot()
 
-        self.server.send_msg('/s_get', self.node_id, index)  # 44
+        self.server.addr.send_msg('/s_get', self.node_id, index)  # 44
 
     def get_msg(self, index):
         return ['/s_get', self.node_id, index] # 44
@@ -757,7 +758,7 @@ class Synth(Node):
             resp_func, '/n_setn', self.server.addr,
             arg_template=[self.node_id, index]).one_shot()
 
-        self.server.send_msg('/s_getn', self.node_id, index)  # 45
+        self.server.addr.send_msg('/s_getn', self.node_id, index)  # 45
 
     def getn_msg(self, index, count):
         return ['/s_getn', self.node_id, index, count] # 45
@@ -779,7 +780,7 @@ class Synth(Node):
                         osc_msg.append(value[:cname.channels - offset]) # keep
                     else:
                         osc_msg.append(value)
-        self.server.send_msg(
+        self.server.addr.send_msg(
             '/n_set', self.node_id,
             *gpp.node_param(osc_msg)._as_osc_arg_list())
 

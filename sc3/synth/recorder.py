@@ -228,7 +228,7 @@ class Recorder():
             self._record_node.unregister()
             self._record_node.free()
             self._record_node = None
-        self._server.send_msg('/d_free', self._synthdef.name)
+        self._server.addr.send_msg('/d_free', self._synthdef.name)
         self._synthdef = None
         if self._record_buf is not None:
             self._record_buf.close(lambda buf: buf.free_msg())

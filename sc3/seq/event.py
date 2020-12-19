@@ -524,9 +524,9 @@ class NoteEvent(EventType, partial_events=(
         bndl = gpp.node_param(bndl)._as_osc_arg_list()
 
         # *** BUG: socket.sendto and/or threading mixin use too much cpu.
-        server.send_bundle(server.latency, bndl)  # Missing ~latency, ~lag and ~timmingOffset.
+        server.addr.send_bundle(server.latency, bndl)  # Missing ~latency, ~lag and ~timmingOffset.
         if self('send_gate'):
-            server.send_bundle(
+            server.addr.send_bundle(
                 server.latency + self('sustain'),
                 ['/n_set', node_id, 'gate', 0])
 
@@ -545,7 +545,7 @@ class _MonoOnEvent(EventType, partial_events=(
             '/s_new', self['instrument'], self['node_id'],
             self['add_action'], self['group'], *self['msg_params']]
         bndl = gpp.node_param(bndl)._as_osc_arg_list()
-        self['server'].send_bundle(self['server'].latency, bndl)  # Missing ~latency, ~lag and ~timmingOffset.
+        self['server'].addr.send_bundle(self['server'].latency, bndl)  # Missing ~latency, ~lag and ~timmingOffset.
         self['is_playing'] = True
 
     def _prepare_event(self, instrument):
@@ -568,7 +568,7 @@ class _MonoSetEvent(EventType, partial_events=(
         self['server'] = self('server')
         bndl = ['/n_set', self['node_id'], *self._update_msg_params()]
         bndl = gpp.node_param(bndl)._as_osc_arg_list()
-        self['server'].send_bundle(self['server'].latency, bndl)
+        self['server'].addr.send_bundle(self['server'].latency, bndl)
 
     def _update_msg_params(self):
         msg_params = []
@@ -592,5 +592,5 @@ class _MonoOffEvent(EventType, partial_events=(ServerKeys,)):
             bndl = ['/n_free', self['node_id']]
         bndl = gpp.node_param(bndl)._as_osc_arg_list()
         server = self('server')
-        server.send_bundle(server.latency + self('delay'), bndl)
+        server.addr.send_bundle(server.latency + self('delay'), bndl)
         self['is_playing'] = False

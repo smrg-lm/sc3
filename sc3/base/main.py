@@ -256,7 +256,7 @@ class RtMain(metaclass=Process):
                     cls.unlock()
 
             resp = rdf.OscFunc(resp_func, '/synced', server.addr)
-            server.send_msg('/sync', id)
+            server.addr.send_msg('/sync', id)
             cls.lock()
 
 

@@ -623,7 +623,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             for i in range(block.address, block.address + block.size - 1):
                 bundle.append(['/b_free', i])
             self._buffer_allocator.free(block.address)
-        self.send_bundle(None, *bundle)
+        self.addr.send_bundle(None, *bundle)
 
     def next_node_id(self):
         '''Return the next available node ID.
@@ -642,106 +642,22 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     ### Network messages ###
 
-    def send_msg(self, *args):
-        '''Send an OSC message to the server.
+    def dump_tree(self, controls=False):
+        '''
+        Ask the server to dump its node tree to stdout.
 
         Parameters
         ----------
-        *args: items
-            OSC address followed by zero or more values that compose the
-            message.
-
-        Notes
-        -----
-        Invoked as::
-
-          s.send_msg('/osc_addr', p1, p2, ...)
+        controls: bool
+            If `True` also print synth controls with current values.
         '''
 
-        self.addr.send_msg(*args)
-
-    def send_bundle(self, time, *elements):
-        '''Send an OSC bundle to the server.
-
-        Parameters
-        ----------
-        time: int | float
-            Latency time from now. Nested bundles can have their own latency
-            but must be >= to the enclosing bundle latency.
-        *elements: lists
-            Each element is a list in the form of an OSC message or bundle.
-
-        Notes
-        -----
-        Elements lists representing messages or bundles. Invoked as::
-
-          s.send_bundle(1, ['/msg', ...], [1.2, ['/bndl', ...], ...], ...)
-        '''
-
-        self.addr.send_bundle(time, *elements)
-
-    def send_synthdef(self, name, dir=None):
-        '''Read a synthdef file and send the definition to the server.
-
-        Parameters
-        ----------
-        name: str
-            SynthDef name.
-        dir: str | pathlib.Path
-            Path to the synthdef directory, if not set default location is
-            used.
-        '''
-
-        dir = dir or plf.Platform.synthdef_dir
-        dir = pathlib.Path(dir)
-        full_path = dir / f'{name}.{sdf.SynthDef._SUFFIX}'
-        try:
-            with open(full_path, 'rb') as file:
-                buffer = file.read()
-                self.send_msg('/d_recv', buffer)
-        except FileNotFoundError:
-            _logger.warning(f'send_synthdef FileNotFoundError: {full_path}')
-
-    def load_synthdef(self, name, completion_msg=None, dir=None):
-        '''Ask the server to load a synthdef from disk.
-
-        Parameters
-        ----------
-        name: str
-            SynthDef name.
-        completion_msg: list | function
-            An OSC message to be evaluated by the server after load command
-            finishes.
-        dir: str | pathlib.Path
-            Path to the synthdef directory, if not set default location is
-            used.
-        '''
-
-        dir = dir or plf.Platform.synthdef_dir
-        dir = pathlib.Path(dir)
-        path = str(dir / f'{name}.{sdf.SynthDef._SUFFIX}')
-        self.send_msg('/d_load', path, fn.value(completion_msg, self))
-
-    def load_directory(self, dir, completion_msg=None):
-        '''Ask the server to load synthdefs from a directory.
-
-        Parameters
-        ----------
-        name: str
-            SynthDef name.
-        completion_msg: list | function
-            An OSC message to be evaluated by the server after load command
-            finishes.
-        '''
-
-        self.send_msg('/d_loadDir', dir, fn.value(completion_msg, self))
-
-    def send_status_msg(self):
-        '''Send '/status' message.
-
-        The server will respond with '/status.reply'.
-        '''
-        self.addr.send_status_msg()
+        if not self._is_local:
+            _logger.info(f'server {self.name} is not local')
+        elif self._pid is None:
+            _logger.info(f'server {self.name} is not running')
+            return
+        nod.RootNode(self).dump_tree(controls)  # Also needs stdout access.
 
     def dump_osc(self, code=1):
         '''Enable server-side message dumping.
@@ -755,13 +671,13 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         '''
 
         self.dump_mode = code
-        self.send_msg('/dumpOSC', code)
+        self.addr.send_msg('/dumpOSC', code)
         mdl.NotificationCenter.notify(self, 'dump_osc', code)
 
     def reorder(self, node_list, target, add_action='addToHead'):
         target = gpp.node_param(target)._as_target()
         node_list = [x.node_id for x in node_list]
-        self.send(
+        self.addr.send_msg(
             '/n_order', nod.Node.action_number_for(add_action), # 62
             target.node_id, *node_list)
 
@@ -817,12 +733,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def _send_default_groups(self):
         for group in self._default_groups:
-            self.send_msg('/g_new', group.node_id, 0, 0)
+            self.addr.send_msg('/g_new', group.node_id, 0, 0)
 
     def _send_default_groups_for_client_ids(self, client_ids):  # unused
         for i in client_ids:
             group = self._default_groups[i]
-            self.send_msg('/g_new', group.node_id, 0, 0)
+            self.addr.send_msg('/g_new', group.node_id, 0, 0)
 
 
     # These atributes are just a wrapper of ServerOptions, use s.options.
@@ -921,7 +837,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def _unregister_atexit(self):
         if self._status_watcher.server_running:
             self._status_watcher._unregister()
-            # self.send_msg('/notify', 0, self.client_id)
+            # self.addr.send_msg('/notify', 0, self.client_id)
             # _logger.info(f"server '{self.name}' requested id unregistration")
 
     def boot(self, register=True, on_complete=None, on_failure=None):
@@ -1036,7 +952,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     def _boot_init(self):
         if self.dump_mode != 0:
-            self.send_msg('/dumpOSC', self.dump_mode)
+            self.addr.send_msg('/dumpOSC', self.dump_mode)
         # self._connect_shm()  # Not implemented yet
 
     def _on_server_process_exit(self, exit_code):
@@ -1193,16 +1109,16 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                     server.free_nodes()
 
     def free_nodes(self):  # Was instance freeAll in sclang.
-        self.send_msg('/g_freeAll', 0)
-        self.send_msg('/clearSched')
+        self.addr.send_msg('/g_freeAll', 0)
+        self.addr.send_msg('/clearSched')
         self.init_tree()
 
     def free_default_group(self):
-        self.send_msg('/g_freeAll', self._default_group.node_id)
+        self.addr.send_msg('/g_freeAll', self._default_group.node_id)
 
     def free_default_groups(self):
         for group in self._default_groups:
-            self.send_msg('/g_freeAll', group.node_id)
+            self.addr.send_msg('/g_freeAll', group.node_id)
 
     @classmethod
     def hard_free_all(cls, even_remote=False):
@@ -1224,23 +1140,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     # L1232
     # /* CmdPeriod support for Server-scope and Server-record and Server-volume */
     # TODO
-
-    def dump_tree(self, controls=False):
-        '''
-        Ask the server to dump its node tree to stdout.
-
-        Parameters
-        ----------
-        controls: bool
-            If `True` also print synth controls with current values.
-        '''
-
-        if not self._is_local:
-            _logger.info(f'server {self.name} is not local')
-        elif self._pid is None:
-            _logger.info(f'server {self.name} is not running')
-            return
-        nod.RootNode(self).dump_tree(controls)  # Also needs stdout access.
 
     # L1315
     # funciones set/getControlBug*

@@ -579,14 +579,14 @@ class SynthDef(metaclass=MetaSynthDef):
     def _do_send(self, server, completion_msg):
         buffer = self.as_bytes()
         if len(buffer) < (65535 // 4):  # BUG: size limitation for rt safety, compare with ArrayedCollection:clumpBundles.
-            server.send_msg('/d_recv', buffer, completion_msg)
+            server.addr.send_msg('/d_recv', buffer, completion_msg)
         else:
             if server.is_local:
                 _logger.warning(
                     f'SynthDef {self._name} too big for sending. '
                     'Retrying via synthdef file')
                 self._write_def_file(plf.Platform.tmp_dir)
-                server.send_msg(
+                server.addr.send_msg(
                     '/d_load',
                     str(plf.Platform.tmp_dir / f'{self._name}.{self._SUFFIX}'),
                     completion_msg)
@@ -753,7 +753,7 @@ class SynthDef(metaclass=MetaSynthDef):
         if server.is_local:
             _logger.warning(f"loading from disk instead for Server '{server}'")
             bundle = ['/d_load', self.metadata['load_path'], completion_msg]
-            server.send_bundle(None, bundle)
+            server.addr.send_bundle(None, bundle)
         else:
             raise Exception(
                 f"Server '{server}' is remote, cannot load from disk")
@@ -785,7 +785,7 @@ class SynthDef(metaclass=MetaSynthDef):
             dir = dir or plf.Platform.synthdef_dir
             dir = pathlib.Path(dir)
             self._write_def_file(dir)
-            server.send_msg(
+            server.addr.send_msg(
                 '/d_load', str(dir / f'{self._name}.{self._SUFFIX}'),
                 completion_msg)
 

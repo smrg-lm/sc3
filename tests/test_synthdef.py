@@ -23,7 +23,7 @@ class SynthDefTestCase(unittest.TestCase):
         self.assertIs(sd.func, graph)
         self.assertEqual(sd.metadata, dict())
         self.assertEqual(sd.variants, dict())
-        self.assertIsNone(sd.desc)
+        # self.assertIsNone(sd.desc)
 
         # Content, maybe goes in a test_synthdesc.py file
         # and/or test_synthdef_optimizations.py.

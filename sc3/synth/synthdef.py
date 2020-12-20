@@ -98,8 +98,8 @@ class SynthDef(metaclass=MetaSynthDef):
         obj._name = name
         obj._func = None
         obj._variants = dict()
-        obj.metadata = dict()
-        obj.desc = None
+        obj._metadata = dict()
+        # obj.desc = None
         obj._bytes = None
 
         obj._controls = None
@@ -123,8 +123,8 @@ class SynthDef(metaclass=MetaSynthDef):
         self._name = name
         self._func = None
         self._variants = variants or dict()
-        self.metadata = metadata or dict()
-        self.desc = None
+        self._metadata = metadata or dict()
+        # self.desc = None
         self._bytes = None
 
         # self._controls = None  # init_build, is set by ugens using _libsc3.main._current_synthdef
@@ -162,18 +162,32 @@ class SynthDef(metaclass=MetaSynthDef):
 
     @property
     def name(self):
+        '''SynthDef's name.'''
         return self._name
 
     @property
     def func(self):
+        '''SynthDef's function.'''
         return self._func
 
     @property
     def variants(self):
+        '''SynthDef's argument variants dict.'''
         return self._variants
+
+    @property
+    def metadata(self):
+        '''SynthDef's metadata dict.'''
+        return self._metadata
 
     @classmethod
     def wrap(cls, func, rates=None, prepend=None):
+        '''Wrap a function within another SynthDef function.
+
+        The wrapped ``func`` must return an UGen or None, ``rates`` and
+        ``prepend`` are processed as in the default constructor and parameters
+        are converted to controls of the resulting SynthDef.
+        '''
         if _libsc3.main._current_synthdef is not None:
             return _libsc3.main._current_synthdef._build_ugen_graph(
                 func, rates or [], prepend or [])
@@ -295,8 +309,8 @@ class SynthDef(metaclass=MetaSynthDef):
         # but it's called when building the definition and may add
         # a default value for control parameters if they are None.
         new_values = []
-        if 'specs' in self.metadata:
-            specs = self.metadata['specs']
+        if 'specs' in self._metadata:
+            specs = self._metadata['specs']
             for i, value in enumerate(values):
                 if value is not None:
                     new_values.append(value)
@@ -309,27 +323,30 @@ class SynthDef(metaclass=MetaSynthDef):
             new_values = [x if x is not None else 0.0 for x in values]
         return new_values
 
-    # // Allow incremental building of controls.
-    # BUG, BUG: de cada parámetro value hace value.copy, ver posibles consecuencias...
-    def _add_non_control(self, name, values):  # Not used in the standard library.
-        self._add_control_name(iou.ControlName(name, None, 'noncontrol',
-            values, len(self._control_names)))
+    def _add_non_control(self, name, value):  # Not used.
+        self._add_control_name(iou.ControlName(
+            name, None, 'noncontrol',
+            value, len(self._control_names)))
 
-    def _add_ir(self, name, values):  # *** VER dice VALUES en plural, pero salvo que se pase un array como valor todos los que calcula son escalares u objetos no iterables.
-        self._add_control_name(iou.ControlName(name, len(self._controls), 'scalar',
-            values, len(self._control_names)))  # values *** VER el argumento de ControlName es defaultValue que puede ser un array para expansión multicanal de controles, pero eso puede pasar acá saliendo de los argumentos?
+    def _add_ir(self, name, value):
+        self._add_control_name(iou.ControlName(
+            name, len(self._controls), 'scalar',
+            value, len(self._control_names)))
 
-    def _add_tr(self, name, values):
-        self._add_control_name(iou.ControlName(name, len(self._controls), 'trigger',
-            values, len(self._control_names)))
+    def _add_tr(self, name, value):
+        self._add_control_name(iou.ControlName(
+            name, len(self._controls), 'trigger',
+            value, len(self._control_names)))
 
-    def _add_ar(self, name, values):
-        self._add_control_name(iou.ControlName(name, len(self._controls), 'audio',
-            values, len(self._control_names)))
+    def _add_ar(self, name, value):
+        self._add_control_name(iou.ControlName(
+            name, len(self._controls), 'audio',
+            value, len(self._control_names)))
 
-    def _add_kr(self, name, values, lags):  # Acá también dice lags en plural pero es un valor simple como string (symbol) o number según interpreto del código anterior.
-        self._add_control_name(iou.ControlName(name, len(self._controls), 'control',
-            values, len(self._control_names), lags))
+    def _add_kr(self, name, value, lag):
+        self._add_control_name(iou.ControlName(
+            name, len(self._controls), 'control',
+            value, len(self._control_names), lag))
 
     def _add_control_name(self, cn):
         self._control_names.append(cn)
@@ -361,7 +378,7 @@ class SynthDef(metaclass=MetaSynthDef):
                 index = self._control_index
                 ctrl_ugens = getattr(ctrl_class, method)(utl.flat(values))
                 ctrl_ugens = utl.as_list(ctrl_ugens)
-                ctrl_ugens = utl.reshape_like(ctrl_ugens, values) # .reshapeLike(values);
+                ctrl_ugens = utl.reshape_like(ctrl_ugens, values)
                 for i, cn in enumerate(ita_cns):
                     cn.index = index
                     index += len(utl.as_list(cn.default_value))
@@ -385,11 +402,11 @@ class SynthDef(metaclass=MetaSynthDef):
             index = self._control_index
 
             if any(x != 0 for x in lags):
-                ctrl_ugens = iou.LagControl.kr(utl.flat(values), lags)  # LagControl.kr(values.flat, lags) //.asArray.reshapeLike(values);
+                ctrl_ugens = iou.LagControl.kr(utl.flat(values), lags)
             else:
-                ctrl_ugens = iou.Control.kr(utl.flat(values))  # Control.kr(values.flat)
-            ctrl_ugens = utl.as_list(ctrl_ugens) # .asArray
-            ctrl_ugens = utl.reshape_like(ctrl_ugens, values)  # .reshapeLike(values);
+                ctrl_ugens = iou.Control.kr(utl.flat(values))
+            ctrl_ugens = utl.as_list(ctrl_ugens)
+            ctrl_ugens = utl.reshape_like(ctrl_ugens, values)
 
             for i, cn in enumerate(kr_cns):
                 cn.index = index
@@ -419,7 +436,8 @@ class SynthDef(metaclass=MetaSynthDef):
         # UGen.buildSynthDef = nil; moved to SynthDef in _build try/except
 
     def _add_copies_if_needed(self):
-        # // Could also have PV_UGens store themselves in a separate collection.
+        # // Could also have PV_UGens store themselves
+        # // in a separate collection.
         for child in self._width_first_ugens:
             if isinstance(child, fft.PV_ChainUGen):
                 child._add_copies_if_needed()  # pong
@@ -578,7 +596,7 @@ class SynthDef(metaclass=MetaSynthDef):
 
     def _do_send(self, server, completion_msg):
         buffer = self.as_bytes()
-        if len(buffer) < (65535 // 4):  # BUG: size limitation for rt safety, compare with ArrayedCollection:clumpBundles.
+        if len(buffer) < (65535 // 4):  # *** BUG: size limitation for rt safety, see NetAddr here.
             server.addr.send_msg('/d_recv', buffer, completion_msg)
         else:
             if server.addr.is_local:
@@ -603,7 +621,7 @@ class SynthDef(metaclass=MetaSynthDef):
         return self._bytes
 
     def _write_def_file(self, dir, overwrite=True, md_plugin=None):
-        if not self.metadata.get('reconstructed', False):
+        if not self._metadata.get('reconstructed', False):
             dir = dir or plf.Platform.synthdef_dir
             dir = pathlib.Path(dir)
             path = dir / f'{self._name}.{self._SUFFIX}'
@@ -639,9 +657,7 @@ class SynthDef(metaclass=MetaSynthDef):
                 x for x in self._all_control_names if x.rate != 'noncontrol']
             frw.write_i32(file, len(allcns_tmp))
             for item in allcns_tmp:
-                # comprueba if (item.name.notNil) # TODO: posible BUG? (ver arriba _set_control_names). Pero no debería poder agregarse items sin no son ControlNames. Arrays anidados como argumentos, de más de un nivel, no están soportados porque fallar _set_control_names según analicé.
-                #if item.name: # TODO: y acá solo comprueba que sea un string no vacío, pero no comprueba el typo ni de name ni de item.
-                if not isinstance(item, iou.ControlName): # TODO: test para debugear luego.
+                if not isinstance(item, iou.ControlName):
                     raise Exception(
                         'SynthDef self._all_control_names '
                         'has non ControlName object')
@@ -734,9 +750,9 @@ class SynthDef(metaclass=MetaSynthDef):
         for server in servers:
             if not server._status_watcher.has_booted:
                 _logger.warning(
-                    f"Server '{server.name}' not running, "  # *** BUG in sclang: prints server.name instead of each.name
+                    f"Server '{server.name}' not running, "
                     "could not send SynthDef")
-            if self.metadata.get('reconstructed', False):
+            if self._metadata.get('reconstructed', False):
                 self._load_reconstructed(
                     server, fn.value(completion_msg, server))
             else:
@@ -752,7 +768,7 @@ class SynthDef(metaclass=MetaSynthDef):
             "required structure to send back to the server")
         if server.addr.is_local:
             _logger.warning(f"loading from disk instead for Server '{server}'")
-            bundle = ['/d_load', self.metadata['load_path'], completion_msg]
+            bundle = ['/d_load', self._metadata['load_path'], completion_msg]
             server.addr.send_bundle(None, bundle)
         else:
             raise Exception(
@@ -778,7 +794,7 @@ class SynthDef(metaclass=MetaSynthDef):
 
         server = server or srv.Server.default
         completion_msg = fn.value(completion_msg, server)
-        if self.metadata.get('reconstructed', False):
+        if self._metadata.get('reconstructed', False):
             self._load_reconstructed(server, completion_msg)
         else:
             # // Should remember what dir synthDef was written to.
@@ -817,11 +833,11 @@ class SynthDef(metaclass=MetaSynthDef):
         dir = dir or plf.Platform.synthdef_dir
         dir = pathlib.Path(dir)
         path = dir / f'{self._name}.{self._SUFFIX}'
-        if not self.metadata.get('reconstructed', False):
+        if not self._metadata.get('reconstructed', False):
             with open(path, 'wb') as file:
                 self._write_def_list([self], file)
             desc = sdc.SynthDesc.new_from(self)
-            desc.metadata = self.metadata
+            desc.metadata = self._metadata
             sdc.SynthDesc.populate_metadata_func(desc)
             desc.write_metadata(dir, md_plugin)
             lib.add(desc)

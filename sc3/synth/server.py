@@ -469,7 +469,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def addr(self):
-        '''NetAddr of the server.'''
+        '''NetAddr object of the server.'''
         return self._addr
 
     @addr.setter
@@ -486,7 +486,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def name(self):
-        '''Name of the server.'''
+        '''Custom name of the server, only setteable at creation time.'''
         return self._name
 
     def _set_name(self, value):
@@ -528,12 +528,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def volume(self):
-        '''Volume control object.'''
+        '''Volume instance.'''
         return self._volume
 
     @property
     def recorder(self):
-        '''Recorder object.'''
+        '''Recorder instance'''
         return self._recorder
 
     @property
@@ -543,6 +543,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def program_running(self):
+        '''Returns ``True`` if the server program is running in localhost.'''
         if self._server_process is None:
             return False
         return self._server_process.running()
@@ -584,8 +585,8 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     def _new_node_allocators(self):
         self._node_allocator = type(self)._node_alloc_class(
             self.client_id, self.options.initial_node_id)
-        # // defaultGroup and defaultGroups depend on allocator,
-        # // so always make them here:
+        # // defaultGroup and defaultGroups depend
+        # // on allocator, so always make them here:
         self._make_default_groups()
 
     def _make_default_groups(self):
@@ -702,19 +703,12 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
           * 1 - print the parsed contents of the message.
           * 2 - print the contents in hexadecimal.
           * 3 - print both the parsed and hexadecimal representations of the
-                contents.
+          contents.
         '''
 
         self.dump_mode = code
         self.addr.send_msg('/dumpOSC', code)
         mdl.NotificationCenter.notify(self, 'dump_osc', code)
-
-    def reorder(self, node_list, target, add_action='addToHead'):
-        target = gpp.node_param(target)._as_target()
-        node_list = [x.node_id for x in node_list]
-        self.addr.send_msg(
-            '/n_order', nod.Node.action_number_for(add_action), # 62
-            target.node_id, *node_list)
 
     def sync(self, condition=None, latency=None, elements=None):
         '''Wait for previous asynchronous commands to finish.
@@ -747,7 +741,20 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             yield from self.addr.sync(condition, latency, elements)
 
     def bind(self):
-        # with s.bind():
+        '''Return a BundleNetAddr context manager that collects generated
+        messages into a bundle and send it to the server.
+
+        Note that ``sync`` will work as expected inside a routine by sending
+        the generated bundle so far::
+
+          s.bind():
+              s.addr.send_msg( ... )
+              s.addr.send_msg( ... )
+              yield from s.sync()  # Sends previous messages in a bundle.
+              s.addr.send_msg( ... )
+              ...
+        '''
+
         return nad.BundleNetAddr(self)
 
 
@@ -784,6 +791,18 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     ### Boot and login ###
 
     def register(self, on_complete=None, on_failure=None):
+        '''Register to a remote server.
+
+        Parameters
+        ----------
+        on_complete: function
+            A function to be called after registration succeeded. Optionally,
+            the function receives the server object as its only argument.
+        on_failure: function
+            A function to be called if registration fails. Optionally, the
+            function receives the server object as its only argument.
+        '''
+
         if self._status_watcher._server_registering:
             _logger.info(f"server '{self.name}' already registeringing")
             return
@@ -818,6 +837,18 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             _logger.info(f"server '{self.name}' already running")
 
     def unregister(self, on_complete=None, on_failure=None):
+        '''Unregister from a remote server.
+
+        Parameters
+        ----------
+        on_complete: function
+            A function called after deregistration succeeded. Optionally, the
+            function receives the server object as its only argument.
+        on_failure: function
+            A function called if unregistration fails. Optionally, the function
+            receives the server object as its only argument.
+        '''
+
         if self._status_watcher._server_unregistering:
             _logger.info(f"server '{self.name}' already unregisteringing")
             return
@@ -1104,13 +1135,20 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._init_tree()
 
     def free_default_group(self, all_users=False):
-        '''Free all nodes in default group.'''
+        '''Free all nodes within the client's default group.'''
         if all_users:
             for group in self._default_groups:
                 self.addr.send_msg('/g_freeAll', group.node_id)
         else:
             self.addr.send_msg('/g_freeAll', self._default_group.node_id)
 
+    def reorder(self, node_list, target, add_action='addToHead'):
+        '''Reorder nodes in ``node_list`` relative to ``target``.'''
+        target = gpp.node_param(target)._as_target()
+        node_list = [x.node_id for x in node_list]
+        self.addr.send_msg(
+            '/n_order', nod.Node.action_number_for(add_action), # 62
+            target.node_id, *node_list)
 
     # def input_bus(self):  # utility
     #     return bus.AudioBus(

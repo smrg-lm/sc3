@@ -370,7 +370,7 @@ class MetaServer(type):
             cls._buffer_alloc_class = eng.ContiguousBlockAllocator
             cls._bus_alloc_class = eng.ContiguousBlockAllocator
 
-            cls.default = cls.local = cls('localhost', cls.DEFAULT_ADDRESS)
+            cls.default = cls('localhost', cls.DEFAULT_ADDRESS)
             # cls.internal = cls(
             #     'internal', nad.NetAddr(None, None))  # No internal by now.
 

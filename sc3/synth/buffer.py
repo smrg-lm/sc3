@@ -35,12 +35,78 @@ class BufferAlreadyFreed(BufferException):
 
 
 class Buffer(gpp.UGenParameter, gpp.NodeParameter):
+    '''Client-side representation of server's buffers.
+
+    Buffers can allocate and initialize memory in many different ways. The
+    default __init__ constructor allocates empty buffers initialized with
+    zeros. To create just client-side buffer objects set ``alloc`` to
+    ``False``.
+
+    Other convenience constructors to allocate a initialize buffers are:
+    * new_consecutive
+    * new_read
+    * new_read_no_update
+    * new_read_channels
+    * new_cue
+    * new_load_list
+    * new_send_list
+
+    Memory allocation in the server and to retrieve buffer's information are
+    asynchornous operations.
+
+    For the first case, server's commands provide *completion messages* which
+    are OSC messages that are excecuted in the server as soon as the memory is
+    available. Some constructors initialize data (e.g. buffer number) before
+    sending any message, to send a completion message with that information
+    wrap it into a function that returns the updated message, the function will
+    be evaluated passing the buffer object with that data before sending.
+
+    For the second case, the client provides *action functions* (client-side
+    asynchornous callbacks) wich are called after the buffer's information is
+    retrieved.
+
+    Example
+    -------
+    ::
+
+        # Completion message
+        b1 = Buffer(completion_msg=lambda buf: ['/do_something', buf.bufnum])
+
+        # Action function
+        b2 = Buffer.new_send_list(
+            [1, 2, 3], action=lambda buf: print(buf.frames))
+    '''
+
     _server_caches = dict()
 
     def __init__(self, channels=1, frames=1024, server=None, bufnum=None,
                  completion_msg=None, *, alloc=True):
+        '''
+        Create a new empty buffer. If ``alloc`` is ``True`` (default) creating
+        a buffer object will immediately send the message to alloc the memory
+        in the server. Buffers are filled with zeros by default.
+
+        Parameters
+        ----------
+        channels: int
+            Number of channels.
+        frames: int
+            Number of frames.
+        server: Server
+            Target server on which memory will be allocated.
+        bufnum: int
+            Number (id) of the buffer. By default, buffer numbers are managed
+            by the library (recomended).
+        completion_msg: list | function
+            An OSC message or a function that returns one. If ``alloc`` is
+            ``False`` this parameter is ignored. The function will evaluated
+            with the buffer object as argument.
+        alloc: bool
+            If ``True`` (default) send the message to alloc the buffer in the
+            server.
+        '''
+
         super(gpp.UGenParameter, self).__init__(self)
-        # // Doesn't send.
         self._server = server or srv.Server.default
         if bufnum is None:
             self._bufnum = self._server._next_buffer_number(1)

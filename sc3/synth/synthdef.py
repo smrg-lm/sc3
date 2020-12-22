@@ -572,10 +572,10 @@ class SynthDef(metaclass=MetaSynthDef):
         libname : str
             SynthDescLib library name. If not specified `'default'` will
             be used.
-        completion_msg : function
-            A function that receives a server as argument and return an OSC
-            message. This message will be executed in the server after the
-            definition is loaded.
+        completion_msg : list | function
+            An OSC message or a function that receives a server as argument
+            and return an OSC message. This message will be executed in the
+            server after the definition is loaded.
         keep_def : bool
             A flag indicating if the function's code will be kept in the
             SynthDesc object, default value is `True`.
@@ -735,10 +735,10 @@ class SynthDef(metaclass=MetaSynthDef):
         ----------
         server : Server | list
             A single server object or list.
-        completion_msg : function
-            A function that receives a server as argument and return an OSC
-            message. This message will be executed in the server after the
-            definition is loaded.
+        completion_msg : list | function
+            An OSC message or a function that receives a server as argument
+            and return an OSC message. This message will be executed in the
+            server after the definition is loaded.
         """
 
         # // Only send to servers.
@@ -783,10 +783,10 @@ class SynthDef(metaclass=MetaSynthDef):
         ----------
         server : Server | list
             A single server object or list.
-        completion_msg : function
-            A function that receives a server as argument and return an OSC
-            message. This message will be executed in the server after the
-            definition is loaded.
+        completion_msg : list | function
+            An OSC message or a function that receives a server as argument
+            and return an OSC message. This message will be executed in the
+            server after the definition is loaded.
         dir : str | pathlib.Path
             Directory in which the file is saved, if not specified
             platform's default directory is used.
@@ -821,9 +821,9 @@ class SynthDef(metaclass=MetaSynthDef):
             Directory in which the file is saved, if not specified
             platform's default directory is used.
         completion_msg : function
-            A function that receives a server as argument and return an OSC
-            message. This message will be executed in the server after the
-            definition is loaded.
+            An OSC message or a function that receives a server as argument
+            and return an OSC message. This message will be executed in the
+            server after the definition is loaded.
         md_plugin :
             TODO: Not defined yet.
         """

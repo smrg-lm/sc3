@@ -70,7 +70,7 @@ html_static_path = ['_static']
 # -- Extensions configuration_ -----------------------------------------------
 
 # Autodoc. Join class and __init__ docstring.
-# autoclass_content = 'both'
+autoclass_content = 'both'
 
 # Autodoc. Sort by member type
 autodoc_member_order = 'groupwise'

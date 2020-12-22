@@ -43,13 +43,13 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     ``False``.
 
     Other convenience constructors to allocate a initialize buffers are:
-    * new_consecutive
-    * new_read
-    * new_read_no_update
-    * new_read_channels
-    * new_cue
-    * new_load_list
-    * new_send_list
+        * new_consecutive
+        * new_read
+        * new_read_no_update
+        * new_read_channels
+        * new_cue
+        * new_load_list
+        * new_send_list
 
     Memory allocation in the server and to retrieve buffer's information are
     asynchornous operations.

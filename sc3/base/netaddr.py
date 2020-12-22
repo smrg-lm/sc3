@@ -166,62 +166,6 @@ class NetAddr():
 
         self._osc_interface.send_msg(self._target, '/status')
 
-    def send_synthdef(self, name, dir=None):
-        '''Read a synthdef file and send the definition to the server.
-
-        Parameters
-        ----------
-        name: str
-            SynthDef name.
-        dir: str | pathlib.Path
-            Path to the synthdef directory, if not set default location is
-            used.
-        '''
-
-        dir = dir or plf.Platform.synthdef_dir
-        dir = pathlib.Path(dir)
-        full_path = dir / f'{name}.{sdf.SynthDef._SUFFIX}'
-        try:
-            with open(full_path, 'rb') as file:
-                buffer = file.read()
-                self.send_msg('/d_recv', buffer)
-        except FileNotFoundError:
-            _logger.warning(f'send_synthdef FileNotFoundError: {full_path}')
-
-    def load_synthdef(self, name, completion_msg=None, dir=None):
-        '''Ask the server to load a synthdef from disk.
-
-        Parameters
-        ----------
-        name: str
-            SynthDef name.
-        completion_msg: list
-            An OSC message to be evaluated by the server after load command
-            finishes.
-        dir: str | pathlib.Path
-            Path to the synthdef directory, if not set default location is
-            used.
-        '''
-
-        dir = dir or plf.Platform.synthdef_dir
-        dir = pathlib.Path(dir)
-        path = str(dir / f'{name}.{sdf.SynthDef._SUFFIX}')
-        self.send_msg('/d_load', path, completion_msg)
-
-    def load_directory(self, dir, completion_msg=None):
-        '''Ask the server to load synthdefs from a directory.
-
-        Parameters
-        ----------
-        name: str
-            SynthDef name.
-        completion_msg: list | function
-            An OSC message to be evaluated by the server after load command
-            finishes.
-        '''
-
-        self.send_msg('/d_loadDir', dir, completion_msg)
-
     def recover(self):
         return self
 

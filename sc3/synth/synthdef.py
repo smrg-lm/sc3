@@ -863,9 +863,6 @@ class SynthDef(metaclass=MetaSynthDef):
     #         lib = sdc.SynthDescLib.get_lib(libname)
     #         lib.read(path)
 
-    # play
-    # def store_args(self):
-
     # canFreeSynth.sc Is an added interface used at least by JITlib and wslib.
     # It adds too much to core, better to find another non instrusive way.
     # can_release_synth Is used by GraphBuilder.sc for automatic outputs
@@ -879,6 +876,70 @@ class SynthDef(metaclass=MetaSynthDef):
         arg_list += [v for p in kwargs.items() for v in p]
         with gpp.node_param(target)._as_target().server.bind():
             return nod.Synth(self.name, arg_list, target, add_action, register)
+
+
+    # Utilities
+
+    @classmethod
+    def send_from_file(cls, server, name, dir=None):  # Was s.send_synthdef.
+        '''Read a synthdef file and send the definition to the server.
+
+        Parameters
+        ----------
+        name: str
+            SynthDef name.
+        dir: str | pathlib.Path
+            Path to the synthdef directory, if not set default location is
+            used.
+        '''
+
+        dir = dir or plf.Platform.synthdef_dir
+        dir = pathlib.Path(dir)
+        full_path = dir / f'{name}.{sdf.SynthDef._SUFFIX}'
+        try:
+            with open(full_path, 'rb') as file:
+                buffer = file.read()
+                server.addr.send_msg('/d_recv', buffer)
+        except FileNotFoundError:
+            _logger.warning(f'send_synthdef FileNotFoundError: {full_path}')
+
+    @classmethod
+    def load_from_file(cls, server, name, completion_msg=None, dir=None):  # Was s.load_synthdef.
+        '''Ask the server to load a synthdef from disk.
+
+        Parameters
+        ----------
+        name: str
+            SynthDef name.
+        completion_msg: list
+            An OSC message to be evaluated by the server after load command
+            finishes.
+        dir: str | pathlib.Path
+            Path to the synthdef directory, if not set default location is
+            used.
+        '''
+
+        dir = dir or plf.Platform.synthdef_dir
+        dir = pathlib.Path(dir)
+        path = str(dir / f'{name}.{sdf.SynthDef._SUFFIX}')
+        server.addr.send_msg(
+            '/d_load', path, fn.value(completion_msg, server))
+
+    @classmethod
+    def load_directory(cls, server, dir, completion_msg=None):
+        '''Ask the server to load synthdefs from a directory.
+
+        Parameters
+        ----------
+        name: str
+            SynthDef name.
+        completion_msg: list | function
+            An OSC message to be evaluated by the server after load command
+            finishes.
+        '''
+
+        server.addr.send_msg(
+            '/d_loadDir', dir, fn.value(completion_msg, server))
 
 
 ### Decorator syntax ###

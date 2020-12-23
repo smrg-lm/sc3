@@ -369,7 +369,7 @@ class BundleNetAddr(NetAddr):
     def __enter__(self):
         if self._server:
             self._server._addr = self
-        # return self
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._server:

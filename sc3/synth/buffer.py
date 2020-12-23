@@ -84,7 +84,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     _server_caches = dict()
 
     def __init__(self, channels=1, frames=1024, server=None, bufnum=None,
-                 completion_msg=None, *, alloc=True):
+                 completion_msg=None, *, alloc=True, cache=True):
         '''
         Create a new empty buffer. If ``alloc`` is ``True`` (default) creating
         a buffer object will immediately send the message to alloc the memory
@@ -122,7 +122,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         self._path = None
         self._start_frame = None
         self._do_on_info = None
-        self._cache()
+        if cache:
+            self._cache()
         if alloc:
             self.alloc(completion_msg)
 
@@ -198,13 +199,6 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         # obj._cache() # NOTE: __init__ llama a _cache
         obj.alloc_read(
             path, start_frame, frames, lambda buf: ['/b_query', buf.bufnum])
-        return obj
-
-    @classmethod
-    def new_read_no_update(cls, path, start_frame=0, frames=-1, server=None,
-                           bufnum=None, completion_msg=None):
-        obj = cls(None, None, server, bufnum, alloc=False)
-        obj.alloc_read(path, start_frame, frames, completion_msg)
         return obj
 
     @classmethod

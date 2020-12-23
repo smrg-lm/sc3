@@ -232,27 +232,12 @@ class ControlBus(Bus):
         msg.extend(utl.flat(values))
         self._server.addr.send_bundle(0, msg)
 
-    def set_msg(self, *values):
-        if self._index is None:
-            raise BusAlreadyFreed('set_msg')
-        msg = ['/c_set']
-        values = [[self._index + i, val] for i, val in enumerate(values)]
-        msg.extend(utl.flat(values))
-        return msg
-
     def setn(self, values):
         if self._index is None:
             raise BusAlreadyFreed('setn')
         msg = ['/c_setn', self._index, len(values)]
         msg.extend(values)
         self._server.addr.send_bundle(0, msg)
-
-    def setn_msg(self, values):
-        if self._index is None:
-            raise BusAlreadyFreed('setn_msg')
-        msg = ['/c_setn', self._index, len(values)]
-        msg.extend(values)
-        return msg
 
     def set_at(self, offset, *values):
         if self._index is None:
@@ -304,11 +289,6 @@ class ControlBus(Bus):
         else:
             self.getn(self._channels, action)
 
-    def get_msg(self):
-        if self._index is None:
-            raise BusAlreadyFreed('get_msg')
-        return ['/c_get', self._index]
-
     def getn(self, count=None, action=None):
         if self._index is None:
             raise BusAlreadyFreed('getn')
@@ -332,21 +312,9 @@ class ControlBus(Bus):
             count = self._channels
         self._server.addr.send_msg('/c_getn', self._index, count)
 
-    def getn_msg(self, count=None):
-        if self._index is None:
-            raise BusAlreadyFreed('getn_msg')
-        if count is None:
-            count = self._channels
-        return ['/c_getn', self._index, count]
-
     def fill(self, value, channels):
         if self._index is None:
             raise BusAlreadyFreed('fill')
         # // Could throw an error if numChans > numChannels.
         self._server.addr.send_bundle(
             None, ['/c_fill', self._index, channels, value])
-
-    def fill_msg(self, value):
-        if self._index is None:
-            raise BusAlreadyFreed('fill_msg')
-        return ['/c_fill', self._index, self._channels, value]

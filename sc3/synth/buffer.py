@@ -484,16 +484,6 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             sample_format, int(frames), int(start_frame),
             bool(leave_open), fn.value(completion_msg, self))
 
-    def write_msg(self, path, header_format="aiff", sample_format="int24",
-                  frames=-1, start_frame=0, leave_open=False,
-                  completion_msg=None):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('write_msg')
-        # // Doesn't change my path.
-        return ['/b_write', self._bufnum, path, header_format, sample_format,
-                int(frames), int(start_frame), int(leave_open),
-                fn.value(completion_msg, self)]
-
     def free(self, completion_msg=None):
         if self._bufnum is None:
             _logger.warning('Buffer has already been freed')

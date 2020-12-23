@@ -56,8 +56,11 @@ def _play_func(func, target=None, outbus=0, fade=0.01,
         lambda *_: server.addr.send_msg('/d_free', synthdef.name),
         '/n_end', server.addr, arg_template=[synth.node_id]).one_shot()
     args = gpp.node_param(args)._as_control_input()
-    synth_msg = synth.new_msg(
-        target, ['_iout', outbus, 'out', outbus, *args], add_action)
+    args = gpp.node_param(
+        ['_iout', outbus, 'out', outbus, *args])._as_osc_arg_list()
+    synth_msg = [
+        '/s_new', synth.def_name, synth.node_id,
+        nod.Synth.add_actions[add_action], target.node_id, *args]
     synthdef._do_send(server, synth_msg)
     return synth
 

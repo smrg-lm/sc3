@@ -51,8 +51,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         * new_load_list
         * new_send_list
 
-    Memory allocation in the server and to retrieve buffer's information are
-    asynchornous operations.
+    Both memory allocation in the server and to retrieve buffer's information
+    are asynchornous operations.
 
     For the first case, server's commands provide *completion messages* which
     are OSC messages that are excecuted in the server as soon as the memory is
@@ -75,6 +75,10 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         # Action function
         b2 = Buffer.new_send_list(
             [1, 2, 3], action=lambda buf: print(buf.frames))
+
+    Note: Depending on allocation method the actual values of the properties
+    need to be obtained from the server. This class does that automatically for
+    all instances.
     '''
 
     _server_caches = dict()
@@ -124,34 +128,42 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     @property
     def frames(self):
+        '''Number of frames.'''
         return self._frames
 
     @property
     def channels(self):
+        '''Number of channels.'''
         return self._channels
 
     @property
     def server(self):
+        '''Target server.'''
         return self._server
 
     @property
     def bufnum(self):
+        '''Buffer's number in the server.'''
         return self._bufnum
 
     @property
     def path(self):
+        '''Path for buffers allocated by read.'''
         return self._path
 
     @property
     def start_frame(self):
+        '''Start frame of buffers allocated by read or setn.'''
         return self._start_frame
 
     @property
     def sample_rate(self):
+        '''Sample rate of the buffer, may not be the same as the server.'''
         return self._sample_rate
 
     @property
     def duration(self):
+        '''Duration of the buffer in seconds.'''
         if self._frames is None or self._sample_rate is None:
             raise ValueError('duration parameters (frames/sr) not initialized')
         return self._frames / self._sample_rate

@@ -479,9 +479,10 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             if not path.suffix:
                 path = pathlib.Path(str(path) + '.' + header_format)
 
-        self._server.addr.send_msg(*self.write_msg(
-            str(path), header_format, sample_format, frames,
-            start_frame, leave_open, completion_msg))
+        self._server.addr.send_msg(
+            '/b_write', self._bufnum, str(path), header_format,
+            sample_format, int(frames), int(start_frame),
+            bool(leave_open), fn.value(completion_msg, self))
 
     def write_msg(self, path, header_format="aiff", sample_format="int24",
                   frames=-1, start_frame=0, leave_open=False,
@@ -530,7 +531,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 nargs.extend([control, len(values), *values])
             else:
                 nargs.extend([control, 1, values])
-        self._server.addr.send_msg(['/b_setn', self._bufnum, *nargs])
+        self._server.addr.send_msg('/b_setn', self._bufnum, *nargs)
 
     def get(self, index, action):
         if self._bufnum is None:

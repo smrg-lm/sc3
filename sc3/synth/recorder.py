@@ -182,11 +182,11 @@ class Recorder():
         dir = pathlib.Path(path).parent
         dir.mkdir(exist_ok=True)
 
-        self._record_buf = bff.Buffer.new_alloc(
-            self._server, buf_size, channels,
-            lambda buf: buf.write_msg(
-                path, self.rec_header_format,
-                self.rec_sample_format, 0, 0, True))
+        self._record_buf = bff.Buffer(
+            channels, buf_size, self._server,
+            completion_msg=lambda buf: [
+                '/b_write', buf.bufnum, path, self.rec_header_format,
+                self.rec_sample_format, 0, 0, True])
 
         # if self._record_buf is None: raise Exception("could not allocate buffer")  # *** BUG: it can't be nil in sclang either
         self._path = path
@@ -231,7 +231,7 @@ class Recorder():
         self._server.addr.send_msg('/d_free', self._synthdef.name)
         self._synthdef = None
         if self._record_buf is not None:
-            self._record_buf.close(lambda buf: buf.free_msg())
+            self._record_buf.close(lambda buf: ['/b_free', buf.bufnum])
             _logger.info(f'recording stopped: {pathlib.Path(self._path).name}')
             self._record_buf = None
         self._bus = None

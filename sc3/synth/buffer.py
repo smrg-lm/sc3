@@ -108,6 +108,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         alloc: bool
             If ``True`` (default) send the message to alloc the buffer in the
             server.
+        cache: bool
+            If ``True`` (default) automatically update instance variables.
         '''
 
         super(gpp.UGenParameter, self).__init__(self)
@@ -173,30 +175,77 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     ### Specialized Constructors ###
 
     @classmethod
-    def new_consecutive(cls, num_bufs=1, channels=1, frames=1024,
+    def new_consecutive(cls, buffers=1, channels=1, frames=1024,
                         server=None, bufnum=None, completion_msg=None):
+        '''Allocates a range of consecutively-numbered buffers, for use with
+        ugens like VOsc and VOsc3 that require a contiguous block of buffers,
+        and returns an array of corresponding Buffer objects.
+
+        Parameters
+        ----------
+        buffers: int
+            The number of consecutively indexed buffers to allocate.
+        channels: int
+            Number of channels for each buffer.
+        frames: int
+            The number of frames to allocate in each buffer.
+        server: Server
+            The server on which to allocate the buffers. The default is the
+            default server.
+        bufnum: int
+            Number (id) of the buffer. By default, buffer numbers are managed
+            by the library (recomended).
+        completion_msg: list | function
+            A valid OSC message or a function which will return one.
+            A function will be passed each Buffer and its index in the array
+            as arguments when evaluated.
+
+        Note: The array of buffers must be treated as a group. Freeing them
+        individually or reusing them can result in allocation errors.
+        '''
+
         if bufnum is None:
-            buf_base = server._next_buffer_number(num_bufs)
+            buf_base = server._next_buffer_number(buffers)
         else:
             buf_base = bufnum
         buf_list = []
-        for i in range(num_bufs):
+        for i in range(buffers):
             new_buf = cls(channels, frames, server, buf_base + i, alloc=False)
             server.addr.send_msg(
                 '/b_alloc', buf_base + i, frames,
                 channels, fn.value(completion_msg, new_buf, i))
-            # new_buf._cache() # NOTE: __init__ llama a _cache
             buf_list.append(new_buf)
         return buf_list
 
     @classmethod
     def new_read(cls, path, start_frame=0, frames=-1, server=None,
                  bufnum=None, action=None):
-        # // read whole file into memory for PlayBuf etc.
-        # // Adds a query as a completion message.
+        '''Allocate a buffer and immediately read a soundfile into it for use
+        with ugens like PlayBuf.
+
+        Parameters
+        ----------
+        path: str
+            Path of the sound file to read.
+        start_frame: int
+            The first frame of the sound file to read. The default is 0, which
+            is the beginning of the file.
+        frames: int
+            The number of frames to read. The default is -1, which will read
+            the whole file.
+        server: Server
+            The server on which to allocate the buffer.
+        bufnum: int
+            Number (id) of the buffer. By default, buffer numbers are managed
+            by the library (recomended).
+        action: function
+            A function to be evaluated once the file has been read and this
+            buffer's instance variables have been updated. The function will
+            be passed this Buffer as an argument.
+        '''
+
         obj = cls(None, None, server, bufnum, alloc=False)
         obj._do_on_info = action
-        # obj._cache() # NOTE: __init__ llama a _cache
         obj.alloc_read(
             path, start_frame, frames, lambda buf: ['/b_query', buf.bufnum])
         return obj
@@ -204,6 +253,32 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     @classmethod
     def new_read_channels(cls, path, channels=None, start_frame=0, frames=-1,
                           server=None, bufnum=None, action=None):
+        '''As ``new_read`` but takes a list of channel indices to read.
+
+        Parameters
+        ----------
+        path: str
+            Path of the sound file to read.
+        channels: list
+            A list of channels to be read from the soundfile. Indices start
+            from zero. These will be read in the order provided.
+        start_frame: int
+            The first frame of the sound file to read. The default is 0, which
+            is the beginning of the file.
+        frames: int
+            The number of frames to read. The default is -1, which will read
+            the whole file.
+        server: Server
+            The server on which to allocate the buffer.
+        bufnum: int
+            Number (id) of the buffer. By default, buffer numbers are managed
+            by the library (recomended).
+        action: function
+            A function to be evaluated once the file has been read and this
+            buffer's instance variables have been updated. The function will
+            be passed this Buffer as an argument.
+        '''
+
         obj = cls(None, None, server, bufnum, alloc=False)
         obj._do_on_info = action
         obj.alloc_read_channels(
@@ -214,7 +289,30 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     @classmethod
     def new_cue(cls, path, channels=1, start_frame=0, buffer_size=32768,
                 server=None, bufnum=None, completion_msg=None):
-        # // Preload a buffer for use with DiskIn
+        '''Allocate a buffer and preload a soundfile for streaming in using
+        DiskIn.
+
+        Parameters
+        ----------
+        path: str
+            Path of the sound file to read.
+        channels: int
+            The number of channels in the sound file.
+        start_frame: int
+            The frame to start reading.
+        buffer_size: int
+            Size of the buffer. It must be a multiple of (2 * the server's
+            block size), 32768 is the default and is suitable for most cases.
+        server: Server
+            The server on which to allocate the buffer.
+        bufnum: int
+            Number (id) of the buffer. By default, buffer numbers are managed
+            by the library (recomended).
+        completion_msg: list | function
+            An OSC message or a function that returns one. The function will
+            evaluated with the initialized buffer object as argument.
+        '''
+
         obj = cls(
             channels, buffer_size, server, bufnum,
             ['/b_read', buf._bufnum, path, start_frame, buffer_size,
@@ -675,6 +773,18 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         self._server.addr.send_msg('/b_query', self._bufnum)
 
     def update_info(self, action):
+        '''
+        Sends a '/b_query' message to the server, asking for a description of
+        this buffer. Upon reply this buffer's instance variables are
+        automatically updated.
+
+        Parameters
+        ----------
+        action: function
+            A function to be evaluated once instance variables have been
+            updated. The function will evaluated with the buffer object as
+            argument.
+        '''
         # // Add to the array here. That way, update will
         # // be accurate even if this buf has been freed.
         self._cache()
@@ -689,7 +799,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         if self._bufnum is None:
             raise BufferAlreadyFreed('prepare_partconv')
         self._server.addr.send_msg(
-            "/b_gen", self.bufnum, "PreparePartConv", buf.bufnum, fftsize);
+            '/b_gen', self.bufnum, 'PreparePartConv', buf.bufnum, fftsize)
 
     @staticmethod
     def calc_partconv_bufsize(fftsize, irbuffer):

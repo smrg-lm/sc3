@@ -83,7 +83,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     _server_caches = dict()
 
-    def __init__(self, channels=1, frames=1024, server=None, bufnum=None,
+    def __init__(self, channels=None, frames=None, server=None, bufnum=None,
                  completion_msg=None, *, alloc=True, cache=True):
         '''
         Create a new empty buffer. If ``alloc`` is ``True`` (default) creating
@@ -392,27 +392,20 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def read(self, path, file_start_frame=0, frames=-1,
              buf_start_frame=0, leave_open=False, action=None):
         self._path = path
-        self._do_on_info = action
-        self._server.addr.send_msg([
-            '/b_read', self._bufnum, path, file_start_frame, frames,
-            buf_start_frame, leave_open, ['/b_query', buf.bufnum]])
-
-    def read_no_update(self, path, file_start_frame=0, frames=-1,
-                       buf_start_frame=0, leave_open=False,
-                       completion_msg=None):
-        self._path = path
+        self._do_on_info = action  # Will not evaluate if cache=False.
         self._server.addr.send_msg(
-            '/b_read', self._bufnum, path, file_start_frame, frames,
-            buf_start_frame, leave_open, fn.value(completion_msg, self))
+            '/b_read', self._bufnum, self._path, file_start_frame, frames,
+            buf_start_frame, leave_open, ['/b_query', self._bufnum])
 
     def read_channels(self, path, channels=None, file_start_frame=0,
                       frames=-1, buf_start_frame=0, leave_open=False,
                       action=None):
-        self._do_on_info = action
+        self._path = path
+        self._do_on_info = action  # Will not evaluate if cache=False.
         self._server.addr.send_msg(
-            '/b_readChannel', self._bufnum, path, file_start_frame,
+            '/b_readChannel', self._bufnum, self._path, file_start_frame,
             frames, buf_start_frame, leave_open, *channels,
-            ['/b_query', buf._bufnum])
+            ['/b_query', self._bufnum])
 
     def cue(self, path, start_frame=0, completion_msg=None):
         # // Preload a buffer for use with DiskIn.
@@ -839,7 +832,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                     buffer._frames = msg[2]
                     buffer._channels = msg[3]
                     buffer._sample_rate = msg[4]
-                    buffer._query_done()
+                    if buffer._do_on_info is not None:
+                        fn.value(buffer._do_on_info, buffer)
+                        buffer._do_on_info = None
                 except KeyError:
                     pass
 
@@ -847,9 +842,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             resp.permanent = True
             cls._server_caches[server]['responder'] = resp
             mdl.NotificationCenter.register(
-                server, 'new_allocators',
-                cls, lambda: cls._clear_server_caches(server)
-            )
+                server, '_new_allocators',
+                cls, lambda: cls._clear_server_caches(server))
 
     @classmethod
     def _clear_server_caches(cls, server):
@@ -873,11 +867,6 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             return cls._server_caches[server][bufnum]
         except KeyError:
             return None
-
-    def _query_done(self):
-        # // Called from Server when b_info is received.
-        fn.value(self._do_on_info, self)
-        self._do_on_info = None
 
     def __repr__(self):
         return (

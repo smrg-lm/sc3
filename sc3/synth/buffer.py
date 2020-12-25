@@ -46,7 +46,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         * new_consecutive
         * new_read
         * new_read_no_update
-        * new_read_channels
+        * new_read_channel
         * new_cue
         * new_load_list
         * new_send_list
@@ -83,7 +83,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     _server_caches = dict()
 
-    def __init__(self, channels=None, frames=None, server=None, bufnum=None,
+    def __init__(self, frames=None, channels=None, server=None, bufnum=None,
                  completion_msg=None, *, alloc=True, cache=True):
         '''
         Create a new empty buffer. If ``alloc`` is ``True`` (default) creating
@@ -92,10 +92,10 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
         Parameters
         ----------
-        channels: int
-            Number of channels.
         frames: int
             Number of frames.
+        channels: int
+            Number of channels.
         server: Server
             Target server on which memory will be allocated.
         bufnum: int
@@ -175,7 +175,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     ### Specialized Constructors ###
 
     @classmethod
-    def new_consecutive(cls, buffers=1, channels=1, frames=1024,
+    def new_consecutive(cls, buffers=1, frames=1024, channels=1,
                         server=None, bufnum=None, completion_msg=None):
         '''Allocates a range of consecutively-numbered buffers, for use with
         ugens like VOsc and VOsc3 that require a contiguous block of buffers,
@@ -185,10 +185,10 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         ----------
         buffers: int
             The number of consecutively indexed buffers to allocate.
-        channels: int
-            Number of channels for each buffer.
         frames: int
             The number of frames to allocate in each buffer.
+        channels: int
+            Number of channels for each buffer.
         server: Server
             The server on which to allocate the buffers. The default is the
             default server.
@@ -210,7 +210,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             buf_base = bufnum
         buf_list = []
         for i in range(buffers):
-            new_buf = cls(channels, frames, server, buf_base + i, alloc=False)
+            new_buf = cls(frames, channels, server, buf_base + i, alloc=False)
             server.addr.send_msg(
                 '/b_alloc', buf_base + i, frames,
                 channels, fn.value(completion_msg, new_buf, i))
@@ -251,23 +251,23 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         return obj
 
     @classmethod
-    def new_read_channels(cls, path, channels=None, start_frame=0, frames=-1,
-                          server=None, bufnum=None, action=None):
+    def new_read_channel(cls, path, start_frame=0, frames=-1,
+                         channels=None, server=None, bufnum=None, action=None):
         '''As ``new_read`` but takes a list of channel indices to read.
 
         Parameters
         ----------
         path: str
             Path of the sound file to read.
-        channels: list
-            A list of channels to be read from the soundfile. Indices start
-            from zero. These will be read in the order provided.
         start_frame: int
             The first frame of the sound file to read. The default is 0, which
             is the beginning of the file.
         frames: int
             The number of frames to read. The default is -1, which will read
             the whole file.
+        channels: list
+            A list of channels to be read from the soundfile. Indices start
+            from zero. These will be read in the order provided.
         server: Server
             The server on which to allocate the buffer.
         bufnum: int
@@ -281,13 +281,13 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
         obj = cls(None, None, server, bufnum, alloc=False)
         obj._do_on_info = action
-        obj.alloc_read_channels(
-            path, channels, start_frame, frames,
+        obj.alloc_read_channel(
+            path, start_frame, frames, channels,
             lambda buf: ['/b_query', buf.bufnum])
         return obj
 
     @classmethod
-    def new_cue(cls, path, channels=1, start_frame=0, buffer_size=32768,
+    def new_cue(cls, path, start_frame=0, buffer_size=32768, channels=1,
                 server=None, bufnum=None, completion_msg=None):
         '''Allocate a buffer and preload a soundfile for streaming in using
         DiskIn.
@@ -296,13 +296,13 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         ----------
         path: str
             Path of the sound file to read.
-        channels: int
-            The number of channels in the sound file.
         start_frame: int
             The frame to start reading.
         buffer_size: int
             Size of the buffer. It must be a multiple of (2 * the server's
             block size), 32768 is the default and is suitable for most cases.
+        channels: int
+            The number of channels in the sound file.
         server: Server
             The server on which to allocate the buffer.
         bufnum: int
@@ -314,7 +314,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         '''
 
         obj = cls(
-            channels, buffer_size, server, bufnum,
+            buffer_size, channels, server, bufnum,
             ['/b_read', buf._bufnum, path, start_frame, buffer_size,
             0, True, fn.value(completion_msg, self)])
         obj._path = path
@@ -354,7 +354,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         # // Send a Collection to a buffer one UDP sized packet at a time.
         lst = list(array.array('f', lst))  # Type check & cast.
         buffer = cls(
-            channels, bi.ceil(len(lst) / channels), server, alloc=False)
+            bi.ceil(len(lst) / channels), channels, server, alloc=False)
         # It was forkIfNeeded, can't be implemented in Python because
         # yield statment scope is different. The check for need was:
         # if isinstance(_libsc3.main.current_tt, Routine). Always fork here
@@ -381,8 +381,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             '/b_allocRead', self._bufnum, path,
             start_frame, frames, fn.value(completion_msg, self))
 
-    def alloc_read_channels(self, path, channels=None, start_frame=0,
-                            frames=-1, completion_msg=None):
+    def alloc_read_channel(self, path, start_frame=0, frames=-1,
+                           channels=None, completion_msg=None):
         self._path = path
         self._start_frame = start_frame
         self._server.addr.send_msg(
@@ -397,9 +397,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             '/b_read', self._bufnum, self._path, file_start_frame, frames,
             buf_start_frame, leave_open, ['/b_query', self._bufnum])
 
-    def read_channels(self, path, channels=None, file_start_frame=0,
-                      frames=-1, buf_start_frame=0, leave_open=False,
-                      action=None):
+    def read_channel(self, path, file_start_frame=0, frames=-1,
+                     buf_start_frame=0, leave_open=False, channels=None,
+                     action=None):
         self._path = path
         self._do_on_info = action  # Will not evaluate if cache=False.
         self._server.addr.send_msg(
@@ -765,7 +765,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             arg_template=[self._bufnum]).one_shot()
         self._server.addr.send_msg('/b_query', self._bufnum)
 
-    def update_info(self, action):
+    def update_info(self, action=None):
         '''
         Sends a '/b_query' message to the server, asking for a description of
         this buffer. Upon reply this buffer's instance variables are
@@ -781,7 +781,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         # // Add to the array here. That way, update will
         # // be accurate even if this buf has been freed.
         self._cache()
-        self._do_on_info = action
+        self._do_on_info = action or (lambda: None)
         self._server.addr.send_msg('/b_query', self._bufnum)
 
 
@@ -870,7 +870,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     def __repr__(self):
         return (
-            f'{type(self).__name__}({self._channels}, {self._frames}, '
+            f'{type(self).__name__}({self._frames}, {self._channels}, '
             f'{self._server.name}, {self._bufnum}, {self._sample_rate}, '
             f'{self._path})')
 

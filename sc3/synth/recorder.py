@@ -183,7 +183,7 @@ class Recorder():
         dir.mkdir(exist_ok=True)
 
         self._record_buf = bff.Buffer(
-            channels, buf_size, self._server,
+            buf_size, channels, self._server,
             completion_msg=lambda buf: [
                 '/b_write', buf.bufnum, path, self.rec_header_format,
                 self.rec_sample_format, 0, 0, True])

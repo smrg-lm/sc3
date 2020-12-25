@@ -1,4 +1,48 @@
-"""Buffer.sc"""
+"""Client-side representation of server's buffers.
+
+Buffers can allocate and initialize memory in many different ways. The
+default __init__ constructor allocates empty buffers initialized with
+zeros. To create just client-side buffer objects set ``alloc`` to
+``False``.
+
+Other convenience constructors to allocate a initialize buffers are:
+    * new_consecutive
+    * new_read
+    * new_read_no_update
+    * new_read_channel
+    * new_cue
+    * new_load_list
+    * new_send_list
+
+Both memory allocation in the server and to retrieve buffer's information
+are asynchornous operations.
+
+For the first case, server's commands provide *completion messages* which
+are OSC messages that are excecuted in the server as soon as the memory is
+available. Some constructors initialize data (e.g. buffer number) before
+sending any message, to send a completion message with that information
+wrap it into a function that returns the updated message, the function will
+be evaluated passing the buffer object with that data before sending.
+
+For the second case, the client provides *action functions* (client-side
+asynchornous callbacks) wich are called after the buffer's information is
+retrieved.
+
+Example
+-------
+::
+
+    # Completion message
+    b1 = Buffer(completion_msg=lambda buf: ['/do_something', buf.bufnum])
+
+    # Action function
+    b2 = Buffer.new_send_list(
+        [1, 2, 3], action=lambda buf: print(buf.frames))
+
+Note: Depending on allocation method the actual values of the properties
+need to be obtained from the server. This class does that automatically for
+all instances.
+"""
 
 import logging
 import pathlib
@@ -35,52 +79,6 @@ class BufferAlreadyFreed(BufferException):
 
 
 class Buffer(gpp.UGenParameter, gpp.NodeParameter):
-    '''Client-side representation of server's buffers.
-
-    Buffers can allocate and initialize memory in many different ways. The
-    default __init__ constructor allocates empty buffers initialized with
-    zeros. To create just client-side buffer objects set ``alloc`` to
-    ``False``.
-
-    Other convenience constructors to allocate a initialize buffers are:
-        * new_consecutive
-        * new_read
-        * new_read_no_update
-        * new_read_channel
-        * new_cue
-        * new_load_list
-        * new_send_list
-
-    Both memory allocation in the server and to retrieve buffer's information
-    are asynchornous operations.
-
-    For the first case, server's commands provide *completion messages* which
-    are OSC messages that are excecuted in the server as soon as the memory is
-    available. Some constructors initialize data (e.g. buffer number) before
-    sending any message, to send a completion message with that information
-    wrap it into a function that returns the updated message, the function will
-    be evaluated passing the buffer object with that data before sending.
-
-    For the second case, the client provides *action functions* (client-side
-    asynchornous callbacks) wich are called after the buffer's information is
-    retrieved.
-
-    Example
-    -------
-    ::
-
-        # Completion message
-        b1 = Buffer(completion_msg=lambda buf: ['/do_something', buf.bufnum])
-
-        # Action function
-        b2 = Buffer.new_send_list(
-            [1, 2, 3], action=lambda buf: print(buf.frames))
-
-    Note: Depending on allocation method the actual values of the properties
-    need to be obtained from the server. This class does that automatically for
-    all instances.
-    '''
-
     _server_caches = dict()
 
     def __init__(self, frames=None, channels=None, server=None, bufnum=None,
@@ -368,6 +366,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         return buffer
 
 
+    ### Allocation methods ###
+
     def alloc(self, completion_msg=None):
         self._server.addr.send_msg(
             '/b_alloc', self._bufnum, self._frames,
@@ -449,6 +449,122 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         else:
             _logger.warning("cannot call 'load' with a non-local Server")
 
+
+    ### Allocated buffer commands ###
+
+    def write(self, path=None, header_format="aiff", sample_format="int24",
+              frames=-1, start_frame=0, leave_open=False,
+              completion_msg=None):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('write')
+
+        if path is None:
+            dir = plf.Platform.recording_dir
+            timestamp = time.strftime('%Y%m%d_%H%M%S')
+            path = dir / ('SC_' + timestamp + '.' + header_format)
+        else:
+            path = pathlib.Path(path)
+            if not path.suffix:
+                path = pathlib.Path(str(path) + '.' + header_format)
+
+        self._server.addr.send_msg(
+            '/b_write', self._bufnum, str(path), header_format,
+            sample_format, int(frames), int(start_frame),
+            bool(leave_open), fn.value(completion_msg, self))
+
+    def close(self, completion_msg=None):
+        # // Close a file, write header, after DiskOut usage.
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('close')
+        self._server.addr.send_msg(
+            '/b_close', self._bufnum, fn.value(completion_msg, self))
+
+    def free(self, completion_msg=None):
+        if self._bufnum is None:
+            _logger.warning('Buffer has already been freed')
+        self._uncache()
+        self._server._buffer_allocator.free(self._bufnum)
+        msg = ['/b_free', self._bufnum, fn.value(completion_msg, self)]
+        self._bufnum = self._frames = self._channels = None
+        self._sample_rate = self._path = self._start_frame = None
+        self._server.addr.send_msg(*msg)
+
+    @classmethod
+    def free_all(cls, server=None):  # Move up?
+        server = server if server is not None else srv.Server.default
+        server._free_all_buffers()
+        type(self)._clear_server_caches(server)
+
+    def zero(self, completion_msg=None):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('zero')
+        self._server.addr.send_msg(
+            '/b_zero', self._bufnum, fn.value(completion_msg, self))
+
+    def fill(self, start, frames, values):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('fill')
+        self._server.addr.send_msg(
+            '/b_fill', self._bufnum, start, int(frames), *values)
+
+    def query(self, action=None):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('query')
+        if action is None:
+            def action(addr, bufnum, frames, channels, sample_rate):
+                _logger.info(
+                    f'bufnum: {bufnum}\n'
+                    f'frames: {frames}\n'
+                    f'channels: {channels}\n'
+                    f'sample_rate: {sample_rate}')
+
+        def resp_func(msg, *_):
+            fn.value(action, *msg)
+
+        rdf.OscFunc(
+            resp_func, '/b_info', self._server.addr,
+            arg_template=[self._bufnum]).one_shot()
+        self._server.addr.send_msg('/b_query', self._bufnum)
+
+    def update_info(self, action=None):
+        '''
+        Sends a '/b_query' message to the server, asking for a description of
+        this buffer. Upon reply this buffer's instance variables are
+        automatically updated.
+
+        Parameters
+        ----------
+        action: function
+            A function to be evaluated once instance variables have been
+            updated. The function will evaluated with the buffer object as
+            argument.
+        '''
+        # // Add to the array here. That way, update will
+        # // be accurate even if this buf has been freed.
+        self._cache()
+        self._do_on_info = action or (lambda: None)
+        self._server.addr.send_msg('/b_query', self._bufnum)
+
+
+    ### Get/set data ###
+
+    def set(self, index, value, *more_pairs):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('set')
+        self._server.addr.send_msg(
+            '/b_set', self._bufnum, index, value, *more_pairs)
+
+    def setn(self, *args):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('setn')
+        nargs = []
+        for control, values in utl.gen_cclumps(args, 2):
+            if isnstance(values, list):
+                nargs.extend([control, len(values), *values])
+            else:
+                nargs.extend([control, 1, values])
+        self._server.addr.send_msg('/b_setn', self._bufnum, *nargs)
+
     def send_list(self, lst, start_frame=0, wait=-1, action=None):  # Was send_collection
         number = (int, float)
         if not isinstance(start_frame, number):
@@ -483,6 +599,38 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             fn.value(action, self)
 
         stm.Routine.run(stream_func)
+
+    def get(self, index, action):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('get')
+
+        def resp_func(msg, *_):
+            # // The server replies with a message of the form:
+            # // [/b_set, bufnum, index, value]. We want 'value,'
+            # // which is at index 3.
+            fn.value(action, msg[3])
+
+        rdf.OscFunc(
+            resp_func, '/b_set', self._server.addr,
+            arg_template=[self._bufnum, index]).one_shot()
+
+        self._server.addr.send_msg('/b_get', self._bufnum, index)
+
+    def getn(self, index, count, action):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('getn')
+
+        def resp_func(msg, *_):
+            # // The server replies with a message of the form:
+            # // [/b_setn, bufnum, starting index, length, ...sample values].
+            # // We want the sample values, which start at index 4.
+            fn.value(action, msg[4:])
+
+        rdf.OscFunc(
+            resp_func, '/b_setn', self._server.addr,
+            arg_template=[self._bufnum, index]).one_shot()
+
+        self._server.addr.send_msg('/b_getn', self._bufnum, index, count)
 
     # // these next two get the data and put it in a float array
     # // which is passed to action
@@ -549,105 +697,16 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
         clk.SystemClock.sched(timeout, timeout_func)
 
-    def write(self, path=None, header_format="aiff", sample_format="int24",
-              frames=-1, start_frame=0, leave_open=False,
-              completion_msg=None):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('write')
-
-        if path is None:
-            dir = plf.Platform.recording_dir
-            timestamp = time.strftime('%Y%m%d_%H%M%S')
-            path = dir / ('SC_' + timestamp + '.' + header_format)
-        else:
-            path = pathlib.Path(path)
-            if not path.suffix:
-                path = pathlib.Path(str(path) + '.' + header_format)
-
-        self._server.addr.send_msg(
-            '/b_write', self._bufnum, str(path), header_format,
-            sample_format, int(frames), int(start_frame),
-            bool(leave_open), fn.value(completion_msg, self))
-
-    def free(self, completion_msg=None):
-        if self._bufnum is None:
-            _logger.warning('Buffer has already been freed')
-        self._uncache()
-        self._server._buffer_allocator.free(self._bufnum)
-        msg = ['/b_free', self._bufnum, fn.value(completion_msg, self)]
-        self._bufnum = self._frames = self._channels = None
-        self._sample_rate = self._path = self._start_frame = None
-        self._server.addr.send_msg(*msg)
-
-    @classmethod
-    def free_all(cls, server=None):  # Move up?
-        server = server if server is not None else srv.Server.default
-        server._free_all_buffers()
-        type(self)._clear_server_caches(server) # *** BUG: no hace _clear_server_caches de default si es nil en sclang.
-
-    def zero(self, completion_msg=None):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('zero')
-        self._server.addr.send_msg(
-            '/b_zero', self._bufnum, fn.value(completion_msg, self))
-
-    def set(self, index, value, *more_pairs):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('set')
-        self._server.addr.send_msg(
-            '/b_set', self._bufnum, index, value, *more_pairs)
-
-    def setn(self, *args):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('setn')
-        nargs = []
-        for control, values in utl.gen_cclumps(args, 2):
-            if isnstance(values, list):
-                nargs.extend([control, len(values), *values])
-            else:
-                nargs.extend([control, 1, values])
-        self._server.addr.send_msg('/b_setn', self._bufnum, *nargs)
-
-    def get(self, index, action):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('get')
-
-        def resp_func(msg, *_):
-            # // The server replies with a message of the form:
-            # // [/b_set, bufnum, index, value]. We want 'value,'
-            # // which is at index 3.
-            fn.value(action, msg[3])
-
-        rdf.OscFunc(
-            resp_func, '/b_set', self._server.addr,
-            arg_template=[self._bufnum, index]).one_shot()
-
-        self._server.addr.send_msg('/b_get', self._bufnum, index)
-
-    def getn(self, index, count, action):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('getn')
-
-        def resp_func(msg, *_):
-            # // The server replies with a message of the form:
-            # // [/b_setn, bufnum, starting index, length, ...sample values].
-            # // We want the sample values, which start at index 4.
-            fn.value(action, msg[4:])
-
-        rdf.OscFunc(
-            resp_func, '/b_setn', self._server.addr,
-            arg_template=[self._bufnum, index]).one_shot()
-
-        self._server.addr.send_msg('/b_getn', self._bufnum, index, count)
-
-    def fill(self, start, frames, values):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('fill')
-        self._server.addr.send_msg(
-            '/b_fill', self._bufnum, start, int(frames), *values)
-
 
     ### Gen commands ###
+
+    def gen(self, cmd, args=(), normalize=True, as_wavetable=True,
+            clear_first=True, action=None):
+        if self._bufnum is None:
+            raise BufferAlreadyFreed('gen')
+        self._gen_action_responder(action)
+        oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
+        self._server.addr.send_msg('/b_gen', self._bufnum, cmd, oflags, *args)
 
     def _gen_action_responder(self, action):
         if action is not None:
@@ -658,7 +717,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
             rdf.OscFunc(
                 resp_func, '/done', self._server.addr,
-                arg_template=['/b_gen', self._bufnum]).one_shot()  # *** BUG: comprobar que filtra por arg_template (no recuerdo si está implementado así).
+                arg_template=['/b_gen', self._bufnum]).one_shot()
 
     def _gen_oflags(self, normalize, as_wavetable, clear_first):
         flags = (int(normalize), int(as_wavetable) * 2, int(clear_first) * 4)
@@ -673,14 +732,6 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         else:
             format = 'normalize'
         self._server.addr.send_msg('/b_gen', self._bufnum, format, new_max)
-
-    def gen(self, cmd, args=(), normalize=True, as_wavetable=True,
-            clear_first=True, action=None):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('gen')
-        self._gen_action_responder(action)
-        oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
-        self._server.addr.send_msg('/b_gen', self._bufnum, cmd, oflags, *args)
 
     def sine1(self, amps, normalize=True, as_wavetable=True,
               clear_first=True, action=None):
@@ -733,56 +784,11 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
             rdf.OscFunc(
                 resp_func, '/done', self._server.addr,
-                arg_template=['/b_gen', self._bufnum]).one_shot()  # *** BUG: comprobar que filtra por arg_template (no recuerdo si está implementado así).
+                arg_template=['/b_gen', self._bufnum]).one_shot()
 
         self._server.addr.send_msg(
             '/b_gen', dst_buffer.bufnum, 'copy', dst_start,
             self._bufnum, start, num_samples)
-
-    def close(self, completion_msg=None):
-        # // Close a file, write header, after DiskOut usage.
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('close')
-        self._server.addr.send_msg(
-            '/b_close', self._bufnum, fn.value(completion_msg, self))
-
-    def query(self, action=None):
-        if self._bufnum is None:
-            raise BufferAlreadyFreed('query')
-        if action is None:
-            def action(addr, bufnum, frames, channels, sample_rate):
-                _logger.info(
-                    f'bufnum: {bufnum}\n'
-                    f'frames: {frames}\n'
-                    f'channels: {channels}\n'
-                    f'sample_rate: {sample_rate}')
-
-        def resp_func(msg, *_):
-            fn.value(action, *msg)
-
-        rdf.OscFunc(
-            resp_func, '/b_info', self._server.addr,
-            arg_template=[self._bufnum]).one_shot()
-        self._server.addr.send_msg('/b_query', self._bufnum)
-
-    def update_info(self, action=None):
-        '''
-        Sends a '/b_query' message to the server, asking for a description of
-        this buffer. Upon reply this buffer's instance variables are
-        automatically updated.
-
-        Parameters
-        ----------
-        action: function
-            A function to be evaluated once instance variables have been
-            updated. The function will evaluated with the buffer object as
-            argument.
-        '''
-        # // Add to the array here. That way, update will
-        # // be accurate even if this buf has been freed.
-        self._cache()
-        self._do_on_info = action or (lambda: None)
-        self._server.addr.send_msg('/b_query', self._bufnum)
 
 
     ### PartConv ###
@@ -853,20 +859,21 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         except KeyError:
             pass
 
-    @classmethod
-    def cached_buffers_do(cls, server, func):
-        if server in cls._server_caches: # NOTE: No uso try porque llama a una función arbitraria.
-            for i, (bufnum, buf)\
-            in enumerate(cls._server_caches[server].items()):
-                if type(bufnum) is not str: # NOTE: esta comprobación hay que hacerla porque el responder está junto con los buffers, y la hago por string por si bufnum es de otro tipo numérico, para que no falle en silencio.
-                    func(buf, i)
+    # @classmethod
+    # def cached_buffers_do(cls, server, func):
+    #     if server in cls._server_caches:
+    #         for i, (bufnum, buf)\
+    #         in enumerate(cls._server_caches[server].items()):
+    #             if type(bufnum) is not str:
+    #                 func(buf, i)
 
-    @classmethod
-    def cached_buffer_at(cls, server, bufnum):
-        try:
-            return cls._server_caches[server][bufnum]
-        except KeyError:
-            return None
+    # @classmethod
+    # def cached_buffer_at(cls, server, bufnum):
+    #     try:
+    #         return cls._server_caches[server][bufnum]
+    #     except KeyError:
+    #         return None
+
 
     def __repr__(self):
         return (
@@ -889,8 +896,6 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def _as_control_input(self):
         return self.bufnum
 
-
-    # asBufWithValues # NOTE: se implementa acá, en Ref y en SimpleNumber pero no se usa en la librería estandar.
 
 
 # Minimal utility functions to avoid depencencies.

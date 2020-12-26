@@ -753,7 +753,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
         self._server.addr.send_msg(
             '/b_gen', self._bufnum, 'sine2', oflags,
-            utl.lace([freqs, amps], len(freqs) * 2))
+            *utl.lace([freqs, amps], len(freqs) * 2))
 
     def sine3(self, freqs, amps, phases, normalize=True, as_wavetable=True,
               clear_first=True, action=None):
@@ -763,7 +763,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         oflags = self._gen_oflags(normalize, as_wavetable, clear_first)
         self._server.addr.send_msg(
             '/b_gen', self._bufnum, 'sine3', oflags,
-            utl.lace([freqs, amps, phases], len(freqs) * 2))
+            *utl.lace([freqs, amps, phases], len(freqs) * 3))
 
     def cheby(self, amps, normalize=True, as_wavetable=True,
               clear_first=True, action=None):

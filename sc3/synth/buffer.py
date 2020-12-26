@@ -693,7 +693,10 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         def timeout_func():
             if not done:
                 resp.free()
-                _logger.warning('get_to_list failed, try increasing wait time')  # *** NOTE: timeout may also fail for long buffers.
+                # Can fail for many reasons not only networking time,
+                # for example: 'FAILURE IN SERVER /b_getn index out of range'
+                # if the buffer wasn't allocated.
+                _logger.warning('get_to_list failed')
 
         clk.SystemClock.sched(timeout, timeout_func)
 

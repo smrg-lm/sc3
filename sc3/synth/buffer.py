@@ -82,7 +82,7 @@ class BufferAlreadyFreed(BufferException):
 class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     _server_caches = dict()
 
-    def __init__(self, frames=None, channels=None, server=None, bufnum=None,
+    def __init__(self, frames=None, channels=1, server=None, bufnum=None,
                  completion_msg=None, *, alloc=True, cache=True):
         '''
         Create a new empty buffer. If ``alloc`` is ``True`` (default) creating
@@ -320,18 +320,36 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         return obj
 
     @classmethod
-    def new_load_list(cls, channel_lst, server=None, action=None):  # Was new_load_collection
-        # Difference: this version receives a list of channel data (lists).
-        # // Transfer a collection of numbers to a buffer through a file.
+    def new_load_list(cls, lst, channels=1, server=None, action=None):  # Was new_load_collection
+        '''Allocate a buffer and load a large collection in a local server.
+
+        This is accomplished through writing the collection to a file and
+        asking the server to read it. The sample rate of the buffer will be the
+        sample rate of the server on which it is created.
+
+        Parameters
+        ----------
+        lst: list
+            A list of samples. Multichannel data must be interleaved.
+        channels: int
+            Number of data channels.
+        server: Server
+            The server on which to allocate the buffer.
+        action: function
+            A function to be evaluated once the file has been read and this
+            buffer's instance variables have been updated. The function will
+            be passed this Buffer as an argument.
+        '''
+
         server = server or srv.Server.default
         if server.addr.is_local:
-            channel_lst = [list(array.array('f', l)) for l in channel_lst]  # Type check & cast.
+            lst = list(array.array('f', lst))  # Type check & cast.
             path = str(
                 plf.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
             sample_rate = int(server._status_watcher.sample_rate)
             try:
                 # Was using SoundFile in sclang.
-                _write_wave_file(path, channel_lst, sample_rate)
+                _write_wave_file(path, lst, channels, sample_rate)
             except Exception as e:
                 raise BufferException('failed to write data') from e
 
@@ -344,13 +362,14 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 finally:
                     fn.value(action, buf)
 
-            return cls.new_read(server, path, action=remove_file)
+            return cls.new_read(path, server=server, action=remove_file)
         else:
             _logger.warning("cannot call 'new_load' with a non-local Server")
 
     @classmethod
     def new_send_list(cls, lst, channels=1, server=None, wait=-1, action=None):  # Was send_collection
         # // Send a Collection to a buffer one UDP sized packet at a time.
+        server = server or srv.Server.default
         lst = list(array.array('f', lst))  # Type check & cast.
         buffer = cls(
             bi.ceil(len(lst) / channels), channels, server, alloc=False)
@@ -390,6 +409,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             '/b_allocReadChannel', self._bufnum, path, start_frame,
             frames, *channels, fn.value(completion_msg, self))
 
+
+    ### Allocated buffer commands ###
+
     def read(self, path, file_start_frame=0, frames=-1,
              buf_start_frame=0, leave_open=False, action=None):
         self._path = path
@@ -414,44 +436,6 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         self._server.addr.send_msg(
             '/b_read', self._bufnum, path, start_frame, 0, True,
             self._frames, fn.value(completion_msg, self))
-
-    def load_list(self, channel_lst, start_frame=0, action=None):  # Was load_collection
-        if self._server.addr.is_local:
-            framesize = (self._frames - start_frame) * self._channels
-            # if len(channel_lst) > self._channels:
-            #     # Channel mismatch is reported by Server.
-            #     _logger.warning('channel_lst has more channels than buffer')
-            for i, chn in enumerate(channel_lst[:]):
-                if len(chn) > framesize:
-                    _logger.warning(
-                        f'channel_lst[{i}] larger than '
-                        'available number of frames')
-                channel_lst[i] = list(array.array('f', chn))  # Type check & cast.
-            path = str(
-                plf.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
-            sample_rate = int(self._server._status_watcher.sample_rate)
-            try:
-                # Was using SoundFile in sclang.
-                _write_wave_file(path, channel_lst, sample_rate)
-            except Exception as e:
-                raise BufferException('failed to write data') from e
-
-            def remove_file(buf):
-                try:
-                    pathlib.Path(path).unlink()
-                    buf._path = None
-                except:
-                    _logger.warning(f'could not delete data file: {path}')
-                finally:
-                    fn.value(action, buf)
-
-            return self.read(
-                path, buf_start_frame=start_frame, action=remove_file)
-        else:
-            _logger.warning("cannot call 'load' with a non-local Server")
-
-
-    ### Allocated buffer commands ###
 
     def write(self, path=None, header_format="aiff", sample_format="int24",
               frames=-1, start_frame=0, leave_open=False,
@@ -492,7 +476,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     @classmethod
     def free_all(cls, server=None):  # Move up?
-        server = server if server is not None else srv.Server.default
+        server = server or srv.Server.default
         server._free_all_buffers()
         type(self)._clear_server_caches(server)
 
@@ -566,20 +550,44 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 nargs.extend([control, 1, values])
         self._server.addr.send_msg('/b_setn', self._bufnum, *nargs)
 
+    def load_list(self, lst, start_frame=0, action=None):  # Was load_collection
+        if self._server.addr.is_local:
+            lst = list(array.array('f', lst))  # Type check & cast.
+            if len(lst) > (self._frames - start_frame) * self._channels:
+                _logger.warning(
+                    'lst is larger than available number of frames')
+            path = str(
+                plf.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
+            sample_rate = int(self._server._status_watcher.sample_rate)
+            try:
+                # Was using SoundFile in sclang.
+                _write_wave_file(path, lst, self._channels, sample_rate)
+            except Exception as e:
+                raise BufferException('failed to write data') from e
+
+            def remove_file(buf):
+                try:
+                    pathlib.Path(path).unlink()
+                    buf._path = None
+                except:
+                    _logger.warning(f'could not delete data file: {path}')
+                finally:
+                    fn.value(action, buf)
+
+            return self.read(
+                path, buf_start_frame=start_frame, action=remove_file)
+        else:
+            _logger.warning("cannot call 'load' with a non-local Server")
+
     def send_list(self, lst, start_frame=0, wait=-1, action=None):  # Was send_collection
-        number = (int, float)
-        if not isinstance(start_frame, number):
-            raise TypeError('start_frame must be int or float')
-        if not isinstance(wait, number):
-            raise TypeError('wait must be int or float')
         lst = list(array.array('f', lst))  # Type check & cast.
         size = len(lst)
         if size > (self._frames - start_frame) * self._channels:
-            _logger.warning('list larger than available number of frames')
+            _logger.warning('lst is larger than available number of frames')
         self._stream_list(
-            lst, size, start_frame * self._channels, wait, action)
+            lst, size, start_frame * self._channels, float(wait), action)
 
-    def _stream_list(self, lst, size, start_frame=0, wait=-1, action=None):  # Was streamCollection
+    def _stream_list(self, lst, size, start_frame, wait, action):  # Was streamCollection
         def stream_func():
             # // wait = -1 allows an OSC roundtrip between packets.
             # // wait = 0 might not be safe in a high traffic situation.
@@ -642,19 +650,17 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 plf.Platform.tmp_dir / ('SC_' + uuid.uuid4().hex + '.wav'))
             self.write(path, 'wav', 'float', count, index)
             yield from self._server.sync()
-            channel_lst = _read_wave_file(path)
-            channel_lst = [list(l) for l in channel_lst]
+            lst = _read_wave_file(path)
             try:
                 pathlib.Path(path).unlink()
             except:
                 _logger.warning(f'could not delete data file: {path}')
-            fn.value(action, channel_lst, self)
+            fn.value(action, lst, self)
 
         stm.Routine.run(load_fork)
 
     def get_to_list(self, action, index=0, count=None, wait=0.01, timeout=3):
         # // risky without wait
-        # TODO: some methods have an strict type check but while others don't.
         max_udp_size = 1633  # // Max size for getn under udp.
         pos = index = int(index)
         if count is None:
@@ -925,28 +931,35 @@ def _wave_header(frames, channels, sample_rate):
         struct.pack('<L', 4 * frames * channels)  # Size
     )
 
-def _write_wave_file(path, data, sample_rate):
-    # data is [ch1[float, float, ...], ch2[], ...]
+def _write_wave_file(path, data, channels, sample_rate):
+    # data is already interleaved.
     with open(path, 'w+b') as file:
-        channels = len(data)
-        fmt = '<' + 'f' * channels
-        file.write(_wave_header(len(data[0]), channels, sample_rate))
-        for frame in zip(*data):
-            file.write(struct.pack(fmt, *frame))
+        size = len(data)
+        write_size = 256  # Number of floats, 1kb.
+        cs = size // write_size * write_size
+        rs = size % write_size
+        fmt = '<' + 'f' * write_size
+        i = 0
+
+        file.write(_wave_header(size // channels, channels, sample_rate))
+
+        while i < cs:
+            file.write(struct.pack(fmt, *data[i:i + write_size]))
+            i += write_size
+
+        if rs > 0:
+            fmt = '<' + 'f' * rs
+            file.write(struct.pack(fmt, *data[i:i + rs]))
 
 def _read_wave_file(path):
     ret = []
     with open(path, 'r+b') as file:
-        file.seek(22)
-        channels = struct.unpack('<H', file.read(2))[0]
-        fmt = '<' + 'f' * channels
-        size = 4 * channels
-
-        # b'fmt ' chunk length
+        # b'fmt ' chunk length.
         file.seek(16)
         ck_len = struct.unpack('<L', file.read(4))[0]
         file.seek(20 + ck_len)
 
+        # Skip non data chuncks.
         while file.read(4) != b'data':
             data = file.read(4)
             if not data:
@@ -954,6 +967,19 @@ def _read_wave_file(path):
             ck_len = struct.unpack('<L', data)[0]
             file.seek(file.tell() + ck_len)
 
-        for _ in range(struct.unpack('<L', file.read(4))[0] // size):
-            ret.append(struct.unpack(fmt, file.read(size)))
-    return list(zip(*ret))
+        size = struct.unpack('<L', file.read(4))[0]
+        read_size = 1024  # Number of bytes.
+        cs = size // read_size * read_size
+        rs = size % read_size
+        fmt = '<' + 'f' * (read_size // 4)
+        i = 0
+
+        while i < cs:
+            ret.extend(struct.unpack(fmt, file.read(read_size)))
+            i += read_size
+
+        if rs > 0:
+            fmt = '<' + 'f' * (rs // 4)
+            ret.extend(struct.unpack(fmt, file.read(rs)))
+
+    return ret

@@ -6,6 +6,7 @@ zeros. To create just client-side buffer objects set ``alloc`` to
 ``False``.
 
 Other convenience constructors to allocate a initialize buffers are:
+
     * new_consecutive
     * new_read
     * new_read_no_update
@@ -154,7 +155,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     @property
     def start_frame(self):
-        '''Start frame of buffers allocated by read or setn.'''
+        '''Start frame of buffers allocated by read.'''
         return self._start_frame
 
     @property
@@ -568,9 +569,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def send_list(self, lst, start_frame=0, wait=-1, action=None):  # Was send_collection
         number = (int, float)
         if not isinstance(start_frame, number):
-            raise TypeError('start_frame must be int of float')
+            raise TypeError('start_frame must be int or float')
         if not isinstance(wait, number):
-            raise TypeError('wait must be int of float')
+            raise TypeError('wait must be int or float')
         lst = list(array.array('f', lst))  # Type check & cast.
         size = len(lst)
         if size > (self._frames - start_frame) * self._channels:

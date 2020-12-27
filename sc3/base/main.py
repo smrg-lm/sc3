@@ -253,11 +253,11 @@ class RtMain(metaclass=Process):
             def resp_func(msg, *_):
                 if msg[1] == id:
                     resp.free()
-                    cls.unlock()
+                    cls.resume()
 
             resp = rdf.OscFunc(resp_func, '/synced', server.addr)
             server.addr.send_msg('/sync', id)
-            cls.lock()
+            cls.wait()
 
 
 class NrtMain(metaclass=Process):

@@ -176,9 +176,10 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     @classmethod
     def new_consecutive(cls, buffers=1, frames=1024, channels=1,
                         server=None, bufnum=None, completion_msg=None):
-        '''Allocates a range of consecutively-numbered buffers, for use with
-        ugens like VOsc and VOsc3 that require a contiguous block of buffers,
-        and returns an array of corresponding Buffer objects.
+        '''
+        Allocate a range of consecutively-numbered buffers, for use with ugens
+        like VOsc and VOsc3 that require a contiguous block of buffers, and
+        return an array of corresponding Buffer objects.
 
         Parameters
         ----------
@@ -219,7 +220,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     @classmethod
     def new_read(cls, path, start_frame=0, frames=-1, server=None,
                  bufnum=None, action=None):
-        '''Allocate a buffer and immediately read a soundfile into it for use
+        '''
+        Allocate a buffer and immediately read a soundfile into it for use
         with ugens like PlayBuf.
 
         Parameters
@@ -288,7 +290,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     @classmethod
     def new_cue(cls, path, start_frame=0, buffer_size=32768, channels=1,
                 server=None, bufnum=None, completion_msg=None):
-        '''Allocate a buffer and preload a soundfile for streaming in using
+        '''
+        Allocate a buffer and preload a soundfile for streaming in using
         DiskIn.
 
         Parameters
@@ -368,8 +371,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     @classmethod
     def new_send_list(cls, lst, channels=1, server=None, wait=-1, action=None):  # Was send_collection
-        '''Allocate a buffer and stream a large collection into the buffer
-        using multiple setn messages.
+        '''
+        Allocate a buffer and stream a large collection into the buffer using
+        multiple setn messages.
 
         Parameters
         ----------
@@ -484,7 +488,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def read_channel(self, path, file_start_frame=0, frames=-1,
                      buf_start_frame=0, leave_open=False, channels=None,
                      action=None):
-        '''As ``read`` but allows to specify which channels to read in a list.
+        '''
+        As ``read`` but allows to specify which channels to read in a list.
         '''
 
         self._path = path

@@ -1,7 +1,6 @@
 """Engine.sc"""
 
 import math
-import random
 import logging
 
 from ..base import builtins as bi
@@ -81,7 +80,6 @@ class PowerOfTwoAllocator():
         return None
 
     def free(self, addr):
-        # BUG: typo, declara y no usa la variable next (que no es la propiedad del bloque)
         node = self._array[addr]
         if node is not None:
             size_class = math.ceil(math.log2(node.size)) # log2Ceil primitive
@@ -198,7 +196,6 @@ class ContiguousBlock():
         return f'{type(self).__name__}({self.start}, {self.size})'
 
 
-# TODO: comentario duplicado en sclang...
 class ContiguousBlockAllocator():
     # // pos is offset for reserved numbers,
     # // addrOffset is offset for clientID * size
@@ -277,11 +274,11 @@ class ContiguousBlockAllocator():
         return [x for x in self._array if x is not None and x.used]
 
     def _find_available(self, n):
-        if len(self._freed) > 0:
-            return random.choice(list(self._freed[n])) # BUG: ver las funciones de librería como esta
+        if n in self._freed and len(self._freed[n]) > 0:
+            return bi.choice(list(self._freed[n]))
         for size, set_ in self._freed.items():
             if size >= n and len(set_) > 0:
-                return random.choice(list(set_))
+                return bi.choice(list(set_))
         if self.top + n - self.addr_offset > self.size\
         or self._array[self.top - self.addr_offset].used:
             return None
@@ -308,7 +305,7 @@ class ContiguousBlockAllocator():
     def _find_next(self, addr):
         tmp = self._array[addr - self.addr_offset]
         if tmp is not None:
-            return self._array[tmp.start + tmp.size - self.addr_offset]
+            return self._array[tmp.start + (tmp.size-1) - self.addr_offset]
         else:
             assert(addr < self.top) # BUG: creo tiene que ser menor que top, y la función es find 'next', pero no entiendo por qué usa sclang 'for' que hace reverse automáticamente y top es inclusive
             for i in range(addr + 1, self.top + 1):

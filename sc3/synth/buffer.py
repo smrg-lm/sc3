@@ -368,7 +368,27 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     @classmethod
     def new_send_list(cls, lst, channels=1, server=None, wait=-1, action=None):  # Was send_collection
-        # // Send a Collection to a buffer one UDP sized packet at a time.
+        '''Allocate a buffer and stream a large collection into the buffer
+        using multiple setn messages.
+
+        Parameters
+        ----------
+        lst: list
+            A list of samples. Multichannel data must be interleaved.
+        channels: int
+            Number of data channels.
+        server: Server
+            The server on which to allocate the buffer.
+        wait: float | int
+            An optional wait time between sending setn messages. In a high
+            traffic situation it may be safer to set this to something above
+            zero. A value <= to zero means no wait time.
+        action: function
+            A function to be evaluated once the file has been read and this
+            buffer's instance variables have been updated. The function will
+            be passed this Buffer as an argument.
+        '''
+
         server = server or srv.Server.default
         lst = list(array.array('f', lst))  # Type check & cast.
         buffer = cls(
@@ -389,12 +409,22 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     ### Allocation methods ###
 
     def alloc(self, completion_msg=None):
+        '''
+        Allocate the necessary memory on the server for buffer objects
+        previously created with ``alloc=False``.
+        '''
+
         self._server.addr.send_msg(
             '/b_alloc', self._bufnum, self._frames,
             self._channels, fn.value(completion_msg, self))
 
     def alloc_read(self, path, start_frame=0, frames=-1,
                    completion_msg=None):
+        '''
+        Read a sound file on the server for buffer objects previously created
+        with ``alloc=False``.
+        '''
+
         self._path = path
         self._start_frame = start_frame
         self._server.addr.send_msg(
@@ -403,6 +433,11 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     def alloc_read_channel(self, path, start_frame=0, frames=-1,
                            channels=None, completion_msg=None):
+        '''
+        Read a sound file on the server for buffer objects previously created
+        with ``alloc=False``.
+        '''
+
         self._path = path
         self._start_frame = start_frame
         self._server.addr.send_msg(
@@ -414,6 +449,32 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     def read(self, path, file_start_frame=0, frames=-1,
              buf_start_frame=0, leave_open=False, action=None):
+        '''Read a soundfile into an already allocated buffer.
+
+        Parameters
+        ----------
+        path: str
+            Path of the sound file to read.
+        file_start_frame: int
+            The first frame of the sound file to read. The default is 0, which
+            is the beginning of the file.
+        frames: int
+            The number of frames to read. The default is -1, which will read
+            the whole file.
+        buf_start_frame: int
+            The index of the frame in the buffer at which to start reading.
+            The default is 0, which is the beginning of the buffer.
+        leave_open: bool
+            A boolean indicating whether or not the buffer should be left
+            open. For use with DiskIn you will want this to be True, as the
+            buffer will be used for streaming the soundfile in from disk.
+            See ``cue`` method for memory requirements.
+        action: function
+            A function to be evaluated once the file has been read and this
+            buffer's instance variables have been updated. The function will
+            be passed this Buffer as an argument.
+        '''
+
         self._path = path
         self._do_on_info = action  # Will not evaluate if cache=False.
         self._server.addr.send_msg(
@@ -423,6 +484,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def read_channel(self, path, file_start_frame=0, frames=-1,
                      buf_start_frame=0, leave_open=False, channels=None,
                      action=None):
+        '''As ``read`` but allows to specify which channels to read in a list.
+        '''
+
         self._path = path
         self._do_on_info = action  # Will not evaluate if cache=False.
         self._server.addr.send_msg(
@@ -431,7 +495,23 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             ['/b_query', self._bufnum])
 
     def cue(self, path, start_frame=0, completion_msg=None):
-        # // Preload a buffer for use with DiskIn.
+        '''Cue a sound file into the buffer for use with DiskIn.
+
+        The buffer must have been allocated with a multiple of (2 * the
+        server's block size) frames. A common size is 32768 frames.
+
+        Parameters
+        ----------
+        path: str
+            Path of the sound file to read.
+        start_frame: int
+            The first frame of the soundfile to read. The default is 0, which
+            is the beginning of the file.
+        completion_msg: list | function
+            An OSC message or a function that returns one. The function will
+            evaluated with the initialized buffer object as argument.
+        '''
+
         self._path = path
         self._server.addr.send_msg(
             '/b_read', self._bufnum, path, start_frame, 0, True,
@@ -440,6 +520,30 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
     def write(self, path=None, header_format="aiff", sample_format="int24",
               frames=-1, start_frame=0, leave_open=False,
               completion_msg=None):
+        '''Write the contents of the buffer to a file.
+
+        Parameters
+        ----------
+        path: str
+            path of the soundfile to be written. If no path is given, it writes
+            into the default recording directory with a generic name.
+        header_format: str
+            ...
+        sample_format: str
+            ...
+        frames: int
+            The number of frames to write. The default is -1, which will write
+            the whole buffer.
+        start_frame: int
+            The index of the frame in the buffer from which to start writing.
+        leave_open: bool
+            A boolean indicating whether or not the buffer should be left
+            open. For use with DiskOut set it to True, default is False.
+        completion_msg: list | function
+            An OSC message or a function that returns one. The function will
+            evaluated with the initialized buffer object as argument.
+        '''
+
         if self._bufnum is None:
             raise BufferAlreadyFreed('write')
 
@@ -458,13 +562,28 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             bool(leave_open), fn.value(completion_msg, self))
 
     def close(self, completion_msg=None):
-        # // Close a file, write header, after DiskOut usage.
+        '''
+        Close the associated sound file after using the buffer with a DiskOut
+        or DiskIn (``leave_open=True``).
+        '''
+
         if self._bufnum is None:
             raise BufferAlreadyFreed('close')
         self._server.addr.send_msg(
             '/b_close', self._bufnum, fn.value(completion_msg, self))
 
     def free(self, completion_msg=None):
+        '''
+        Release the buffer's memory on the server and return the buffer ID
+        back to the server's buffer number allocator for future reuse.
+
+        Parameters
+        ----------
+        completion_msg: list | function
+            An OSC message or a function that returns one. The function will
+            evaluated with the initialized buffer object as argument.
+        '''
+
         if self._bufnum is None:
             _logger.warning('Buffer has already been freed')
         self._uncache()
@@ -476,23 +595,50 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     @classmethod
     def free_all(cls, server=None):  # Move up?
+        '''Free all the buffers of the given ``server``.'''
+
         server = server or srv.Server.default
         server._free_all_buffers()
         type(self)._clear_server_caches(server)
 
     def zero(self, completion_msg=None):
+        '''Sets all values in this buffer to 0.0.
+
+        Parameters
+        ----------
+        completion_msg: list | function
+            An OSC message or a function that returns one. The function will
+            evaluated with the initialized buffer object as argument.
+        '''
+
         if self._bufnum is None:
             raise BufferAlreadyFreed('zero')
         self._server.addr.send_msg(
             '/b_zero', self._bufnum, fn.value(completion_msg, self))
 
     def fill(self, start, frames, values):
+        '''
+        Starting at the index ``start``, set the next number of ``frames`` to
+        the list of ``values``.
+        '''
         if self._bufnum is None:
             raise BufferAlreadyFreed('fill')
         self._server.addr.send_msg(
             '/b_fill', self._bufnum, start, int(frames), *values)
 
     def query(self, action=None):
+        '''
+        Sends a b_query message to the server, asking for a description of this
+        buffer. The results are posted to the post window. Does not update
+        instance vars.
+
+        Parameters
+        ----------
+        action: function
+            A function to be evaluated as response to the query replacing
+            the default beahviour.
+        '''
+
         if self._bufnum is None:
             raise BufferAlreadyFreed('query')
         if action is None:
@@ -513,7 +659,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
     def update_info(self, action=None):
         '''
-        Sends a '/b_query' message to the server, asking for a description of
+        Sends a '/b_query' message to the server asking for a description of
         this buffer. Upon reply this buffer's instance variables are
         automatically updated.
 

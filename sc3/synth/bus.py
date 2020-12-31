@@ -46,32 +46,35 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         allocator class.
     '''
 
-    # @classmethod
-    # def audio(cls, channels=1, server=None, index=None):
-    #     return AudioBus(channels, server, index)
-    #
-    # @classmethod
-    # def control(cls, channels=1, server=None, index=None):
-    #     return ControlBus(channels, server, index)
-
-    @property
-    def rate(self):
-        return self._rate
-
     @property
     def index(self):
+        '''Bus index in the server.'''
         return self._index
 
     @property
     def channels(self):
+        '''Number of channels.'''
         return self._channels
 
     @property
     def server(self):
+        '''Target server of the bus object.'''
         return self._server
 
     @classmethod
     def new_from(cls, bus, offset, channels=1):
+        '''Create a new object from ``bus``.
+
+        Parameters
+        ----------
+        bus: Bus
+            The bus from wich to create the new object.
+        offset: int
+            Channel offset from wich to create the new bus object.
+        channels: int
+            Number of channels from to count from ``offset``.
+        '''
+
         if offset > bus._channels\
         or channels + offset > bus._channels:
             raise BusException(
@@ -79,43 +82,16 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
                 f'the channel range of {bus}')
         return cls(channels, bus.server, bus.index + offset)
 
-    def free(self, clear=False):
-        if self._index is None:
-            _logger.warning('bus has already been freed')
-            return
-        if self._rate == 'audio':
-            self._server._audio_bus_allocator.free(self._index)
-        else:
-            self._server._control_bus_allocator.free(self._index)
-            if clear:
-                self.fill(0, self._channels)
-        self._index = None
-        self._channels = None
-        self._map_symbol = None
+    def sub_bus(self, offset, channels=1):
+        '''Return a sub-range of channels from this bus.'''
+        return type(self).new_from(self, offset, channels)
 
-    # # Allow reallocation. Don't allow, use instances.
-    #
-    # def alloc(self):
-    #     if self._rate == 'audio':
-    #         self._index = self._server._audio_bus_allocator.alloc(
-    #             self._channels)
-    #     else:
-    #         self._index = self._server._control_bus_allocator.alloc(
-    #             self._channels)
-    #     self._map_symbol = None
-    #
-    # def realloc(self):
-    #     if self._index is None:
-    #         raise BusAlreadyFreed('realloc')
-    #     rate = self._rate
-    #     channels = self._channels
-    #     self.free()
-    #     self._rate = rate
-    #     self._channels = channels
-    #     self.alloc()
+    def free(self):
+        raise NotImplementedError
 
-    # setAll is fill(value, self._channels)
-    # value_ is fill(value, self._channels)
+    # Don't allow reallocation, better to use instances.
+    # alloc
+    # reralloc
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
@@ -123,7 +99,6 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
 
         if self._index == other._index\
         and self._channels == other._channels\
-        and self._rate == other._rate\
         and self._server == other._server:
             return True
         else:
@@ -131,37 +106,18 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
 
     def __hash__(self):
         return hash(
-            (type(self), self._index, self._channels,
-            self._rate, self._server))
+            (type(self), self._index, self._channels, self._server))
 
     def __repr__(self):
         return (
             f'{type(self).__name__}({self._channels}, '
             f'{self._server.name}, {self._index})')
 
-    def as_map(self):
-        if self._map_symbol is None:
-            if self._index is None:
-                raise BusException('bus not allocated')
-            self._map_symbol = 'a' if self._rate == 'audio' else 'c'
-            self._map_symbol += str(self._index)
-        return self._map_symbol
-
-    def sub_bus(self, offset, channels=1):
-        return type(self).new_from(self, offset, channels)
-
-    # ar
-    # kr
-    # play
-
 
     ### UGen graph parameter interface ###
 
     def _as_ugen_input(self, *_):
         return self._index
-
-    def _as_ugen_rate(self):
-        return self._rate
 
 
     ### Node parameter interface ###
@@ -175,7 +131,6 @@ class AudioBus(Bus):
         super(gpp.UGenParameter, self).__init__(self)
         self._channels = channels
         self._server = server or srv.Server.default
-        self._rate = 'audio'
         if index is None:
             self._index = self._server._audio_bus_allocator.alloc(
                 self._channels)
@@ -191,6 +146,23 @@ class AudioBus(Bus):
     # def is_audio_io(self):
     #     return self._index < self._server.options.first_private_bus()
 
+    def free(self):
+        '''Free the bus object.'''
+        if self._index is None:
+            _logger.warning('AudioBus has already been freed')
+            return
+        self._server._audio_bus_allocator.free(self._index)
+        self._index = None
+        self._channels = None
+        self._map_symbol = None
+
+    def as_map(self):
+        '''Return the map string of this bus.'''
+        if self._map_symbol is None:
+            if self._index is None:
+                raise BusException('bus not allocated')
+            self._map_symbol = 'a' + str(self._index)
+        return self._map_symbol
 
     ### Shared memory interface ###
 
@@ -207,12 +179,17 @@ class AudioBus(Bus):
     #     ...
 
 
+    ### UGen graph parameter interface ###
+
+    def _as_ugen_rate(self):
+        return 'audio'
+
+
 class ControlBus(Bus):
     def __init__(self, channels=1, server=None, index=None):
         super(gpp.UGenParameter, self).__init__(self)
         self._channels = channels
         self._server = server or srv.Server.default
-        self._rate = 'control'
         if index is None:
             self._index = self._server._control_bus_allocator.alloc(
                 self._channels)
@@ -224,46 +201,65 @@ class ControlBus(Bus):
             self._index = index
         self._map_symbol = None
 
+    def clear(self):
+        '''Set bus value to zero for all channels.'''
+        self.fill(0, self._channels)
+
+    def free(self):
+        '''Free the bus object.'''
+        if self._index is None:
+            _logger.warning('ControlBus has already been freed')
+            return
+        self._server._control_bus_allocator.free(self._index)
+        self._index = None
+        self._channels = None
+        self._map_symbol = None
+
+    def as_map(self):
+        '''Return the map string of this bus.'''
+        if self._map_symbol is None:
+            if self._index is None:
+                raise BusException('bus not allocated')
+            self._map_symbol = 'c' + str(self._index)
+        return self._map_symbol
+
     def set(self, *values):  # // shouldn't be larger than self._channels
         if self._index is None:
             raise BusAlreadyFreed('set')
-        msg = ['/c_set']
-        values = [[self._index + i, val] for i, val in enumerate(values)]
-        msg.extend(utl.flat(values))
-        self._server.addr.send_bundle(0, msg)
+        msg = [
+            '/c_set',
+            *[[self._index + i, v] for i, v in enumerate(values)]]
+        self._server.addr.send_msg(*utl.flat(msg))
 
     def setn(self, values):
         if self._index is None:
             raise BusAlreadyFreed('setn')
-        msg = ['/c_setn', self._index, len(values)]
-        msg.extend(values)
-        self._server.addr.send_bundle(0, msg)
+        self._server.addr.send_msg(
+            '/c_setn', self._index, len(values), *values)
 
     def set_at(self, offset, *values):
         if self._index is None:
             raise BusAlreadyFreed('set_at')
-        msg = ['/c_set']
-        values = [
-            [self._index + offset + i, val] for i, val in enumerate(values)]
-        msg.extend(utl.flat(values))
-        self._server.addr.send_bundle(0, msg)
+        msg = [
+            '/c_set',
+            *[[self._index + offset + i, v] for i, v in enumerate(values)]]
+        self._server.addr.send_msg(*utl.flat(msg))
 
     def setn_at(self, offset, values):
         if self._index is None:
             raise BusAlreadyFreed('setn_at')
         # // could throw an error if values.size > numChannels
-        msg = ['/c_setn', self._index + offset, len(values)]
-        msg.extend(values)
-        self._server.addr.send_bundle(0, msg)
+        self._server.addr.send_msg(
+            '/c_setn', self._index + offset, len(values), *values)
 
     def set_pairs(self, *pairs):
         if self._index is None:
             raise BusAlreadyFreed('set_pairs')
-        msg = ['/c_set']
-        pairs = [[self._index + pair[0], pair[1]]\
-                 for pair in utl.gen_cclumps(pairs, 2)]
-        msg.extend(utl.flat(pairs))
-        self._server.addr.send_bundle(0, msg)
+        msg = [
+            '/c_set',
+            *[[self._index + pair[0], pair[1]]
+            for pair in utl.gen_cclumps(pairs, 2)]]
+        self._server.addr.send_msg(*utl.flat(msg))
 
     def get(self, action=None):
         if self._index is None:
@@ -316,5 +312,13 @@ class ControlBus(Bus):
         if self._index is None:
             raise BusAlreadyFreed('fill')
         # // Could throw an error if numChans > numChannels.
-        self._server.addr.send_bundle(
-            None, ['/c_fill', self._index, channels, value])
+        self._server.addr.send_msg('/c_fill', self._index, channels, value)
+
+    # setAll is fill(value, self._channels)
+    # value_ is fill(value, self._channels)
+
+
+    ### UGen graph parameter interface ###
+
+    def _as_ugen_rate(self):
+        return 'control'

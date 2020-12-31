@@ -118,19 +118,17 @@ class Node(gpp.NodeParameter):
         for control, bus in utl.gen_cclumps(args, 2):
             # No as_bus cast, Bus object is required for all
             # rate cases because the method joins /m_mapan.
-            if bus.rate == 'control':
+            rate = gpp.ugen_param(bus)._as_ugen_rate()
+            if rate == 'control':
                 kr_values.extend([
                     gpp.node_param(control)._as_control_input(),
-                    bus.index,
-                    bus.channels
-                ])
-            elif bus.rate == 'audio':
+                    bus.index, bus.channels])
+            elif rate == 'audio':
                 ar_values.extend([
                     gpp.node_param(control)._as_control_input(),
-                    bus.index,
-                    bus.channels
-                ])
-            # // no default case, ignore others
+                    bus.index, bus.channels])
+            else:
+                pass  # // no default case, ignore others
         if len(kr_values) > 0:
             bundle.append(['/n_mapn', self.node_id] + kr_values)
         if len(ar_values) > 0:

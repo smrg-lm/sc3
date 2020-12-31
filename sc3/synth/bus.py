@@ -223,7 +223,16 @@ class ControlBus(Bus):
             self._map_symbol = 'c' + str(self._index)
         return self._map_symbol
 
-    def set(self, *values):  # // shouldn't be larger than self._channels
+    def set(self, *values):
+        '''Set bus value or values for consecutive channels.
+
+        Note 1: The length of *values shouldn't be larger than the number of
+        channels.
+
+        Note 2: There was a change in '/c_set' command some time ago that made
+        it equivalent to '/c_setn' for reasons unknown.
+        '''
+
         if self._index is None:
             raise BusAlreadyFreed('set')
         msg = [
@@ -232,12 +241,15 @@ class ControlBus(Bus):
         self._server.addr.send_msg(*utl.flat(msg))
 
     def setn(self, values):
+        '''Set the list of ``values`` to consecutive channels.'''
         if self._index is None:
             raise BusAlreadyFreed('setn')
         self._server.addr.send_msg(
             '/c_setn', self._index, len(values), *values)
 
     def set_at(self, offset, *values):
+        '''Set ``values`` from ``offset`` (int) relative to this bus index
+        using '/c_set' command.'''
         if self._index is None:
             raise BusAlreadyFreed('set_at')
         msg = [
@@ -246,6 +258,9 @@ class ControlBus(Bus):
         self._server.addr.send_msg(*utl.flat(msg))
 
     def setn_at(self, offset, values):
+        '''Set ``values`` from ``offset`` (int) relative to this bus index
+        using '/c_setn' command.
+        '''
         if self._index is None:
             raise BusAlreadyFreed('setn_at')
         # // could throw an error if values.size > numChannels
@@ -253,6 +268,7 @@ class ControlBus(Bus):
             '/c_setn', self._index + offset, len(values), *values)
 
     def set_pairs(self, *pairs):
+        '''Same as set_at or setn_at but grouping in pairs offset and value.'''
         if self._index is None:
             raise BusAlreadyFreed('set_pairs')
         msg = [
@@ -262,6 +278,13 @@ class ControlBus(Bus):
         self._server.addr.send_msg(*utl.flat(msg))
 
     def get(self, action=None):
+        '''Get the bus current value.
+
+        Parameters
+        ----------
+        action: function
+            A function to be evaluated with the bus' value as argument.
+        '''
         if self._index is None:
             raise BusAlreadyFreed('get')
 
@@ -286,6 +309,16 @@ class ControlBus(Bus):
             self.getn(self._channels, action)
 
     def getn(self, count=None, action=None):
+        '''Get consecutive channels' values from this bus index.
+
+        Parameters
+        ----------
+        count: int
+            Number of channels to get the values from.
+        action: function
+            A function to be evaluated with a list of buses' values
+            as argument.
+        '''
         if self._index is None:
             raise BusAlreadyFreed('getn')
 
@@ -309,6 +342,10 @@ class ControlBus(Bus):
         self._server.addr.send_msg('/c_getn', self._index, count)
 
     def fill(self, value, channels):
+        '''
+        Provides arguably the same functionality as set/setn,
+        not documented in sclang.
+        '''
         if self._index is None:
             raise BusAlreadyFreed('fill')
         # // Could throw an error if numChans > numChannels.

@@ -226,11 +226,9 @@ class ControlBus(Bus):
     def set(self, *values):
         '''Set bus value or values for consecutive channels.
 
-        Note 1: The length of *values shouldn't be larger than the number of
-        channels.
-
-        Note 2: There was a change in '/c_set' command some time ago that made
-        it equivalent to '/c_setn' for reasons unknown.
+        This method uses '/c_set' command. The length of ``*values`` shouldn't
+        be larger than the number of channels or it will override values set by
+        other bus objects.
         '''
 
         if self._index is None:
@@ -241,7 +239,14 @@ class ControlBus(Bus):
         self._server.addr.send_msg(*utl.flat(msg))
 
     def setn(self, values):
-        '''Set the list of ``values`` to consecutive channels.'''
+        '''Set the list of ``values`` to consecutive channels.
+
+        This method uses '/c_setn' command that sets a list of values to a
+        contiguous range of buses. The length of ``*values`` shouldn't be
+        larger than the number of channels or it will override values set by
+        other bus objects.
+        '''
+
         if self._index is None:
             raise BusAlreadyFreed('setn')
         self._server.addr.send_msg(
@@ -268,7 +273,8 @@ class ControlBus(Bus):
             '/c_setn', self._index + offset, len(values), *values)
 
     def set_pairs(self, *pairs):
-        '''Same as set_at or setn_at but grouping in pairs offset and value.'''
+        '''Same as set_at or setn_at but grouping the list in pairs: offset1,
+        value1, offset2, value2, ...'''
         if self._index is None:
             raise BusAlreadyFreed('set_pairs')
         msg = [
@@ -342,9 +348,16 @@ class ControlBus(Bus):
         self._server.addr.send_msg('/c_getn', self._index, count)
 
     def fill(self, value, channels):
-        '''
-        Provides arguably the same functionality as set/setn,
-        not documented in sclang.
+        '''Set contiguous buses from this bus index to a single value.
+
+        This method uses '/c_fill' command.
+
+        Parameters
+        ----------
+        value: int | float
+            Value to assign in the buses.
+        channels: int
+            Number of contiguous buses to set.
         '''
         if self._index is None:
             raise BusAlreadyFreed('fill')

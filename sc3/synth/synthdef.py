@@ -768,8 +768,8 @@ class SynthDef(metaclass=MetaSynthDef):
             "required structure to send back to the server")
         if server.addr.is_local:
             _logger.warning(f"loading from disk instead for Server '{server}'")
-            bundle = ['/d_load', self._metadata['load_path'], completion_msg]
-            server.addr.send_bundle(None, bundle)
+            server.addr.send_msg(
+                '/d_load', self._metadata['load_path'], completion_msg)
         else:
             raise Exception(
                 f"Server '{server}' is remote, cannot load from disk")

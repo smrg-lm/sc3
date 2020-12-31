@@ -137,9 +137,9 @@ class Node(gpp.NodeParameter):
             bundle = utl.flatten(bundle)
 
         if isinstance(bundle[0], str):
-            self.server.addr.send_bundle(0, bundle)
+            self.server.addr.send_msg(*bundle)
         else:
-            self.server.addr.send_bundle(0, *bundle)
+            self.server.addr.send_bundle(None, *bundle)
 
     def mapn(self, *args):
         self.server.addr.send_msg(
@@ -513,7 +513,7 @@ class Synth(Node):
         else:
             synth.group = target.group
         synth.server.addr.send_bundle(
-            0,
+            None,
             [
                 '/s_new', # 9
                 synth.def_name, synth.node_id,

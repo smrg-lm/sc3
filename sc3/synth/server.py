@@ -26,7 +26,6 @@ from . import _nodewatcher as ndw
 from . import _volume as vlm
 from . import recorder as rcd
 from . import node as nod
-from . import bus
 from . import _graphparam as gpp
 
 
@@ -1149,14 +1148,6 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self.addr.send_msg(
             '/n_order', nod.Node.action_number_for(add_action), # 62
             target.node_id, *node_list)
-
-    # def input_bus(self):  # utility
-    #     return bus.AudioBus(
-    #         self.options.input_channels,
-    #         self, self.options.output_channels)
-
-    # def output_bus(self):  # utility
-    #     return bus.AudioBus(self.options.output_channels, self, 0)
 
 
     ### Node parameter interface ###

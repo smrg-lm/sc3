@@ -99,8 +99,8 @@ precise, it may even have noticeable jitter under load, but if we use the
 logical time to generate a :term:`timetag` each iteration the wait time sent to
 the server will be precise.
 
-Physical time can be accessed from ``main.elapsed__time()``, which is the time
-in seconds since the librar started.
+Physical time can be accessed from ``main.elapsed_time()``, which is the time
+in seconds since the library started.
 
 ::
 
@@ -137,9 +137,8 @@ streams are routines.
 
 Streams support mathematical operations and behave, in concept, in a similar
 way to signals represented by :term:`ugens<ugen>`). In the next example, the
-routine object ``r`` is transposed by ``2`` and creates a
-:class:`sc3.base.stream.BinaryOpStream`, the stream resulting from applying the
-binary operator ``+``.
+routine object ``r`` is transposed by ``60`` by making a sum that results in a
+:class:`sc3.base.stream.BinaryOpStream` assigned to ``t``.
 
 ::
 

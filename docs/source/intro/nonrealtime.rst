@@ -54,7 +54,7 @@ Timing in NRT
 -------------
 
 In NRT all commands and messages are synchronous. The mode runs in
-term:`logical time` and creates the OSC instructions with the proper
+:term:`logical time` and creates the OSC instructions with the proper
 :term:`timetag`. No server is booted and no message is sent, all server
 instructions are stored in an `OSC score` (which is a collection of bundles
 ordered by time) that is later rendered by the command line server program.

@@ -746,7 +746,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         Note that ``sync`` will work as expected inside a routine by sending
         the generated bundle so far::
 
-          s.bind():
+          with s.bind():
               s.addr.send_msg( ... )
               s.addr.send_msg( ... )
               yield from s.sync()  # Sends previous messages in a bundle.

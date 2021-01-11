@@ -163,15 +163,18 @@ class ContiguousBlock():
     def __init__(self, start, size):
         self.start = start
         self.size = size
-        self.used = False # // assume free; owner must say otherwise
+        self.used = False  # // Assume free; owner must say otherwise.
 
     @property
     def address(self):
         return self.start
 
     def adjoins(self, block):
-        return (self.start < block.start and self.start + self.size >= block.start)\
-        or (self.start > block.start and block.start + block.size >= self.start)
+        st = self.start
+        sz = self.size
+        st2 = block.start
+        sz2 = block.size
+        return (st < st2 and st + sz >= st2) or (st > st2 and st2 + sz2 >= st)
 
     def join(self, block):
         if self.adjoins(block):
@@ -185,8 +188,7 @@ class ContiguousBlock():
         if span < self.size:
             return [
                 type(self)(self.start, span),
-                type(self)(self.start + span, self.size - span)
-            ]
+                type(self)(self.start + span, self.size - span)]
         elif span == self.size:
             return [self, None]
         else:
@@ -197,9 +199,9 @@ class ContiguousBlock():
 
 
 class ContiguousBlockAllocator():
-    # // pos is offset for reserved numbers,
-    # // addrOffset is offset for clientID * size
     def __init__(self, size, pos=0, addr_offset=0):
+        # // pos is offset for reserved numbers,
+        # // addr_offset is offset for client_id * size
         self.size = size
         shifted_pos = pos + addr_offset
         self._array = [None] * size
@@ -223,16 +225,18 @@ class ContiguousBlockAllocator():
             block = self._array[addr]
         if block is not None and block.used and addr + size > block.start:
             if warn:
-                _logger.warning(f'The block at ({addr}, {size}) is '
-                                'already in use and cannot be reserved.')
+                _logger.warning(
+                    f'The block at ({addr}, {size}) is '
+                    'already in use and cannot be reserved.')
         elif block.start == addr:
             return self._reserve(addr, size, block)
 
         block = self._find_previous(addr)
         if block is not None and block.used and block.start + block.size > addr:
             if warn:
-                _logger.warning(f'The block at ({addr}, {size}) is '
-                                'already in use and cannot be reserved')
+                _logger.warning(
+                    f'The block at ({addr}, {size}) is '
+                    'already in use and cannot be reserved')
         else:
             return self._reserve(addr, size, None, block)
 
@@ -303,15 +307,19 @@ class ContiguousBlockAllocator():
         return None
 
     def _find_next(self, addr):
+        # From supercollider/pull/5307
         tmp = self._array[addr - self.addr_offset]
         if tmp is not None:
-            return self._array[tmp.start + (tmp.size-1) - self.addr_offset]
+            i = tmp.start + tmp.size
         else:
-            assert(addr < self.top) # BUG: creo tiene que ser menor que top, y la función es find 'next', pero no entiendo por qué usa sclang 'for' que hace reverse automáticamente y top es inclusive
-            for i in range(addr + 1, self.top + 1):
-                if self._array[i - self.addr_offset] is not None:
-                    return self._array[i - self.addr_offset]
-        return None
+            i = addr + 1
+            # // self.top points to the last non-nil entry, so, stop there.
+            while i <= self.top and self._array[i - self.addr_offset] is None:
+                i += 1
+        if i < self.size:
+            return self._array[i - self.addr_offset]
+        else:
+            return None
 
     def _reserve(self, addr, size, avail_block=None, prev_block=None):
         if avail_block is None and prev_block is None:
@@ -319,11 +327,12 @@ class ContiguousBlockAllocator():
         if avail_block is None:
             avail_block = prev_block
         if avail_block.start < addr:
-            _, avail_block = self._split(avail_block, addr - avail_block.start, False)
+            avail_block = self._split(
+                avail_block, addr - avail_block.start, False)[1]
         return self._split(avail_block, size, True)[0]
 
     def _split(self, avail_block, n, used=True):
-        new, leftover = avail_block.split(n)
+        new, leftover = avail_block.split(n)  # Should not return [None, None] if n <= avail_block.size.
         new.used = used
         self._remove_from_freed(avail_block)
         if not used:

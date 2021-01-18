@@ -46,8 +46,10 @@ class MdPlugin():
 
     def write(self, synthdef, path):  # Was *write_metadata.
         path = pathlib.Path(path) / f'{synthdef.name}.{self.SUFFIX}'
-        if path.exists():
+        try:
             path.unlink()
+        except FileNotFoundError:
+            pass
         if synthdef.metadata:
             metadata = synthdef.metadata.copy()
             for key in self.codec:
@@ -61,19 +63,22 @@ class MdPlugin():
         return self.read_file(path)
 
     def read_file(self, path):
-        if path.exists():
+        try:
             with open(path, 'r') as file:
                 metadata = json.load(file)
             for key in self.codec:
                 if key in metadata:
                     metadata[key] = self.codec[key].decoder(metadata[key])
             return metadata
-        return None
+        except FileNotFoundError:
+            return None
 
     def delete(self, synthdef, path):  # Was *clear_metadata.
         path = pathlib.Path(path) / f'{synthdef.name}.{self.SUFFIX}'
-        if path.exists():
+        try:
             path.unlink()
+        except FileNotFoundError:
+            pass
 
     # def delete_all(self, path):
     #     for file in pahtlib.Path(path).glob(f'*.{self.SUFFIX}'):

@@ -621,17 +621,37 @@ class SynthDef(metaclass=MetaSynthDef):
         return self._bytes
 
     def _write_def_file(self, dir, overwrite=True, md_plugin=None):
-        if not self._metadata.get('reconstructed', False):
-            dir = dir or plf.Platform.synthdef_dir
-            dir = pathlib.Path(dir)
-            path = dir / f'{self._name}.{self._SUFFIX}'
-            if overwrite or not path.exists():
-                with open(path, 'wb') as file:
-                    self._write_def_list([self], file)
-                desc = sdc.SynthDesc.new_from(self)
-                sdc.SynthDesc.populate_metadata_func(desc)
-                desc.write_metadata(dir, md_plugin)
-                sdc.SynthDescLib.get_lib('default').add(desc)
+        # This method, SynthDef.writeDefFile, originaly calls
+        # Object.writeDefFile in the middle. overwrite flag was refering
+        # to the file and the SynthDesc object in two separated places.
+        # Object.writeDefFile was also creating a callback in the middle of
+        # the operation and then just calling Array.writeDef.
+        # So far, this method is not called with overwrite and md_plugin in
+        # this transcription (overwrite was for SynthDef.writeOnce which is
+        # not used anywhere).
+        if self._metadata.get('reconstructed', False):  # Was 'shouldNotSend'.
+            raise Exception(
+                f'reconstructed SynthDef {repr(self._name)} does not contain '
+                'all the required structure to write back to disk')
+        if not self._name or not isinstance(self._name, str):
+            raise Exception(f'invalid SynthDef name: {repr(self._name)}')
+        dir = dir or plf.Platform.synthdef_dir
+        dir = pathlib.Path(dir)
+        path = dir / f'{self._name}.{self._SUFFIX}'
+        if overwrite:
+            mode = 'wb'
+        else:
+            mode = 'xb'
+        try:
+            # Should write if file doesn't exists or overwrite is True.
+            with open(path, mode) as file:
+                self._write_def_list([self], file)
+            desc = sdc.SynthDesc.new_from(self)
+            sdc.SynthDesc.populate_metadata_func(desc)
+            desc.write_metadata(dir, md_plugin)
+            sdc.SynthDescLib.get_lib('default').add(desc)
+        except FileExistsError:
+            pass
 
     @staticmethod
     def _write_def_list(lst, file):

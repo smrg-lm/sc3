@@ -65,8 +65,10 @@ class NrtTestCase(unittest.TestCase):
                 self.assertTrue(file.exists())
                 self.assertEqual(file.stat().st_size, 1920616)
             finally:
-                if file.exists():
+                try:
                     file.unlink()
+                except FileNotFoundError:
+                    pass
         else:
             logger.warning(
                 f'{Server.default.options.program} server not installed')

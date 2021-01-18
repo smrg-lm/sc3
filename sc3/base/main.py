@@ -94,10 +94,12 @@ class Process(type):
             path = pathlib.Path(sc3.LIB_SETUP_FILE)
         else:
             path = plf.Platform.config_dir / 'startup.py'
-        if path.exists():
+        try:
             with open(path, 'r') as file:
                 ast = compile(file.read(), path, 'exec')
                 exec(ast, dict(), dict())
+        except FileNotFoundError:
+            pass
 
     def _shutdown(cls):
         sac.ShutDown.run()

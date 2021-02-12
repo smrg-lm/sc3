@@ -19,7 +19,7 @@ SuperCollider's `Environment` class, although they are not environments here
 and don't have exactly the same behavior.
 
 Events are created through the :class:`sc3.seq.event.event` which in fact is
-a subclass `dict` with the particularity that event instances are callables to
+a subclass `dict` with the particularity that event instances are callable to
 implement default key values.
 
 ::

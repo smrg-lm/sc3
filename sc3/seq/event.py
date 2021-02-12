@@ -126,15 +126,16 @@ class EventDict(dict, metaclass=MetaEventDict):
     def __init_subclass__(cls, partial_events=None, **kwargs):
         super().__init_subclass__(**kwargs)
 
-    def __call__(self, key, *args):
-        if key in self.default_functions:
-            return self.default_functions[key](self, *args)
-        if not key in self:
-            return self.default_values[key]
-        if callable(self[key]):
-            return self[key](self, *args)
+    def __call__(self, key):
+        if key in self:
+            if isinstance(self[key], types.FunctionType):
+                return self[key](self)
+            else:
+                return self[key]
+        elif key in self.default_functions:
+            return self.default_functions[key](self)
         else:
-            return self[key]
+            return self.default_values[key]
 
     def __copy__(self):
         return self.copy()
@@ -210,9 +211,7 @@ class PitchKeys(PartialEvent):
 
     @keyfunction
     def freq(self):
-        if 'freq' in self:
-            return self['freq']
-        elif 'midinote' in self or 'note' in self:
+        if 'midinote' in self or 'note' in self:
             return self._freq_from_midinote()
         elif 'degree' in self:
             return self._freq_from_degree()
@@ -234,9 +233,7 @@ class PitchKeys(PartialEvent):
 
     @keyfunction
     def midinote(self):
-        if 'midinote' in self:
-            return self['midinote']
-        elif 'note' in self:
+        if 'note' in self:
             return self._midi_from_note()
         elif 'degree' in self:
             return self._midinote_from_degree()
@@ -272,9 +269,7 @@ class PitchKeys(PartialEvent):
 
     @keyfunction
     def degree(self):
-        if 'degree' in self:
-            return self['degree']
-        elif 'freq' in self:
+        if 'freq' in self:
             return self._degree_from_freq()
         elif 'midinote' in self:
             return self._degree_from_midinote()
@@ -330,19 +325,13 @@ class DurationKeys(PartialEvent):
     @keyfunction
     def delta(self):
         # NOTE: Cast from Rest is done externally (explicit).
-        if 'delta' in self:
-            return self['delta']
-        else:
-            return self('dur') * self('stretch')
+        return self('dur') * self('stretch')
 
     @keyfunction
     def sustain(self):
-        if 'sustain' in self:
-            return self['sustain']
-        else:
-            return self('dur') * self('legato') * self('stretch')
+        return self('dur') * self('legato') * self('stretch')
 
-    # *** Behaviour is still missing for some keys.
+    # *** TODO: Behaviour is still missing for some keys.
 
 
 class AmplitudeKeys(PartialEvent):
@@ -355,9 +344,7 @@ class AmplitudeKeys(PartialEvent):
 
     @keyfunction
     def amp(self):
-        if 'amp' in self:
-            return self['amp']
-        elif 'db' in self:
+        if 'db' in self:
             return bi.dbamp(self['db'])
         elif 'velocity' in self:
             return self._amp_from_velocity()
@@ -369,9 +356,7 @@ class AmplitudeKeys(PartialEvent):
 
     @keyfunction
     def db(self):
-        if 'db' in self:
-            return self['db']
-        elif 'amp' in self:
+        if 'amp' in self:
             return bi.ampdb(self['amp'])
         elif 'velocity' in self:
             return self._db_from_velocity()
@@ -383,9 +368,7 @@ class AmplitudeKeys(PartialEvent):
 
     @keyfunction
     def velocity(self):
-        if 'velocity' in self:
-            return self['velocity']
-        elif 'amp' in self:
+        if 'amp' in self:
             return self._velocity_from_amp()
         elif 'db' in self:
             return self._velocity_from_db()
@@ -423,10 +406,7 @@ class ServerKeys(PartialEvent):
 
     @keyfunction
     def group(self):
-        if 'group' in self:
-            return self['group']
-        else:
-            return self('server').default_group.node_id
+        return self('server').default_group.node_id
 
     @keyfunction
     def synth_lib(self):
@@ -434,10 +414,7 @@ class ServerKeys(PartialEvent):
 
     @keyfunction
     def send_gate(self):
-        if 'send_gate' in self:
-            return self['send_gate']
-        else:
-            return self('has_gate')
+        return self('has_gate')
 
     def _get_msg_params(self):  # Was get_msg_func
         msg_params = self('msg_params')

@@ -318,7 +318,6 @@ class DurationKeys(PartialEvent):
 
     # tempo = None
     # lag = 0.0
-
     # strum = 0.0
     # strum_ends_together = False
 
@@ -330,8 +329,6 @@ class DurationKeys(PartialEvent):
     @keyfunction
     def sustain(self):
         return self('dur') * self('legato') * self('stretch')
-
-    # *** TODO: Behaviour is still missing for some keys.
 
 
 class AmplitudeKeys(PartialEvent):
@@ -458,9 +455,6 @@ class ServerKeys(PartialEvent):
     #     # // "offset" is the delta time for the clock (usually in beats)
 
 
-# TODO...
-
-
 ### Event Types ###
 
 
@@ -479,7 +473,7 @@ class EventType(EventDict):
 
 
 class NoteEvent(EventType, partial_events=(
-        PitchKeys, AmplitudeKeys, DurationKeys, ServerKeys)):  # TODO...
+        PitchKeys, AmplitudeKeys, DurationKeys, ServerKeys)):
     type = 'note'
     is_playing = False
 

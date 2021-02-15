@@ -595,9 +595,10 @@ class SynthDef(metaclass=MetaSynthDef):
             self._do_send(server, fn.value(completion_msg, server))
 
     def _do_send(self, server, completion_msg):
-        buffer = self.as_bytes()
-        if len(buffer) < (65535 // 4):  # *** BUG: size limitation for rt safety, see NetAddr here.
-            server.addr.send_msg('/d_recv', buffer, completion_msg)
+        msg = ['/d_recv', self.as_bytes(), completion_msg]
+        msg_size = server.addr._calc_msg_dgram_size(msg)
+        if msg_size <= server.addr._MAX_UDP_DGRAM_SIZE:  # Was max size // 4.
+            server.addr.send_msg(*msg)
         else:
             if server.addr.is_local:
                 _logger.warning(

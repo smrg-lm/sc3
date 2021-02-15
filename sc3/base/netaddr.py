@@ -269,8 +269,10 @@ class NetAddr():
         for val in msg[1:]:
             if isinstance(val, str):
                 res += self._strpad4(len(val))
+            elif isinstance(val, (bytes, bytearray, memoryview)):
+                res += len(val) + 4  # Blob size bytes.
             elif isinstance(val, list):
-                # sc3 don't send osc arrays, they are msgs converted to blobs.
+                # Arrays are messages converted to blobs.
                 res += self._calc_msg_dgram_size(val) + 4  # Blob size bytes.
             else:
                 res += 4  # Everything else (sent by sc3, no doubles).

@@ -577,8 +577,9 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
 
     def _perform_dead_code_elimination(self):
         if len(self._descendants) == 0:
+            # for input in self._antecedents:  # ?
             for input in self.inputs:
-                if isinstance(input, UGen):
+                if isinstance(input, UGen) and input._descendants:
                     input._descendants.remove(self)
                     input._optimize_graph()
             self._synthdef._remove_ugen(self)

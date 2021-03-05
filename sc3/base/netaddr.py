@@ -134,11 +134,15 @@ class NetAddr():
 
         Parameters
         ----------
-        time: int | float
-            Latency time from now. Nested bundles can have their own latency
+        time: int | float | None
+            Latency time from now. If `time` is None or negative the timetag
+            is set to immediately. Nested bundles can have their own latency
             but must be >= to the enclosing bundle latency.
         *elements: lists
             Each element is a list in the form of an OSC message or bundle.
+
+        .. note: Nested bundles only work with supernova, for scsynth the
+        generated bundle can be only composed of messages.
 
         Notes
         -----

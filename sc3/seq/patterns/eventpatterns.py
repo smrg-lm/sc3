@@ -78,6 +78,17 @@ class Pevent(ptt.EventPattern):
     # storeArgs
 
 
+class Pdelta(ptt.EventPattern):
+    def __init__(self, time, pattern):
+        self.time = time  # Or Rest.
+        self.pattern = pattern
+
+    def __embed__(self, inevent):
+        if self.time > 0.0:
+            yield evt.silent(self.time, inevent)
+        return (yield from stm.embed(self.pattern, inevent))
+
+
 class Pbind(ptt.EventPattern):
     def __init__(self, mapping):
         self.dict = dict(mapping)
@@ -122,9 +133,9 @@ class Pbind(ptt.EventPattern):
 class Pmono(Pbind):
     _kept_keys = {'server', 'node_id', 'has_gate'}
 
-    def __init__(self, synth_name, mapping, articulate=False):
+    def __init__(self, instrument, mapping, articulate=False):
         super().__init__(mapping)
-        self.synth_name = synth_name
+        self.instrument = instrument
         self.articulate = articulate
 
     def __embed__(self, inevent):
@@ -134,7 +145,7 @@ class Pmono(Pbind):
             return (yield from self._embed_mono(inevent))
 
     def _embed_mono(self, inevent):
-        synth_name = self.synth_name
+        instrument = self.instrument
         kept_keys = self._kept_keys
         stream_dict = {k: stm.stream(v) for k, v in self.dict.items()}
         cleanup = est.CleanupEntry()
@@ -145,7 +156,7 @@ class Pmono(Pbind):
                 if node_id is None:
                     event = evt.event(inevent, type='_mono_on')
                     event.update(self._stream_dict_next(stream_dict))
-                    event._prepare_event(synth_name)
+                    event._prepare_event(instrument)
                     server = event['server']
                     node_id = event['node_id']
                     mono_params = event['msg_params'][::2]  # For _update_msg_params
@@ -164,7 +175,7 @@ class Pmono(Pbind):
         return inevent
 
     def _embed_mono_artic(self, inevent):
-        synth_name = self.synth_name
+        instrument = self.instrument
         kept_keys = self._kept_keys
         stream_dict = {k: stm.stream(v) for k, v in self.dict.items()}
         cleanup = est.CleanupEntry()
@@ -175,7 +186,7 @@ class Pmono(Pbind):
                 if node_id is None:
                     event = evt.event(inevent, type='_mono_on')
                     event.update(self._stream_dict_next(stream_dict))
-                    event._prepare_event(synth_name)
+                    event._prepare_event(instrument)
                     if event('sustain') >= event('delta')\
                     and not evt.is_rest(event):
                         server = event['server']
@@ -213,55 +224,60 @@ class Pmono(Pbind):
 
 
 class Ppar(ptt.EventPattern):
+    def __init__(self, *patterns):
+        self.patterns = list(patterns)
+
     def __embed__(self, inevent):
         # assn?
         queue = tsq.TaskQueue()
-        for _ in range(self.repeats):
-            now = 0.0
-            self._init_streams(queue)
-            # // If first event not at time zero.
-            if not queue.empty():
+        now = 0.0
+        self._init_streams(queue)
+        # // If first event not at time zero.
+        if not queue.empty():
+            nexttime = queue.peek()[0]
+            if nexttime > 0.0:
+                outevent = evt.silent(nexttime, inevent)
+                inevent = yield outevent
+                now = nexttime
+        while not queue.empty():
+            try:
+                stream = queue.pop()[1]
+                outevent = stream.next(inevent)
+                outevent = evt.event(outevent)  # as_event
+                # // Requeue stream.
+                queue.add(now + float(outevent('delta')), stream)
                 nexttime = queue.peek()[0]
-                if nexttime > 0.0:
-                    outevent = evt.silent(nexttime, inevent)
-                    inevent = yield outevent
-                    now = nexttime
-            while not queue.empty():
-                try:
-                    stream = queue.pop()[1]
-                    outevent = stream.next(inevent)
-                    outevent = evt.event(outevent)  # as_event
-                    # // Requeue stream.
-                    queue.add(now + float(outevent('delta')), stream)
+                outevent['delta'] = nexttime - now
+                inevent = yield outevent
+                now = nexttime
+            except stm.StopStream:  # next
+                if not queue.empty():
+                    # // That child stream ended, so rest until next one.
                     nexttime = queue.peek()[0]
-                    outevent['delta'] = nexttime - now
+                    outevent = evt.silent(nexttime - now, inevent)
                     inevent = yield outevent
                     now = nexttime
-                except stm.StopStream:  # next
-                    if not queue.empty():
-                        # // That child stream ended, so rest until next one.
-                        nexttime = queue.peek()[0]
-                        outevent = evt.silent(nexttime - now, inevent)
-                        inevent = yield outevent
-                        now = nexttime
-                    else:
-                        queue.clear()
-            return inevent
+                else:
+                    queue.clear()
+        return inevent
 
     def _init_streams(self, queue):
-        for pattern in self.lst:
+        for pattern in self.patterns:
             queue.add(0.0, stm.stream(pattern))
 
 
-class Ptpar(Ppar):
-    def _init_streams(self, queue):
-        for i in range(0, len(self.lst) - 1, 2):  # gen_cclumps(lst, 2)
-            queue.add(self.lst[i], stm.stream(self.lst[i + 1]))
+# class Ptpar(Ppar):
+#     def __init__(self, *args):  # (0, patter)?
+#         self.args = list(args)
+#
+#     def _init_streams(self, queue):
+#         for i in range(0, len(self.args) - 1, 2):  # gen_cclumps(lst, 2)
+#             queue.add(self.args[i], stm.stream(self.args[i + 1]))
 
 
-class Pgpar(Ppar):
-    ...
+# class Pgpar(Ppar):
+#     ...
 
 
-class Pgtpar(Pgpar):
-    ...
+# class Pgtpar(Pgpar):
+#     ...

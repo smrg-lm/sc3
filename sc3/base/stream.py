@@ -327,6 +327,8 @@ class NAryOpStream(Stream):
 
 
 class FunctionStream(Stream):  # Was FuncStream
+    """Create a stream from function evaluation."""
+
     # Functions could use StopStream as sclang nil but is not nice.
     def __init__(self, next_func, reset_func=None, data=None):
         self.next_func = next_func
@@ -583,6 +585,8 @@ class FlowVar():
 
 
 class ValueStream(Stream):
+    """Create a stream from any object."""
+
     def __init__(self, value):
         self.value = value
 
@@ -605,6 +609,13 @@ class ValueStream(Stream):
 
 
 class DictionaryStream(ValueStream):
+    """Create a stream from dict objects.
+
+    Dictionaries have a special meaning because they are the base clase for
+    events and can be used as specifications deferring the event object
+    creation.
+    """
+
     ### Iterator protocol ###
 
     def __next__(self):
@@ -642,7 +653,7 @@ class DictionaryStream(ValueStream):
 
 
 def stream(obj):
-    '''Converts any object into a Stream.'''
+    '''Convert any object into a Stream.'''
 
     if hasattr(obj, '__stream__'):
         return obj.__stream__()
@@ -655,7 +666,7 @@ def stream(obj):
 
 def embed(obj, inval=None):
     '''
-    Converts any object into a Stream and returns its embeddable form passing
+    Convert any object into a Stream and return its embeddable form passing
     inval to the `next` calls.
     '''
 

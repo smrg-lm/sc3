@@ -178,6 +178,8 @@ class EventStreamPlayer(stm.Routine):
 
 
 class PatternValueStream(stm.Stream):
+    """Create a stream from value patterns."""
+
     def __init__(self, pattern):
         self.pattern = pattern
         self._stream = None
@@ -200,6 +202,8 @@ class PatternValueStream(stm.Stream):
 
 
 class PatternEventStream(PatternValueStream):
+    """Create a stream from event patterns."""
+
     ### Stream protocol ###
 
     def next(self, inevent=None):

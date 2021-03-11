@@ -5,12 +5,10 @@ import copy
 
 from ...base import stream as stm
 from ...base import builtins as bi
-from ...base import functions as fn
 from ...base import _taskq as tsq
 from .. import pattern as ptt
 from .. import eventstream as est
 from .. import event as evt
-from . import listpatterns as lsp
 
 
 _logger = logging.getLogger(__name__)

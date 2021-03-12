@@ -71,6 +71,16 @@ class Pfuncn(ptt.Pattern):
     # storeArgs
 
 
+class Plazy(ptt.Pattern):
+    def __init__(self, func):
+        self.func = func
+
+    def __embed__(self, inval):
+        return (yield from stm.embed(self.func(inval), inval))
+
+    # storeArgs
+
+
 # BUG: ver su utilidad, qué diferencia hay
 # con usar un operador enario directamente?
 # class PdegreeToKey(Pnarop):

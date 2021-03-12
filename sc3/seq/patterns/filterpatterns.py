@@ -447,7 +447,7 @@ class Pdiff(FilterPattern):
         return inval
 
 
-class Pprorate(FilterPattern):  # Was Protate.
+class Pprorate(FilterPattern):  # Was Prorate.
     def __init__(self, pattern, proportion=1):
         super().__init__(pattern)
         self.proportion = proportion

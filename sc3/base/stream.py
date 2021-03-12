@@ -32,7 +32,7 @@ class TimeThread():
             raise TypeError('TimeThread argument is not a function')
 
         self.func = func
-        self._func_has_inval = (  # Maybe it would be better to require the argument.
+        self._func_has_inval = (  # Maybe it would be better to require the argument. Sync code with Prout and Pfuncn.
             len(inspect.signature(self.func).parameters) > 0)
         self._func_isgenfunc = inspect.isgeneratorfunction(self.func)
 

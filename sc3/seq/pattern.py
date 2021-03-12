@@ -170,7 +170,7 @@ class Pbinop(Pattern):
     # storeOn
 
 
-class Pnarop(Pattern): # BUG: nombre cambiado
+class Pnarop(Pattern):  # Was Pnaryop.
     def __init__(self, selector, a, *args):
         self.selector = selector
         self.a = a

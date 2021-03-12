@@ -113,15 +113,6 @@ class Pattern(aob.AbstractObject):
     # record
 
 
-class EventPattern(Pattern):
-    @property
-    def is_event_pattern(self):
-        return True
-
-    def __stream__(self):
-        return est.PatternEventStream(self)
-
-
 ### op patterns ###
 
 

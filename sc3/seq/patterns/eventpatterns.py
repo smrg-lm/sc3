@@ -17,6 +17,15 @@ _logger = logging.getLogger(__name__)
 ### Event patterns ###
 
 
+class EventPattern(ptt.Pattern):
+    @property
+    def is_event_pattern(self):
+        return True
+
+    def __stream__(self):
+        return est.PatternEventStream(self)
+
+
 class Pkey(ptt.Pattern):
     # Access a key from the input event within a Pbind.
     def __init__(self, key, length=float('inf')):  # Changed: repeats is for lists.
@@ -35,7 +44,7 @@ class Pkey(ptt.Pattern):
     # storeArgs
 
 
-class Pchain(ptt.EventPattern):
+class Pchain(EventPattern):
     def __init__(self, *patterns):
         self.patterns = list(patterns)
 
@@ -57,7 +66,7 @@ class Pchain(ptt.EventPattern):
     # storeOn
 
 
-class Pevent(ptt.EventPattern):
+class Pevent(EventPattern):
     # This class can be used to change the default value of PatternEventStream.
     def __init__(self, pattern, event):
         self.pattern = pattern
@@ -76,7 +85,7 @@ class Pevent(ptt.EventPattern):
     # storeArgs
 
 
-class Pbind(ptt.EventPattern):
+class Pbind(EventPattern):
     def __init__(self, mapping):
         self.dict = dict(mapping)
 
@@ -210,7 +219,7 @@ class Pmono(Pbind):
 ### Ppar.sc ###
 
 
-class Ppar(ptt.EventPattern):
+class Ppar(EventPattern):
     def __init__(self, *patterns):
         self.patterns = list(patterns)
 

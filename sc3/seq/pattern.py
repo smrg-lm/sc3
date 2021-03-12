@@ -1,4 +1,44 @@
-"""Patterns.sc"""
+"""
+The transcription of the pattern library is organized following the
+specifications below.
+
+It is understood that there are edge cases for different use cases and that a
+type-free stream creation would be a more general approach but also less clear.
+In any case, this is open to reconsideration.
+
+Event patterns
+--------------
+Patterns that create streams of events.
+
+Value patterns
+--------------
+Patterns that create streams of values.
+
+List patterns
+-------------
+Container patterns that can create either streams of events or values. Hybrid
+streams can be created but they will probably fail in combination with other
+type specific patterns.
+
+Filter patterns
+---------------
+Patterns that receive and process other patterns. Some filter patterns are
+designed to process event or value streams but not both.
+
+Function patterns
+-----------------
+Patterns defined by the evaluation of a function, the resulting stream is
+defined by the class but is considered to be a value stream when combined
+with other patterns.
+
+Special patterns
+----------------
+So far, in this transcription, the only special case is Pkey. Must be
+defined for a key inside an event pattern, either Pbind or Pmono. It takes the
+event stream and extracts the value of another key of the event being processed
+in the order the keys were defined.
+
+"""
 
 import inspect
 

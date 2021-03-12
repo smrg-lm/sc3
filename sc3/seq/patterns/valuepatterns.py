@@ -5,7 +5,12 @@ from ...base import stream as stm
 from .. import pattern as ptt
 
 
-class Pvalue(ptt.Pattern):
+class ValuePattern(ptt.Pattern):
+    def __stream__(self):
+        return est.PatternValueStream(self)
+
+
+class Pvalue(ValuePattern):
     # This pattern is for special cases where common
     # values aren't or can't be embeded as streams.
     def __init__(self, value):
@@ -20,7 +25,7 @@ class Pvalue(ptt.Pattern):
 ### Math patterns ###
 
 
-class Pseries(ptt.Pattern):
+class Pseries(ValuePattern):
     # // Arithmetic series.
     def __init__(self, start=0.0, step=1.0, length=float('inf')):
         self.start = start
@@ -45,7 +50,7 @@ class Pseries(ptt.Pattern):
     # storeArgs
 
 
-class Pgeom(ptt.Pattern):
+class Pgeom(ValuePattern):
     # // Geometric series.
     def __init__(self, start=1.0, grow=1.0, length=float('inf')):
         self.start = start
@@ -70,7 +75,7 @@ class Pgeom(ptt.Pattern):
     # storeArgs
 
 
-class Pbrown(ptt.Pattern):
+class Pbrown(ValuePattern):
     def __init__(self, lo=0.0, hi=1.0, step=0.125, length=float('inf')):
         self.lo = lo
         self.hi = hi
@@ -108,7 +113,7 @@ class Pgbrown(Pbrown):
         return current * (1 + bi.xrand2(step))
 
 
-class Pwhite(ptt.Pattern):
+class Pwhite(ValuePattern):
     def __init__(self, lo=0.0, hi=1.0, length=float('inf')):
         self.lo = lo
         self.hi = hi
@@ -130,7 +135,7 @@ class Pwhite(ptt.Pattern):
     # storeArgs
 
 
-class Pprob(ptt.Pattern):
+class Pprob(ValuePattern):
     def __init__(self, distribution, lo=0.0, hi=1.0,
                  table_size=None, length=float('inf')):
         self.distribution = distribution
@@ -154,41 +159,3 @@ class Pprob(ptt.Pattern):
         except stm.StopStream:
             pass
         return inval
-
-
-class Pproduct(ptt.Pattern):  # Was PstepNfunc.
-    def __init__(self, patterns, func=None):
-        self.patterns = patterns
-        self.func = func or (lambda values: values)
-
-    def __embed__(self, inval):
-        # If there wasn't inval things would be much easier.
-        # for t in itertools.product(*self.patterns): ...
-        patterns = self.patterns
-        size = len(patterns)
-        max_level = size - 1
-        streams = [None] * size
-        values = [None] * size
-        yield from self._recgen(inval, 0, max_level, patterns, streams, values)
-
-    def _recgen(self, inval, level, max_level, patterns, streams, values):
-        try:
-            streams[level] = stm.stream(patterns[level])
-            while True:
-                values[level] = streams[level].next(inval)
-                if level < max_level:
-                    yield from self._recgen(
-                        inval, level + 1, max_level, patterns, streams, values)
-                else:
-                    yield self.func(values)
-        except stm.StopStream:
-            pass
-        return inval
-
-    # storeArgs
-
-
-# Superseded by PstepNfunc (Pproduct).
-# class Pstep2add(ptt.Pattern)
-# class Pstep3add(ptt.Pattern)
-# class PstepNadd(PstepNfunc)

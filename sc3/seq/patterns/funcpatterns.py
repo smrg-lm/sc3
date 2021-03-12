@@ -7,10 +7,11 @@ from ...base import builtins as bi
 from .. import pattern as ptt
 
 
-### Function patterns ###
+class FunctionPattern(ptt.Pattern):
+    pass
 
 
-class Pfunc(ptt.Pattern):
+class Pfunc(FunctionPattern):
     def __init__(self, next_func, reset_func=None, data=None):
         self.next_func = next_func
         self.reset_func = reset_func
@@ -22,7 +23,7 @@ class Pfunc(ptt.Pattern):
     # storeArgs
 
 
-class Prout(ptt.Pattern):
+class Prout(FunctionPattern):
     def __init__(self, func):
         self.func = func
         self._func_has_inval = (  # See note in TimeThread.__init__. Sync code.
@@ -53,7 +54,7 @@ class Prout(ptt.Pattern):
     # storeArgs
 
 
-class Pfuncn(ptt.Pattern):
+class Pfuncn(FunctionPattern):
     def __init__(self, func, repeats=1):
         self.func = func
         self._func_has_inval = (  # See note in TimeThread.__init__. Sync code.
@@ -71,7 +72,7 @@ class Pfuncn(ptt.Pattern):
     # storeArgs
 
 
-class Plazy(ptt.Pattern):
+class Plazy(FunctionPattern):
     def __init__(self, func):
         self.func = func
 
@@ -79,6 +80,44 @@ class Plazy(ptt.Pattern):
         return (yield from stm.embed(self.func(inval), inval))
 
     # storeArgs
+
+
+class Pproduct(FunctionPattern):  # Was PstepNfunc.
+    def __init__(self, func, patterns):
+        self.func = func or (lambda values: values)
+        self.patterns = patterns
+
+    def __embed__(self, inval):
+        # If there wasn't inval things would be much easier.
+        # for t in itertools.product(*self.patterns): ...
+        patterns = self.patterns
+        size = len(patterns)
+        max_level = size - 1
+        streams = [None] * size
+        values = [None] * size
+        yield from self._recgen(inval, 0, max_level, patterns, streams, values)
+
+    def _recgen(self, inval, level, max_level, patterns, streams, values):
+        try:
+            streams[level] = stm.stream(patterns[level])
+            while True:
+                values[level] = streams[level].next(inval)
+                if level < max_level:
+                    yield from self._recgen(
+                        inval, level + 1, max_level, patterns, streams, values)
+                else:
+                    yield self.func(values)
+        except stm.StopStream:
+            pass
+        return inval
+
+    # storeArgs
+
+
+# Superseded by PstepNfunc (Pproduct).
+# class Pstep2add(FunctionPattern)
+# class Pstep3add(FunctionPattern)
+# class PstepNadd(PstepNfunc)
 
 
 # BUG: ver su utilidad, qué diferencia hay

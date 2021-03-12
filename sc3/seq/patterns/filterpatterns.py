@@ -180,9 +180,31 @@ class Plen(FilterPattern):  # Was Pfin.
     # storeArgs
 
 
-class Pdur(ptt.EventPattern, FilterPattern):  # Was Pfindur.
-    def __init__(self, pattern, dur, tolerance=0.001, quant=None):
-        super(ptt.EventPattern, self).__init__(pattern)
+# Replaced by Pdelta.
+# class Plag(FilterPattern):
+#     def __init__(self, pattern, lag):
+#         super().__init__(pattern)
+#         self.lag = lag
+#
+#     def __embed__(self, inevent):
+#         yield evt.silent(self.lag, inevent)
+#         return (yield from stm.embed(self.pattern, inevent))
+
+
+class Pdelta(FilterPattern):
+    def __init__(self, time, pattern):
+        super().__init__(pattern)
+        self.time = time  # Or Rest.
+
+    def __embed__(self, inevent):
+        if self.time > 0.0:
+            yield evt.silent(self.time, inevent)
+        return (yield from stm.embed(self.pattern, inevent))
+
+
+class Pdur(FilterPattern):  # Was Pfindur.
+    def __init__(self, dur, pattern, tolerance=0.001, quant=None):
+        super().__init__(pattern)
         self.dur = dur
         self.tolerance = tolerance
         self.quant = quant
@@ -244,17 +266,6 @@ class Pconst(FilterPattern):
             inval = yield local_sum - sum
         return inval
 
-
-class Plag(ptt.EventPattern, FilterPattern):
-    def __init__(self, pattern, lag):
-        super(ptt.EventPattern, self).__init__(pattern)
-        self.lag = lag
-
-    def __embed__(self, inevent):
-        yield evt.silent(self.lag, inevent)
-        return (yield from stm.embed(self.pattern, inevent))
-
-    # storeArgs
 
 
 class Pstutter(FilterPattern):

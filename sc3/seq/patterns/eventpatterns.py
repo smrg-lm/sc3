@@ -76,17 +76,6 @@ class Pevent(ptt.EventPattern):
     # storeArgs
 
 
-class Pdelta(ptt.EventPattern):
-    def __init__(self, time, pattern):
-        self.time = time  # Or Rest.
-        self.pattern = pattern
-
-    def __embed__(self, inevent):
-        if self.time > 0.0:
-            yield evt.silent(self.time, inevent)
-        return (yield from stm.embed(self.pattern, inevent))
-
-
 class Pbind(ptt.EventPattern):
     def __init__(self, mapping):
         self.dict = dict(mapping)

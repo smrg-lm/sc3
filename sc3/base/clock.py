@@ -224,8 +224,6 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         else:
             prev_time = cls._task_queue.peek()[0]
         cls._task_queue.add(secs, task)
-        # if isinstance(task, pst.PauseStream):
-        #     task._next_beat = secs
         if cls._task_queue.peek()[0] != prev_time:
             cls._sched_cond.notify_all()
 
@@ -259,16 +257,8 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                 # // wait until an event is ready
                 now = 0
                 while not cls._task_queue.empty():
-                    # NOTE: I think there is no need for this clock to be
-                    # monotonic and sclang may or may not be working this way,
-                    # is less complicated here to use just elapsed_time.
-                    # I leave previous code commented for now (this should be the same).
-                    # now = _time.time()
                     now = _libsc3.main.elapsed_time()
                     sched_secs = cls._task_queue.peek()[0]
-                    # sched_point = (_libsc3.main._time_of_initialization
-                    #                + sched_secs)
-                    # if now >= sched_point:
                     if now >= sched_secs:
                         break
                     # cls._sched_cond.wait(sched_point - now)
@@ -277,16 +267,11 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                         return
 
                 # // perform all events that are ready
-                # while not cls._task_queue.empty()\
-                # and now >= (_libsc3.main._time_of_initialization
-                #             + cls._task_queue.peek()[0]):
                 while not cls._task_queue.empty()\
                 and now >= cls._task_queue.peek()[0]:
                     item = cls._task_queue.pop()
                     sched_time = item[0]
                     task = item[1]
-                    # if isinstance(task, pst.PauseStream):
-                    #     task._next_beat = None
                     try:
                         _libsc3.main.update_logical_time(sched_time)
                         delta = task.__awake__(sched_time, sched_time, cls)
@@ -551,8 +536,6 @@ class ClockTask():
 
     def _wakeup(self, time):
         try:
-            # if isinstance(self.task, pst.PauseStream):
-            #     self.task._next_beat = None
             _libsc3.main.update_logical_time(time)
             beats = self.clock.secs2beats(time)
             delta = self.task.__awake__(beats, time, self.clock)
@@ -773,13 +756,6 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                     if elapsed_beats >= qpeek[0]:
                         break
                     sched_secs = self.beats2secs(qpeek[0])
-                    # NOTE: I think there is no need for this clock to be
-                    # monotonic and sclang may or may not be working this way,
-                    # is less complicated here to use just elapsed_time.
-                    # I leave previous code commented by now (this should be
-                    # the same).
-                    # sched_point = _libsc3.main._time_of_initialization + sched_secs
-                    # self._sched_cond.wait(sched_point - _time.time())
                     self._sched_cond.wait(
                         sched_secs - _libsc3.main.elapsed_time())
                     if not self._run_sched:
@@ -791,8 +767,6 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                     item = self._task_queue.pop()
                     self._beats = item[0]
                     task = item[1]
-                    # if isinstance(task, pst.PauseStream):
-                    #     task._next_beat = None
                     try:
                         _libsc3.main.update_logical_time(
                             self.beats2secs(self._beats))
@@ -836,8 +810,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         self._sched_cond = None
 
     # def __del__(self):
-    #     # BUG: self needs to be stoped to be gc collected because is in
-    #     # BUG: cyclic reference with target=_run.
+    #     # self needs to be stoped to be gc collected because
+    #     # is in cyclic reference with target=_run.
     #     self.stop()
 
     def play(self, task, quant=None):
@@ -947,14 +921,10 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         else:
             prev_beat = self._task_queue.peek()[0]
         self._task_queue.add(beats, task)
-        # if isinstance(task, pst.PauseStream):
-        #     task._next_beat = beats
         if self._task_queue.peek()[0] != prev_beat:
             self._sched_cond.notify()
 
     def _sched_add_nrt(self, beats, task):
-        # if isinstance(task, pst.PauseStream):
-        #     task._next_beat = beats
         ClockTask(beats, self, task, _libsc3.main._clock_scheduler)
 
     def _calc_sched_beats(self, delta):

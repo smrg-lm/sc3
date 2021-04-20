@@ -975,6 +975,12 @@ class WidthFirstUGen(SynthObject):  # Was in fft.py
         pass
 
 
+class PseudoUGen(SynthObject):
+    # Base class to reinforce the interface. Pseudo UGens never
+    # return instances of themselves but of another UGen subclass.
+    pass
+
+
 ### BasicOpUGens.sc ###
 
 class BasicOpUGen(UGen):
@@ -1110,7 +1116,7 @@ class BinaryOpUGen(BasicOpUGen):
         return 'scalar'
 
     def _optimize_graph(self):  # override
-        # // this.constantFolding;
+        # // self._constant_folding()
         if self._perform_dead_code_elimination():
             return self
         if self.operator == '+':
@@ -1286,8 +1292,8 @@ class BinaryOpUGen(BasicOpUGen):
                 input._descendants.discard(self)
                 input._descendants.discard(deleted_unit)
 
-    def _constant_folding(self): # Not sure if used.
-        ... # BUG, boring to copy.
+    # def _constant_folding(self):  # Usage commented out in sclang.
+    #     ...
 
 
 class MulAdd(UGen):
@@ -1371,9 +1377,3 @@ class Sum4(UGen):
         arg_list.sort(key=lambda x: gpp.ugen_param(x)._as_ugen_rate())  # NOTE: Why sort?
 
         return super()._new1(rate, *arg_list)
-
-
-class PseudoUGen(SynthObject):
-    # Base class to reinforce the interface. Pseudo UGens never
-    # return instances of themselves but of another UGen subclass.
-    pass

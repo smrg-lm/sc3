@@ -1171,7 +1171,8 @@ class BinaryOpUGen(BasicOpUGen):
             return None
 
         if isinstance(a, Sum3) and len(a._descendants) == 1:
-            self._synthdef._remove_ugen(a)
+            if a is not b:
+                self._synthdef._remove_ugen(a)
             replacement = Sum4.new(a.inputs[0], a.inputs[1], a.inputs[2], b)
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, a)
@@ -1193,20 +1194,21 @@ class BinaryOpUGen(BasicOpUGen):
         and len(a._descendants) == 1:
 
             if MulAdd._can_be_muladd(a.inputs[0], a.inputs[1], b):
-                self._synthdef._remove_ugen(a)
+                if a is not b:
+                    self._synthdef._remove_ugen(a)
                 replacement = MulAdd.new(a.inputs[0], a.inputs[1], b)
                 replacement._descendants = self._descendants
                 self._optimize_update_descendants(replacement, a)
                 return replacement
 
             if MulAdd._can_be_muladd(a.inputs[1], a.inputs[0], b):
-                self._synthdef._remove_ugen(a)
+                if a is not b:
+                    self._synthdef._remove_ugen(a)
                 replacement = MulAdd.new(a.inputs[1], a.inputs[0], b)
                 replacement._descendants = self._descendants
                 self._optimize_update_descendants(replacement, a)
                 return replacement
 
-        # does optimization code need to be optimized?
         if isinstance(b, BinaryOpUGen) and b.operator == '*'\
         and len(b._descendants) == 1:
 
@@ -1232,8 +1234,9 @@ class BinaryOpUGen(BasicOpUGen):
         if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
         and len(b._descendants) == 1:
             # // a + b.neg -> a - b
-            self._synthdef._remove_ugen(b)
-            replacement = a - b.inputs[0]
+            if b is not a:
+                self._synthdef._remove_ugen(b)
+            replacement = BinaryOpUGen.new('-', a, b.inputs[0])
             # // This is the first time the dependants logic appears. It's
             # // repeated below. We will remove 'self' from the synthdef, and
             # // replace it with 'replacement'. 'replacement' should then have
@@ -1248,7 +1251,7 @@ class BinaryOpUGen(BasicOpUGen):
         and len(a._descendants) == 1:
             # // a.neg + b -> b - a
             self._synthdef._remove_ugen(a)
-            replacement = b - a.inputs[0]
+            replacement = BinaryOpUGen.new('-', b, a.inputs[0])
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, a)
             return replacement
@@ -1261,14 +1264,13 @@ class BinaryOpUGen(BasicOpUGen):
         if isinstance(b, UnaryOpUGen) and b.operator == 'neg'\
         and len(b._descendants) == 1:
             # // a - b.neg -> a + b
-            self._synthdef._remove_ugen(b)
+            if b is not a:
+                self._synthdef._remove_ugen(b)
             replacement = BinaryOpUGen.new('+', a, b.inputs[0])
             replacement._descendants = self._descendants
             self._optimize_update_descendants(replacement, b)
             self._synthdef._replace_ugen(self, replacement)
             replacement._optimize_graph()  # // Not called from _optimize_add, no need to return ugen here.
-
-        return None
 
     def _optimize_update_descendants(self, replacement, deleted_unit):
         # // 'this' = old ugen being replaced

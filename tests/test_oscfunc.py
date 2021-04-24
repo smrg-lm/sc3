@@ -1,6 +1,7 @@
 
 import unittest
-import time
+from threading import Thread, Barrier
+from functools import partial
 
 import sc3
 from sc3.base.netaddr import NetAddr
@@ -18,18 +19,18 @@ class OscFuncTestCase(unittest.TestCase):
         scrambled = ['/msg4', '/msg2', '/msg1', '/msg3']
         results = []
         funcs = []
+        barrier = Barrier(len(messages) + 1, timeout=1)
 
-        def make_func(path):
-            return lambda: results.append([path, main.elapsed_time()])
+        def func(path):
+            results.append([path, main.elapsed_time()])
+            Thread(target=lambda: barrier.wait(), daemon=True).start()
 
         for p in scrambled:
-            f = make_func(p)
+            f = partial(func, p)
             funcs.append(OscFunc(f, p))
 
         n.send_bundle(0, *[[m] for m in messages]);
-        time.sleep(0.1)  # TIENE QUE SER ASYNC.
-        # for f in funcs:
-        #     f.free()
+        barrier.wait()
 
         # The order of evaluation should always be 1, 2, 3, 4.
         prev_time = 0
@@ -38,23 +39,42 @@ class OscFuncTestCase(unittest.TestCase):
             self.assertTrue(r[1] >= prev_time, f'{r[1]} >= {prev_time}')
             prev_time = r[1]
 
+        for f in funcs:
+            f.free()
+
     def test_bndl_msg_recv_time(self):
         n = NetAddr("127.0.0.1", 57120);
+        oscpath = '/msg'
+        result = None
 
-        # # Bundle: with no latency should be always be *true* because client time (Main.elapsedTime) is read twice, low level and within the OSCFunc, this is something to bear in mind.
-        # o = OscFunc({ arg ...args; (args[1] < Main.elapsedTime).postln; }, "/msg");
-        # n.sendBundle(0, ["/msg"]);
-        # o.free;
-        #
-        # # Message: should be always be *true* due to processing time.
-        # o = OscFunc({ arg ...args; (args[1] < Main.elapsedTime).postln; }, "/msg");
-        # n.sendMsg("/msg");
-        # o.free;
-        #
-        # # Bundle: should be always be *false* with enough latency (network + processing).
-        # o = OscFunc({ arg ...args; (args[1] < Main.elapsedTime).postln; }, "/msg");
-        # n.sendBundle(1, ["/msg"]);
-        # o.free;
+        def func(*args):
+            nonlocal result
+            result = args[1] < main.elapsed_time()
+            main.resume()
+
+        f = OscFunc(func, oscpath)
+
+        lst = [
+            # Bundle: with no latency should be always be True because client
+            # time (main.elapsed_time) is read twice, low level and within the
+            # OscFunc, this is something to bear in mind.
+            [lambda: n.send_bundle(0, [oscpath]), True],
+            [lambda: n.send_bundle(None, [oscpath]), True],
+            # Bundle: should be always be False with enough latency
+            # (network + processing).
+            [lambda: n.send_bundle(1, [oscpath]), False],
+            # Message: should be always be True due to processing time.
+            [lambda: n.send_msg(oscpath), True]
+        ]
+
+        for i, (lamb, value) in enumerate(lst):
+            with self.subTest(case=i):
+                lamb()
+                self.assertTrue(main.wait(1))
+                self.assertIs(result, value)
+                result = None
+
+        f.free()
 
 
 if __name__ == '__main__':

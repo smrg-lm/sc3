@@ -151,7 +151,7 @@ class RtMain(metaclass=Process):
         cls._osc_interface = osci.OscUdpInterface(
             sc3.LIB_PORT, sc3.LIB_PORT_RANGE)
         cls._osc_interface.start()
-        cls._main_run_cond = None
+        cls._main_wait_cond = threading.Condition(cls._main_lock)
 
         clb.ClassLibrary.init()
         cls._startup()
@@ -205,47 +205,54 @@ class RtMain(metaclass=Process):
             raise Exception('main lock must be called from the main thread')
 
     @classmethod
-    def wait(cls, tail=0):
-        '''Main thread lock.
+    def wait(cls, timeout=None, tail=0):
+        '''Main thread lock until timeout or notified by ``resume``.
 
         Parameters
         ----------
-        tail:
-            Wait time added after ``resume`` is called.
+        timeout: float
+            Optional wait time for the lock in seconds.
+        tail: float
+            Optional sleep time in seconds added after ``resume`` is called,
+            tail time is ignored if the the given timeout expired.
+        Returns
+        -------
+        bool
+            The value is False if ``timeout`` expired otherwise is True.
         '''
 
         cls._check_main_thread()
-        if not cls._main_run_cond:
-            cond = threading.Condition(cls._main_lock)
-            with cond:
-                if cls._main_run_cond:
-                    return
-                try:
-                    cls._main_run_cond = cond
-                    cls._main_run_cond.wait()
-                except KeyboardInterrupt:
-                    pass
-                finally:
-                    cls._main_run_cond = None
-        if tail > 0:
+        not_expired = False
+        with cls._main_wait_cond:
+            try:
+                not_expired = cls._main_wait_cond.wait(timeout)
+            except KeyboardInterrupt:
+                pass
+        if not_expired and tail > 0:
             time.sleep(tail)
+        return not_expired
 
     @classmethod
     def resume(cls):
         '''Unlock main thread.'''
 
-        if cls._main_run_cond:
-            with cls._main_run_cond:
-                cls._main_run_cond.notify()
+        with cls._main_wait_cond:
+            cls._main_wait_cond.notify()
 
     @classmethod
-    def sync(cls, server):
+    def sync(cls, server, timeout=None):
         '''Main thread blocking sync command.
 
         Parameters
         ----------
         server: Server
             Instance to wait for.
+        timeout: float
+            Optional wait time for the lock in seconds.
+        Returns
+        -------
+        bool
+            The value is False if ``timeout`` expired otherwise is True.
         '''
 
         cls._check_main_thread()
@@ -259,7 +266,7 @@ class RtMain(metaclass=Process):
 
             resp = rdf.OscFunc(resp_func, '/synced', server.addr)
             server.addr.send_msg('/sync', id)
-            cls.wait()
+            return cls.wait(timeout)
 
 
 class NrtMain(metaclass=Process):

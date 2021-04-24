@@ -42,7 +42,7 @@ The following example can be run as command line script:
 
   # Generate the OSC score.
   score = main.process(2)
-  # Elapsed time is the sum of all yielded values without tail.
+  # Elapsed time is the sum of all yielded values without tail time.
   print('elapsed time =', main.elapsed_time())
   # Dump OSC commands score.
   print(score)

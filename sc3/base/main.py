@@ -205,16 +205,16 @@ class RtMain(metaclass=Process):
             raise Exception('main lock must be called from the main thread')
 
     @classmethod
-    def wait(cls, timeout=None, tail=0):
+    def wait(cls, timeout=None, tailtime=0):
         '''Main thread lock until timeout or notified by ``resume``.
 
         Parameters
         ----------
         timeout: float
             Optional wait time for the lock in seconds.
-        tail: float
+        tailtime: float
             Optional sleep time in seconds added after ``resume`` is called,
-            tail time is ignored if the the given timeout expired.
+            tailtime time is ignored if the the given timeout expired.
         Returns
         -------
         bool
@@ -228,8 +228,8 @@ class RtMain(metaclass=Process):
                 not_expired = cls._main_wait_cond.wait(timeout)
             except KeyboardInterrupt:
                 pass
-        if not_expired and tail > 0:
-            time.sleep(tail)
+        if not_expired and tailtime > 0:
+            time.sleep(tailtime)
         return not_expired
 
     @classmethod
@@ -307,11 +307,11 @@ class NrtMain(metaclass=Process):
             cls.main_tt._m_seconds = seconds
 
     @classmethod
-    def process(cls, tail=0):
+    def process(cls, tailtime=0):
         '''Generate and return the OSC score.'''
 
         cls._clock_scheduler.run()
-        cls._osc_interface._osc_score.finish(tail)
+        cls._osc_interface._osc_score.finish(tailtime)
         cls.osc_score = cls._osc_interface._osc_score
         return cls.osc_score
 

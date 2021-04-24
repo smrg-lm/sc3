@@ -213,4 +213,4 @@ resumes when ``r`` is finished so the script can exit.
 
   # Wait on the main thread and compensate
   # latency with end time before exit.
-  main.wait(s.latency)
+  main.wait(tailtime=s.latency)

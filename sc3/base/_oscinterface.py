@@ -494,7 +494,7 @@ class OscScore():
             time += _libsc3.main.current_tt.seconds
         return time
 
-    def finish(self, tail=0.0):
+    def finish(self, tailtime=0.0):
         if self._finished:
             return
         # This method uses the logical time of its call as the others
@@ -502,8 +502,8 @@ class OscScore():
         # needs to undo the check of _get_timetag and _get_logical_time.
         # Those methods and this one would need refactoring all at once.
         if _libsc3.main.current_tt is _libsc3.main.main_tt:
-            tail += _libsc3.main.current_tt.seconds
-        self.add([tail, ['/c_set', 0, 0]])  # Dummy cmd.
+            tailtime += _libsc3.main.current_tt.seconds
+        self.add([tailtime, ['/c_set', 0, 0]])  # Dummy cmd.
         for _, entry in self._scoreq:
             self._lst_score.append(entry.bndl)
             self._raw_score.extend(entry.msg)

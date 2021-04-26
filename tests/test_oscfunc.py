@@ -12,7 +12,7 @@ from sc3.base.responsedefs import OscFunc
 
 
 class OscFuncTestCase(unittest.TestCase):
-    def test_bundle_atomicity(self):
+    def test_bndl_atomicity(self):
         n = NetAddr("127.0.0.1", NetAddr.lang_port());
         messages = ['/msg1', '/msg2', '/msg3', '/msg4']
         scrambled = ['/msg4', '/msg2', '/msg1', '/msg3']
@@ -74,6 +74,17 @@ class OscFuncTestCase(unittest.TestCase):
                 result = None
 
         f.free()
+
+    # BUG: Messages should have exactly the same decimal part (as in sclang).
+    # This is needed for nested bundle times. Requires low level change
+    # to UDP/TCP code. Is not critical.
+    # def test_bndl_processing_time(self):
+    #     n = NetAddr('127.0.0.1', 57120)
+    #     o = OscFunc(lambda *args: print(args), '/msg')
+    #     # Same time of arrival.
+    #     n.send_bundle(0, ['/msg', 1], ['/msg', 2])
+    #     n.send_bundle(0, ['/msg', 1], [1, ['/msg', 2]])
+    #     n.send_bundle(0, [1, ['/msg', 1], [2, ['/msg', 2]]])
 
 
 if __name__ == '__main__':

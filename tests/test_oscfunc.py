@@ -43,7 +43,7 @@ class OscFuncTestCase(unittest.TestCase):
 
     def test_bndl_msg_recv_time(self):
         n = NetAddr("127.0.0.1", NetAddr.lang_port());
-        oscpath = '/msg'
+        oscaddr = '/msg'
         result = None
 
         def func(*args):
@@ -51,24 +51,24 @@ class OscFuncTestCase(unittest.TestCase):
             result = args[1] < main.elapsed_time()
             main.resume()
 
-        f = OscFunc(func, oscpath)
+        f = OscFunc(func, oscaddr)
 
         lst = [
             # Bundle: with no latency should be always be True because client
             # time (main.elapsed_time) is read twice, low level and within the
             # OscFunc, this is something to bear in mind.
-            [lambda: n.send_bundle(0, [oscpath]), True],
-            [lambda: n.send_bundle(None, [oscpath]), True],
+            [lambda: n.send_bundle(0, [oscaddr]), True],
+            [lambda: n.send_bundle(None, [oscaddr]), True],
             # Bundle: should be always be False with enough latency
             # (network + processing).
-            [lambda: n.send_bundle(1, [oscpath]), False],
+            [lambda: n.send_bundle(1, [oscaddr]), False],
             # Message: should be always be True due to processing time.
-            [lambda: n.send_msg(oscpath), True]
+            [lambda: n.send_msg(oscaddr), True]
         ]
 
-        for i, (lamb, value) in enumerate(lst):
+        for i, (lmbd, value) in enumerate(lst):
             with self.subTest(case=i):
-                lamb()
+                lmbd()
                 main.wait()
                 self.assertIs(result, value)
                 result = None

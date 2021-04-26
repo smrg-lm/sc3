@@ -22,7 +22,7 @@ class NetAddr():
     # actual limit for the data length, which is imposed by the underlying
     # IPv4 protocol, is 65,507 bytes (65,535 − 8 byte UDP header − 20 byte
     # IP header)".
-    _MAX_UDP_DGRAM_SIZE = 65507
+    _MAX_UDP_DGRAM_SIZE = 65504  # It is 4 instead of 7 (pad4).
     _SYNC_BNDL_DGRAM_SIZE = 36  # Size of bundle(latency, ['/sync', id]) dgram.
 
     def __init__(self, hostname, port):

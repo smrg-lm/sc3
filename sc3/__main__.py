@@ -16,13 +16,13 @@ parser.add_argument(
     '-N', '--nrt', action='store_const', const='nrt',
     help='non real time mode')
 parser.add_argument(
-    '-u', '--udp-port', type=int, default=57120,
+    '-u', '--udp-port', type=int, default=sc3.LIB_PORT,
     help='udp library port')
 parser.add_argument(
-    '-r', '--port-range', type=int, default=10,
+    '-r', '--port-range', type=int, default=sc3.LIB_PORT_RANGE,
     help='udp available port range')
 parser.add_argument(
-    '-s', '--setup-file', type=str, default=None,
+    '-s', '--setup-file', type=str, default=sc3.LIB_SETUP_FILE,
     help='library setup.py file')
 parser.add_argument(
     '-V', '--verbosity', type=int, default=20,

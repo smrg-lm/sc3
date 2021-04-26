@@ -42,7 +42,7 @@ class OscFuncTestCase(unittest.TestCase):
             f.free()
 
     def test_bndl_msg_recv_time(self):
-        n = NetAddr("127.0.0.1", 57120);
+        n = NetAddr("127.0.0.1", NetAddr.lang_port());
         oscpath = '/msg'
         result = None
 
@@ -79,7 +79,7 @@ class OscFuncTestCase(unittest.TestCase):
     # This is needed for nested bundle times. Requires low level change
     # to UDP/TCP code. Is not critical.
     # def test_bndl_processing_time(self):
-    #     n = NetAddr('127.0.0.1', 57120)
+    #     n = NetAddr('127.0.0.1', NetAddr.lang_port())
     #     o = OscFunc(lambda *args: print(args), '/msg')
     #     # Same time of arrival.
     #     n.send_bundle(0, ['/msg', 1], ['/msg', 2])

@@ -2,9 +2,9 @@
 import unittest
 
 import sc3
-from sc3.base.model import NotificationCenter
-
 sc3.init()
+
+from sc3.base.model import NotificationCenter
 
 
 class NotificationCenterTestCase(unittest.TestCase):

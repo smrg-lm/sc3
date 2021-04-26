@@ -2,6 +2,8 @@
 import unittest
 
 import sc3
+sc3.init()
+
 from sc3.synth.synthdef import SynthDef, synthdef, _logger
 from sc3.synth.ugens.line import DC
 from sc3.synth.ugens.inout import Out
@@ -9,7 +11,7 @@ from sc3.synth.spec import spec
 from sc3.synth.synthdesc import MdPlugin
 from sc3.base.platform import Platform
 
-sc3.init()
+
 _logger.setLevel('ERROR')
 
 

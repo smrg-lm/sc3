@@ -4,12 +4,11 @@ from threading import Thread, Barrier
 from functools import partial
 
 import sc3
-from sc3.base.netaddr import NetAddr
-from sc3.base.responsedefs import OscFunc
-
 sc3.init()
 
 from sc3.base.main import main
+from sc3.base.netaddr import NetAddr
+from sc3.base.responsedefs import OscFunc
 
 
 class OscFuncTestCase(unittest.TestCase):

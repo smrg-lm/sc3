@@ -2,10 +2,10 @@
 import unittest
 
 import sc3
+sc3.init()
+
 from sc3.base.netaddr import NetAddr
 from sc3.base.responsedefs import OscFunc
-
-sc3.init()
 
 
 class BundleTestCase(unittest.TestCase):

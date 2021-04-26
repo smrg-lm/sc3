@@ -3,13 +3,13 @@ import unittest
 from threading import Thread, Barrier
 
 import sc3
+sc3.init()
+
 from sc3.base.stream import (
     Routine, routine, StopStream, PausedStream, AlwaysYield,
     YieldAndReset, Condition, FlowVar)
 from sc3.base.clock import TempoClock, defer
 from sc3.base.builtins import rrand
-
-sc3.init()
 
 
 class RoutineTestCase(unittest.TestCase):

@@ -3,11 +3,11 @@ import unittest
 import operator
 
 import sc3
+sc3.init()
+
 import sc3.base.builtins as bi
 from sc3.base.functions import (
     Function, function, UnaryOpFunction, BinaryOpFunction, NAryOpFunction)
-
-sc3.init()
 
 
 class FunctionTestCase(unittest.TestCase):

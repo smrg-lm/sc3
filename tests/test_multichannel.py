@@ -3,12 +3,12 @@ import unittest
 import operator
 
 import sc3
+sc3.init()
+
 import sc3.base.builtins as bi
 from sc3.base.utils import list_unop, list_binop, list_narop
 from sc3.synth.ugen import ChannelList, BinaryOpUGen
 from sc3.synth.ugens.oscillators import SinOsc
-
-sc3.init()
 
 
 class SeqOpTestCase(unittest.TestCase):

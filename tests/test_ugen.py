@@ -2,12 +2,12 @@
 import unittest
 
 import sc3
+sc3.init()
+
 from sc3.synth.ugen import UGen
 from sc3.synth.ugens.oscillators import Impulse
 from sc3.synth.ugens.infougens import BufSampleRate
 from sc3.synth.ugens.poll import Poll
-
-sc3.init()
 
 
 class UGenTestCase(unittest.TestCase):

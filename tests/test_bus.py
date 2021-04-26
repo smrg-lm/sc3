@@ -3,10 +3,10 @@ import unittest
 import shutil
 
 import sc3
+sc3.init()
+
 from sc3.synth.bus import Bus, AudioBus, ControlBus
 from sc3.synth.server import s
-
-sc3.init()
 
 
 @unittest.skipIf(not shutil.which(s.options.program), 'no server available')

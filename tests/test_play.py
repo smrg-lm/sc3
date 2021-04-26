@@ -2,14 +2,13 @@
 import unittest
 
 import sc3
+sc3.init('nrt')
+
+from sc3.base.main import main
 from sc3.base.play import play
 from sc3.synth.systemdefs import SystemDefs
 from sc3.synth.node import Synth
 from sc3.synth.ugens import Silent, SinOsc
-
-sc3.init('nrt')
-
-from sc3.base.main import main
 
 
 class PlayTestCase(unittest.TestCase):

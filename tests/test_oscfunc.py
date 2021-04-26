@@ -69,7 +69,7 @@ class OscFuncTestCase(unittest.TestCase):
         for i, (lamb, value) in enumerate(lst):
             with self.subTest(case=i):
                 lamb()
-                self.assertTrue(main.wait(1))
+                main.wait()
                 self.assertIs(result, value)
                 result = None
 

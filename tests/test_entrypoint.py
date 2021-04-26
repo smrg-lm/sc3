@@ -31,3 +31,7 @@ class EntryPointTestCase(unittest.TestCase):
             f'{script} TEST_ARG_VALUE')
         ret = os.system(cmd2)
         self.assertEqual(ret, 0)
+
+
+if __name__ == '__main__':
+    unittest.main()

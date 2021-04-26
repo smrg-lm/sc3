@@ -85,3 +85,7 @@ class NrtTestCase(unittest.TestCase):
         r1.play(TempoClock(3))
         score = main.process()
         self.assertTrue(math.isclose(main.elapsed_time(), 2.0))
+
+
+if __name__ == '__main__':
+    unittest.main()

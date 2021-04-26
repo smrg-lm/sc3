@@ -1,5 +1,6 @@
 
 import unittest
+import shutil
 
 import sc3
 from sc3.synth.bus import Bus, AudioBus, ControlBus
@@ -8,8 +9,7 @@ from sc3.synth.server import s
 sc3.init()
 
 
-# TODO: Needs a server in travis.
-
+@unittest.skipIf(not shutil.which(s.options.program), 'no server available')
 class BusTestCase(unittest.TestCase):
     def test_common_interface(self):
         b1 = ControlBus(5)
@@ -31,3 +31,7 @@ class BusTestCase(unittest.TestCase):
         b = ControlBus(8)
         self.assertEqual(b.channels, 8)
         ...
+
+
+if __name__ == '__main__':
+    unittest.main()

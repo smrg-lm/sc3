@@ -52,3 +52,7 @@ class PlayTestCase(unittest.TestCase):
 
     # def test_buffers(self):
     #     ...
+
+
+if __name__ == '__main__':
+    unittest.main()

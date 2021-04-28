@@ -151,7 +151,9 @@ class RtMain(metaclass=Process):
         cls._osc_interface = osci.OscUdpInterface(
             sc3.LIB_PORT, sc3.LIB_PORT_RANGE)
         cls._osc_interface.start()
-        cls._main_wait_cond = threading.Condition(cls._main_lock)
+
+        cls._wait_cond = threading.Condition(cls._main_lock)
+        cls._wait_count = 0
 
         clb.ClassLibrary.init()
         cls._startup()
@@ -198,46 +200,80 @@ class RtMain(metaclass=Process):
     # Main thread blocking control for scripts.
 
     @classmethod
-    def _check_main_thread(cls):
-        # if cls.current_tt != cls.main_tt:
-        #     raise Exception('main lock called from a TimeThread')
-        if threading.main_thread() is not threading.current_thread():
-            raise Exception('main lock must be called from the main thread')
+    def _is_main_thread(cls):
+        if threading.main_thread() is threading.current_thread():
+            return True
+        else:
+            return False
 
     @classmethod
-    def wait(cls, timeout=None, tailtime=0):
+    def wait(cls, timeout=None, tasks=1, tailtime=0):
         '''Main thread lock until timeout or notified by ``resume``.
+
+        This method doesn't have to acquire a lock before calling.
+        Internally it uses a counter to follow the calls to `main.resume()`
+        which may happen even before this method is called and will resume
+        when the count is less or equal to zero or after timeout (if present).
+        The internal counter is reset after this method resumes.
+
+        Note: This is an utility method that makes less verbose the code for
+        some simple actions that need to wait for routines to finish.
 
         Parameters
         ----------
         timeout: float
             Optional wait time for the lock in seconds.
+        tasks: int
+            Number of tasks that have to call `main.resume()` to unlock the
+            main thread.
         tailtime: float
             Optional sleep time in seconds added after ``resume`` is called,
             tailtime time is ignored if the the given timeout expired.
         Returns
         -------
         bool
-            The value is False if ``timeout`` expired otherwise is True.
+            The value is False if `timeout` expired otherwise is True.
         '''
 
-        cls._check_main_thread()
+        if not cls._is_main_thread():
+            raise Exception('main.wait() must be called from the main thread')
         not_expired = False
-        with cls._main_wait_cond:
+        with cls._wait_cond:
             try:
-                not_expired = cls._main_wait_cond.wait(timeout)
+                prev_time = curr_time = time_diff = None
+                cls._wait_count += tasks
+                while cls._wait_count > 0:
+                    prev_time = time.time()
+                    not_expired = cls._wait_cond.wait(timeout)
+                    curr_time = time.time()
+                    if not_expired and cls._wait_count > 0:
+                        time_diff = curr_time - prev_time
+                        prev_time = curr_time
+                        timeout -= time_diff
+                    else:
+                        break
             except KeyboardInterrupt:
                 pass
+            finally:
+                cls._wait_count = 0
         if not_expired and tailtime > 0:
             time.sleep(tailtime)
         return not_expired
 
     @classmethod
     def resume(cls):
-        '''Unlock main thread.'''
+        '''Unlock the main thread.
 
-        with cls._main_wait_cond:
-            cls._main_wait_cond.notify()
+        This method must be called from another thread, e.g. from a routine
+        scheduled by a clock using `play`.
+        '''
+
+        if cls._is_main_thread():
+            raise Exception(
+                'main.resume() cannot be called from the main thread')
+        with cls._wait_cond:
+            cls._wait_count -= 1
+            cls._wait_cond.notify()
 
     @classmethod
     def sync(cls, server, timeout=None):
@@ -255,18 +291,25 @@ class RtMain(metaclass=Process):
             The value is False if ``timeout`` expired otherwise is True.
         '''
 
-        cls._check_main_thread()
-        with cls._main_lock:
-            id = bi.uid()
+        if not cls._is_main_thread():
+            raise Exception('main.sync() must be called from the main thread')
 
-            def resp_func(msg, *_):
-                if msg[1] == id:
-                    resp.free()
-                    cls.resume()
+        id = bi.uid()
 
-            resp = rdf.OscFunc(resp_func, '/synced', server.addr)
+        def resp_func(msg, *_):
+            if msg[1] == id:
+                resp.free()
+                with cls._wait_cond:
+                    cls._wait_cond.notify()
+
+        resp = rdf.OscFunc(resp_func, '/synced', server.addr)
+
+        with main._wait_cond:
             server.addr.send_msg('/sync', id)
-            return cls.wait(timeout)
+            try:
+                return cls._wait_cond.wait(timeout)
+            except KeyboardInterrupt:
+                resp.free()
 
 
 class NrtMain(metaclass=Process):

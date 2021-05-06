@@ -3,6 +3,7 @@
 from ...base import builtins as bi
 from ...base import stream as stm
 from .. import pattern as ptt
+from .. import eventstream as est
 
 
 class ValuePattern(ptt.Pattern):

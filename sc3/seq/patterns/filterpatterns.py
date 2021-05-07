@@ -510,3 +510,8 @@ class Pavaroh(FilterPattern):
         return inval
 
     # storeArgs
+
+
+# class Pprotect(FilterPattern):
+#     # // if an error is thrown in the stream, func is evaluated
+#     ...

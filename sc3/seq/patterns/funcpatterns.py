@@ -124,3 +124,31 @@ class Pproduct(FunctionPattern):  # Was PstepNfunc.
 # con usar un operador enario directamente?
 # class PdegreeToKey(Pnarop):
 #     ...
+
+
+class Pif(FunctionPattern):
+    # This implementation is a bit different from the original, there is no
+    # default value and the stream ends with the first raised StopStream.
+    def __init__(self, condition, iftrue, iffalse):
+        self.condition = condition
+        self.iftrue = iftrue
+        self.iffalse = iffalse
+
+    def __stream__(self):
+        cond_stream = stm.stream(self.condition)
+        true_stream = stm.stream(self.iftrue)
+        false_stream = stm.stream(self.iffalse)
+
+        def next_func(inval):
+            test = cond_stream.next(inval)
+            if test:
+                return true_stream.next(inval)
+            else:
+                return false_stream.next(inval)
+
+        def reset_func():
+            cond_stream.reset()
+            true_stream.reset()
+            false_stream.reset()
+
+        return stm.FunctionStream(next_func, reset_func)

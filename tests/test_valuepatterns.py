@@ -10,7 +10,7 @@ from sc3.base.stream import routine, embed
 from sc3.base.clock import TempoClock
 from sc3.seq.patterns.eventpatterns import Pbind
 from sc3.seq.patterns.listpatterns import Pseq
-from sc3.seq.patterns.valuepatterns import Ptime
+from sc3.seq.patterns.valuepatterns import *
 
 
 class ValuePatternsTestCase(unittest.TestCase):
@@ -36,3 +36,7 @@ class ValuePatternsTestCase(unittest.TestCase):
         main.process()
         for r, t in zip(result, [0.0, 0.5, 1] * 2):
             self.assertTrue(math.isclose(r, t))
+
+
+if __name__ == '__main__':
+    unittest.main()

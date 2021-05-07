@@ -2,6 +2,7 @@
 
 from ...base import builtins as bi
 from ...base import stream as stm
+from ...base import main as _libsc3
 from .. import pattern as ptt
 from .. import eventstream as est
 
@@ -159,4 +160,21 @@ class Pprob(ValuePattern):
                 inval = yield (bi.table_rand(table) * (hval - lval)) + lval
         except stm.StopStream:
             pass
+        return inval
+
+
+class Ptime(ValuePattern):
+    # // Returns relative time (in beats) from moment of embedding.
+    def __init__(self, repeats=float('inf')):
+        self.repeats = repeats
+
+    def __embed__(self, inval):
+        clock = _libsc3.main.current_tt._clock
+        if clock is None:
+            for _ in bi.counter(self.repeats):
+                inval = yield 0.0
+        else:
+            start = clock.beats
+            for _ in bi.counter(self.repeats):
+                inval = yield clock.beats - start
         return inval

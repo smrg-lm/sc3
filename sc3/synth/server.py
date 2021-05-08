@@ -453,6 +453,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         self._status_watcher = sst.ServerStatusWatcher(server=self)
         self._node_watcher = ndw.NodeWatcher(server=self)
+        self._process_quit_requested = False
 
         self._set_client_id(0)  # Assumed id to work without booting.
 
@@ -1003,11 +1004,11 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._pid = None
         self._pid_release_condition.signal()
         _logger.info(f"server '{self.name}' exited with exit code {exit_code}")
-        if self._status_watcher._server_booting\
-        and not self._status_watcher._server_rebooting:
-            self._status_watcher._server_booting = False
+        if not self._process_quit_requested\
+        and self._status_watcher._server_booting:
             self._status_watcher._perform_actions('boot', 'on_failure')
             _logger.warning(f"server '{self.name}' failed to boot")
+        self._process_quit_requested = False
         # In case of server crash or Exception in World_OpenUDP: bind: Address
         # already in use, status_watcher should stop to avoid registering to
         # another local server. See note in boot(). There sould be a better
@@ -1114,6 +1115,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
         self._status_watcher._add_action('quit', _on_complete, _on_failure)
         self._status_watcher._quit(watch_shutdown)
+        self._process_quit_requested = True
         self.addr.send_msg('/quit')  # Send quit after responders are in place.
 
         if self._in_process:

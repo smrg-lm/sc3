@@ -319,7 +319,7 @@ class ServerStatusWatcher():
             self._perform_actions('quit', 'on_complete')
         # Only changes flags affected when quitting.
         self._set_server_running(False)
-        self._server_quitting = False
+        # self._server_quitting = False  # Async done by on_complete/failure.
         self._notified = False
         self._max_logins = None
         # // server.changed(\serverRunning) should be deferred in dependants!

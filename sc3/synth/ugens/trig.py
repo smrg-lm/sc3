@@ -75,11 +75,11 @@ class TDelay(Trig1):
 class Latch(ugn.UGen):
     @classmethod
     def ar(cls, input=0.0, trig=0.0):
-        return cls._muli_new('audio', input, trig)
+        return cls._multi_new('audio', input, trig)
 
     @classmethod
     def kr(cls, input=0.0, trig=0.0):
-        return cls._muli_new('control', input, trig)
+        return cls._multi_new('control', input, trig)
 
 
 class Gate(Latch):
@@ -102,11 +102,11 @@ class PulseCount(ugn.UGen):
 class Peak(ugn.UGen):
     @classmethod
     def ar(cls, input=0.0, trig=0.0):
-        return cls._muli_new('audio', input, trig)
+        return cls._multi_new('audio', input, trig)
 
     @classmethod
     def kr(cls, input=0.0, trig=0.0):
-        return cls._muli_new('control', input, trig)
+        return cls._multi_new('control', input, trig)
 
     def _check_inputs(self):  # override
         if self.rate == 'control'\

@@ -145,7 +145,7 @@ class RtMain(metaclass=Process):
         # to main._time_of_initialization. Comment to be removed later if
         # true.
         cls._time_of_initialization = time.time()  # time_since_epoch
-        cls._perf_counter_time_of_initialization = time.perf_counter()  # monotonic clock.
+        cls._monotonic_clock_init_time = time.monotonic()  # monotonic clock
         cls.main_tt = stm._MainTimeThread()
         cls.current_tt = cls.main_tt
         cls._osc_interface = osci.OscUdpInterface(
@@ -168,9 +168,7 @@ class RtMain(metaclass=Process):
     @classmethod
     def elapsed_time(cls):
         '''Physical time since library initialization.'''
-        # *elapsedTime _ElapsedTime
-        # Returns the more accurate clock time minus _time_of_initialization.
-        return time.perf_counter() - cls._perf_counter_time_of_initialization
+        return time.monotonic() - cls._monotonic_clock_init_time
 
     @classmethod
     def update_logical_time(cls, seconds=None):

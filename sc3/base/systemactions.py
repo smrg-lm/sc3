@@ -33,8 +33,9 @@ class SystemAction():
 
     @classmethod
     def _do_action(cls, action):
-        args, kwargs = cls._actions[action]
-        action(*args, **kwargs)
+        if action in cls._actions:  # May be removed by a previous action.
+            args, kwargs = cls._actions[action]
+            action(*args, **kwargs)
 
 
 class CmdPeriod(SystemAction):

@@ -73,7 +73,7 @@ class Defaults(enum.Enum):
     # Supernova only.
     MEMORY_LOCKING = ('-L', None)  # mode flag
     THREADS = ('-T', 4)  # opt int
-    USE_SYSTEM_CLOCK = ('-C', 0)  # opt bool
+    USE_SYSTEM_CLOCK = ('-C', 1)  # opt bool
 
     # Darwin only.
     INPUT_STREAMS = ('-I', None)  # opt str, input_streams_enabled
@@ -232,7 +232,7 @@ class ServerOptions():
                 o.append(Defaults.MEMORY_LOCKING.flag)
             if self.threads != Defaults.THREADS.default:
                 o.extend([Defaults.THREADS.flag, str(self.threads)])
-            if self.use_system_clock != Defaults.USE_SYSTEM_CLOCK.default:
+            if True:  # self.use_system_clock != Defaults.USE_SYSTEM_CLOCK.default:
                 o.extend([Defaults.USE_SYSTEM_CLOCK.flag,
                     str(int(self.use_system_clock))])
 

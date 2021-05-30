@@ -12,7 +12,7 @@ eto = SystemClock.elapsed_time_to_osc(et)
 eoo02 = SystemClock._elapsed_osc_offset
 ote = SystemClock.osc_to_elapsed_time(eto)
 eoo03 = SystemClock._elapsed_osc_offset
-if eoo01 == eoo02 == eoo03:  # _elapsed_osc_offset not affected by _resync_thread_func.
+if eoo01 == eoo02 == eoo03:  # assert
     [et, eto, ote, et - ote]  # conversion and rouding error.
 
 

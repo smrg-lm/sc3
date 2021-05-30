@@ -111,94 +111,22 @@ class MetaSystemClock(MetaClock):
 
 
 class SystemClock(Clock, metaclass=MetaSystemClock):
-    _SECONDS_FROM_1900_TO_1970 = 2208988800 # (int32)UL # 17 leap years
-    _NANOS_TO_OSC = 4.294967296 # PyrSched.h: const double kNanosToOSC  = 4.294967296; // pow(2,32)/1e9
-    _MICROS_TO_OSC = 4294.967296 # PyrSched.h: const double kMicrosToOSC = 4294.967296; // pow(2,32)/1e6
-    _SECONDS_TO_OSC = 4294967296. # PyrSched.h: const double kSecondsToOSC  = 4294967296.; // pow(2,32)/1
-    _OSC_TO_NANOS = 0.2328306436538696# PyrSched.h: const double kOSCtoNanos  = 0.2328306436538696; // 1e9/pow(2,32)
-    _OSC_TO_SECONDS = 2.328306436538696e-10 # PyrSched.h: const double kOSCtoSecs = 2.328306436538696e-10;  // 1/pow(2,32)
+    _SECONDS_FROM_1900_TO_1970 = 2208988800  # 17 leap years
+    _SECONDS_TO_OSC = pow(2, 32) / 1
+    _OSC_TO_SECONDS = 1 / pow(2, 32)
 
     def __new__(cls):
         return cls
 
     @classmethod
     def _sched_init(cls):
-        # _time_of_initialization was moved to main because rt/nrt clock switch.
-        cls._host_osc_offset = 0 # int64
-        cls._sync_osc_offset_with_tod()
-        cls._host_start_nanos = int(_libsc3.main._time_of_initialization / 1e-9)
-        cls._elapsed_osc_offset = int(
-            cls._host_start_nanos * cls._NANOS_TO_OSC
-        ) + cls._host_osc_offset
-
-        # same every 20 secs
-        cls._resync_cond = threading.Condition()
-        cls._resync_thread = threading.Thread(
-            target=cls._resync_thread_func,
-            name=f'{cls.__name__}.resync',
-            daemon=True)
-        cls._resync_thread.start()
-
-    @classmethod
-    def _sync_osc_offset_with_tod(cls):
-        # // generate a value gHostOSCoffset such that
-        # // (gHostOSCoffset + systemTimeInOSCunits)
-        # // is equal to gettimeofday time in OSCunits.
-        # // Then if this machine is synced via NTP
-        # // we are synced with the world.
-        # // more accurate way to do this??
-        number_of_tries = 8
-        diff = 0 # int64
-        min_diff = 0x7fffFFFFffffFFFF # int64
-        new_offset = cls._host_osc_offset
-
-        for i in range(0, number_of_tries):
-            system_time_before = _time.time()  # must be the same epoch
-            time_of_day = _time.time()  # must be gmt time
-            system_time_after = _time.time()
-
-            system_time_before = int(system_time_before / 1e-9)
-            system_time_after = int(system_time_after / 1e-9)
-            diff = system_time_after - system_time_before
-
-            if diff < min_diff:
-                min_diff = diff
-
-                system_time_between = system_time_before + diff // 2
-                system_time_in_osc_units = int(
-                    system_time_between * cls._NANOS_TO_OSC)
-
-                # mimics
-                tv_sec = int(time_of_day)
-                tv_usec = int((time_of_day % 1) / 1e-6)
-                time_of_day_in_osc_units = (
-                    (int(tv_sec + cls._SECONDS_FROM_1900_TO_1970) << 32)
-                    + int(tv_usec * cls._MICROS_TO_OSC))
-
-                new_offset = time_of_day_in_osc_units - system_time_in_osc_units
-
-        # This function seems to add only the jitter between clock calls here
-        # and in sclang. Running every 20 seconds or 1 minute would be the same
-        # if the date clock wasn't adjusted by ntp. Based on the logged numbers
-        # osc time may jump up to ~700 nanoseconds, far from ~238 picoseconds.
-        # NOTE: Without this bundles will be late.
-        # print('new offset diff:', cls._host_osc_offset - new_offset)
-        cls._host_osc_offset = new_offset
-
-    @classmethod
-    def _resync_thread_func(cls):  # L408
-        cls._run_resync = True
-
-        with cls._resync_cond:
-            while cls._run_resync:
-                cls._resync_cond.wait(20)
-                if not cls._run_resync:
-                    return
-
-                cls._sync_osc_offset_with_tod()
-                cls._elapsed_osc_offset = int(
-                    cls._host_start_nanos * cls._NANOS_TO_OSC
-                ) + cls._host_osc_offset
+        # _time_of_initialization was moved
+        # to main because rt/nrt clock switch.
+        host_start_osc = int(
+            _libsc3.main._time_of_initialization * cls._SECONDS_TO_OSC)
+        host_osc_offset = int(
+            cls._SECONDS_FROM_1900_TO_1970 * cls._SECONDS_TO_OSC)
+        cls._elapsed_osc_offset = int(host_start_osc) + host_osc_offset
 
     @classmethod
     def elapsed_time_to_osc(cls, elapsed: float) -> int:  # int64
@@ -228,14 +156,9 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
         if not cls._run_sched:
             return
         with cls._sched_cond:
-            with cls._resync_cond:
-                if cls._run_resync:
-                    cls._run_resync = False
-                    cls._resync_cond.notify()
             cls._task_queue.clear()
             cls._run_sched = False
             cls._sched_cond.notify_all()
-        cls._resync_thread.join()
         cls._thread.join()
 
     @classmethod

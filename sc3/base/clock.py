@@ -202,15 +202,11 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
     @classmethod
     def elapsed_time_to_osc(cls, elapsed: float) -> int:  # int64
-        return int(
-            elapsed * cls._SECONDS_TO_OSC
-        ) + cls._elapsed_osc_offset
+        return int(elapsed * cls._SECONDS_TO_OSC) + cls._elapsed_osc_offset
 
     @classmethod
     def osc_to_elapsed_time(cls, osctime: int) -> float:
-        return float(
-            osctime - cls._elapsed_osc_offset
-        ) * cls._OSC_TO_SECONDS
+        return float(osctime - cls._elapsed_osc_offset) * cls._OSC_TO_SECONDS
 
     @classmethod
     def osc_time(cls) -> int:

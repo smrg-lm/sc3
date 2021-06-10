@@ -33,7 +33,6 @@ For more information, please refer to <http://unlicense.org/>
 
 
 import struct
-import socketserver
 import sys
 import logging
 import collections
@@ -849,8 +848,9 @@ class OscPacket():
             self._messages = [TimedMessage(None, OscMessage(dgram))]
         else:
             # Empty packet (because UDP).
-            raise OscParseError('OSC packet should at least contain '
-                                'an OscMessage or OscBundle')  # *** BUG: ver si un msj con solo address vale
+            raise OscParseError(
+                'OSC packet should at least contain '
+                'an OscMessage or OscBundle')
 
     @property
     def messages(self):
@@ -864,33 +864,3 @@ class OscPacket():
             else:
                 messages.extend(self._get_bundle_messages(content))
         return messages
-
-
-### OSC Server ###
-
-
-class UDPHandler(socketserver.BaseRequestHandler):
-    def handle(self):  # override
-        packet = OscPacket(self.request[0])
-        for timed_msg in packet.messages:
-            msg = [timed_msg.message.address, *timed_msg.message.params]
-            _libsc3.main._osc_interface.recv(
-                self.client_address, timed_msg.time, *msg)
-        # NOTE: Exception are handled by BaseServer.handle_error, "The default action is to print the traceback to standard error and continue handling further requests."
-        # NOTE: "The type of self.request is different for datagram or stream services. For stream services, self.request is a socket object; for datagram services, self.request is a pair of string and socket."
-
-
-class OSCUDPServer(socketserver.UDPServer):
-    def verify_request(self, request, client_address):  # override
-        return (OscBundle.dgram_is_bundle(request[0]) or
-                OscMessage.dgram_is_message(request[0]))
-
-    def handle_error(self, request, client_address):  # override
-        _logger.error(
-            'Exception happened during processing '
-            f'request from {client_address}',
-            exc_info=sys.exc_info())
-
-
-# class ThreadingOSCUDPServer(socketserver.ThreadingMixIn, OSCUDPServer):
-#     pass

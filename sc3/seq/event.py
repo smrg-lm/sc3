@@ -493,7 +493,6 @@ class NoteEvent(EventType, partial_events=(
         msg = ['/s_new', instrument, node_id, add_action, group, *param_list]
         msg = gpp.node_param(msg)._as_osc_arg_list()
 
-        # *** BUG: socket.sendto and/or threading mixin use too much cpu.
         server.addr.send_bundle(server.latency, msg)  # Missing ~latency, ~lag and ~timmingOffset.
         if self('send_gate'):
             server.addr.send_bundle(

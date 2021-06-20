@@ -80,7 +80,11 @@ class MetaPlatform(type):
             subprocess.call(*popenargs)
         else:
             run = lambda: subprocess.call(*popenargs)
-            threading.Thread(target=run, daemon=True).start()
+            threading.Thread(
+                target=run,
+                name=f"Platform._cmd_line: {' '.join(*popenargs)}",
+                daemon=True
+            ).start()
 
     def killall(cls, program_name):
         '''

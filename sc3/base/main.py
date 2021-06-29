@@ -255,18 +255,22 @@ class RtMain(metaclass=Process):
         not_expired = False
         with cls._wait_cond:
             try:
-                prev_time = curr_time = time_diff = None
                 cls._wait_count += tasks
-                while cls._wait_count > 0:
-                    prev_time = time.time()
-                    not_expired = cls._wait_cond.wait(timeout)
-                    curr_time = time.time()
-                    if not_expired and cls._wait_count > 0:
-                        time_diff = curr_time - prev_time
-                        prev_time = curr_time
-                        timeout -= time_diff
-                    else:
-                        break
+                if timeout is None:
+                    while cls._wait_count > 0:
+                        cls._wait_cond.wait()
+                else:
+                    prev_time = curr_time = time_diff = None
+                    while cls._wait_count > 0:
+                        prev_time = time.time()
+                        not_expired = cls._wait_cond.wait(timeout)
+                        curr_time = time.time()
+                        if not_expired and cls._wait_count > 0:
+                            time_diff = curr_time - prev_time
+                            prev_time = curr_time
+                            timeout -= time_diff
+                        else:
+                            break
             except KeyboardInterrupt:
                 pass
             finally:

@@ -7,6 +7,7 @@ import pathlib
 import time
 import random
 import sys
+import socket
 
 import sc3
 from . import _taskq as tsq
@@ -52,7 +53,7 @@ class Process(type):
     _atexitq = tsq.TaskQueue()
     '''Functions registered in atexit with order by priority numbers.'''
 
-    def __init__(cls, name, bases, dict):
+    def __init__(cls, *_):
         # Main library lock.
         cls._main_lock = threading.RLock()
 
@@ -116,13 +117,29 @@ class Process(type):
         return cls._platform
 
     def open_udp_port(cls, port):
-        raise NotImplementedError('multiple UDP ports are not implemented')
+        '''Open extra UDP port.'''
+        with cls._main_lock:
+            local_addr = (socket.gethostbyname('localhost'), port)
+            if local_addr in osci.OscInterface._local_endpoints:
+                return
+            interface = osci.OscUdpInterface(port)
+            interface.start()
+
+    def close_udp_port(cls, port):
+        '''Close extra UDP port. Default library port can't be closed.'''
+        with cls._main_lock:
+            local_addr = (socket.gethostbyname('localhost'), port)
+            if cls._osc_interface.port == port\
+            or local_addr not in osci.OscInterface._local_endpoints:
+                return
+            interface = osci.OscInterface._local_endpoints[local_addr]
+            interface.stop()
 
     def add_osc_recv_func(cls, func):
-        cls._osc_interface.add_recv_func(func)
+        type(cls._osc_interface).add_recv_func(func)
 
     def remove_osc_recv_func(cls, func):
-        cls._osc_interface.remove_recv_func(func)
+        type(cls._osc_interface).remove_recv_func(func)
 
     def elapsed_time(cls):
         pass

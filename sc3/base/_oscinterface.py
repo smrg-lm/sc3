@@ -29,10 +29,12 @@ _logger = logging.getLogger(__name__)
 
 
 class OscInterface(ABC):
+    _recv_functions = set()
+    _local_endpoints = dict()
+
     def __init__(self, port, port_range):
         self._port = port
-        self._port_range = port_range
-        self._recv_functions = set()
+        self._port_range = port_range if port_range > 0 else 1
 
     @property
     def port(self):
@@ -46,11 +48,8 @@ class OscInterface(ABC):
     def socket(self):
         return self._socket
 
-    @property
-    def recv_functions(self):
-        return self._recv_functions
-
-    def add_recv_func(self, func):
+    @classmethod
+    def add_recv_func(cls, func):
         '''
         Register a callable to be evaluated each time an OSC message arrives.
         Signature of func is:
@@ -59,16 +58,16 @@ class OscInterface(ABC):
             addr: A NetAddr object with sender's address.
             port: Local port as int.
         '''
-        self._recv_functions.add(func)
+        cls._recv_functions.add(func)
 
-    def remove_recv_func(self, func):
+    @classmethod
+    def remove_recv_func(cls, func):
         '''Unregister func callback.'''
-        self._recv_functions.discard(func)
+        cls._recv_functions.discard(func)
 
-    def recv(self, addr, time, *msg):
+    def _msg_dispatch(self, addr, time, *msg):
         '''
-        This method is the handler of all incoming OSC messages or bundles
-        to be registered once for each OSC server interface in subclasses.
+        This method routes all incoming OSC messages to responders.
 
         Args:
             addr: A tuple (sender_ip:str, sender_port:int).
@@ -76,9 +75,11 @@ class OscInterface(ABC):
             *msg: OSC message as address followed by values.
         '''
         addr = nad.NetAddr(addr[0], addr[1])
+        addr._osc_interface = self
 
         def sched_func():
-            for func in self.recv_functions:
+            # To solve this loop OscFunc has to be rewritten.
+            for func in type(self)._recv_functions:
                 func(list(msg), time, addr, self.port)
 
         clk.SystemClock.sched(0, sched_func)  # Updates logical time.
@@ -92,7 +93,7 @@ class OscInterface(ABC):
                     time = elapsed_time
                 else:
                     time = clk.SystemClock.osc_to_elapsed_time(timed_msg.time)
-                _libsc3.main._osc_interface.recv(
+                self._msg_dispatch(
                     address, time,
                     *[timed_msg.message.address,
                     *timed_msg.message.params])
@@ -195,27 +196,44 @@ class OscInterface(ABC):
             raise ValueError(
                 'nested bundle time must be >= enclosing bundle time')
 
-
-    ### *** SI SE BORRAN ESTOS MÉTODOS POR SER ESPECÍFICOS DE CASA SUBCLASE
-    ### *** HAY QUE TENER REVISAR EL USO DE POLIMORFISMO. LOS NOMBRES DE NRT
-    ### *** NO ESTÁN DECIDIDOS AÚN.
-
     def bind(self):
-        for i in range(self.port_range):
+        localhost = socket.gethostbyname('localhost')
+        for i in range(self._port_range):
             try:
-                self._socket.bind(('127.0.0.1', self._port))
+                bind_addr = (localhost, self._port)
+                self._socket.bind(bind_addr)
+                type(self)._local_endpoints[bind_addr] = self
                 break
             except OSError as e:
-                if e.errno == errno.EADDRINUSE and i < self.port_range - 1:
+                if e.errno == errno.EADDRINUSE and i < self._port_range - 1:
                     self._port += 1
-                elif e.errno == errno.EADDRINUSE and i == self.port_range - 1:
-                    err = OSError(
-                        f'[Errno {errno.EADDRINUSE}] Port range already '
-                        f'in use: {self.port}-{self.port_range - 1}')
+                elif e.errno == errno.EADDRINUSE and i == self._port_range - 1:
+                    last = self._port
+                    first = last - (self._port_range - 1)
+                    if first == last:
+                        errstr = (
+                            f'[Errno {errno.EADDRINUSE}] port '
+                            f'{first} already in use')
+                    else:
+                        errstr = (
+                            f'[Errno {errno.EADDRINUSE}] port range '
+                            f'{first}-{last} already in use')
+                    err = OSError(errstr)
                     err.errno = errno.EADDRINUSE
                     raise err from e
                 else:
                     raise
+
+    def unbind(self):
+        bind_addr = self._socket.getsockname()
+        if self._socket.type == socket.SOCK_STREAM:
+            self._socket.shutdown(socket.SHUT_RDWR)
+        else:
+            # SOCK_DGRAM recvfrom unblock for Linux.
+            self._socket.sendto(b'', bind_addr)
+        self._socket.close()
+        del type(self)._local_endpoints[bind_addr]
+
 
     ### UDP Interface ###
 
@@ -242,7 +260,7 @@ class OscInterface(ABC):
 
     @property
     def is_connected(self):
-        pass
+        return False
 
 
     ### NRT Interface ###
@@ -261,7 +279,7 @@ class OscInterface(ABC):
 class OscUdpInterface(OscInterface):
     '''OSC over UDP server.'''
 
-    def __init__(self, port, port_range=10):
+    def __init__(self, port, port_range=1):
         super().__init__(port, port_range)
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._udp_thread = None
@@ -280,10 +298,13 @@ class OscUdpInterface(OscInterface):
             _libsc3.main._atexitprio.NETWORKING + 1, self.stop)
 
     def _udp_run(self):
+        bind_addr = self._socket.getsockname()
         self._running = True
         while self._running:
             try:
                 data, address = self._socket.recvfrom(65536)
+                if not data and address == bind_addr:
+                    break
                 self._handle_request(data, address)
             except OSError as e:
                 if self._running:
@@ -294,7 +315,7 @@ class OscUdpInterface(OscInterface):
         if not self._running:
             return
         self._running = False
-        self._socket.close()  # OSError if underlying error.
+        self.unbind()
         _libsc3.main._atexitq.remove(self.stop)
 
     def running(self):
@@ -309,7 +330,7 @@ class OscTcpInterface(OscInterface):
     OSC client over TCP. OscTcpInterface instances aren't reusable.
     '''
 
-    def __init__(self, port, port_range=10):
+    def __init__(self, port, port_range=1):
         super().__init__(port, port_range)
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -333,12 +354,12 @@ class OscTcpInterface(OscInterface):
         while self._run_thread:
             try:
                 data = self._socket.recv(4)
-                if len(data) == 0:
+                if not data:
                     self._is_connected = False
                     break
                 size = struct.unpack('>i', data)[0]
                 data = self._socket.recv(size)
-                if len(data) == 0:
+                if not data:
                     self._is_connected = False
                     break
                 self._handle_request(data, self._socket.getpeername())
@@ -372,9 +393,8 @@ class OscTcpInterface(OscInterface):
     def disconnect(self):
         self._run_thread = False
         self._tcp_thread = None
-        self._socket.shutdown(socket.SHUT_RDWR)
         self._is_connected = False  # Is sync.
-        self._socket.close()  # OSError if underlying error.
+        self.unbind()
         _libsc3.main._atexitq.remove(self.disconnect)
 
     @property
@@ -391,7 +411,6 @@ class OscNrtInterface(OscInterface):
         self._port = None
         self._port_range = None
         self._socket = None
-        self._recv_functions = None
         self.proto = None
 
     def init(self):
@@ -400,13 +419,15 @@ class OscNrtInterface(OscInterface):
     def finish(self):  # close?
         self._osc_score.finish()
 
-    def add_recv_func(self, func):  # override
+    @classmethod
+    def add_recv_func(cls, func):  # override
         pass  # Exception?
 
-    def remove_recv_func(self, func):  # override
+    @classmethod
+    def remove_recv_func(cls, func):  # override
         pass  # Exception?
 
-    def recv(self, addr, time, *msg):  # override
+    def _msg_dispatch(self, addr, time, *msg):  # override
         pass  # Exception?
 
     def send_msg(self, target, *args):  # override

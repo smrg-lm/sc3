@@ -14,6 +14,16 @@ __all__ = ['NetAddr', 'BundleNetAddr']
 
 
 class NetAddr():
+    '''
+    NetAddr's objects represent *target* addresses to send messages to, or
+    establish connections with, using UDP or TCP transport protocols.
+
+    When initialized in real time, the library sets up a default UDP port
+    with the default interface to send and receive OSC data. The default port
+    is 57120 but it can change if it is being used by another application.
+    The actual port can be queried through the 'lang_port()' static method.
+    '''
+
     # use_doubles = False
     # broadcast_flag = False
 
@@ -33,75 +43,94 @@ class NetAddr():
         self._hostname = hostname
         self._port = port
         self._target = (hostname, port)
-        self._tcp_interface = None
+        self._osc_interface = _libsc3.main._osc_interface
 
     @property
     def hostname(self):
+        '''Address name.'''
         return self._hostname
 
     @property
     def addr(self):
+        '''Address name as int.'''
         return self._addr
 
     @property
     def port(self):
+        '''Address port.'''
         return self._port
 
     @property
     def proto(self):
+        '''Return the transport protocol.'''
         return self._osc_interface.proto
 
     @property
     def is_local(self):
         '''Return true if the address is in localhost.'''
-        return self.match_lang_ip(self._hostname)
+        return ipaddress.IPv4Address(self._hostname).is_loopback
 
     @property
-    def local_end_point(self):  # bind_addr
+    def local_endpoint(self):
+        '''Return the bind address as a tuple (hostname, port).'''
         if self._osc_interface.socket:
-            return type(self)(*self._osc_interface.socket.getsockname())
+            return self._osc_interface.socket.getsockname()
 
-    @property
-    def _osc_interface(self):
-        return self._tcp_interface or _libsc3.main._osc_interface
+    def change_output_port(self, port):
+        '''Change UDP local endpoint.'''
+        local_addr = (socket.gethostbyname('localhost'), port)
+        new_interface = type(
+            _libsc3.main._osc_interface)._local_endpoints.get(local_addr)
+        if new_interface is None:
+            raise Exception(f'port {port} is not open')
+        if self._osc_interface.proto == 'tcp' or new_interface == 'tcp':
+            raise Exception("can't change output port from/to TCP")
+        self._osc_interface = new_interface
 
     @staticmethod
     def lang_port():
+        '''Return the default UPD port of the language.'''
         return _libsc3.main._osc_interface.port
 
     @staticmethod
-    def match_lang_ip(ipstring):
-        # if ipaddress.IPv4Address(self._addr).is_loopback:
-        if ipstring == '127.0.0.1':
-            return True
-        addr_info = socket.getaddrinfo(socket.gethostname(), None)
-        for item in addr_info:
-            if item[4][0] == ipstring:
-                return True
-        return False
+    def lang_endpoints():
+        '''
+        Return a list of all active local endpoints as (hostname, port, proto).
+        '''
+        return [
+            (*k, v.proto) for k, v in
+            type(_libsc3.main._osc_interface)._local_endpoints.items()]
 
 
     ### TCP Connections ###
 
     def connect(self, on_complete=None, on_failure=None,
-                local_port=None, port_range=10, timeout=3):
+                local_port=None, timeout=3):
+        '''Stablish a TCP connection to this address.'''
         # Async.
-        if self.is_connected:
-            self.disconnect()
-        self._tcp_interface = osci.OscTcpInterface(
-            local_port or self.lang_port() + 1, port_range)
-        self._tcp_interface.bind()
-        self._tcp_interface.try_connect(
-            self._target, timeout, on_complete, on_failure)
+        with _libsc3.main._main_lock:
+            if self._osc_interface.proto == 'tcp'\
+            and self._osc_interface.is_connected:
+                self.disconnect()
+            self._osc_interface = osci.OscTcpInterface(
+                local_port or self.lang_port() + 1, 100)
+            self._osc_interface.bind()
+            self._osc_interface.try_connect(
+                self._target, timeout, on_complete, on_failure)
 
     def disconnect(self):
+        '''Close TCP connection to this address.'''
+        if self._osc_interface is _libsc3.main._osc_interface:
+            return
         # Sync.
-        self._tcp_interface.disconnect()
-        self._tcp_interface = None
+        with _libsc3.main._main_lock:
+            self._osc_interface.disconnect()
+            self._osc_interface = _libsc3.main._osc_interface
 
     @property
     def is_connected(self):
-        return self._tcp_interface and self._tcp_interface.is_connected
+        '''Return True if a TCP connection is stablished.'''
+        return self._osc_interface.is_connected
 
 
     def has_bundle(self):
@@ -169,9 +198,6 @@ class NetAddr():
         '''
 
         self._osc_interface.send_msg(self._target, '/status')
-
-    def recover(self):
-        return self
 
     def sync(self, condition=None, latency=None, elements=None):
         '''
@@ -335,9 +361,6 @@ class BundleNetAddr(NetAddr):
 
     def send_status_msg(self):
         pass  # // Ignore status message.
-
-    def recover(self):
-        return self._save_addr
 
     def sync(self, condition=None, latency=None, elements=None):
         if self._send:

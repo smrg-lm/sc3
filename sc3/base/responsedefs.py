@@ -367,12 +367,7 @@ class OscFunc(AbstractResponderFunc):
         self.src_id = src_id
         self.recv_port = recv_port
         if recv_port is not None:
-            # This whould require to create another OscUdpInterface or
-            # OSCUDPServer which is something I don't want because I don't
-            # know why this is important of if it works for TCP in sclang.
-            # OscFuncRecvPortMessageMatcher and OscFuncBothMessageMatcher
-            # are needed only by this feature.
-            _libsc3.main.open_udp_port(recv_port)  # Not implemented.
+            _libsc3.main.open_udp_port(recv_port)
         self.arg_template = arg_template
         self._func = func
         self.dispatcher = dispatcher or type(self).default_dispatcher
@@ -391,7 +386,7 @@ class OscFunc(AbstractResponderFunc):
         cls.trace(False)
 
     @classmethod
-    def trace(cls, flag=True, hide_status=True):
+    def trace(cls, flag=True, hide_status=False):
         if flag and not cls._trace_running:
             if hide_status:
                 cls._trace_func = cls._trace_func_hide_status

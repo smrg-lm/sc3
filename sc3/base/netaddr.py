@@ -22,6 +22,14 @@ class NetAddr():
     with the default interface to send and receive OSC data. The default port
     is 57120 but it can change if it is being used by another application.
     The actual port can be queried through the 'lang_port()' static method.
+
+    More UDP ports can be open as local endpoints with 'main.open_udp_port'
+    and closed with 'main.close_udp_port'. To change the output UDP port
+    of a NetAddr object use 'change_output_port'. TCP connections can be
+    stablished with 'connect' and closed with 'disconnect' from an existing
+    NetAddr object. Note that differently from UDP protocol, which is
+    connectionless, TCP connections are client connections that can't be used
+    for serving purposes as independent ports.
     '''
 
     # use_doubles = False
@@ -134,11 +142,11 @@ class NetAddr():
 
 
     def has_bundle(self):
+        '''
+        Polymorphic method used to differentiate NetAddr from BundleNetAddr
+        by avoiding type checking.
+        '''
         return False
-
-    # def send_raw(self, raw_bytes):
-    #     # send a raw message without timestamp to the addr.
-    #     self._osc_interface.send_raw(self._target, raw_bytes)
 
     def send_msg(self, *args):
         '''Send an OSC message to the server.
@@ -183,6 +191,10 @@ class NetAddr():
         self._osc_interface.send_bundle(self._target, time, *elements)
 
     def send_clumped_bundles(self, time, *elements):
+        '''
+        This method is used to send bundles larger than UDP datagram size
+        as successive sub-clumped packages.
+        '''
         if self._calc_bndl_dgram_size(elements) > self._MAX_UDP_DGRAM_SIZE:
             for item in self._clump_bundle(elements):
                 if time is not None:
@@ -330,6 +342,11 @@ class BundleNetAddr(NetAddr):
     # Important difference: This class is a context manager. forkIfNeeded
     # can't be implemented, addr.sync() uses it in sclang. Here sync calls are
     # handled different doing yield from directly within the with statement.
+    '''
+    This class is a context manager that acts as a proxy of the current
+    NetAddr and collects single messages to be sent as a bundle. It's main
+    use is through 'bind' method of the server objects.
+    '''
 
     class _SYNC_FLAG(): pass
 
@@ -390,6 +407,7 @@ class BundleNetAddr(NetAddr):
         return res
 
     def get_bundle(self, time=None):
+        '''Return all bundled messages so far.'''
         if self._last_sync == -1:
             return [time, *self._bundle]
         else:

@@ -2,9 +2,6 @@
 
 import logging
 import threading
-import time as _time
-import sys
-import traceback
 import weakref
 
 from . import classlibrary as clb

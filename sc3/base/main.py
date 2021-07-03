@@ -154,15 +154,12 @@ class Process(type):
 class RtMain(metaclass=Process):
     @classmethod
     def _init(cls):
-        # In sclang these two are the same clock, it obtains time_since_epoch
-        # as gHostStartNanos = duration_cast<nanoseconds>
-        # (hrTimeOfInitialization.time_since_epoch()).count().
-        # I think is not important for these reference points to be sampled at
-        # the same time because main.elapsed_time() == 0 is in logic relation
-        # to main._time_of_initialization. Comment to be removed later if
-        # true.
-        cls._time_of_initialization = time.time()  # time_since_epoch
-        cls._monotonic_clock_init_time = time.monotonic()  # monotonic clock
+        # time.monotonic() will not work, it can stop if the system is
+        # suspended and will need to resync _elapsed_osc_offset which, if done
+        # periodically, generates jitter/jumps in logical time. Also, it can't
+        # avoid the glitches produced by the system's ntp synchronization
+        # because that affects the wake up time of the threads at system level.
+        cls._init_time = time.time()  # time_since_epoch
         cls.main_tt = stm._MainTimeThread()
         cls.current_tt = cls.main_tt
         cls._osc_interface = osci.OscUdpInterface(
@@ -185,7 +182,7 @@ class RtMain(metaclass=Process):
     @classmethod
     def elapsed_time(cls):
         '''Physical time since library initialization.'''
-        return time.monotonic() - cls._monotonic_clock_init_time
+        return time.time() - cls._init_time
 
     @classmethod
     def update_logical_time(cls, seconds=None):
@@ -334,7 +331,7 @@ class RtMain(metaclass=Process):
 class NrtMain(metaclass=Process):
     @classmethod
     def _init(cls):
-        cls._time_of_initialization = 0.0
+        cls._init_time = 0.0
         cls.main_tt = stm._MainTimeThread()
         cls.main_tt._m_seconds = 0.0
         cls.current_tt = cls.main_tt

@@ -120,13 +120,9 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
     @classmethod
     def _sched_init(cls):
-        # _time_of_initialization was moved
-        # to main because rt/nrt clock switch.
-        host_start_osc = int(
-            _libsc3.main._time_of_initialization * cls._SECONDS_TO_OSC)
-        host_osc_offset = int(
-            cls._SECONDS_FROM_1900_TO_1970 * cls._SECONDS_TO_OSC)
-        cls._elapsed_osc_offset = int(host_start_osc) + host_osc_offset
+        # _init_time was moved to main because rt/nrt clock switch.
+        offset = (_libsc3.main._init_time + cls._SECONDS_FROM_1900_TO_1970)
+        cls._elapsed_osc_offset = int(offset * cls._SECONDS_TO_OSC)
 
     @classmethod
     def elapsed_time_to_osc(cls, elapsed: float) -> int:  # int64

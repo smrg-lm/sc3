@@ -288,7 +288,8 @@ class Scheduler():
                 '%s(%s) scheduled on AppClock',
                 type(item).__name__, item.func.__qualname__, exc_info=1)
 
-    def play(self, task):
+    def play(self, task, quant=None):
+        # Unused quant (needed for tempo clock compatibility).
         self.sched(0, task)
 
     def _sched_add(self, delta, item):

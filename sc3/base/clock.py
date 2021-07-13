@@ -41,6 +41,7 @@ class MetaClock(type):
 
     @property
     def mode(cls):
+        '''Return the rt/nrt mode flag of the clock.'''
         if cls._pure_nrt:
             return _libsc3.main.NRT_MODE
         elif _libsc3.main is _libsc3.RtMain:
@@ -50,30 +51,40 @@ class MetaClock(type):
 
     @property
     def seconds(cls):
+        '''Return the logial time of the current time thread.'''
         return _libsc3.main.current_tt.seconds
 
     # // tempo clock compatibility
 
     @property
     def beats(cls):
+        '''
+        Return the tempo dependent logial time of the current time thread.
+        '''
         return _libsc3.main.current_tt.seconds
 
     def beats2secs(cls, beats):
+        '''Convert beats to seconds of the current time thread.'''
         return beats
 
     def secs2beats(cls, secs):
+        '''Convert seconds to beats of the current time thread.'''
         return secs
 
-    def beats2bars(cls):
+    def beats2bars(cls, beats):
+        '''Return the number of bars corresponding to the amount of `beats`.'''
         return 0
 
-    def bars2beats(cls):
+    def bars2beats(cls, bars):
+        '''Return the number of beats corresponding to the amount of `bars`.'''
         return 0
 
     def time_to_next_beat(cls, quant=1):
+        '''Return the duration remaining until the next beat.'''
         return 0
 
     def next_time_on_grid(cls, quant=1, phase=0):
+        '''Return the time of the next beat.'''
         if quant == 0:
             return cls.beats() + phase
         if phase < 0:
@@ -108,6 +119,10 @@ class MetaSystemClock(MetaClock):
 
 
 class SystemClock(Clock, metaclass=MetaSystemClock):
+    """
+    Singleton class object.
+    """
+
     _SECONDS_FROM_1900_TO_1970 = 2208988800  # 17 leap years
     _SECONDS_TO_OSC = pow(2, 32) / 1
     _OSC_TO_SECONDS = 1 / pow(2, 32)
@@ -123,14 +138,17 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
     @classmethod
     def elapsed_time_to_osc(cls, elapsed: float) -> int:  # int64
+        '''Convert elapsed time in seconds to OSC timetag format.'''
         return int(elapsed * cls._SECONDS_TO_OSC) + cls._elapsed_osc_offset
 
     @classmethod
     def osc_to_elapsed_time(cls, osctime: int) -> float:
+        '''Convert time in OSC timetag format to elapsed time in seconds.'''
         return float(osctime - cls._elapsed_osc_offset) * cls._OSC_TO_SECONDS
 
     @classmethod
     def osc_time(cls) -> int:
+        '''Return elapsed time as OSC timetag.'''
         return cls.elapsed_time_to_osc(_libsc3.main.elapsed_time())
 
     @classmethod
@@ -202,6 +220,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
     @classmethod
     def clear(cls):
+        '''Remove all pending tasks from the scheduler queue.'''
         if cls.mode == _libsc3.main.NRT_MODE:
             return
         with cls._sched_cond:
@@ -211,6 +230,8 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
     @classmethod
     def sched(cls, delta, item):
+        '''Schedule a new task `item` to be evaluated after `delta` seconds
+        from current elapsed time.'''
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
         item._clock = cls
@@ -230,6 +251,8 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
     @classmethod
     def sched_abs(cls, time, item):
+        '''Schedule a new task `item` to be evaluated at a `time` point in the
+        future relative to elapsed time.'''
         if not hasattr(item, '__awake__'):
             item = fn.Function(item)
         item._clock = cls
@@ -364,6 +387,10 @@ class MetaAppClock(MetaClock):
 
 
 class AppClock(Clock, metaclass=MetaAppClock):
+    """
+    Singleton class object.
+    """
+
     def __new__(cls):
         return cls
 
@@ -480,6 +507,15 @@ class Quant():
 
     @classmethod
     def as_quant(cls, quant):
+        '''Return a Quant object from the value of `quant`.
+
+        The received object can be a int representing the quant paramenter
+        or a collection representing quant, phase and timing_offset parameters.
+        If is None default values are used.
+
+        This method is used internally to convert the types of valid
+        parameter values.
+        '''
         if isinstance(quant, cls):
             pass
         elif isinstance(quant, int):
@@ -494,6 +530,7 @@ class Quant():
         return quant
 
     def next_time_on_grid(self, clock):
+        '''Return the time of the next beat for a give `clock` object.'''
         return clock.next_time_on_grid(
             self.quant, (self.phase or 0) - (self.timing_offset or 0))
 
@@ -805,7 +842,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     @property
     def beats(self):
-        """Returns the appropriate beats for this clock from any thread."""
+        '''Return the appropriate beats for this clock from any time thread.
+        '''
         return self.secs2beats(_libsc3.main.current_tt.seconds)
 
     @beats.setter
@@ -949,7 +987,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         ) + self._base_bar_beat + phase
 
     def time_to_next_beat(self, quant=1):
-        """Logical time to next beat."""
+        '''Return the duration remaining until the next beat.'''
         return Quant.as_quant(quant).next_time_on_grid(self) - self.beats
 
     def beats2bars(self, beats):
@@ -961,19 +999,20 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                + self._base_bar_beat
 
     def bar(self):
-        """Return the current bar."""
+        '''Return the current bar.'''
         return bi.floor(self.beats2bars(self.beats))
 
     def next_bar(self, beat=None):
-        """Given a number of beats, determine number beats
+        '''Given a number of beats, determine number beats
         at the next bar line.
-        """
+        '''
         if beat is None:
             beat = self.beats
         return self.bars2beats(bi.ceil(self.beats2bars(beat)))
 
     def beat_in_bar(self):
-        """Return the beat of the bar, range is 0 to < beats_per_bar."""
+        '''Return the current beat of the bar, range is 0 to < beats_per_bar.
+        '''
         return self.beats - self.bars2beats(self.bar())
 
     def running(self):

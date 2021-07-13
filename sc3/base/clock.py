@@ -295,7 +295,7 @@ class Scheduler():
         if self._drift:
             from_time = _libsc3.main.elapsed_time()
         else:
-            from_time = self.seconds = _libsc3.main.current_tt.seconds
+            from_time = self.seconds
         self.queue.add(from_time + delta, item)
 
     def sched(self, delta, item):

@@ -15,7 +15,7 @@ from . import stream as stm
 
 
 __all__ = [
-    'SystemClock', 'Scheduler', 'AppClock', 'Quant', 'TempoClock', 'defer']
+    'SystemClock', 'AppClock', 'Quant', 'TempoClock', 'defer']
 
 
 _logger = logging.getLogger(__name__)
@@ -266,6 +266,11 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
 
 
 class Scheduler():
+    # This class could work as a nrt scheduler compatible with clocks but
+    # their interfaces and behaviours aren't consistent, nrt mode takes care
+    # of that. I keep it here to be used by AppClock only but it could also be
+    # refactored and embeded within that class.
+
     def __init__(self, clock, drift=False, recursive=True):
         self._clock = clock
         self._drift = drift

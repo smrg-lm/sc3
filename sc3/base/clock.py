@@ -278,6 +278,7 @@ class Scheduler():
 
     def _wakeup(self, item):
         try:
+            _libsc3.main.update_logical_time(self._seconds)
             delta = item.__awake__(self._beats, self._seconds, self._clock)
             if isinstance(delta, (int, float)) and not isinstance(delta, bool):
                 self._sched_add(delta, item)

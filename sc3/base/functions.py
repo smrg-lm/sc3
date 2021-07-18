@@ -147,6 +147,9 @@ class Function(AbstractFunction):
     def __awake__(self, beats, seconds, clock):  # Function, Routine, PauseStream, (Nil, Object).
         return self.func(*(beats, seconds, clock)[:self._nargs])
 
+    def __repr__(self):
+        return f'{type(self).__name__}({self.func.__qualname__})'
+
 
 # decorator syntax
 def function(func):

@@ -488,6 +488,9 @@ class Routine(TimeThread, Stream):
     def __awake__(self, beats, seconds, clock):
         return self.next(beats)
 
+    def __repr__(self):
+        return f'{type(self).__name__}({self.func.__qualname__})'
+
 
 # decorator syntax
 class routine():

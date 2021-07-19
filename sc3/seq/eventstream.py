@@ -201,6 +201,10 @@ class PatternValueStream(stm.Stream):
         self._stream = None
 
 
+    def __repr__(self):
+        return f'{type(self).__name__}({self.pattern})'
+
+
 class PatternEventStream(PatternValueStream):
     """Create a stream from event patterns."""
 

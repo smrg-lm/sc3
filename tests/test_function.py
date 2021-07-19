@@ -7,7 +7,7 @@ sc3.init()
 
 import sc3.base.builtins as bi
 from sc3.base.functions import (
-    Function, function, UnaryOpFunction, BinaryOpFunction, NAryOpFunction)
+    Function, function, UnopFunction, BinopFunction, NaropFunction)
 
 
 class FunctionTestCase(unittest.TestCase):
@@ -19,23 +19,23 @@ class FunctionTestCase(unittest.TestCase):
         self.assertIs(type(f1), Function)
         self.assertEqual(f1(), 2)
         f = -f1
-        self.assertIs(type(f), UnaryOpFunction)
+        self.assertIs(type(f), UnopFunction)
         self.assertIs(f.a, f1)
         self.assertIs(f.selector, operator.neg)
         self.assertEqual(f(), -2)
         f = +f1
-        self.assertIs(type(f), UnaryOpFunction)
+        self.assertIs(type(f), UnopFunction)
         self.assertIs(f.a, f1)
         self.assertIs(f.selector, operator.pos)
         self.assertEqual(f(), 2)
         f = abs(-f1)
-        self.assertIs(type(f), UnaryOpFunction)
-        self.assertIs(type(f.a), UnaryOpFunction)
+        self.assertIs(type(f), UnopFunction)
+        self.assertIs(type(f.a), UnopFunction)
         self.assertIs(f.a.a, f1)
         self.assertIs(f.selector, operator.abs)
         self.assertEqual(f(), 2)
         f = ~f1
-        self.assertIs(type(f), UnaryOpFunction)
+        self.assertIs(type(f), UnopFunction)
         self.assertIs(f.a, f1)
         self.assertIs(f.selector, operator.invert)
         self.assertEqual(f(), ~2)
@@ -49,7 +49,7 @@ class FunctionTestCase(unittest.TestCase):
             with self.subTest(op=op):
                 f = getattr(f1, op)()
                 try:
-                    self.assertIs(type(f), UnaryOpFunction)
+                    self.assertIs(type(f), UnopFunction)
                     self.assertIs(f.a, f1)
                     self.assertEqual(f.selector, getattr(bi, op))
                     self.assertEqual(f(), getattr(bi, op)(res))
@@ -74,7 +74,7 @@ class FunctionTestCase(unittest.TestCase):
             return 10
 
         def assert_type_ab_selector(f, a, b, selector):
-            self.assertIs(type(f), BinaryOpFunction)
+            self.assertIs(type(f), BinopFunction)
             self.assertEqual(f.a, a)
             self.assertEqual(f.b, b)
             self.assertEqual(f.selector, selector)

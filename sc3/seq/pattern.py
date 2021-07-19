@@ -167,7 +167,7 @@ class Punop(Pattern):
         return self._is_event_pattern
 
     def __stream__(self):
-        return stm.UnaryOpStream(self.selector, stm.stream(self.a))
+        return stm.UnopStream(self.selector, stm.stream(self.a))
 
     def __embed__(self, inval=None):
         stream = stm.stream(self.a)
@@ -177,7 +177,8 @@ class Punop(Pattern):
         except stm.StopStream:
             return inval
 
-    # storeOn
+    def __repr__(self):
+        return f'{type(self).__name__}({self.selector.__name__}, {self.a})'
 
 
 class Pbinop(Pattern):
@@ -193,12 +194,15 @@ class Pbinop(Pattern):
         return self._is_event_pattern
 
     def __stream__(self):
-        return stm.BinaryOpStream(
+        return stm.BinopStream(
             self.selector, stm.stream(self.a), stm.stream(self.b))
         # NOTE: See BinaryOpXStream implementation options. Class is not
         # defined.
 
-    # storeOn
+    def __repr__(self):
+        return (
+            f'{type(self).__name__}({self.selector.__name__}, '
+            f'{self.a}, {self.b})')
 
 
 class Pnarop(Pattern):  # Was Pnaryop.
@@ -214,7 +218,7 @@ class Pnarop(Pattern):  # Was Pnaryop.
 
     def __stream__(self):
         args = [stm.stream(x) for x in self.args]
-        return stm.NAryOpStream(self.selector, stm.stream(self.a), *args)
+        return stm.NaropStream(self.selector, stm.stream(self.a), *args)
 
     def __embed__(self, inval=None):
         stream_a = stm.stream(self.a)
@@ -228,7 +232,10 @@ class Pnarop(Pattern):  # Was Pnaryop.
         except stm.StopStream:
             return inval
 
-    # storeOn
+    def __repr__(self):
+        return (
+            f'{type(self).__name__}({self.selector.__name__}, '
+            f'{self.a}, {self.args})')
 
 
 def pattern(gfunc):

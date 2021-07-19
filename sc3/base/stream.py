@@ -237,17 +237,17 @@ class Stream(aob.AbstractObject, ABC):
     ### AbstractObject interface ###
 
     def _compose_unop(self, selector):
-        return UnaryOpStream(selector, self)
+        return UnopStream(selector, self)
 
     def _compose_binop(self, selector, other):
-        return BinaryOpStream(selector, self, stream(other))
+        return BinopStream(selector, self, stream(other))
 
     def _rcompose_binop(self, selector, other):
-        return BinaryOpStream(selector, stream(other), self)
+        return BinopStream(selector, stream(other), self)
 
     def _compose_narop(self, selector, *args):
         args = [stream(x) for x in args]
-        return NAryOpStream(selector, self, *args)
+        return NaropStream(selector, self, *args)
 
 
     # asEventStreamPlayer
@@ -258,7 +258,7 @@ class Stream(aob.AbstractObject, ABC):
 ### BasicOpStream.sc ###
 
 
-class UnaryOpStream(Stream):
+class UnopStream(Stream):
     def __init__(self, selector, a):
         self.selector = selector
         self.a = a
@@ -270,10 +270,11 @@ class UnaryOpStream(Stream):
     def reset(self):
         self.a.reset()
 
-    # storeOn # TODO
+    def __repr__(self):
+        return f'{type(self).__name__}({self.selector.__name__}, {self.a})'
 
 
-class BinaryOpStream(Stream):
+class BinopStream(Stream):
     def __init__(self, selector, a, b):
         self.selector = selector
         self.a = a
@@ -288,14 +289,17 @@ class BinaryOpStream(Stream):
         self.a.reset()
         self.b.reset()
 
-    # storeOn # TODO
+    def __repr__(self):
+        return (
+            f'{type(self).__name__}({self.selector.__name__}, '
+            f'{self.a}, {self.b})')
 
 
 # NOTE: See BinaryOpXStream implementation options. Is not possible to
 # implemente without a special function operation.
 
 
-class NAryOpStream(Stream):
+class NaropStream(Stream):
     def __init__(self, selector, a, *args):
         self.selector = selector
         self.a = a
@@ -315,7 +319,10 @@ class NAryOpStream(Stream):
         for item in self.args:
             item.reset()
 
-    # storeOn # TODO
+    def __repr__(self):
+        return (
+            f'{type(self).__name__}({self.selector.__name__}, '
+            f'{self.a}, {self.args})')
 
 
 class FunctionStream(Stream):  # Was FuncStream
@@ -601,6 +608,9 @@ class ValueStream(Stream):
 
     def next(self, inval=None):
         return self.value
+
+    def __repr__(self):
+        return f'{type(self).__name__}({self.value})'
 
 
 class DictionaryStream(ValueStream):

@@ -138,7 +138,7 @@ streams are routines.
 Streams support mathematical operations and behave, in concept, in a similar
 way to signals represented by :term:`ugens<ugen>`). In the next example, the
 routine object ``r`` is transposed by ``60`` by making a sum that results in a
-:class:`sc3.base.stream.BinaryOpStream` assigned to ``t``.
+:class:`sc3.base.stream.BinopStream` assigned to ``t``.
 
 ::
 

@@ -36,16 +36,16 @@ class AbstractFunction(aob.AbstractObject):
     ### AbstractObject interface ###
 
     def _compose_unop(self, selector):
-        return UnaryOpFunction(selector, self)
+        return UnopFunction(selector, self)
 
     def _compose_binop(self, selector, other):
-        return BinaryOpFunction(selector, self, other)
+        return BinopFunction(selector, self, other)
 
     def _rcompose_binop(self, selector, other):
-        return BinaryOpFunction(selector, other, self)
+        return BinopFunction(selector, other, self)
 
     def _compose_narop(self, selector, *args):
-        return NAryOpFunction(selector, self, *args)
+        return NaropFunction(selector, self, *args)
 
     # applyTo
     # <> function composition
@@ -88,7 +88,7 @@ class AbstractFunction(aob.AbstractObject):
     #     return res
 
 
-class UnaryOpFunction(AbstractFunction):
+class UnopFunction(AbstractFunction):
     def __init__(self, selector, a):
         self.selector = selector
         self.a = a
@@ -96,8 +96,11 @@ class UnaryOpFunction(AbstractFunction):
     def __call__(self, *args, **kwargs):
         return self.selector(self.a(*args, **kwargs))
 
+    def __repr__(self):
+        return f'{type(self).__name__}({self.selector.__name__}, {self.a})'
 
-class BinaryOpFunction(AbstractFunction):
+
+class BinopFunction(AbstractFunction):
     def __init__(self, selector, a, b):
         self.selector = selector
         self.a = a
@@ -108,8 +111,13 @@ class BinaryOpFunction(AbstractFunction):
         b_value = self.b(*args, **kwargs) if callable(self.b) else self.b
         return self.selector(a_value, b_value)
 
+    def __repr__(self):
+        return (
+            f'{type(self).__name__}({self.selector.__name__}, '
+            f'{self.a}, {self.b})')
 
-class NAryOpFunction(AbstractFunction):
+
+class NaropFunction(AbstractFunction):
     def __init__(self, selector, a, *args):
         self.selector = selector
         self.a = a
@@ -120,6 +128,11 @@ class NAryOpFunction(AbstractFunction):
             x(*args, **kwargs) if isinstance(x, Function)
             else x for x in self.args]
         return self.selector(self.a(*args, **kwargs), *evaluated_args)
+
+    def __repr__(self):
+        return (
+            f'{type(self).__name__}({self.selector.__name__}, '
+            f'{self.a}, {self.args})')
 
 
 # class FunctionList(AbstractFunction):

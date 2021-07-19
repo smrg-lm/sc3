@@ -248,7 +248,7 @@ class ChannelList(list, gpp.UGenSequence, aob.AbstractObject):
 
 
     def __repr__(self):
-        return f'ChannelList({super().__repr__()})'
+        return f'{type(self).__name__}({super().__repr__()})'
 
 
 class MetaSynthObject(type):
@@ -622,6 +622,17 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
         return self.rate
 
 
+    def __repr__(self):
+        if self._default_rate:
+            selector = type(self)._method_selector_for_rate(self.rate)
+        else:
+            selector = 'new'
+        if len(self.inputs) == 1:
+            return f'{type(self).__name__}.{selector}({self.inputs[0]})'
+        else:
+            return f'{type(self).__name__}.{selector}{self.inputs}'
+
+
 class UGen(SynthObject, aob.AbstractObject):
     @classmethod
     def signal_range(cls):
@@ -928,6 +939,8 @@ class MultiOutUGen(UGen):
 
 
 class OutputProxy(UGen):
+    _default_rate = None
+
     @classmethod
     def new(cls, rate, source_ugen, index):
         return cls._new1(rate, source_ugen, index)
@@ -959,6 +972,11 @@ class OutputProxy(UGen):
     def name(self, value):
         self.__name = value
 
+    def __repr__(self):
+        return (
+            f'{type(self).__name__}.new'
+            f'{self.rate, self.source_ugen, self._output_index}')
+
 
 class WidthFirstUGen(SynthObject):  # Was in fft.py
     _default_rate = None
@@ -984,6 +1002,8 @@ class PseudoUGen(SynthObject):
 ### BasicOpUGens.sc ###
 
 class BasicOpUGen(UGen):
+    _default_rate = None
+
     def __init__(self):
         super().__init__()
         self._operator = None
@@ -1042,6 +1062,9 @@ class BasicOpUGen(UGen):
 
     def _dump_name(self):  # override
         return str(self._synth_index) + '_' + self.operator
+
+    def __repr__(self):
+        return f'{type(self).__name__}.new{self.operator, *self.inputs}'
 
 
 class UnaryOpUGen(BasicOpUGen):
@@ -1298,6 +1321,8 @@ class BinaryOpUGen(BasicOpUGen):
 
 
 class MulAdd(UGen):
+    _default_rate = None
+
     @classmethod
     def new(cls, input, mul=1.0, add=0.0):
         params = gpp.ugen_param([input, mul, add])
@@ -1344,6 +1369,8 @@ class MulAdd(UGen):
 
 
 class Sum3(UGen):
+    _default_rate = None
+
     @classmethod
     def new(cls, in0, in1, in2):
         return cls._multi_new(None, in0, in1, in2)
@@ -1362,6 +1389,8 @@ class Sum3(UGen):
 
 
 class Sum4(UGen):
+    _default_rate = None
+
     @classmethod
     def new(cls, in0, in1, in2, in3):
         return cls._multi_new(None, in0, in1, in2, in3)

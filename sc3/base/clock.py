@@ -516,16 +516,16 @@ class Quant():
     def as_quant(cls, quant):
         '''Return a Quant object from the value of `quant`.
 
-        The received object can be a int representing the quant paramenter
-        or a collection representing quant, phase and timing_offset parameters.
-        If is None default values are used.
+        The received object can be an int of float representing the quant
+        paramenter or a collection representing quant, phase and timing_offset
+        parameters. If is None an object with default values is created.
 
         This method is used internally to convert the types of valid
         parameter values.
         '''
         if isinstance(quant, cls):
             pass
-        elif isinstance(quant, int):
+        elif isinstance(quant, (int, float)):
             quant = cls(quant)
         elif isinstance(quant, (list, tuple)):
             quant = cls(*quant[:3])

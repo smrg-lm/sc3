@@ -665,7 +665,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         # init
         self._beats_per_bar = 4.0
         self._bars_per_beat = 0.25
-        self._base_bar_beat = 0
+        self._base_bar_beat = 0.0
         self._base_bar = 0.0
         self.permanent = False
         type(self)._all.add(self)
@@ -1008,6 +1008,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     def bar(self):
         '''Return the current bar.'''
         return bi.floor(self.beats2bars(self.beats))
+        return float(bi.floor(self.beats2bars(self.beats)))
 
     def next_bar(self, beat=None):
         '''Given a number of beats, determine number beats

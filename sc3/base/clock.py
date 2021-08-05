@@ -837,6 +837,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             with self._sched_cond:
                 self._sched_cond.notify()  # NOTE: is notify_one in C++.
 
+    @property
     def beat_dur(self):
         if not self.running():
             raise ClockNotRunning(self)

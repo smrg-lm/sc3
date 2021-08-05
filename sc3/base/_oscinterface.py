@@ -54,7 +54,7 @@ class OscInterface(ABC):
         Register a callable to be evaluated each time an OSC message arrives.
         Signature of func is:
             msg: OSC message as list.
-            time: Time of arrival meassured from main.elapsed_time().
+            time: Time of arrival measured from `main.elapsed_time()`.
             addr: A NetAddr object with sender's address.
             port: Local port as int.
         '''

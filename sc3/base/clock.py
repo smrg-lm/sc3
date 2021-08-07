@@ -230,7 +230,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                     sched_time = item[0]
                     task = item[1]
                     try:
-                        _libsc3.main.update_logical_time(sched_time)
+                        _libsc3.main._update_logical_time(sched_time)
                         delta = task.__awake__(sched_time, sched_time, cls)
                         if isinstance(delta, (int, float))\
                         and not isinstance(delta, bool):
@@ -312,7 +312,7 @@ class Scheduler():
 
     def _wakeup(self, item):
         try:
-            _libsc3.main.update_logical_time(self._seconds)
+            _libsc3.main._update_logical_time(self._seconds)
             delta = item.__awake__(self._beats, self._seconds, self._clock)
             if isinstance(delta, (int, float)) and not isinstance(delta, bool):
                 self._sched_add(delta, item)
@@ -528,7 +528,7 @@ class ClockTask():
 
     def _wakeup(self, time):
         try:
-            _libsc3.main.update_logical_time(time)
+            _libsc3.main._update_logical_time(time)
             beats = self.clock.secs2beats(time)
             delta = self.task.__awake__(beats, time, self.clock)
             if isinstance(delta, (int, float)) and not isinstance(delta, bool):
@@ -772,7 +772,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                     self._beats = item[0]
                     task = item[1]
                     try:
-                        _libsc3.main.update_logical_time(
+                        _libsc3.main._update_logical_time(
                             self.beats2secs(self._beats))
                         delta = task.__awake__(
                             self._beats, self.beats2secs(self._beats), self)

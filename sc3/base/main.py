@@ -144,7 +144,7 @@ class Process(type):
     def elapsed_time(cls):
         pass
 
-    def update_logical_time(cls, seconds=None):
+    def _update_logical_time(cls, seconds=None):
         pass
 
 
@@ -185,7 +185,7 @@ class RtMain(metaclass=Process):
         return time.time() - cls._init_time
 
     @classmethod
-    def update_logical_time(cls, seconds=None):
+    def _update_logical_time(cls, seconds=None):
         # // When code is run from the code editor, the command line, or in
         # // response to OSC and MIDI messages, the main Thread's logical time
         # // is set to the current physical time (see Process: *elapsedTime).
@@ -359,7 +359,7 @@ class NrtMain(metaclass=Process):
         return float(cls.main_tt.seconds)
 
     @classmethod
-    def update_logical_time(cls, seconds=None):
+    def _update_logical_time(cls, seconds=None):
         if seconds is None:
             return
         else:

@@ -111,9 +111,9 @@ class _MainTimeThread(TimeThread):
 
     @property
     def seconds(self):  # override
-        # _MainThread set the current physical time when this
+        # _MainThread sets the current physical time when this
         # property is invoked and then spreads to child routines.
-        _libsc3.main.update_logical_time()
+        _libsc3.main._update_logical_time()
         return self._m_seconds
 
     @property

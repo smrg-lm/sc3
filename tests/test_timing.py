@@ -61,7 +61,7 @@ Routine(rout).play()
 
 ##################################
 # Logical time == bundle time test
-# TODO: check all possible calls to update_logical_time, make a map.
+# TODO: check all possible calls to _update_logical_time, make a map.
 # TODO: trace and profile all logical time updates.
 from sc3.all import *
 

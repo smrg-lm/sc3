@@ -232,7 +232,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                     try:
                         _libsc3.main._update_logical_time(sched_time)
                         _libsc3.main._in_awake_call = True
-                        delta = task.__awake__(sched_time, sched_time, cls)
+                        delta = task.__awake__(cls)
                         if isinstance(delta, (int, float))\
                         and not isinstance(delta, bool):
                             time = sched_time + delta
@@ -317,7 +317,7 @@ class Scheduler():
         try:
             _libsc3.main._update_logical_time(self._seconds)
             _libsc3.main._in_awake_call = True
-            delta = item.__awake__(self._beats, self._seconds, self._clock)
+            delta = item.__awake__(self._clock)
             if isinstance(delta, (int, float)) and not isinstance(delta, bool):
                 self._sched_add(delta, item)
         except stm.StopStream:
@@ -536,7 +536,7 @@ class ClockTask():
         try:
             _libsc3.main._update_logical_time(time)
             beats = self.clock.secs2beats(time)
-            delta = self.task.__awake__(beats, time, self.clock)
+            delta = self.task.__awake__(self.clock)
             if isinstance(delta, (int, float)) and not isinstance(delta, bool):
                 self.scheduler.add(self.clock.beats2secs(beats + delta), self)
         except stm.StopStream:
@@ -673,7 +673,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     -----
     The TempoClock will be created as if it started counting beats at
     the time given in the seconds argument with the starting amount
-    givenin the beats argument. The current count of beats will thus
+    given in the beats argument. The current count of beats will thus
     be equal to that starting amount plus the amount of beats that
     would be counted since the given reference time in seconds,
     according to the given tempo.
@@ -696,11 +696,11 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
     If the above example was run without a souronding routine the
     actual `beats` value will not be precise. When running in real
-    time, the base time reference is elapsed time and every call that
+    time, the base time reference is physical time and every call that
     requires current time is relativelly synced to it. The same
     happens in sclang when each instruction is evaluated separatelly,
     the difference is that sclang updates the base time only once per
-    intepreter call which is not possible to do in a python library.
+    intepreter call which is not possible to do in a Python library.
     """
 
     def __init__(self, tempo=None, beats=None, seconds=None):
@@ -781,8 +781,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                         _libsc3.main._update_logical_time(
                             self.beats2secs(self._beats))
                         _libsc3.main._in_awake_call = True
-                        delta = task.__awake__(
-                            self._beats, self.beats2secs(self._beats), self)
+                        delta = task.__awake__(self)
                         if isinstance(delta, (int, float))\
                         and not isinstance(delta, bool):
                             time = self._beats + delta

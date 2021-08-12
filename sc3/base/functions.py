@@ -157,8 +157,8 @@ class Function(AbstractFunction):
         kwargs = {k: kwargs[k] for k in kwargs.keys() & self._kwords}
         return self.func(*args[:self._nargs], **kwargs)
 
-    def __awake__(self, beats, seconds, clock):  # Function, Routine, PauseStream, (Nil, Object).
-        return self.func(*(beats, seconds, clock)[:self._nargs])
+    def __awake__(self, clock):
+        return self.func(*(self, clock)[:self._nargs])
 
     def __repr__(self):
         return f'{type(self).__name__}({self.func.__qualname__})'

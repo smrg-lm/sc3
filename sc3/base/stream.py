@@ -490,8 +490,8 @@ class Routine(TimeThread, Stream):
     # storeArgs
     # storeOn
 
-    def __awake__(self, beats, seconds, clock):
-        return self.next(beats)
+    def __awake__(self, clock):
+        return self.next((self, clock))
 
     def __repr__(self):
         return f'{type(self).__name__}({self.func.__qualname__})'

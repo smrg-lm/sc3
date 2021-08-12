@@ -89,38 +89,43 @@ for a next call or cancel its execution. When the return value is a number
 after waiting that much seconds (if no tempo is used). When the generator
 returns, or yields another type of value, the clocks leaves the routine.
 
-The yielded values, as time, are used to wait (in :term:`physical time`) but
-also define the :term:`logical time` which increments only from those values.
-In other words, the logical time of a routine is the sum of all the yielded
-values so far.
+The yielded values, as time, are used to wait in :term:`physical time` but
+routines also define :term:`logical time` which increments only from those
+values. In other words, the logical time in a routine is the sum of all yielded
+values so far, relative to the pysical time it started to play and the tempo of
+the clock.
 
-This way, when a routine is scheduled in Python its next call time may not be
-precise, it may even have noticeable jitter under load, but if we use the
-logical time to generate a :term:`timetag` each iteration the wait time sent to
-the server will be precise.
+This way, when a routine is scheduled in Python, its next physical call time
+may not be precise, it may even have noticeable jitter under load, but if we
+use the logical time to generate :term:`timetag`s the wait time sent to the
+server will be precise.
 
 Physical time can be accessed from ``main.elapsed_time()``, which is the time
-in seconds since the library started.
+in seconds since the library started. The input value of a routine running in
+a clock is a tuple ``(routine, clock)``, and the logical time can be obtained
+from the clock's ``seconds`` property.
 
 ::
 
   @routine
-  def r():
+  def r(inval):
+      _, clock = inval
       while True:
-          print(main.elapsed_time(), main.current_tt.seconds)
+          print(main.elapsed_time(), clock.seconds)
           yield 1
 
   r.play()
 
 .. note::
 
-  For most common cases it's not necessary to access routine's logical time,
-  the library will manage timing internally.
+  For most common cases it's not necessary to access routine's clock logical
+  time, the library will manage timing internally.
 
-In the example above we can compare how the decimal part of the logical time is
-always the same while for ``elapsed_time()`` constantly changing. Whenever an
-OSC bundle is sent from a routine playing on a clock the time used to define
-its :term:`timetag` is the logical time.
+In the example above we can compare how the decimal part of the logical time,
+obtained from the clock that schedules the routine, is always the same while
+for ``elapsed_time()`` is constantly changing. Whenever an OSC bundle is sent
+from a routine playing on a clock the time used to define its :term:`timetag`
+is the logical time.
 
 This is important to keep in mind because is the only way to have precise
 timing for rhythmic sequences in real time. And this is one of the two core
@@ -136,7 +141,7 @@ SuperCollider way. Routines are the most commonly used stream but not all
 streams are routines.
 
 Streams support mathematical operations and behave, in concept, in a similar
-way to signals represented by :term:`ugens<ugen>`). In the next example, the
+way to signals represented by :term:`ugens<ugen>`. In the next example, the
 routine object ``r`` is transposed by ``60`` by making a sum that results in a
 :class:`sc3.base.stream.BinopStream` assigned to ``t``.
 

@@ -111,10 +111,10 @@ class _MainTimeThread(TimeThread):
 
     @property
     def seconds(self):  # override
-        # _MainThread sets the current physical time when this
-        # property is invoked and then spreads to child routines.
-        with _libsc3.main._main_lock:
-            _libsc3.main._update_logical_time()
+        # In RT _MainThread sets logical time to physical time when
+        # this property is invoked and then spreads to child routines.
+        if _libsc3.main is _libsc3.RtMain:
+            _libsc3.main._update_logical_time(_libsc3.main.elapsed_time())
         return self._m_seconds
 
     @property
@@ -398,10 +398,7 @@ class Routine(TimeThread, Stream):
 
             self.parent = _libsc3.main.current_tt
             _libsc3.main.current_tt = self
-            if self._clock:
-                self._m_seconds = self.parent._m_seconds
-            else:
-                self._m_seconds = self.parent.seconds
+            self._m_seconds = self.parent.seconds
 
             try:
                 self.state = self.State.Running

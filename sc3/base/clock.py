@@ -231,6 +231,7 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                     task = item[1]
                     try:
                         _libsc3.main._update_logical_time(sched_time)
+                        _libsc3.main._in_awake_call = True
                         delta = task.__awake__(sched_time, sched_time, cls)
                         if isinstance(delta, (int, float))\
                         and not isinstance(delta, bool):
@@ -244,6 +245,8 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
                             '%s(%s) scheduled on SystemClock',
                             type(task).__name__, task.func.__qualname__,
                             exc_info=1)
+                    finally:
+                        _libsc3.main._in_awake_call = False
 
     @classmethod
     def clear(cls):
@@ -313,6 +316,7 @@ class Scheduler():
     def _wakeup(self, item):
         try:
             _libsc3.main._update_logical_time(self._seconds)
+            _libsc3.main._in_awake_call = True
             delta = item.__awake__(self._beats, self._seconds, self._clock)
             if isinstance(delta, (int, float)) and not isinstance(delta, bool):
                 self._sched_add(delta, item)
@@ -322,6 +326,8 @@ class Scheduler():
             _logger.error(
                 '%s(%s) scheduled on AppClock',
                 type(item).__name__, item.func.__qualname__, exc_info=1)
+        finally:
+            _libsc3.main._in_awake_call = False
 
     def play(self, task, quant=None):
         self.sched(0, task)
@@ -774,6 +780,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                     try:
                         _libsc3.main._update_logical_time(
                             self.beats2secs(self._beats))
+                        _libsc3.main._in_awake_call = True
                         delta = task.__awake__(
                             self._beats, self.beats2secs(self._beats), self)
                         if isinstance(delta, (int, float))\
@@ -787,6 +794,8 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
                             '%s(%s) scheduled on TempoClock id %s',
                             type(task).__name__, task.func.__qualname__,
                             id(self), exc_info=1)
+                    finally:
+                        _libsc3.main._in_awake_call = False
 
     def stop(self):
         '''Stop the clock's scheduling thread.

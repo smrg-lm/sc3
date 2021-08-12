@@ -31,10 +31,6 @@ main = None
 '''Default main class global variable set by sc3.init().'''
 
 
-class TimeException(ValueError):
-    pass
-
-
 ### Kernel.sc ###
 
 
@@ -144,7 +140,7 @@ class Process(type):
     def elapsed_time(cls):
         pass
 
-    def _update_logical_time(cls, seconds=None):
+    def _update_logical_time(cls, seconds):
         pass
 
 
@@ -166,6 +162,9 @@ class RtMain(metaclass=Process):
             sc3.LIB_PORT, sc3.LIB_PORT_RANGE)
         cls._osc_interface.start()
 
+        # State to mimic time behaviour for all awakables in rt.
+        cls._in_awake_call = False
+
         cls._wait_cond = threading.Condition(cls._main_lock)
         cls._wait_count = 0
 
@@ -185,28 +184,22 @@ class RtMain(metaclass=Process):
         return time.time() - cls._init_time
 
     @classmethod
-    def _update_logical_time(cls, seconds=None):
+    def _update_logical_time(cls, seconds):
         # // When code is run from the code editor, the command line, or in
         # // response to OSC and MIDI messages, the main Thread's logical time
         # // is set to the current physical time (see Process: *elapsedTime).
-        # Text above doesn't hold all true here, updates are done by clocks
-        # when data is received but can't capture code before excecution,
-        # wouldn't be prudent. Routines are required to get logical time.
         # // When code scheduled on a Clock is run, the main Thread's logical
         # // time is set to the time the code was scheduled for. Child Threads
         # // inherit logical time from their parents - whenever a Thread
         # // (Routine) is started or resumed, its logical time is set to that
         # // of the parent Thread.
-        now = cls.elapsed_time()
-        if seconds is None:
-            # Logical time is set to physical time.
-            cls.main_tt._m_seconds = now
-        elif seconds > now:
-            raise TimeException(
-                "logical time can't be set to the future of physical time")
-        else:
-            # Logical time is set to current sched time by clocks.
-            cls.main_tt._m_seconds = seconds
+        # Text above doesn't hold all true here, updates are done by clocks
+        # when data is schedule but can't capture code before excecution.
+        # _MainTimeThread updates logical time when calling seconds property
+        # and OSC updates logical time by scheduling its task in SystemClock.
+        with cls._main_lock:
+            if not cls._in_awake_call:
+                cls.main_tt._m_seconds = seconds
 
 
     # Main thread blocking control for scripts.
@@ -355,15 +348,13 @@ class NrtMain(metaclass=Process):
 
     @classmethod
     def elapsed_time(cls):
-        '''Physical time is main_Thread.seconds in nrt.'''
+        '''Return main time thread's seconds.'''
         return float(cls.main_tt.seconds)
 
     @classmethod
-    def _update_logical_time(cls, seconds=None):
-        if seconds is None:
-            return
-        else:
-            cls.main_tt._m_seconds = seconds
+    def _update_logical_time(cls, seconds):
+        # In nrt physical time and logical time are the same.
+        cls.main_tt._m_seconds = seconds
 
     @classmethod
     def process(cls, tailtime=0):

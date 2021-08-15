@@ -349,7 +349,7 @@ class NrtMain(metaclass=Process):
     @classmethod
     def elapsed_time(cls):
         '''Return main time thread's seconds.'''
-        return float(cls.main_tt.seconds)
+        return float(cls.main_tt._seconds)
 
     @classmethod
     def _update_logical_time(cls, seconds):

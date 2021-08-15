@@ -28,19 +28,19 @@ class ClockTestCase(unittest.TestCase):
                 nonlocal clock
                 beats = clock.beats
                 elapsed_delta = 0
-                t1 = main.current_tt.seconds
+                t1 = main.current_tt._seconds
                 self.assertTrue(math.isclose(beats, elapsed_delta))
                 yield delta
 
                 beats = clock.beats
                 elapsed_delta += delta
-                t2 = main.current_tt.seconds
+                t2 = main.current_tt._seconds
                 self.assertTrue(math.isclose(beats, elapsed_delta))
                 yield delta
 
                 beats = clock.beats
                 elapsed_delta += delta
-                t3 = main.current_tt.seconds
+                t3 = main.current_tt._seconds
                 self.assertTrue(math.isclose(beats, elapsed_delta))
                 self.assertTrue(math.isclose(t2 - t1, t3 - t2))
 
@@ -65,7 +65,7 @@ class ClockTestCase(unittest.TestCase):
             t = TempoClock(1, offset)
             self.assertTrue(math.isclose(t.beats, offset))
             # Counting beats as if it started 'offset' seconds ago from 0.
-            t = TempoClock(1, 0, main.current_tt.seconds - offset)
+            t = TempoClock(1, 0, main.current_tt._seconds - offset)
             self.assertTrue(math.isclose(t.beats, offset))
             Thread(target=lambda: barrier.wait(), daemon=True).start()
 

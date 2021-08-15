@@ -16,7 +16,7 @@ if eoo01 == eoo02 == eoo03:  # assert
     [et, eto, ote, et - ote]  # conversion and rouding error.
 
 
-t1 = main.current_tt.seconds
+t1 = main.current_tt._seconds
 o1 = SystemClock.elapsed_time_to_osc(t1)
 t2 = SystemClock.osc_to_elapsed_time(o1)
 [t1, t2, t1 - t2] # t1 - t2 > 0 retrieved time is in the past at picoseconds without _sync_osc_offset_with_tod.
@@ -76,7 +76,7 @@ recv = OscFunc(recv_func, '/test')
 @routine
 def ro():
     for i in range(3):
-        time_steps.append(main.current_tt.seconds)  # must be almost the same time of the bundle (floating point error)
+        time_steps.append(main.current_tt._seconds)  # must be almost the same time of the bundle (floating point error)
         n.send_bundle(0, ['/test'])
         yield 1
     print([round(time_steps[i], 9) == round(time_steps[i + 1], 9)\

@@ -112,7 +112,7 @@ class OscInterface(ABC):
         bundles. Empty strings are sent unchanged.
         '''
         # Time has to be set here for nested bundles (completion msg case).
-        send_time = _libsc3.main.current_tt.seconds
+        send_time = _libsc3.main.current_tt._seconds
         self._send(self._build_msg(send_time, list(args)), target)
 
     def send_bundle(self, target, time, *elements):
@@ -124,7 +124,7 @@ class OscInterface(ABC):
         an already late timetag (no check for sign).
         '''
         # Time has to be set here for nested bundles consistency.
-        send_time = _libsc3.main.current_tt.seconds
+        send_time = _libsc3.main.current_tt._seconds
         self._send(self._build_bundle(send_time, [time, *elements]), target)
 
     @abstractmethod
@@ -485,7 +485,7 @@ class OscScore():
     def add(self, bndl):
         if self._finished:
             raise Exception('already finished score')
-        send_time = _libsc3.main.current_tt.seconds
+        send_time = _libsc3.main.current_tt._seconds
         msg = _libsc3.main._osc_interface._build_bundle(send_time, bndl)  # Raises Exception.
         msg = msg.size.to_bytes(4, 'big') + msg.dgram
         bndl = self._process_bndl_time(send_time, bndl)
@@ -523,7 +523,7 @@ class OscScore():
         # needs to undo the check of _get_timetag and _get_logical_time.
         # Those methods and this one would need refactoring all at once.
         if _libsc3.main.current_tt is _libsc3.main.main_tt:
-            tailtime += _libsc3.main.current_tt.seconds
+            tailtime += _libsc3.main.current_tt._seconds
         self.add([tailtime, ['/c_set', 0, 0]])  # Dummy cmd.
         for _, entry in self._scoreq:
             self._lst_score.append(entry.bndl)

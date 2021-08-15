@@ -52,7 +52,7 @@ class TimeThread():
         return self
 
     @property
-    def seconds(self):
+    def _seconds(self):
         return self._m_seconds
 
     @property
@@ -110,7 +110,7 @@ class _MainTimeThread(TimeThread):
         self._thread_player = None
 
     @property
-    def seconds(self):  # override
+    def _seconds(self):  # override
         # In RT _MainThread sets logical time to physical time when
         # this property is invoked and then spreads to child routines.
         if _libsc3.main is _libsc3.RtMain:
@@ -398,7 +398,7 @@ class Routine(TimeThread, Stream):
 
             self.parent = _libsc3.main.current_tt
             _libsc3.main.current_tt = self
-            self._m_seconds = self.parent.seconds
+            self._m_seconds = self.parent._seconds
 
             try:
                 self.state = self.State.Running

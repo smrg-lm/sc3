@@ -68,7 +68,7 @@ class MetaClock(type):
     @property
     def seconds(cls):
         '''Return the logial time of the current time thread.'''
-        return _libsc3.main.current_tt.seconds
+        return _libsc3.main.current_tt._seconds
 
     # // tempo clock compatibility
 
@@ -76,7 +76,7 @@ class MetaClock(type):
     def beats(cls):
         '''Return the tempo dependent logial time of the current time thread.
         '''
-        return _libsc3.main.current_tt.seconds
+        return _libsc3.main.current_tt._seconds
 
     def beats2secs(cls, beats):
         '''Convert beats to seconds of the current time thread.'''
@@ -267,14 +267,14 @@ class SystemClock(Clock, metaclass=MetaSystemClock):
             item = fn.Function(item)
         item._clock = cls
         if cls.mode == _libsc3.main.NRT_MODE:
-            seconds = _libsc3.main.current_tt.seconds
+            seconds = _libsc3.main.current_tt._seconds
             seconds += delta
             if seconds == float('inf'):
                 return
             ClockTask(seconds, cls, item, _libsc3.main._clock_scheduler)
         else:
             with cls._sched_cond:
-                seconds = _libsc3.main.current_tt.seconds
+                seconds = _libsc3.main.current_tt._seconds
                 seconds += delta
                 if seconds == float('inf'):
                     return
@@ -683,7 +683,9 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     ::
 
       @routine.run()
-      def example():
+      def example(inval):
+          _, clock = inval
+          print('the example is running in SystemClock:', clock is SystemClock)
           # Starts from zero by default.
           t = TempoClock(1)
           print('current beats:', t.beats)
@@ -691,8 +693,11 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
           t = TempoClock(1, 5)
           print('current beats:', t.beats)
           # Counting beats as if it started 5 seconds ago from 0.
-          t = TempoClock(1, 0, main.current_tt.seconds - 5)
+          t = TempoClock(1, 0, clock.seconds - 5)
           print('current beats:', t.beats)
+
+      # Use CmdPeriod afterwards to stop all created TempoClocks.
+      # CmdPeriod.run()
 
     If the above example was run without a souronding routine the
     actual `beats` value will not be precise. When running in real
@@ -711,7 +716,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
         self._tempo = tempo
         self._beat_dur = 1.0 / tempo
-        self._base_seconds = seconds or _libsc3.main.current_tt.seconds
+        self._base_seconds = seconds or _libsc3.main.current_tt._seconds
         self._base_beats = beats or 0.0
         self._beats = 0.0
 
@@ -964,13 +969,13 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         scheduled to the same clock it could easily lead to inconsistencies
         or obfuscated code.
         '''
-        return self.secs2beats(_libsc3.main.current_tt.seconds)
+        return self.secs2beats(_libsc3.main.current_tt._seconds)
 
     @beats.setter
     def beats(self, value):
         if not self.running():
             raise ClockNotRunning(self)
-        seconds = _libsc3.main.current_tt.seconds
+        seconds = _libsc3.main.current_tt._seconds
         self._base_seconds = seconds
         self._base_beats = value
         self._beat_dur = 1.0 / self._tempo
@@ -984,7 +989,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
     def seconds(self):
         '''Return `elapsed time` as `logical time` from within scheduled
         routines.'''
-        return _libsc3.main.current_tt.seconds
+        return _libsc3.main.current_tt._seconds
 
     def _sched_add(self, beats, task):
         # Call with acquired lock.
@@ -1000,7 +1005,7 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         ClockTask(beats, self, task, _libsc3.main._clock_scheduler)
 
     def _calc_sched_beats(self, delta):
-        seconds = _libsc3.main.current_tt.seconds
+        seconds = _libsc3.main.current_tt._seconds
         beats = self.secs2beats(seconds)
         return beats + delta
 

@@ -1,7 +1,6 @@
 """From Patterns.sc & Ppar.sc"""
 
 import logging
-import copy
 
 from ...base import stream as stm
 from ...base import builtins as bi

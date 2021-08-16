@@ -5,7 +5,6 @@ import subprocess
 import threading
 import logging
 import os
-import pathlib
 import time
 import errno
 
@@ -20,7 +19,6 @@ from ..base import platform as plf
 from ..base import stream as stm
 from ..base import clock as clk
 from . import _engine as eng
-from . import synthdef as sdf
 from . import _serverstatus as sst
 from . import _nodewatcher as ndw
 from . import _volume as vlm

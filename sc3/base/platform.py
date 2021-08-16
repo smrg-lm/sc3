@@ -4,7 +4,6 @@ from pathlib import Path
 import tempfile
 import os
 import sys
-# import site
 import subprocess
 import threading
 

@@ -2,7 +2,6 @@
 
 from ..synth import server as srv
 from . import clock as clk
-from . import functions as fn
 
 
 __all__ = [

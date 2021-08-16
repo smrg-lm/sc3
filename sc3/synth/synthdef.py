@@ -12,7 +12,6 @@ from ..base import platform as plf
 from ..base import systemactions as sac
 from ..base import functions as fn
 from ..base import main as _libsc3
-from . import spec as spc
 from . import ugen as ugn
 from . import server as srv
 from . import synthdesc as sdc

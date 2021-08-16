@@ -1,7 +1,6 @@
 """ResponseDefs.sc"""
 
 from abc import ABC, abstractmethod
-import inspect
 import logging
 
 from ..synth import server as srv

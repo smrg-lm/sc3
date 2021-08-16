@@ -9,7 +9,6 @@ from ..base import responsedefs as rdf
 from ..base import main as _libsc3
 from ..base import builtins as bi
 from ..base import stream as stm
-from ..base import clock as clk
 from . import _graphparam as gpp
 from . import ugens as ugns
 from . import synthdef as sdf

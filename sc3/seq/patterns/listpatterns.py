@@ -1,7 +1,5 @@
 """ListPatterns.sc"""
 
-import collections
-
 from ...base import stream as stm
 from ...base import builtins as bi
 from .. import pattern as ptt

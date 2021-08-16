@@ -6,8 +6,6 @@ from ..base import systemactions as sac
 from ..base import builtins as bi
 from ..base import model as mdl
 from ..base import stream as stm
-from ..base import clock as clk
-from . import server as srv
 from . import ugens as ugns
 from . import synthdef as sdf
 from . import node as nod

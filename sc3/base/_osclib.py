@@ -33,12 +33,9 @@ For more information, please refer to <http://unlicense.org/>
 
 
 import struct
-import sys
 import logging
 import collections
 from typing import Union, Tuple, Any, Iterator, List
-
-from . import main as _libsc3
 
 
 _logger = logging.getLogger(__name__)

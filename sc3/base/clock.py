@@ -411,7 +411,7 @@ class MetaAppClock(MetaClock):
 
         def init_func(cls):
             if _libsc3.main is _libsc3.RtMain:
-                cls._sched_cond = threading.Condition(_libsc3.main._main_lock)
+                cls._sched_lock = _libsc3.main._main_lock
                 cls._tick_cond = threading.Condition()
                 cls._scheduler = Scheduler(cls, drift=True, recursive=False)
                 cls._thread = threading.Thread(
@@ -452,15 +452,16 @@ class AppClock(Clock, metaclass=MetaAppClock):
     def _run(cls):
         cls._run_sched = True
         seconds = None
-        while True:
-            with cls._sched_cond:
+        while cls._run_sched:
+            with cls._sched_lock:
                 seconds = cls._tick()  # First tick for free, returns None
                 if isinstance(seconds, (int, float))\
                 and not isinstance(seconds, bool):
                     seconds = seconds - cls._scheduler.seconds  # tick returns abstime (elapsed)
             with cls._tick_cond:  # many notify one wait
+                if not cls._run_sched:
+                    return
                 cls._tick_cond.wait(seconds)  # if seconds is None waits for notify
-            if not cls._run_sched: return
 
     @classmethod
     def clear(cls):
@@ -468,7 +469,8 @@ class AppClock(Clock, metaclass=MetaAppClock):
         if cls.mode == _libsc3.main.NRT_MODE:
             return
         else:
-            cls._scheduler.clear()
+            with cls._sched_lock:
+                cls._scheduler.clear()
 
     @classmethod
     def sched(cls, delta, item):
@@ -484,7 +486,7 @@ class AppClock(Clock, metaclass=MetaAppClock):
                 return
             ClockTask(delta, cls, item, _libsc3.main._clock_scheduler)
         else:
-            with cls._sched_cond:
+            with cls._sched_lock:
                 cls._scheduler.sched(delta, item)
             with cls._tick_cond:
                 cls._tick_cond.notify()

@@ -169,12 +169,7 @@ class Ptime(ValuePattern):
         self.repeats = repeats
 
     def __embed__(self, inval):
-        clock = _libsc3.main.current_tt._clock
-        if clock is None:
-            for _ in bi.counter(self.repeats):
-                inval = yield 0.0
-        else:
-            start = clock.beats
-            for _ in bi.counter(self.repeats):
-                inval = yield clock.beats - start
+        start = _libsc3.main.current_tt._beats
+        for _ in bi.counter(self.repeats):
+            inval = yield _libsc3.main.current_tt._beats - start
         return inval

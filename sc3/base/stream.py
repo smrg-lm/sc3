@@ -23,6 +23,9 @@ _logger = logging.getLogger(__name__)
 ### Thread.sc ###
 
 
+_DEFAULT_CLOCK = clk.SystemClock
+
+
 class TimeThread():
     State = enum.Enum('State', [
         'Init', 'Running', 'Suspended', 'Paused', 'Done'])
@@ -40,7 +43,7 @@ class TimeThread():
         self.state = self.State.Init
         self._state_cond = threading.Condition(threading.RLock())
         self._m_seconds = 0.0
-        self._clock = None
+        self._clock = _DEFAULT_CLOCK
         self._thread_player = None
         self._rand_seed = None
         self._rgen = _libsc3.main.current_tt._rgen
@@ -54,6 +57,10 @@ class TimeThread():
     @property
     def _seconds(self):
         return self._m_seconds
+
+    @property
+    def _beats(self):
+        return self._clock.secs2beats(self._seconds)
 
     @property
     def is_playing(self):
@@ -106,7 +113,7 @@ class _MainTimeThread(TimeThread):
         self.func = None
         self.state = self.State.Init
         self._m_seconds = 0.0
-        self._clock = None
+        self._clock = _DEFAULT_CLOCK
         self._thread_player = None
 
     @property
@@ -374,11 +381,24 @@ class Routine(TimeThread, Stream):
         return obj
 
     def play(self, clock=None, quant=None):
+        '''Schedule the Routine in a clock to play it.
+
+        Parameters
+        ----------
+        clock : Clock
+            An optional clock to schedule the routine. By default, routines
+            inherit the clock from the current time thread when played. The
+            default clock of the main time thread is SystemClock.
+        quant : Quant
+            A Quant object or a any value that can be cast into one with
+            Quant.as_quant constructor. This parameter only works for
+            TempoClock and is ignored by other clocks.
+        '''
         with self._state_cond:
             if self.state == self.State.Init\
             or self.state == self.state.Paused:
                 self.state = self.State.Suspended
-                clock = clock or clk.SystemClock
+                clock = clock or _libsc3.main.current_tt._clock
                 clock.play(self, quant)
         # Pattern.play return the stream, maybe for API usage constency
         # Stream.play should return self, but I'm not sure.
@@ -425,13 +445,13 @@ class Routine(TimeThread, Stream):
             except StopStream:
                 self._iterator = None
                 self._last_value = None
-                self._clock = None
+                self._clock = _DEFAULT_CLOCK
                 self.state = self.State.Done
                 raise
             except StopIteration:
                 self._iterator = None
                 self._last_value = None
-                self._clock = None
+                self._clock = _DEFAULT_CLOCK
                 self.state = self.State.Done
                 raise StopStream from None
             except YieldAndReset as e:
@@ -459,7 +479,7 @@ class Routine(TimeThread, Stream):
                     'cannot be reset within itself except by YieldAndReset')
             else:
                 self._iterator = None
-                self._clock = None
+                self._clock = _DEFAULT_CLOCK
                 self.state = self.State.Init
 
     def pause(self):
@@ -474,7 +494,7 @@ class Routine(TimeThread, Stream):
         with self._state_cond:
             if self.state == self.State.Paused:
                 self.state = self.State.Suspended
-                clock = clock or self._clock or clk.SystemClock
+                clock = clock or self._clock
                 clock.play(self, quant)
 
     def stop(self):
@@ -484,7 +504,7 @@ class Routine(TimeThread, Stream):
             else:
                 self._iterator = None
                 self._last_value = None
-                self._clock = None
+                self._clock = _DEFAULT_CLOCK
                 self.state = self.State.Done
 
     # storeArgs

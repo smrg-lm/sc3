@@ -35,11 +35,11 @@ class Pn(FilterPattern):
         key = self.key
         if key is None:
             for _ in bi.counter(self.repeats):
-                inevent = yield from pattern.__embed__(inevent)
+                inevent = yield from stm.embed(pattern, inevent)
         else:
             for _ in bi.counter(self.repeats):
                 inevent[key] = True
-                inevent = yield from pattern.__embed__(inevent)
+                inevent = yield from stm.embed(pattern, inevent)
             inevent[key] = False
         return inevent
 

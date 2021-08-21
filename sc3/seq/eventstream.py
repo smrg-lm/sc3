@@ -190,7 +190,7 @@ class PatternValueStream(stm.Stream):
     def next(self, inval=None):
         try:
             if self._stream is None:
-                self._stream = self.pattern.__embed__(inval)
+                self._stream = stm.embed(self.pattern, inval)
                 return next(self._stream)
             else:
                 return self._stream.send(inval)
@@ -214,7 +214,7 @@ class PatternEventStream(PatternValueStream):
         try:
             inevent = evt.event() if inevent is None else inevent
             if self._stream is None:
-                self._stream = self.pattern.__embed__(inevent)
+                self._stream = stm.embed(self.pattern, inevent)
                 return next(self._stream)
             else:
                 return self._stream.send(inevent)

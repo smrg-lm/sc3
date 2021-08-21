@@ -14,7 +14,8 @@ from .. import event as evt
 class FilterPattern(ptt.Pattern):
     def __init__(self, pattern):
         self.pattern = pattern
-        self._is_event_pattern = pattern.is_event_pattern
+        self._is_event_pattern = (
+            isinstance(pattern, ptt.Pattern) and pattern.is_event_pattern)
 
     @property
     def is_event_pattern(self):

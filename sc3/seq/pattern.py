@@ -160,7 +160,8 @@ class Punop(Pattern):
     def __init__(self, selector, a):
         self.selector = selector
         self.a = a
-        self._is_event_pattern = a.is_event_pattern
+        self._is_event_pattern = (
+            isinstance(a, Pattern) and a.is_event_pattern)
 
     @property
     def is_event_pattern(self):
@@ -210,7 +211,8 @@ class Pnarop(Pattern):  # Was Pnaryop.
         self.selector = selector
         self.a = a
         self.args = args
-        self._is_event_pattern = a.is_event_pattern
+        self._is_event_pattern = (
+            isinstance(a, Pattern) and a.is_event_pattern)
 
     @property
     def is_event_pattern(self):

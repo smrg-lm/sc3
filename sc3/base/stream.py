@@ -23,9 +23,6 @@ _logger = logging.getLogger(__name__)
 ### Thread.sc ###
 
 
-_DEFAULT_CLOCK = clk.SystemClock
-
-
 class TimeThread():
     State = enum.Enum('State', [
         'Init', 'Running', 'Suspended', 'Paused', 'Done'])
@@ -43,7 +40,7 @@ class TimeThread():
         self.state = self.State.Init
         self._state_cond = threading.Condition(threading.RLock())
         self._m_seconds = 0.0
-        self._clock = _DEFAULT_CLOCK
+        self._clock = clk.SystemClock  # Default clock.
         self._thread_player = None
         self._rand_seed = None
         self._rgen = _libsc3.main.current_tt._rgen
@@ -113,7 +110,7 @@ class _MainTimeThread(TimeThread):
         self.func = None
         self.state = self.State.Init
         self._m_seconds = 0.0
-        self._clock = _DEFAULT_CLOCK
+        self._clock = clk.SystemClock  # Default clock.
         self._thread_player = None
 
     @property
@@ -445,13 +442,13 @@ class Routine(TimeThread, Stream):
             except StopStream:
                 self._iterator = None
                 self._last_value = None
-                self._clock = _DEFAULT_CLOCK
+                self._clock = clk.SystemClock  # Default clock.
                 self.state = self.State.Done
                 raise
             except StopIteration:
                 self._iterator = None
                 self._last_value = None
-                self._clock = _DEFAULT_CLOCK
+                self._clock = clk.SystemClock  # Default clock.
                 self.state = self.State.Done
                 raise StopStream from None
             except YieldAndReset as e:
@@ -479,7 +476,7 @@ class Routine(TimeThread, Stream):
                     'cannot be reset within itself except by YieldAndReset')
             else:
                 self._iterator = None
-                self._clock = _DEFAULT_CLOCK
+                self._clock = clk.SystemClock  # Default clock.
                 self.state = self.State.Init
 
     def pause(self):
@@ -504,7 +501,7 @@ class Routine(TimeThread, Stream):
             else:
                 self._iterator = None
                 self._last_value = None
-                self._clock = _DEFAULT_CLOCK
+                self._clock = clk.SystemClock  # Default clock.
                 self.state = self.State.Done
 
     # storeArgs

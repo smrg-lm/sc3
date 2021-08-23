@@ -97,10 +97,10 @@ class Pattern(aob.AbstractObject):
         return Pnarop(selector, self, *args)
 
 
-    def play(self, clock=None, proto=None, quant=None):
+    def play(self, clock=None, quant=None, proto=None):
         proto = evt.event() if proto is None else evt.event(proto)
         stream = est.EventStreamPlayer(self.__stream__(), proto)
-        stream.play(clock, False, quant)
+        stream.play(clock, quant)
         return stream
 
     # def _as_event_stream_player(self, proto_event=None):

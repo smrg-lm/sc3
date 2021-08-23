@@ -98,13 +98,13 @@ class MetaClock(type):
         '''Return the duration remaining until the next beat.'''
         return 0
 
-    def next_time_on_grid(cls, quant=1, phase=0):
-        '''Return the time of the next beat.'''
-        if quant == 0:
-            return cls.beats() + phase
-        if phase < 0:
-            phase = bi.mod(phase, quant)
-        return bi.roundup(cls.beats() - bi.mod(phase, quant), quant) + phase
+    # def next_time_on_grid(cls, quant=1, phase=0):
+    #     '''Return the time of the next beat.'''
+    #     if quant == 0:
+    #         return cls.beats + phase
+    #     if phase < 0:
+    #         phase = bi.mod(phase, quant)
+    #     return bi.roundup(cls.beats - bi.mod(phase, quant), quant) + phase
 
 
 class Clock(metaclass=MetaClock):

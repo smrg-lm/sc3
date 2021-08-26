@@ -2,6 +2,7 @@
 
 import copy
 import operator
+import math
 
 from ..base import main as _libsc3
 from ..base import utils as utl
@@ -330,6 +331,82 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
 
         self.__interpolation_format = [tuple(i) for i in utl.flop(contents)]
         return self.__interpolation_format
+
+    def _at(self, time):
+        data = self._envgen_format()
+        time = max(0, time - self.offset)
+        return utl.unbubble([self._env_at(d, time) for d in data])
+
+    def _env_at(self, data, time):
+        # Values of data tuple:
+        # (start_level, num_stages, release_node, loop_node, stage1 [, ...])
+        # stage = *(target_level, target_dur, shape, curve)
+        if len(data) < 8:
+            raise ValueError('Env must have at least one stage')
+
+        start_level = float(data[0])  # *** begLevel
+        num_stages = data[1]
+        begin_time = end_time = 0.0  # *** begTime, endTime
+        shape_names = self._SHAPE_NAMES
+
+        for i in range(4, num_stages * 4 + 1, 4):
+            target_level = float(data[i])  # *** endLevel
+            target_dur = data[i + 1]  # *** dur
+            end_time += target_dur
+
+            if time < end_time:
+                shape = data[i + 2]
+                pos = (time - begin_time) / target_dur
+
+                if shape == shape_names['step']:
+                    return target_level
+                elif shape == shape_names['hold']:
+                    return start_level
+                elif shape == shape_names['linear']:
+                    return pos * (target_level - start_level) + start_level
+                elif shape == shape_names['exponential']:
+                    if start_level == 0.0: return 0.0
+                    return start_level * bi.pow(target_level / start_level, pos)
+                elif shape == shape_names['sine']:
+                    return (
+                        start_level + (target_level - start_level) *
+                        (-bi.cos(bi.pi * pos) * 0.5 + 0.5))
+                elif shape == shape_names['welch']:
+                    if start_level < target_level:
+                        return (
+                            start_level + (target_level - start_level) *
+                            bi.sin(bi.pi2 * pos))
+                    else:
+                        return (
+                            target_level - (target_level - start_level) *
+                            bi.sin(bi.pi2 - bi.pi2 * pos))
+                elif shape == 5:  # 'curvature value'
+                    curve = data[i + 3]
+                    if math.fabs(curve) < 0.0001:
+                        return pos * (target_level - start_level) + start_level
+                    else:
+                        fac = (
+                            (1.0 - bi.exp(pos * curve)) /
+                            (1.0 - bi.exp(curve)))
+                        return (
+                            start_level + (target_level - start_level) * fac)
+                elif shape == shape_names['squared']:
+                    sqrt_sl = bi.sqrt(start_level)
+                    sqrt_tl = bi.sqrt(target_level)
+                    sqrt_level = pos * (sqrt_tl - sqrt_sl) + sqrt_sl
+                    return sqrt_level * sqrt_level
+                elif shape == shape_names['cubed']:
+                    cbrt_sl = bi.pow(start_level, 0.3333333)
+                    cbrt_tl = bi.pow(target_level, 0.3333333)
+                    cbrt_level = pos * (cbrt_tl - cbrt_sl) + cbrt_sl
+                    return cbrt_level * cbrt_level * cbrt_level
+                else:
+                    raise ValueError(f'invalid shape number: {shape}')
+            else:
+                start_level = target_level
+                begin_time = end_time
+
+        return start_level
 
 
     ### Node parameter interface ###

@@ -146,7 +146,7 @@ class ServerOptions():
         if port is None:
             o.append(Defaults.NRT.flag)
             if osc_file is None:
-                raise ValueException('osc_file must be supplied for nrt')
+                raise ValueError('osc_file must be supplied for nrt')
             o.append(str(osc_file))
             input_file = '_' if input_file is None else str(input_file)
             o.append(input_file)

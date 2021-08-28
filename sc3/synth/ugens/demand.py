@@ -91,7 +91,7 @@ class DUGen(ugn.UGen):
     def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
         return (
             (self.prune(inmin, inmax, clip) - inmin) /
-            (inmax-inmin) * (outmax - outmin) + outMin)
+            (inmax - inmin) * (outmax - outmin) + outmin)
 
     def linexp(self, inmin, inmax, outmin, outmax, clip='minmax'):
         return (

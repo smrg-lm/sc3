@@ -2,7 +2,6 @@
 from abc import ABC, abstractmethod
 import logging
 import threading
-import atexit
 import errno
 import struct
 import socket

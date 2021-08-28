@@ -737,7 +737,7 @@ class UGen(SynthObject, aob.AbstractObject):
         if self.range == 'demand' or gpp.ugen_param(other).rate == 'demand':
             raise NotImplementedError('blend is not implemented for dr ugens')
         else:
-            pan = bi.linlin(frec, 0.0, 1.0, -1.0, 1.0)
+            pan = bi.linlin(frac, 0.0, 1.0, -1.0, 1.0)
             if self.rate == 'audio':
                 return pan.XFade2.ar(self, other, pan)
             if gpp.ugen_param(other).rate == 'audio':
@@ -844,7 +844,7 @@ class UGen(SynthObject, aob.AbstractObject):
         a = (inmax - inmin) / (1.0 - grow)
         b = inmin + a
         lin_res = (
-            bi.log((b - this.prune(inmin, inmax, clip)) / a) *
+            bi.log((b - self.prune(inmin, inmax, clip)) / a) *
             (outmax - outmin) / curve + outmin)
         if gpp.ugen_param(curve).rate == 'scalar':
             return lin_res

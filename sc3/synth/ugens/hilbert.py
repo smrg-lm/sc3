@@ -23,12 +23,12 @@ class HilbertFIR(ugn.PseudoUGen):
     # // 1024, less delay, little choppier results
     @classmethod
     def ar(cls, input, buffer):
-        fft = fft.FFT.new(buffer, input)
-        fft = fft.PV_PhaseShift90.new(fft)
+        data = fft.FFT.new(buffer, input)
+        data = fft.PV_PhaseShift90.new(data)
         delay = ifu.BufDur.kr(buffer)
         # // return [source, shift90]
         return ugn.ChannelList(
-            [dly.DelayN.ar(input, delay, delay), fft.IFFT.ar(fft)])
+            [dly.DelayN.ar(input, delay, delay), fft.IFFT.ar(data)])
 
 
 # Original comment is not clear, which was HilbertIIR?

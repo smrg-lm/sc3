@@ -87,7 +87,7 @@ class Recorder():
                     'cannot change recording number of channels while running')
                 return
 
-            if path is not None and path != this.path:
+            if path is not None and path != self.path:
                 raise ValueError(
                     'recording was prepared already with a different '
                     f'path: {self.path}, tried with this path: {path}')

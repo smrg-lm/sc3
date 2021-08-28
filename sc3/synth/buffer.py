@@ -317,8 +317,8 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
         obj = cls(
             buffer_size, channels, server, bufnum,
-            ['/b_read', buf._bufnum, path, start_frame, buffer_size,
-            0, True, fn.value(completion_msg, self)])
+            lambda buf: ['/b_read', buf._bufnum, path, start_frame,
+            buffer_size, 0, True, fn.value(completion_msg, buf)])
         obj._path = path
         return obj
 
@@ -604,7 +604,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
 
         server = server or srv.Server.default
         server._free_all_buffers()
-        type(self)._clear_server_caches(server)
+        cls._clear_server_caches(server)
 
     def zero(self, completion_msg=None):
         '''Sets all values in this buffer to 0.0.
@@ -695,7 +695,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             raise BufferAlreadyFreed('setn')
         nargs = []
         for control, values in utl.gen_cclumps(args, 2):
-            if isnstance(values, list):
+            if isinstance(values, list):
                 nargs.extend([control, len(values), *values])
             else:
                 nargs.extend([control, 1, values])

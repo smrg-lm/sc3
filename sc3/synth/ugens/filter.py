@@ -120,14 +120,14 @@ class LagUD(Filter):
         if gpp.ugen_para(input)._as_ugen_rate() == 'scalar':
             return input
         else:
-            return cls._multi_new('audio', input, lat_time_up, lag_time_down)
+            return cls._multi_new('audio', input, lag_time_up, lag_time_down)
 
     @classmethod
     def kr(cls, input=0.0, lag_time_up=0.1, lag_time_down=0.1):
         if gpp.ugen_para(input)._as_ugen_rate() == 'scalar':
             return input
         else:
-            return cls._multi_new('control', input, lat_time_up, lag_time_down)
+            return cls._multi_new('control', input, lag_time_up, lag_time_down)
 
 
 class Lag2UD(LagUD):

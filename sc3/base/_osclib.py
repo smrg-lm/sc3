@@ -290,7 +290,7 @@ def get_double(dgram: bytes, start_index: int) -> Tuple[float, int]:
     """
     try:
         if len(dgram[start_index:]) < _DOUBLE_DGRAM_LEN:
-            raise ParseError('Datagram is too short')
+            raise OscParseError('Datagram is too short')
         return (
             struct.unpack(
                 '>d', dgram[start_index:start_index + _DOUBLE_DGRAM_LEN])[0],

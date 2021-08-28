@@ -222,7 +222,7 @@ class PeakFollower(ugn.UGen):
         return cls._multi_new('audio', input, decay)
 
     @classmethod
-    def kr(cls, input=0.0, rate=0.999):
+    def kr(cls, input=0.0, decay=0.999):
         return cls._multi_new('control', input, decay)
 
 

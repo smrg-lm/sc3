@@ -163,7 +163,7 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
         first_0_then_1 = trg.Latch.kr(1.0, ocl.Impulse.kr(0.0))
         if self.release_node is None:
             self.levels = [0.0, *self.levels, 0.0]
-            self.curves = ult.wrap_extend(
+            self.curves = utl.wrap_extend(
                 utl.as_list(self.curves), len(self.times))
             self.curves = [last_curve, *self.curves, 'lin']
             self.times = [
@@ -171,7 +171,7 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
             self.release_node = len(self.levels) - 2
         else:
             self.levels = [0.0, *self.levels]
-            self.curves = ult.wrap_extend(
+            self.curves = utl.wrap_extend(
                 utl.as_list(self.curves), len(self.times))
             self.curves = [last_curve, *self.curves]
             self.times = [first_0_then_1 * last_time, *self.times]

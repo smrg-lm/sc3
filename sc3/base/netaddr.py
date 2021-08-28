@@ -352,7 +352,7 @@ class BundleNetAddr(NetAddr):
 
     def __init__(self, target, arg_list=None, send=True):
         if isinstance(target, NetAddr):
-            self._save_addr = addr
+            self._save_addr = target
             self._server = None
         else:  # Assumes it's a Server to avoid the import.
             self._save_addr = target.addr

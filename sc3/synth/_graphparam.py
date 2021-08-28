@@ -15,6 +15,7 @@ data types must just work with its own interface.
 from math import isnan
 
 from ..base import classlibrary as clb
+from ..base import builtins as bi
 from ..base import utils as utl
 from . import _specialindex as _si
 from . import _fmtrw as frw

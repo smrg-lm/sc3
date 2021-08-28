@@ -284,11 +284,11 @@ class SelectXFocus(ugn.PseudoUGen):
 
     @classmethod
     def ar(cls, which, lst, focus=1, wrap=False):
-        return self.new(which, array, focus, wrap)  # ar/kr are fake rate constructors.
+        return cls.new(which, lst, focus, wrap)  # ar/kr are fake rate constructors.
 
     @classmethod
     def kr(cls, which, lst, focus=1, wrap=False):
-        return self.new(which, array, focus, wrap)
+        return cls.new(which, lst, focus, wrap)
 
 
 class Vibrato(ugn.PureUGenMixin, ugn.UGen):
@@ -308,15 +308,16 @@ class Vibrato(ugn.PureUGenMixin, ugn.UGen):
 class TChoose(ugn.PseudoUGen):
     @classmethod
     def ar(cls, trig, lst):
-        self._check_empty_list(lst)
+        cls._check_empty_list(lst)
         return Select.ar(nse.TIRand.ar(0, len(lst) - 1, trig), lst)
 
     @classmethod
     def kr(cls, trig, lst):
-        self._check_empty_list(lst)
+        cls._check_empty_list(lst)
         return Select.kr(nse.TIRand.kr(0, len(lst) - 1, trig), lst)
 
-    def _check_empty_list(self, lst):
+    @staticmethod
+    def _check_empty_list(lst):
         if len(lst) == 0:
             raise ValueError("TChoose: lst can't be empty")
 

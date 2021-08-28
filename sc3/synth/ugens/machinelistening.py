@@ -74,7 +74,7 @@ class Onsets(ugn.UGen):
     def kr(cls, chain, threshold=0.5, odftype='rcomplex', relaxtime=1,
            floor=0.1, mingap=10, medianspan=11, whtype=1, rawodf=0):
         if isinstance(odftype, str):
-            odftype = self._ODF_TYPES.index(odftype)
+            odftype = cls._ODF_TYPES.index(odftype)
         # // mingap of 10 frames, @ 44100 & 512 & 50%, is about 0.058 seconds.
         return cls._multi_new(
             'control', chain, threshold, odftype, relaxtime,

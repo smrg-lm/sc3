@@ -256,9 +256,9 @@ class Splay(ugn.PseudoUGen):
         positions = [(i * n2n1 - 1) * spread + center for i in range(n)]
         if level_comp:
             if rate == 'audio':
-                level *= bi.sqrt(1/n)
+                level *= bi.sqrt(1 / n)
             else:
-                level /= ninputs
+                level /= n
         selector = Pan2._method_selector_for_rate(rate)
         pan = getattr(Pan2, selector)(list(inputs), positions)
         return mix.Mix(pan) * level

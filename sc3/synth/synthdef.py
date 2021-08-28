@@ -18,6 +18,7 @@ from . import synthdesc as sdc
 from . import _fmtrw as frw
 from . import _graphparam as gpp
 from . import node as nod
+from . import synthdef as sdf
 from .ugens import inout as iou
 from .ugens import fft
 

@@ -115,7 +115,7 @@ class Pbind(EventPattern):
                     _logger.warning(
                         'the pattern is not providing enough '
                         f'values to assign to the key set: {name}')
-                    return inevent
+                    return event
                 for i, key in enumerate(name):
                     event[key] = stream_out[i]
             else:

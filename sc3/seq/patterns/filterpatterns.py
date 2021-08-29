@@ -501,7 +501,7 @@ class Pavaroh(FilterPattern):
         melast = 0
         try:
             while True:
-                spo = spo_stream.next(inval)
+                spo = spo_stream.next(inval)  # *** TODO: Unused here, depends on definition of Tunning for a Scale (immutable by now).
                 me = stream.next(inval)
                 scale = aroh if me >= melast else avaroh
                 melast = me

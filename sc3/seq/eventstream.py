@@ -30,11 +30,10 @@ _logger = logging.getLogger(__name__)
 class CleanupEntry():
     def __init__(self):
         thread_player = _libsc3.main.current_tt.thread_player
-        if isinstance(thread_player, EventStreamPlayer):
-            self._cleanup = thread_player.cleanup
-            self._cleanup.add(self)
-        else:
-            self._cleanup = EventStreamCleanup()
+        if not isinstance(thread_player, EventStreamPlayer):
+            raise TypeError(f'{thread_player} is not an EventStreamPlayer')
+        self._cleanup = thread_player.cleanup
+        self._cleanup.add(self)
         self._events = set()
         self._functions = dict()
 

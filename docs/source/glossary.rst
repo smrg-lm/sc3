@@ -79,6 +79,17 @@ Glossary
       and is not affected by jitter as :term:`physical time`. It's
       used to precisely define the :term:`timetag` for OSC bundles.
 
+   multichannel expansion:
+      Because SuperCollider represents multiple channels as lists of ugens,
+      when an ugen receives a list of values for one or more of its input arguments
+      the constructor returns a :class:`ChannelList<sc3.synth.ugen.ChannelList>`
+      object containing one ugen instance for each element in the longest list
+      instead of a single ugen. The shortest lists are wrapped to fit the length
+      of the longest and passed in order to the different instances, scalar
+      values are kept as the argument of each new instance. This special behavior,
+      along with the operations over lists of channels, is a convenient way to
+      expand graphs and maintain a simple representation by avoiding loops.
+
    node
       A server tree node.
       See :class:`Node<sc3.synth.node.Node>`.

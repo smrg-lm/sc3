@@ -260,10 +260,10 @@ class SynthDesc():
         ugen_class = frw.read_pascal_str(stream)
         try:
             ugen_class = ugns.installed_ugens[ugen_class]
-        except NameError as e:
+        except KeyError as e:
             raise Exception(
                 f"no UGen class found for '{ugen_class}' which was "
-                f"specified in synth def file: {self.name}") from e
+                f"specified in synthdef file: {self.name}") from e
 
         rate_index = frw.read_i8(stream)
         num_inputs = frw.read_i32(stream)

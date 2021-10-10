@@ -7,7 +7,8 @@ import sys as _sys
 from ...base import _hooks as hks
 
 
-installed_ugens = dict()
+installed_ugens = dict()  # Must contain the full list of ugens.
+all_ugens = dict()
 
 
 def install_ugen(ugen):
@@ -26,8 +27,9 @@ def install_ugens_module(name, package=None):
     to make all classes available in sc3.synth.ugens.installed_ugens.
     Parameters name and package are the arguments of importlib.import_module().
     '''
-    mapping = hks.import_all_module(name, package, bind=__name__)
-    installed_ugens.update(mapping)
+    full_us, all_us = hks.import_all_module(name, package, bind=__name__)
+    installed_ugens.update(full_us)
+    all_ugens.update(all_us)
 
 
 def install_ugens_package(path, name):
@@ -37,11 +39,12 @@ def install_ugens_package(path, name):
     sc3.synth.ugens.installed_ugens. Parameters path and name are used as
     arguments for pkgutil.walk_packages().
     '''
-    mapping = hks.import_all_package(path, name, bind=__name__)
-    installed_ugens.update(mapping)
+    full_us, all_us = hks.import_all_package(path, name, bind=__name__)
+    installed_ugens.update(full_us)
+    all_ugens.update(all_us)
 
 
-install_ugens_module('sc3.synth.ugen')  # Not really user classes.
+install_ugens_module('sc3.synth.ugen')
 install_ugens_package(__path__, __name__)
 
-__all__ = list(installed_ugens.keys())
+__all__ = list(all_ugens.keys())

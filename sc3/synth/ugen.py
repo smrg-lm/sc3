@@ -34,7 +34,7 @@ clb.ClassLibrary.late_imports(__name__,
 )
 
 
-__all__ = []
+__all__ = ['ChannelList']
 
 
 _logger = logging.getLogger(__name__)

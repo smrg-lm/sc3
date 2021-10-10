@@ -12,14 +12,18 @@ def import_all_module(name, package=None, *, bind):
     '''
     Imports all non internal clases and make the available from the
     module passed to bind. The module referred by bind must be already
-    available in sys.modules dict. Return value is a mapping of the form
-    {'class_name': class_obj, ...}. Parameters name and package are the
-    arguments of importlib.import_module().
+    available in sys.modules dict. The return value is a tuple of two dict
+    containing the full namespace and the import * namespace.
+    Parameters name and package are the arguments of importlib.import_module().
     '''
     module = _importlib.import_module(name, package)
-    mapping = dict(_inspect.getmembers(module, _inspect.isclass))
-    _sys.modules[bind].__dict__.update(mapping)
-    return mapping
+    full_cs = dict(_inspect.getmembers(module, _inspect.isclass))
+    if hasattr(module, '__all__'):
+        all_cs = {name: full_cs[name] for name in module.__all__ if full_cs.get(name, False)}
+    else:
+        all_cs = full_cs
+    _sys.modules[bind].__dict__.update(all_cs)
+    return full_cs, all_cs
 
 
 def import_all_package(path, name, *, bind):
@@ -28,12 +32,12 @@ def import_all_package(path, name, *, bind):
     non internal modules within a package and makes them available from the
     module passed to bind.
     '''
-    ret = dict()
+    full_cs = dict()
+    all_cs = dict()
     for module_info in _pkgutil.walk_packages(path, name + '.'):
         if module_info.name.split('.')[-1][0] == '_':
             continue
-        module = _importlib.import_module(module_info.name)
-        mapping = dict(_inspect.getmembers(module, _inspect.isclass))
-        _sys.modules[bind].__dict__.update(mapping)
-        ret.update(mapping)
-    return ret
+        a, p = import_all_module(module_info.name, bind=bind)
+        full_cs.update(a)
+        all_cs.update(p)
+    return full_cs, all_cs

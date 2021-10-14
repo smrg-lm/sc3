@@ -295,7 +295,7 @@ class Win32Platform(WindowsPlatform):
 
     @property
     def config_dir(self):
-        return self.support_dir()
+        return self.support_dir
 
     @property
     def resource_dir(self):

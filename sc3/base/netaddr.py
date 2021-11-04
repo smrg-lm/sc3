@@ -86,14 +86,16 @@ class NetAddr():
 
     def change_output_port(self, port):
         '''Change UDP local endpoint.'''
-        local_addr = (socket.gethostbyname('localhost'), port)
-        new_interface = type(
-            _libsc3.main._osc_interface)._local_endpoints.get(local_addr)
+        with _libsc3.main._main_lock:
+            local_addr = (socket.gethostbyname('localhost'), port)
+            new_interface = type(
+                _libsc3.main._osc_interface)._local_endpoints.get(local_addr)
         if new_interface is None:
             raise Exception(f'port {port} is not open')
         if self._osc_interface.proto == 'tcp' or new_interface == 'tcp':
             raise Exception("can't change output port from/to TCP")
         self._osc_interface = new_interface
+        self._port = port
 
     @staticmethod
     def lang_port():
@@ -105,9 +107,10 @@ class NetAddr():
         '''
         Return a list of all active local endpoints as (hostname, port, proto).
         '''
-        return [
-            (*k, v.proto) for k, v in
-            type(_libsc3.main._osc_interface)._local_endpoints.items()]
+        with _libsc3.main._main_lock:
+            return [
+                (*k, v.proto) for k, v in
+                type(_libsc3.main._osc_interface)._local_endpoints.items()]
 
 
     ### TCP Connections ###

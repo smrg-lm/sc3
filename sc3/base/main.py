@@ -101,7 +101,8 @@ class Process(type):
     def _shutdown(cls):
         sac.ShutDown.run()
         while not cls._atexitq.empty():
-            cls._atexitq.pop()[1]()
+            with cls._main_lock:
+                cls._atexitq.pop()[1]()
         atexit.unregister(cls._shutdown)
 
     @property

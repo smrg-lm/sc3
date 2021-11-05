@@ -97,6 +97,7 @@ class TimeThread():
 
     @property
     def rand_state(self):
+        '''Return the state of the `random.Random` internal generator.'''
         return self._rgen.getstate()
 
     @rand_state.setter
@@ -167,8 +168,8 @@ class AlwaysYield(Exception):
 
 class Stream(aob.AbstractObject, ABC):
     '''
-    Streams are iterator-generators compatible objects that implement an
-    specific interface to interact with clocks and patterns.
+    Streams are iterator-generators compatible objects that implement
+    a specific interface to interact with clocks and patterns.
     '''
 
     ### Iterator protocol ###
@@ -331,7 +332,7 @@ class NaropStream(Stream):
 
 
 class FunctionStream(Stream):  # Was FuncStream
-    """Create a stream from function evaluation."""
+    """Create a stream from function evaluations."""
 
     # Functions could use StopStream as sclang nil but is not nice.
     def __init__(self, next_func, reset_func=None, data=None):
@@ -342,6 +343,10 @@ class FunctionStream(Stream):  # Was FuncStream
         self.data = data
 
     def next(self, inval=None):
+        '''
+        Return the next value from the stream. Its behaviour is
+        the same as in `Routine.next`.
+        '''
         # return fn.value(self.next_func, inval, self.data)  # Not cheap.
         # return self.next_func(inval, self.data)  # Mandatory
         if self._next_nargs > 1:
@@ -352,6 +357,10 @@ class FunctionStream(Stream):  # Was FuncStream
             return self.next_func()
 
     def reset(self):
+        '''
+        Reset the stream by executing the `reset_func` if provided. If no
+        `reset_func` was provided this method does nothing.
+        '''
         # fn.value(self.reset_func, self.data)  # Not cheap.
         # self.reset_func(self.data)  # Mandatory.
         if self._reset_nargs > 0:
@@ -363,6 +372,32 @@ class FunctionStream(Stream):  # Was FuncStream
 
 
 class Routine(TimeThread, Stream):
+    '''
+    Routines are iterator-generator compatible objects that implement
+    the interfaces needed to interact with clocks and patterns and can
+    keep track of individual random states. They could be understood as
+    timelines for sequencing code excecution.
+
+    Routines can be played, paused, resumed, stoped and reset. When played,
+    they should yield time values, as `int` or `float`, that represent a
+    precise timing offset between code excecution that is internally
+    converted to OSC timetags for server commands. If running in a clock,
+    the return value of the `yield` statement, as well as the initial value
+    passed to the routine's function, is a tuple `(self, clock)` that can be
+    accessed to change states without keeping an external reference by closure.
+
+    Routines can be nested and played within others, the start time of the
+    nested routines will be at the same `logical time` of the parent thus
+    keeping synchronization and time relations even if played in a different
+    clock than the parent's. By default, nested routines inherit the clock
+    and random number generator of the parent.
+
+    ..note::
+
+      To use different random states and seeds the functions provided by
+      the `builtins` module must be used.
+    '''
+
     class _SENTINEL(): pass
 
     def __init__(self, func):
@@ -373,6 +408,10 @@ class Routine(TimeThread, Stream):
 
     @classmethod
     def run(cls, func, clock=None, quant=None):
+        '''
+        Convenience constructor that creates and plays a routine from
+        a common function.
+        '''
         obj = cls(func)
         obj.play(clock, quant)
         return obj
@@ -402,6 +441,17 @@ class Routine(TimeThread, Stream):
         # return self
 
     def next(self, inval=None):
+        '''Return the next value from the routine.
+
+        This method accepts an optional input value and act the same way
+        as the generator's `send` method. Routines behave like iterators
+        and generators at the same time, once instantiated, this method
+        evaluates its internal function and `inval` can be passed as the
+        initial argument to that function. If the function is a generator
+        function, an iterator will be created internally the first time
+        this method is called and return the value of the first yield
+        statement.
+        '''
         with self._state_cond:
             if self.state == self.State.Paused:
                 raise PausedStream
@@ -470,6 +520,7 @@ class Routine(TimeThread, Stream):
             return self._last_value
 
     def reset(self):
+        '''Reset the routine to its initial state.'''
         with self._state_cond:
             if self.state == self.State.Running:
                 raise RoutineException(
@@ -480,6 +531,13 @@ class Routine(TimeThread, Stream):
                 self.state = self.State.Init
 
     def pause(self):
+        '''Pause the routine and remove it from the clock if it is playing.
+
+        Raises
+        ------
+        RoutineException
+            If this method is called from within the routine's function itself.
+        '''
         with self._state_cond:
             if self.state == self.State.Running:
                 raise RoutineException('cannot be paused within itself')
@@ -488,6 +546,19 @@ class Routine(TimeThread, Stream):
                 self.state = self.State.Paused
 
     def resume(self, clock=None, quant=None):
+        '''Resume the routine, this method does nothing if wasn't paused before.
+
+        Parameters
+        ----------
+        clock : Clock
+            An optionally different clock to re-schedule the routine.
+            By default, the clock previously passed to the `play` function
+            will be used.
+        quant : Quant
+            A Quant object or a any value that can be cast into one with
+            Quant.as_quant constructor. This parameter only works for
+            TempoClock and is ignored by other clocks.
+        '''
         with self._state_cond:
             if self.state == self.State.Paused:
                 self.state = self.State.Suspended
@@ -495,6 +566,13 @@ class Routine(TimeThread, Stream):
                 clock.play(self, quant)
 
     def stop(self):
+        '''Stop the routine and remove it from the clock if it is playing.
+
+        Raises
+        ------
+        RoutineException
+            If this method is called from within the routine's function itself.
+        '''
         with self._state_cond:
             if self.state == self.State.Running:
                 raise RoutineException('cannot be stopped within itself')
@@ -516,11 +594,20 @@ class Routine(TimeThread, Stream):
 
 # decorator syntax
 class routine():
+    '''Decorator to convert generataor functions into Routines.
+
+    This decorator class is redundant with the `Routine` class, it returns an
+    instance of that class, but its use is recommended when used as decorator.
+    '''
+
     def __new__(cls, func):
         return Routine(func)
 
     @staticmethod
     def run(clock=None, quant=None):
+        '''
+        Convenience decorator method equivalent to `Routine.run(func, clock, quant)`.
+        '''
         def make_routine(func):
             obj = Routine(func)
             obj.play(clock, quant)

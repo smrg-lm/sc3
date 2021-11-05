@@ -12,10 +12,11 @@ __all__ = ['value', 'Function', 'function']
 def value(obj, *args, **kwargs):
     '''
     Utility function for optional value/function parameters like
-    completion_msg. If obj is a function it gets evaluated with `*args`
+    `completion_msg`. If obj is a function it gets evaluated with `*args`
     and `**kwargs` and the result is returned, else obj is returned as is.
     Spare parameters are discarded.
     '''
+
     if callable(obj):
         parameters = inspect.signature(obj).parameters
         if any(p.kind == p.VAR_POSITIONAL for p in parameters.values()):
@@ -142,6 +143,16 @@ class NaropFunction(AbstractFunction):
 ### Function.sc ###
 
 class Function(AbstractFunction):
+    '''
+    This class is a wrapper for ordinary function which adds lazy
+    evaluation capabilities (`AbstractObject` interface) and the interface
+    needed to scheduled functions in clocks.
+
+    Note that any user defined function scheduled in clocks are internally
+    wrapped in this class and there is no need to wrap them explicitly
+    for that purpose.
+    '''
+
     def __init__(self, func):
         if inspect.isfunction(func):
             parameters = inspect.signature(func).parameters
@@ -166,6 +177,11 @@ class Function(AbstractFunction):
 
 # decorator syntax
 def function(func):
+    '''Decorator to wrap ordinary function types as `AbstractObject`.
+
+    This function is redundant with the `Function` class, it returns an
+    instance of that class, but its use is recommended when used as decorator.
+    '''
     return Function(func)
 
 

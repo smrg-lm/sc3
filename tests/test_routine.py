@@ -5,10 +5,11 @@ from threading import Thread, Barrier
 import sc3
 sc3.init()
 
+from sc3.base.main import main
 from sc3.base.stream import (
     Routine, routine, StopStream, PausedStream, AlwaysYield,
     YieldAndReset, Condition, FlowVar)
-from sc3.base.clock import TempoClock, defer
+from sc3.base.clock import TempoClock
 from sc3.base.builtins import rrand
 
 
@@ -256,6 +257,65 @@ class RoutineTestCase(unittest.TestCase):
         r.rand_seed = 123
         self.assertEqual(next(r), a)
         self.assertEqual(next(r), b)
+
+    def test_rgen_inheritance(self):
+        @routine
+        def parent():
+            parent.rand_seed = 111
+            self.assertNotEqual(id(main.main_tt._rgen), id(parent._rgen))
+
+            @routine
+            def sub1():
+                self.assertEqual(id(parent._rgen), id(sub1._rgen))
+                main.resume()
+            sub1.play()
+
+            @routine
+            def sub2():
+                sub2.rand_seed = 222
+                @routine
+                def sub22():
+                    self.assertEqual(id(sub2._rgen), id(sub22._rgen))
+                    main.resume()
+                sub22.play()
+                main.resume()
+            sub2.play()
+            main.resume()
+
+        parent.play()
+        main.wait(tasks=4)
+
+    def test_clock_inheritance(self):
+        clock1 = TempoClock()
+        clock2 = TempoClock()
+
+        @routine
+        def parent(inval):
+            _, parent_clock = inval
+
+            @routine
+            def sub1(inval):
+                _, sub1_clock = inval
+                self.assertEqual(id(parent_clock), id(sub1_clock))
+                main.resume()
+            sub1.play()
+
+            @routine
+            def sub2(inval):
+                _, sub2_clock = inval
+                @routine
+                def sub22(inval):
+                    _, sub22_clock = inval
+                    self.assertEqual(id(sub2_clock), id(sub22_clock))
+                    main.resume()
+                sub22.play()
+                main.resume()
+            sub2.play(clock2)
+
+            main.resume()
+
+        parent.play(clock1)
+        main.wait(tasks=4)
 
 
 if __name__ == '__main__':

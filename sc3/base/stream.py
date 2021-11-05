@@ -392,7 +392,7 @@ class Routine(TimeThread, Stream):
     clock than the parent's. By default, nested routines inherit the clock
     and random number generator of the parent.
 
-    ..note::
+    .. note::
 
       To use different random states and seeds the functions provided by
       the `builtins` module must be used.

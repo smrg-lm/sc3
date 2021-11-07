@@ -6,7 +6,7 @@ Usage::
 
 """
 
-import sc3
-sc3.init('nrt')
+import sc3 as _sc3
+_sc3.init('nrt')
 
 from ._all import *

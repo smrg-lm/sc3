@@ -104,9 +104,7 @@ class NetAddr():
 
     @staticmethod
     def lang_endpoints():
-        '''
-        Return a list of all active local endpoints as (hostname, port, proto).
-        '''
+        '''Return a list of all active local endpoints as (hostname, port, proto).'''
         with _libsc3.main._main_lock:
             return [
                 (*k, v.proto) for k, v in

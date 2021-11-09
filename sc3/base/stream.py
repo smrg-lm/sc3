@@ -78,7 +78,7 @@ class TimeThread():
     def rand_seed(self):
         '''Random seed of the routine.
 
-        By default, Routine's random generators are inherited
+        By default, routine's random generators are inherited
         from the parent routine and only change when seeded.
         '''
         return self._rand_seed
@@ -738,7 +738,7 @@ class FlowVar():
     Defer the execution of a routine playing in a clock until a value is set.
 
     This class is similar of awaitables for routines. Internaly it uses the
-    Condition class defined in this library. See `value` property for
+    `Condition` class defined in this library. See `value` property for
     example usage.
     '''
 
@@ -752,7 +752,7 @@ class FlowVar():
     def value(self):
         '''
         Return a generator that adds the routine to a waiting queue and
-        yield a string from the internal Condition. The routine will be
+        yield a string from the internal `Condition`. The routine will be
         recheduled to return its value when when it is set.
 
         ::

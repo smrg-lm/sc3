@@ -182,6 +182,7 @@ def function(func):
     This function is redundant with the `Function` class, it returns an
     instance of that class, but its use is recommended when used as decorator.
     '''
+
     return Function(func)
 
 

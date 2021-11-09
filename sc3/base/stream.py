@@ -38,7 +38,7 @@ class TimeThread():
 
         self.parent = None
         self.state = self.State.Init
-        self._state_cond = threading.Condition(threading.RLock())
+        self._state_lock = _libsc3.main._state_lock
         self._m_seconds = 0.0
         self._clock = clk.SystemClock  # Default clock.
         self._thread_player = None
@@ -430,7 +430,7 @@ class Routine(TimeThread, Stream):
             Quant.as_quant constructor. This parameter only works for
             TempoClock and is ignored by other clocks.
         '''
-        with self._state_cond:
+        with self._state_lock:
             if self.state == self.State.Init\
             or self.state == self.state.Paused:
                 self.state = self.State.Suspended
@@ -452,7 +452,7 @@ class Routine(TimeThread, Stream):
         this method is called and return the value of the first yield
         statement.
         '''
-        with self._state_cond:
+        with self._state_lock:
             if self.state == self.State.Paused:
                 raise PausedStream
 
@@ -521,7 +521,7 @@ class Routine(TimeThread, Stream):
 
     def reset(self):
         '''Reset the routine to its initial state.'''
-        with self._state_cond:
+        with self._state_lock:
             if self.state == self.State.Running:
                 raise RoutineException(
                     'cannot be reset within itself except by YieldAndReset')
@@ -538,7 +538,7 @@ class Routine(TimeThread, Stream):
         RoutineException
             If this method is called from within the routine's function itself.
         '''
-        with self._state_cond:
+        with self._state_lock:
             if self.state == self.State.Running:
                 raise RoutineException('cannot be paused within itself')
             if self.state == self.State.Init\
@@ -559,7 +559,7 @@ class Routine(TimeThread, Stream):
             Quant.as_quant constructor. This parameter only works for
             TempoClock and is ignored by other clocks.
         '''
-        with self._state_cond:
+        with self._state_lock:
             if self.state == self.State.Paused:
                 self.state = self.State.Suspended
                 clock = clock or self._clock
@@ -573,7 +573,7 @@ class Routine(TimeThread, Stream):
         RoutineException
             If this method is called from within the routine's function itself.
         '''
-        with self._state_cond:
+        with self._state_lock:
             if self.state == self.State.Running:
                 raise RoutineException('cannot be stopped within itself')
             else:
@@ -621,6 +621,7 @@ class routine():
 class Condition():
     def __init__(self, test=False):
         self._test = test
+        self._state_lock = _libsc3.main._state_lock
         self._waiting_threads = []
 
     @property
@@ -635,34 +636,40 @@ class Condition():
         self._test = value
 
     def wait(self):
-        # This method and hang could be common functions so instead of doing
-        # `yielf from condition.wait()` it could be `yield cond.wait()`. That
-        # will affect server.sync() for instance. I don't know which is best.
-        # However, FlowVar needs to use `yield from` expression.
+        current_tt = _libsc3.main.current_tt
+        if _libsc3.main.current_tt is _libsc3.main.main_tt:
+            raise Exception(
+                f'{type(self).__name__}.wait() called outside a routine')
         if not self.test:
-            self._waiting_threads.append(_libsc3.main.current_tt.thread_player)
+            self._waiting_threads.append(current_tt.thread_player)
             yield 'hang'  # Arbitrary non numeric value.
         else:
             yield 0
 
     def hang(self, value='hang'):
+        current_tt = _libsc3.main.current_tt
+        if current_tt is _libsc3.main.main_tt:
+            raise Exception(
+                f'{type(self).__name__}.hang() called outside a routine')
         # // Ignore the test, just wait.
-        self._waiting_threads.append(_libsc3.main.current_tt.thread_player)
+        self._waiting_threads.append(current_tt.thread_player)
         yield value
 
     def signal(self):
-        if self.test:
+        with self._state_lock:
+            if self.test:
+                tmp_wtt = self._waiting_threads
+                self._waiting_threads = []
+                for tt in tmp_wtt:
+                    tt._clock.sched(0, tt)
+
+    def unhang(self):
+        with self._state_lock:
+            # // Ignore the test, just resume all waiting threads.
             tmp_wtt = self._waiting_threads
             self._waiting_threads = []
             for tt in tmp_wtt:
                 tt._clock.sched(0, tt)
-
-    def unhang(self):
-        # // Ignore the test, just resume all waiting threads.
-        tmp_wtt = self._waiting_threads
-        self._waiting_threads = []
-        for tt in tmp_wtt:
-            tt._clock.sched(0, tt)
 
 
 class FlowVar():

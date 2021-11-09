@@ -114,13 +114,13 @@ class EventStreamPlayer(stm.Routine):
         self._is_muted = False
 
     def reset(self):
-        with self._state_cond:
+        with self._state_lock:
             super().reset()
             self._stream.reset()
             self._cleanup.run()
 
     def resume(self, clock=None, quant=None):
-        with self._state_cond:
+        with self._state_lock:
             if self.state == self.State.Paused:
                 self.state = self.State.Suspended
                 clock = clock or self._clock
@@ -128,7 +128,7 @@ class EventStreamPlayer(stm.Routine):
                 clock.play(self, quant)
 
     def stop(self):
-        with self._state_cond:
+        with self._state_lock:
             super().stop()
             self._cleanup.run()
 
@@ -151,7 +151,7 @@ class EventStreamPlayer(stm.Routine):
     def play(self, clock=None, quant=None, reset=False):
         if reset:
             self.reset()
-        with self._state_cond:
+        with self._state_lock:
             if self.state == self.State.Init\
             or self.state == self.state.Paused:
                 self.state = self.State.Suspended

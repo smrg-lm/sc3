@@ -50,8 +50,12 @@ class Process(type):
     '''Functions registered in atexit with order by priority numbers.'''
 
     def __init__(cls, *_):
-        # Main library lock.
+        # Main library lock (guards clock's threads).
         cls._main_lock = threading.RLock()
+
+        # TimeThread lock (guards routine's current_tt changes).
+        # Using a different lock makes it possible to stop yield 0 hangs.
+        cls._state_lock = threading.RLock()
 
         # Mode switch lock. Not defined behaviour.
         # cls._switch_cond = threading.Condition(cls._main_lock)

@@ -184,14 +184,11 @@ class Stream(aob.AbstractObject, ABC):
     ### Stream protocol ###
 
     def __stream__(self):
-        '''Returns a Stream object.'''
+        '''Return a Stream object.'''
         return self
 
     def __embed__(self, inval=None):
-        '''
-        Returns generator-iterator that recursively embeds cointained
-        sub-streams.
-        '''
+        '''Return generator-iterator that recursively embeds cointained sub-streams.'''
         try:
             while True:
                 inval = yield self.next(inval)
@@ -412,6 +409,7 @@ class Routine(TimeThread, Stream):
         Convenience constructor that creates and plays a routine from
         a common function.
         '''
+
         obj = cls(func)
         obj.play(clock, quant)
         return obj
@@ -430,6 +428,7 @@ class Routine(TimeThread, Stream):
             Quant.as_quant constructor. This parameter only works for
             TempoClock and is ignored by other clocks.
         '''
+
         with self._state_lock:
             if self.state == self.State.Init\
             or self.state == self.state.Paused:
@@ -452,6 +451,7 @@ class Routine(TimeThread, Stream):
         this method is called and return the value of the first yield
         statement.
         '''
+
         with self._state_lock:
             if self.state == self.State.Paused:
                 raise PausedStream
@@ -538,6 +538,7 @@ class Routine(TimeThread, Stream):
         RoutineException
             If this method is called from within the routine's function itself.
         '''
+
         with self._state_lock:
             if self.state == self.State.Running:
                 raise RoutineException('cannot be paused within itself')
@@ -559,6 +560,7 @@ class Routine(TimeThread, Stream):
             Quant.as_quant constructor. This parameter only works for
             TempoClock and is ignored by other clocks.
         '''
+
         with self._state_lock:
             if self.state == self.State.Paused:
                 self.state = self.State.Suspended
@@ -573,6 +575,7 @@ class Routine(TimeThread, Stream):
         RoutineException
             If this method is called from within the routine's function itself.
         '''
+
         with self._state_lock:
             if self.state == self.State.Running:
                 raise RoutineException('cannot be stopped within itself')
@@ -605,9 +608,7 @@ class routine():
 
     @staticmethod
     def run(clock=None, quant=None):
-        '''
-        Convenience decorator method equivalent to `Routine.run(func, clock, quant)`.
-        '''
+        '''Convenience decorator method equivalent to `Routine.run(func, clock, quant)`.'''
         def make_routine(func):
             obj = Routine(func)
             obj.play(clock, quant)
@@ -619,6 +620,21 @@ class routine():
 
 
 class Condition():
+    '''
+    Stop the execution of a routine playing on a clock until a condition
+    is meet.
+
+    Clocks' threads can't be blocked with common locks. This class acts like
+    a blocking condition by removing the routine from the clock's scheduler
+    and putting it in a waiting queue. See `wait` and `hang` methods for
+    examples usage.
+
+    Parameters
+    ----------
+    test: boolean | callable
+        Initial test condition it can be a callable that return a boolean.
+    '''
+
     def __init__(self, test=False):
         self._test = test
         self._state_lock = _libsc3.main._state_lock
@@ -626,6 +642,7 @@ class Condition():
 
     @property
     def test(self):
+        '''Get the truth value of the test.'''
         if callable(self._test):
             return self._test()
         else:
@@ -633,9 +650,34 @@ class Condition():
 
     @test.setter
     def test(self, value):
+        '''Set test value. It can be a boolean or a callable that returns one.'''
         self._test = value
 
     def wait(self):
+        '''
+        Return a generator that will remove the routine from the clock
+        by returning a string and add it to a waiting queue when the
+        condition is set to True and signaled. If the test condition is
+        already True it rechedules the routine immediately.
+
+        ::
+
+            cond = Condition()
+            @routine
+            def r():
+                yield from cond.wait()  # Queued.
+                print('resumed')
+            r.play()
+
+            cond.test = True  # Condition must be True to resume.
+            cond.signal()  # Signal the routine.
+
+        Raises
+        ------
+        Exeption
+            If the generator is yield outside a routine.
+        '''
+
         current_tt = _libsc3.main.current_tt
         if _libsc3.main.current_tt is _libsc3.main.main_tt:
             raise Exception(
@@ -647,6 +689,28 @@ class Condition():
             yield 0
 
     def hang(self, value='hang'):
+        '''
+        Return a generator that adds the routine to a waiting queue and
+        yield the value of `value`. The routine will be recheduled when
+        `unhang` is called.
+
+        ::
+
+            cond = Condition()
+            @routine
+            def r():
+                yield from cond.hang()  # Queued.
+                print('resumed')
+            r.play()
+
+            cond.unhang()  # Resume the routine.
+
+        Raises
+        ------
+        Exeption
+            If the generator is yield outside a routine.
+        '''
+
         current_tt = _libsc3.main.current_tt
         if current_tt is _libsc3.main.main_tt:
             raise Exception(
@@ -656,6 +720,7 @@ class Condition():
         yield value
 
     def signal(self):
+        '''Check the test and reschedule the routine if True.'''
         with self._state_lock:
             if self.test:
                 tmp_wtt = self._waiting_threads
@@ -664,6 +729,7 @@ class Condition():
                     tt._clock.sched(0, tt)
 
     def unhang(self):
+        '''Unhang a previously hung routine.'''
         with self._state_lock:
             # // Ignore the test, just resume all waiting threads.
             tmp_wtt = self._waiting_threads
@@ -673,6 +739,14 @@ class Condition():
 
 
 class FlowVar():
+    '''
+    Defer the execution of a routine playing in a clock until a value is set.
+
+    This class is similar of awaitables for routines. Internaly it uses the
+    Condition class defined in this library. See `value` property for
+    example usage.
+    '''
+
     class _UNBOUND(): pass
 
     def __init__(self):
@@ -681,11 +755,41 @@ class FlowVar():
 
     @property
     def value(self):
+        '''
+        Return a generator that adds the routine to a waiting queue and
+        yield a string from the internal Condition. The routine will be
+        recheduled to return its value when when it is set.
+
+        ::
+
+            f_var = FlowVar()
+            @routine
+            def r():
+                v = yield from f_var.value  # Queued.
+                print('say', v)
+            r.play()
+
+            f_var.value = 'hello'  # Resume the routine.
+
+        Raises
+        ------
+        Exeption
+            If the generator is yield outside a routine.
+        '''
+
         yield from self.condition.wait()
         return self._value
 
     @value.setter
     def value(self, inval):
+        '''Set the generator return value.
+
+        Raises
+        ------
+        Exeption
+            If the value set more than once (rebind).
+        '''
+
         if self._value is not self._UNBOUND:
             raise Exception('cannot rebind a FlowVar')
         self._value = inval

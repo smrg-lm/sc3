@@ -3,9 +3,7 @@
 from abc import ABC, abstractmethod
 import inspect
 import enum
-import threading
 import random
-import logging
 
 from . import main as _libsc3
 from . import absobject as aob
@@ -15,9 +13,6 @@ from . import clock as clk
 __all__ = [
     'Routine', 'routine', 'FunctionStream',
     'Condition', 'FlowVar', 'stream', 'embed']
-
-
-_logger = logging.getLogger(__name__)
 
 
 ### Thread.sc ###

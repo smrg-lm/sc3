@@ -250,7 +250,7 @@ class AbstractResponderFunc(ABC):
         return result
 
     @classmethod
-    def all_enabled(cls):
+    def _all_enabled(cls):
         '''
         Return a dict with all the enabled
         responders' dispatchers by `type_name`.
@@ -267,7 +267,7 @@ class AbstractResponderFunc(ABC):
         return result
 
     @classmethod
-    def all_disabled(cls):
+    def _all_disabled(cls):
         '''
         Return a dict with all the disabled
         responders' dispatchers by `type_name`.
@@ -436,12 +436,12 @@ class OscFunc(AbstractResponderFunc):
     dispatcher | AbstractDispatcher
         An optional instance of an appropriate subclass of `AbstractDispatcher`.
         This can be used to allow for customised dispatching. Normally this
-        should not be needed.
+        should not be needed and it requires to use the internal interface.
     '''
 
     _all_func_proxies = set()
 
-    default_dispatcher = OSCMessageDispatcher()
+    _default_dispatcher = OSCMessageDispatcher()
     '''
     Default dispatcher object for new instances (this is what you get if you
     pass `None` as the `dispatcher` argument). This object will decide if any
@@ -451,7 +451,7 @@ class OscFunc(AbstractResponderFunc):
     any instance of an appropriate subclass of `AbstractDispatcher`.
     '''
 
-    default_matching_dispatcher = OSCMessagePatternDispatcher()
+    _default_matching_dispatcher = OSCMessagePatternDispatcher()
     '''
     Default matching dispatcher object for new instances (this is what you
     get if when you create an OSCFunc using `matching`). This object will
@@ -493,7 +493,7 @@ class OscFunc(AbstractResponderFunc):
             _libsc3.main.open_udp_port(recv_port)
         self.arg_template = arg_template
         self._func = func
-        self.dispatcher = dispatcher or type(self).default_dispatcher
+        self.dispatcher = dispatcher or type(self)._default_dispatcher
         self.enable()
         # type(self)._all_func_proxies.add(self)  # Called by enable() already.
 
@@ -514,7 +514,7 @@ class OscFunc(AbstractResponderFunc):
 
         return cls(
             func, path, src_id, recv_port, arg_template,
-            cls.default_matching_dispatcher)
+            cls._default_matching_dispatcher)
 
     @classmethod
     def __on_cmd_period(cls):  # Avoid clash.

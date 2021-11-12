@@ -51,7 +51,7 @@ import time
 import array
 import uuid
 
-from ..base import responsedefs as rdf
+from ..base import responders as rpd
 from ..base import model as mdl
 from ..base import functions as fn
 from ..base import platform as plf
@@ -657,7 +657,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         def resp_func(msg, *_):
             fn.value(action, *msg)
 
-        rdf.OscFunc(
+        rpd.OscFunc(
             resp_func, '/b_info', self._server.addr,
             arg_template=[self._bufnum]).one_shot()
         self._server.addr.send_msg('/b_query', self._bufnum)
@@ -770,7 +770,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             # // which is at index 3.
             fn.value(action, msg[3])
 
-        rdf.OscFunc(
+        rpd.OscFunc(
             resp_func, '/b_set', self._server.addr,
             arg_template=[self._bufnum, index]).one_shot()
 
@@ -786,7 +786,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
             # // We want the sample values, which start at index 4.
             fn.value(action, msg[4:])
 
-        rdf.OscFunc(
+        rpd.OscFunc(
             resp_func, '/b_setn', self._server.addr,
             arg_template=[self._bufnum, index]).one_shot()
 
@@ -831,7 +831,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                     resp.free()  # *** BUG: clear() ???
                     fn.value(action, array)  #, self)  # *** NOTE: CHANGEG: because get & getn don't pass self to action, only data
 
-        resp = rdf.OscFunc(resp_func, '/b_setn', self._server.addr)
+        resp = rpd.OscFunc(resp_func, '/b_setn', self._server.addr)
 
         def getn_func():
             nonlocal pos
@@ -876,7 +876,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 # // [/done, /b_gen, bufnum]
                 fn.value(action, self)
 
-            rdf.OscFunc(
+            rpd.OscFunc(
                 resp_func, '/done', self._server.addr,
                 arg_template=['/b_gen', self._bufnum]).one_shot()
 
@@ -943,7 +943,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 # // [/done, /b_gen, bufnum]
                 fn.value(action, self, dst_buffer)
 
-            rdf.OscFunc(
+            rpd.OscFunc(
                 resp_func, '/done', self._server.addr,
                 arg_template=['/b_gen', self._bufnum]).one_shot()
 
@@ -1005,7 +1005,7 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
                 except KeyError:
                     pass
 
-            resp = rdf.OscFunc(resp_func, '/b_info', server.addr)
+            resp = rpd.OscFunc(resp_func, '/b_info', server.addr)
             resp.permanent = True
             cls._server_caches[server]['responder'] = resp
             mdl.NotificationCenter.register(

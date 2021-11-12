@@ -5,7 +5,7 @@ import pathlib
 import time
 
 from ..base import model as mdl
-from ..base import responsedefs as rdf
+from ..base import responders as rpd
 from ..base import main as _libsc3
 from ..base import builtins as bi
 from ..base import stream as stm
@@ -217,7 +217,7 @@ class Recorder():
                 if msg[2] == self._id:
                     self._duration = msg[3]
                     self._changed_server('/recording_duration', self._duration)
-            self._responder = rdf.OscFunc(
+            self._responder = rpd.OscFunc(
                 resp_recording_func, '/recording_duration', self._server.addr)
         else:
             self._responder.enable()

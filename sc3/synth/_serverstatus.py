@@ -8,7 +8,7 @@ from ..base import clock as clk
 from ..base import stream as stm
 from ..base import model as mdl
 from ..base import systemactions as sac
-from ..base import responsedefs as rdf
+from ..base import responders as rpd
 from ..base import functions as fn
 from ..base import main as _libsc3
 
@@ -178,7 +178,7 @@ class ServerStatusWatcher():
 
                 clk.defer(update_state)
 
-            self._responder = rdf.OscFunc(
+            self._responder = rpd.OscFunc(
                 status_func, '/status.reply', self.server.addr)
             self._responder.permanent = True
         else:
@@ -213,7 +213,7 @@ class ServerStatusWatcher():
                 _logger.error(
                     'something went wrong, server status is inconsistent')
 
-        done_osc_func = rdf.OscFunc(
+        done_osc_func = rpd.OscFunc(
             done, '/done', self.server.addr,
             arg_template=['/notify', None])
         done_osc_func.one_shot()
@@ -234,7 +234,7 @@ class ServerStatusWatcher():
                 _logger.error(
                     'something went wrong, server status is inconsistent')
 
-        fail_osc_func = rdf.OscFunc(
+        fail_osc_func = rpd.OscFunc(
             fail, '/fail', self.server.addr,
             arg_template=['/notify', None, None])
         fail_osc_func.one_shot()
@@ -339,7 +339,7 @@ class ServerStatusWatcher():
                     _logger.info(f"'{self.server.name}': quit done")
                     self._perform_actions('quit', 'on_complete')
 
-            quit_watcher = rdf.OscFunc(
+            quit_watcher = rpd.OscFunc(
                 quit_func, '/done', self.server.addr)
 
             def quit_timeout_func():

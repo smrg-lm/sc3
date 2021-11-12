@@ -5,7 +5,7 @@ import logging
 from . import _graphparam as gpp
 from . import server as srv
 from ..base import utils as utl
-from ..base import responsedefs as rdf
+from ..base import responders as rpd
 
 
 __all__ = ['AudioBus', 'ControlBus']
@@ -307,7 +307,7 @@ class ControlBus(Bus):
                 # // We want "value," which is at index 2.
                 action(msg[2])
 
-            rdf.OscFunc(
+            rpd.OscFunc(
                 get_func, '/c_set', self._server.addr,
                 arg_template=[self._index]).one_shot()
             self._server.addr.send_msg('/c_get', self._index)
@@ -340,7 +340,7 @@ class ControlBus(Bus):
             # // We want the values, which are at indexes 3 and above.
             action(msg[3:])
 
-        rdf.OscFunc(
+        rpd.OscFunc(
             getn_func, '/c_setn', self._server.addr,
             arg_template=[self._index]).one_shot()
         if count is None:

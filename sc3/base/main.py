@@ -18,7 +18,7 @@ from . import _oscinterface as osci
 from . import classlibrary as clb
 from . import clock as clk
 from . import builtins as bi
-from . import responsedefs as rdf
+from . import responders as rpd
 
 # Have late_imports and is not in the above tree.
 from ..seq import pattern as _
@@ -316,7 +316,7 @@ class RtMain(metaclass=Process):
                 with cls._wait_cond:
                     cls._wait_cond.notify()
 
-        resp = rdf.OscFunc(resp_func, '/synced', server.addr)
+        resp = rpd.OscFunc(resp_func, '/synced', server.addr)
 
         with main._wait_cond:
             server.addr.send_msg('/sync', id)

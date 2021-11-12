@@ -6,7 +6,7 @@ import socket
 from . import stream as stm
 from . import main as _libsc3
 from . import builtins as bi
-from . import responsedefs as rdf
+from . import responders as rpd
 from . import _oscinterface as osci
 
 
@@ -263,7 +263,7 @@ class NetAddr():
                 condition.test = True
                 condition.signal()
 
-        resp = rdf.OscFunc(resp_func, '/synced', self)
+        resp = rpd.OscFunc(resp_func, '/synced', self)
         return id
 
     def _clump_bundle(self, elements, size=8192):

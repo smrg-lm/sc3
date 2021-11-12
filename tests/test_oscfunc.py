@@ -6,7 +6,7 @@ sc3.init()
 
 from sc3.base.main import main
 from sc3.base.netaddr import NetAddr
-from sc3.base.responsedefs import OscFunc
+from sc3.base.responders import OscFunc
 
 
 class OscFuncTestCase(unittest.TestCase):

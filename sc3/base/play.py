@@ -4,7 +4,7 @@ import logging
 import inspect
 
 from . import utils as utl
-from . import responsedefs as rdf
+from . import responders as rpd
 from ..seq import event as evt
 from ..synth import synthdef as sdf
 from ..synth import _graphparam as gpp
@@ -51,7 +51,7 @@ def _play_func(func, target=None, outbus=0, fade=0.01,
 
     synthdef = sdf.SynthDef(sds.SystemDefs.generate_tmp_name(), wrapper)
     synth = nod.Synth.basic_new(synthdef.name, server)
-    rdf.OscFunc(
+    rpd.OscFunc(
         # // Use the /n_end signal to remove the temp synthdef.
         lambda *_: server.addr.send_msg('/d_free', synthdef.name),
         '/n_end', server.addr, arg_template=[synth.node_id]).one_shot()

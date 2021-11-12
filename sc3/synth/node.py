@@ -3,7 +3,7 @@
 import logging
 
 from ..base import utils as utl
-from ..base import responsedefs as rdf
+from ..base import responders as rpd
 from ..base import functions as fn
 from ..base import model as mdl
 from ..base import stream as stm
@@ -194,7 +194,7 @@ class Node(gpp.NodeParameter):
                             f'\n   tail: {tail}')
                 print(msg)
 
-        rdf.OscFunc(
+        rpd.OscFunc(
             lambda msg, *_: action(*msg),
             '/n_info', self.server.addr,
             arg_template=[self.node_id]).one_shot()
@@ -373,7 +373,7 @@ class AbstractGroup(Node):
             else:
                 self._pretty_tree(outdct)
 
-        resp = rdf.OscFunc(resp_func, '/g_queryTree.reply', self.server.addr)
+        resp = rpd.OscFunc(resp_func, '/g_queryTree.reply', self.server.addr)
         resp.one_shot()
 
         def timeout_func():
@@ -571,7 +571,7 @@ class Synth(Node):
             # // We want 'value' which is at index 3.
             fn.value(action, msg[3])
 
-        rdf.OscFunc(
+        rpd.OscFunc(
             resp_func, '/n_set', self.server.addr,
             arg_template=[self.node_id, index]).one_shot()
 
@@ -584,7 +584,7 @@ class Synth(Node):
             # // We want '*values' which are at indexes 4 and above.
             fn.value(action, msg[4:])
 
-        rdf.OscFunc(
+        rpd.OscFunc(
             resp_func, '/n_setn', self.server.addr,
             arg_template=[self.node_id, index]).one_shot()
 

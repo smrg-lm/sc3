@@ -404,7 +404,7 @@ class OscFunc(AbstractResponderFunc):
 
     Parameters
     ----------
-    func | callable
+    func : callable
         A function which will respond to the incoming message. When evaluated
         it will be passed the following arguments: `msg`, the OSC message as
         a list in the form `['/oscaddress', args1, arg2, ...]`, `time`, the
@@ -412,20 +412,20 @@ class OscFunc(AbstractResponderFunc):
         `addr`, a `NetAddr` instance corresponding to the IP address of the
         sender, and `recv_port`, an `int` corresponding to the port on which
         the message was received.
-    path | str
+    path : str
         The path of the OSC address of this object. Note that `OSCFunc`
         demands OSC compliant addresses. If the path does not begin with a
         '/' one will be added automatically.
-    src_id | NetAddr
+    src_id : NetAddr
         An optional instance of NetAddr indicating the IP address of the
         sender. If set this object will only respond to messages from that
         source.
-    recv_port | int
+    recv_port : int
         Optional parameter indicating the port on which messages will be
         received. If set, this object will only respond to message received
         on that port. Note that setting this parameter it will open an UDP
         port if not opened already.
-    arg_template | list
+    arg_template : list
         An optional list composed of valid OSC values or functions used to
         match the arguments of an incoming OSC message by position. If a
         function, it will be evaluated with the corresponding message's value
@@ -433,7 +433,7 @@ class OscFunc(AbstractResponderFunc):
         indicating whether the argument matches and this `OSCFunc` should
         respond (providing all other arguments match). Template values of
         `None` will match any incoming argument value at that position.
-    dispatcher | AbstractDispatcher
+    dispatcher : AbstractDispatcher
         An optional instance of an appropriate subclass of `AbstractDispatcher`.
         This can be used to allow for customised dispatching. Normally this
         should not be needed and it requires to use the internal interface.
@@ -526,9 +526,9 @@ class OscFunc(AbstractResponderFunc):
 
         Parameters
         ----------
-        flag | bool
+        flag : bool
             Dumping on or off.
-        hide_status | bool
+        hide_status : bool
             Whether server status messages are excluded from the dump or not.
         '''
 

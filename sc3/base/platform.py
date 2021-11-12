@@ -97,6 +97,8 @@ class MetaPlatform(type):
 
 
 class Platform(metaclass=MetaPlatform):
+    '''Singleton class object that defines platform dependant data.'''
+
     def _startup(self):
         pass
 

@@ -18,6 +18,16 @@ __all__ = ['OscFunc']
 _logger = logging.getLogger(__name__)
 
 
+# NOTE: There are tree types objects in this sublibrary: matchers,
+# dispatchers and responders (e.g. OscFunc). Matchers filter incoming data
+# for specific cases and sets of parameters. Dispatchers dispatch the
+# filtered data to the corresponding responder's instances depending on the
+# message type. Responders are the actual public interface (e.g. OscFunc).
+# Documentation for matchers and dispatchers are in the original library
+# written for sclang, here I only transcribed the functionality of the
+# public interface by now.
+
+
 class AbstractMessageMatcher(ABC):
     @abstractmethod
     def __call__(self):
@@ -32,14 +42,18 @@ class AbstractDispatcher(ABC):
 
     @abstractmethod
     def add(self, func_proxy):
-        '''Proxies call this to add themselves to this dispatcher;
-        should register this if needed.'''
+        '''
+        Proxies call this to add themselves to this dispatcher.
+        Should register this if needed.
+        '''
         pass
 
     @abstractmethod
     def remove(self, func_proxy):
-        '''Proxies call this to remove themselves from this dispatcher;
-        should unregister if needed.'''
+        '''
+        Proxies call this to remove themselves from this dispatcher.
+        Should unregister if needed.
+        '''
         pass
 
     @abstractmethod
@@ -62,7 +76,7 @@ class AbstractDispatcher(ABC):
 
     @abstractmethod
     def type_key(self):
-        '''This method must return an str.'''
+        '''Name of the dispatcher as str.'''
         pass
 
 
@@ -123,6 +137,18 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
 
 
 class AbstractResponderFunc(ABC):
+    '''
+    Abstract superclass of responder funcs, which are classes which register
+    one or more functions to respond to a particular type of input.
+    It provides some common functionality such as introspection. Its two main
+    subclasses are OSCFunc, and MIDIFunc. By default responder funcs do not
+    persist beyond `CmdPeriod.run()` (see `permanent` property below).
+
+    Instances will register with a dispatcher (an instance of a subclass of
+    `AbstractDispatcher`), which will actually dispatch incoming messages
+    to an instance's function(s).
+    '''
+
     # _all_func_proxies is set()
 
     def __init__(self):
@@ -134,6 +160,7 @@ class AbstractResponderFunc(ABC):
 
     @property
     def func(self):
+        '''Responder function.'''
         return self._func
 
     @func.setter
@@ -143,6 +170,10 @@ class AbstractResponderFunc(ABC):
 
     @property
     def permanent(self):
+        '''A permanent responder is persistent after `CmdPeriod.run()`.
+
+        By default this property is `False`.
+        '''
         return self._permanent
 
     @permanent.setter
@@ -154,6 +185,7 @@ class AbstractResponderFunc(ABC):
             sac.CmdPeriod.add(self.__on_cmd_period)
 
     def enable(self):
+        '''Enable the responder to process incoming data.'''
         if not self.enabled:
             if not self.permanent:
                 sac.CmdPeriod.add(self.__on_cmd_period)
@@ -162,6 +194,7 @@ class AbstractResponderFunc(ABC):
             type(self)._all_func_proxies.add(self)
 
     def disable(self):
+        '''Disable the responder, no data is processed.'''
         if not self.permanent:
             sac.CmdPeriod.remove(self.__on_cmd_period)
         self.dispatcher.remove(self)
@@ -171,6 +204,7 @@ class AbstractResponderFunc(ABC):
         self.free()
 
     def one_shot(self):
+        '''Make the responder a one time action.'''
         wrapped_func = self._func
 
         def one_shot_func(*args):
@@ -183,6 +217,12 @@ class AbstractResponderFunc(ABC):
     #     self.permanent = True
 
     def free(self):
+        '''
+        Remove the responder form the set of available
+        responders and disable it. This should be done
+        when you are finished using this object.
+        '''
+
         cls = type(self)
         if self in cls._all_func_proxies:
             cls._all_func_proxies.remove(self)
@@ -190,10 +230,16 @@ class AbstractResponderFunc(ABC):
             self.disable()
 
     def clear(self):
+        '''Clear the responder's function.'''
         self.func = None
 
     @classmethod
     def _all_func_proxies(cls):
+        '''
+        Get all current instances of this classes
+        concrete subclasses, sorted by type.
+        '''
+
         result = dict()
         for func_proxy in cls._all_func_proxies:
             key = func_proxy.dispatcher.type_key()
@@ -205,6 +251,11 @@ class AbstractResponderFunc(ABC):
 
     @classmethod
     def all_enabled(cls):
+        '''
+        Return a dict with all the enabled
+        responders' dispatchers by `type_name`.
+        '''
+
         result = dict()
         enabled_proxies = [x for x in cls._all_func_proxies if x.enabled]
         for func_proxy in enabled_proxies:
@@ -217,6 +268,11 @@ class AbstractResponderFunc(ABC):
 
     @classmethod
     def all_disabled(cls):
+        '''
+        Return a dict with all the disabled
+        responders' dispatchers by `type_name`.
+        '''
+
         result = dict()
         disabled_proxies = [x for x in cls._all_func_proxies if not x.enabled]
         for func_proxy in disabled_proxies:
@@ -334,9 +390,77 @@ class OSCMessagePatternDispatcher(OSCMessageDispatcher):
 
 
 class OscFunc(AbstractResponderFunc):
+    '''Fast Responder for incoming Open Sound Control Messages.
+
+    Instances of this class register one or more functions to respond to an
+    incoming OSC message which matches a specified OSC Address. Many of its
+    methods are inherited from its superclass `AbstractResponderFunc`.
+    It supports pattern matching of wildcards etc. in incoming messages.
+    For efficiency reasons you must specify that an `OSCFunc` will employ
+    pattern matching by creating it with the matching constructor, or by
+    passing a matching dispatcher to `dispatcher` parameter of the default
+    constructor. For details on the Open Sound Control protocol,
+    see http://opensoundcontrol.org/spec-1_0.
+
+    Parameters
+    ----------
+    func | callable
+        A function which will respond to the incoming message. When evaluated
+        it will be passed the following arguments: `msg`, the OSC message as
+        a list in the form `['/oscaddress', args1, arg2, ...]`, `time`, the
+        bundle's time plus the latency or the time of reception for messages,
+        `addr`, a `NetAddr` instance corresponding to the IP address of the
+        sender, and `recv_port`, an `int` corresponding to the port on which
+        the message was received.
+    path | str
+        The path of the OSC address of this object. Note that `OSCFunc`
+        demands OSC compliant addresses. If the path does not begin with a
+        '/' one will be added automatically.
+    src_id | NetAddr
+        An optional instance of NetAddr indicating the IP address of the
+        sender. If set this object will only respond to messages from that
+        source.
+    recv_port | int
+        Optional parameter indicating the port on which messages will be
+        received. If set, this object will only respond to message received
+        on that port. Note that setting this parameter it will open an UDP
+        port if not opened already.
+    arg_template | list
+        An optional list composed of valid OSC values or functions used to
+        match the arguments of an incoming OSC message by position. If a
+        function, it will be evaluated with the corresponding message's value
+        at the same positon as an argument, and should return a boolean
+        indicating whether the argument matches and this `OSCFunc` should
+        respond (providing all other arguments match). Template values of
+        `None` will match any incoming argument value at that position.
+    dispatcher | AbstractDispatcher
+        An optional instance of an appropriate subclass of `AbstractDispatcher`.
+        This can be used to allow for customised dispatching. Normally this
+        should not be needed.
+    '''
+
     _all_func_proxies = set()
+
     default_dispatcher = OSCMessageDispatcher()
+    '''
+    Default dispatcher object for new instances (this is what you get if you
+    pass `None` as the `dispatcher` argument). This object will decide if any
+    of its registered `OSCFuncs` should respond to an incoming OSC message.
+
+    By default this will be an `OSCMessageDispatcher`, but it can be set to
+    any instance of an appropriate subclass of `AbstractDispatcher`.
+    '''
+
     default_matching_dispatcher = OSCMessagePatternDispatcher()
+    '''
+    Default matching dispatcher object for new instances (this is what you
+    get if when you create an OSCFunc using `matching`). This object will
+    decide if any of its registered OSCFuncs should respond to an incoming
+    OSC message using pattern matching.
+
+    By default this will be an `OSCMessagePatternDispatcher`, but it can be
+    set to any instance of an appropriate subclass of `AbstractDispatcher`.
+    '''
 
     @classmethod
     def _trace_func_show_status(cls, msg, time, addr, recv_port):
@@ -376,6 +500,18 @@ class OscFunc(AbstractResponderFunc):
     @classmethod
     def matching(cls, func, path, src_id=None,
                  recv_port=None, arg_template=None):
+        '''Create a responder with pattern matching capabilities.
+
+        Pattern matching will be applied to any incoming messages to see
+        if they match this address (`path`). Note that according to the OSC
+        spec, regular expression wildcards are only permitted in the incoming
+        message's address pattern. Thus path should not contain wildcards.
+        For more details on OSC pattern matching,
+        see http://opensoundcontrol.org/spec-1_0.
+
+        See the default constructor other parameters description.
+        '''
+
         return cls(
             func, path, src_id, recv_port, arg_template,
             cls.default_matching_dispatcher)
@@ -386,6 +522,16 @@ class OscFunc(AbstractResponderFunc):
 
     @classmethod
     def trace(cls, flag=True, hide_status=False):
+        '''A convenience method which dumps all incoming OSC messages.
+
+        Parameters
+        ----------
+        flag | bool
+            Dumping on or off.
+        hide_status | bool
+            Whether server status messages are excluded from the dump or not.
+        '''
+
         if flag and not cls._trace_running:
             if hide_status:
                 cls._trace_func = cls._trace_func_hide_status

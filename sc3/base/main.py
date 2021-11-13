@@ -247,7 +247,7 @@ class RtMain(metaclass=Process):
 
         if not cls._is_main_thread():
             raise Exception('main.wait() must be called from the main thread')
-        not_expired = False
+        not_expired = True  # It may not even enter the while loops.
         with cls._wait_cond:
             try:
                 cls._wait_count += tasks

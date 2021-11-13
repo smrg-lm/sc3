@@ -403,7 +403,7 @@ class OscFunc(AbstractResponderFunc):
     pattern matching by creating it with the matching constructor, or by
     passing a matching dispatcher to `dispatcher` parameter of the default
     constructor. For details on the Open Sound Control protocol,
-    see http://opensoundcontrol.org/spec-1_0.
+    see https://opensoundcontrol.stanford.edu/spec-1_0.html.
 
     Parameters
     ----------
@@ -510,7 +510,7 @@ class OscFunc(AbstractResponderFunc):
         spec, regular expression wildcards are only permitted in the incoming
         message's address pattern. Thus path should not contain wildcards.
         For more details on OSC pattern matching,
-        see http://opensoundcontrol.org/spec-1_0.
+        see https://opensoundcontrol.stanford.edu/spec-1_0.html.
 
         See the default constructor other parameters description.
         '''

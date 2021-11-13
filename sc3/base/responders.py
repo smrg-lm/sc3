@@ -331,7 +331,10 @@ class OSCArgsMatcher(AbstractMessageMatcher):
     def __call__(self, msg, time, addr, recv_port):
         args = msg[1:]
         for i, item in enumerate(self.arg_template):
-            if item is not None and item != args[i]:  # was matchItem.not
+            if callable(item):
+                if not item(args[i]):
+                    return
+            elif item is not None and item != args[i]:
                 return
         fn.value(self.func, msg, time, addr, recv_port)
 

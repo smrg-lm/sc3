@@ -229,9 +229,9 @@ class AbstractResponderFunc(ABC):
         if self.enabled:
             self.disable()
 
-    def clear(self):
-        '''Clear the responder's function.'''
-        self.func = None
+    # def clear(self):
+    #     '''Clear the responder's function.'''
+    #     self.func = None
 
     @classmethod
     def _all_func_proxies(cls):
@@ -498,7 +498,7 @@ class OscFunc(AbstractResponderFunc):
         # type(self)._all_func_proxies.add(self)  # Called by enable() already.
 
     @classmethod
-    def matching(cls, func, path, src_id=None,
+    def matching(cls, func, path, src_id=None, *,
                  recv_port=None, arg_template=None):
         '''Create a responder with pattern matching capabilities.
 
@@ -513,8 +513,8 @@ class OscFunc(AbstractResponderFunc):
         '''
 
         return cls(
-            func, path, src_id, recv_port, arg_template,
-            cls._default_matching_dispatcher)
+            func, path, src_id, recv_port=recv_port, arg_template=arg_template,
+            dispatcher=cls._default_matching_dispatcher)
 
     @classmethod
     def __on_cmd_period(cls):  # Avoid clash.

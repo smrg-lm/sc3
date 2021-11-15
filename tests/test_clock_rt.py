@@ -1,6 +1,5 @@
 
 import unittest
-from threading import Thread, Barrier
 import math
 
 import sc3
@@ -11,19 +10,20 @@ from sc3.base.clock import TempoClock
 from sc3.base.stream import routine
 
 
+# NOTE: These tests are duplicated for test_clock_nrt.py and need sync.
+
 class ClockTestCase(unittest.TestCase):
     def test_logical_time_delta(self):
-        barrier = Barrier(3, timeout=1)  # The test has to wait.
         tempo = 1000  # Float point resolution may affect tests if big.
         delta = 1
 
-        @routine.run()
+        @routine
         def test():
             # Clock is created inside a main routine to avoid
             # timing offset relative to elapsed time updates.
             clock = TempoClock(tempo)
 
-            @routine.run(clock)
+            @routine
             def r():
                 nonlocal clock
                 beats = clock.beats
@@ -43,19 +43,17 @@ class ClockTestCase(unittest.TestCase):
                 t3 = main.current_tt._seconds
                 self.assertTrue(math.isclose(beats, elapsed_delta))
                 self.assertTrue(math.isclose(t2 - t1, t3 - t2))
+                main.resume()
 
-                # Clock threads can't be blocked.
-                Thread(target=lambda: barrier.wait(), daemon=True).start()
+            r.play(clock)
+            main.resume()
 
-            # Clock threads can't be blocked.
-            Thread(target=lambda: barrier.wait(), daemon=True).start()
-
-        barrier.wait()
+        test.play()
+        main.wait(tasks=2)
 
     def test_initial_values(self):
-        barrier = Barrier(2, timeout=1)  # The test has to wait.
 
-        @routine.run()
+        @routine
         def example():
             offset = 5
             # Starts from zero by default.
@@ -67,9 +65,10 @@ class ClockTestCase(unittest.TestCase):
             # Counting beats as if it started 'offset' seconds ago from 0.
             t = TempoClock(1, 0, main.current_tt._seconds - offset)
             self.assertTrue(math.isclose(t.beats, offset))
-            Thread(target=lambda: barrier.wait(), daemon=True).start()
+            main.resume()
 
-        barrier.wait()
+        example.play()
+        main.wait()
 
     # TODO...
 

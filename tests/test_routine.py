@@ -1,6 +1,5 @@
 
 import unittest
-from threading import Thread, Barrier
 
 import sc3
 sc3.init()
@@ -143,12 +142,8 @@ class RoutineTestCase(unittest.TestCase):
         self.assertIs(next(rout), None)
 
     def test_condition_same_clock(self):
-        # The test has to wait.
-        barrier = Barrier(2, timeout=1)
-        # Clock threads can't be blocked.
-        unlock = Thread(target=lambda: barrier.wait(), daemon=True)
 
-        @routine.run()
+        @routine
         def test():
             test_value = 0
             cond = Condition()
@@ -176,22 +171,17 @@ class RoutineTestCase(unittest.TestCase):
             # Allow r to resume.
             yield 0
             self.assertEqual(test_value, 4)
-            unlock.start()
+            main.resume()
 
-        barrier.wait()
+        test.play()
+        main.wait()
 
     def test_condition_different_clocks(self):
-        # The test has to wait.
-        barrier = Barrier(3, timeout=1)
-        # Clock threads can't be blocked.
-        unlock1 = Thread(target=lambda: barrier.wait(), daemon=True)
-        unlock2 = Thread(target=lambda: barrier.wait(), daemon=True)
-
         finish_value = 0
         clock1 = TempoClock()
         clock2 = TempoClock()
 
-        @routine.run(clock1)
+        @routine
         def test():
             nonlocal finish_value
             test_value = 0
@@ -199,7 +189,7 @@ class RoutineTestCase(unittest.TestCase):
             cond2 = Condition()
 
             # Schedule r in a different clock.
-            @routine.run(clock2)
+            @routine
             def r():
                 nonlocal finish_value
                 nonlocal test_value
@@ -209,8 +199,9 @@ class RoutineTestCase(unittest.TestCase):
                 cond1.signal()
                 yield from cond2.wait()
                 finish_value += 1
-                unlock1.start()
+                main.resume()
 
+            r.play(clock2)
             self.assertEqual(test_value, 0)
             test_value = 1
             yield 0
@@ -219,30 +210,30 @@ class RoutineTestCase(unittest.TestCase):
             yield from cond1.wait()
             self.assertEqual(test_value, 2)
             finish_value += 1
-            unlock2.start()
+            main.resume()
 
-        barrier.wait()
-        self.assertEqual(finish_value, 2)  # FIXME: Barrier will be broken if not.
+        test.play(clock1)
+        main.wait(tasks=2)
+        self.assertEqual(finish_value, 2)
 
     def test_flowvar(self):
-        # The test has to wait.
-        barrier = Barrier(2, timeout=1)
         # Clock threads can't be blocked.
-        unlock = Thread(target=lambda: barrier.wait(), daemon=True)
         test_var = FlowVar()
 
-        @routine.run()
+        @routine
         def r1():
             value = (yield from test_var.value)
             self.assertEqual(value, 123)
-            unlock.start()
+            main.resume()
 
-        @routine.run()
+        @routine
         def r2():
             yield 0
             test_var.value = 123
 
-        barrier.wait()
+        r1.play()
+        r2.play()
+        main.wait()
 
     def test_rgen(self):
         @routine

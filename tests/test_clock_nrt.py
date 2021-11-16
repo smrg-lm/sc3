@@ -6,13 +6,21 @@ import sc3
 sc3.init('nrt')
 
 from sc3.base.main import main
-from sc3.base.clock import TempoClock
+from sc3.base.clock import SystemClock, TempoClock
 from sc3.base.stream import routine
 
 
 # NOTE: These tests are duplicated for test_clock_rt.py and need sync.
 
 class ClockTestCase(unittest.TestCase):
+    def test_time_unit_conversion(self):
+        # No loop, time doesn't advance.
+        et = main.elapsed_time()
+        eto = SystemClock.elapsed_time_to_osc(et)
+        ote = SystemClock.osc_to_elapsed_time(eto)
+        self.assertTrue(math.isclose(et, ote, abs_tol=1e-9))
+        self.assertTrue(math.isclose(0.0, et - ote, abs_tol=1e-9))
+
     def test_logical_time_delta(self):
         tempo = 1000  # Float point resolution may affect tests if big.
         delta = 1
@@ -67,7 +75,7 @@ class ClockTestCase(unittest.TestCase):
         example.play()
         main.process()
 
-    # TODO...
+    # def test_logical_and_bundle_time(self):  # No use for nrt.
 
 
 if __name__ == '__main__':

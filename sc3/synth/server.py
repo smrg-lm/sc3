@@ -38,6 +38,8 @@ s = None
 
 
 class Defaults(enum.Enum):
+    '''Default command values for server options.'''
+
     UDP_PORT = ('-u', None)  # mutex -t, opt int
     TCP_PORT = ('-t', None)  # mutex -u, opt int
 
@@ -83,6 +85,8 @@ class Defaults(enum.Enum):
 
 
 class ServerOptions():
+    '''Encapsulate servers' options and generate command options string.'''
+
     # locals().update(Defaults.__members__)
 
     def __init__(self):
@@ -355,6 +359,7 @@ class ServerProcess():
 
 class MetaServer(type):
     sync_s = True
+    '''Update global variable `s` when default server is changed.'''
 
     def __init__(cls, *_):
         def init_func(cls):
@@ -379,6 +384,7 @@ class MetaServer(type):
 
     @property
     def default(cls):
+        '''Default server object usualy binded to the `s` global variable.'''
         return cls._default
 
     @default.setter
@@ -392,6 +398,7 @@ class MetaServer(type):
             mdl.NotificationCenter.notify(server, 'default', value)
 
     def remove(cls, server):
+        '''Remove a server instance from the instances registry.'''
         cls.all.remove(server)
         del cls.named[server.name]
 
@@ -400,11 +407,20 @@ class MetaServer(type):
             server._status_watcher._resume_alive_thread()
 
     def quit_all(cls, watch_shutdown=True):
+        '''Quit all known local servers.'''
         for server in cls.all:
             if server._is_local:
                 server.quit(watch_shutdown)
 
     def free_all(cls, even_remote=False):  # All refers to cls.all.
+        '''Free nodes from all registered local or remote servers.
+
+        Parameters
+        ----------
+        even_remote : bool
+            Free also the nodes of remote server. False by default.
+        '''
+
         if even_remote:
             for server in cls.all:
                 if server._status_watcher.server_running:
@@ -415,6 +431,14 @@ class MetaServer(type):
                     server.free_nodes()
 
     def hard_free_all(cls, even_remote=False):
+        '''Free nodes from all known local or remote servers.
+
+        Parameters
+        ----------
+        even_remote : bool
+            Free also the nodes of remote server. False by default.
+        '''
+
         if even_remote:
             for server in cls.all:
                 server.free_nodes()

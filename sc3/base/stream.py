@@ -626,7 +626,7 @@ class Condition():
 
     Parameters
     ----------
-    test: boolean | callable
+    test: bool | callable
         Initial test condition it can be a callable that return a boolean.
     '''
 

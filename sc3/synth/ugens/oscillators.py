@@ -45,17 +45,15 @@ class Osc(ugn.PureUGenMixin, ugn.UGen):
 
     Examples
     --------
-    ::
+    >>> b = Buffer(8192, 1)
+    >>> b.sine1([1.0 / x for x in range(1, 7)], True, True, True)
 
-        b = Buffer(8192, 1)
-        b.sine1([1.0 / x for x in range(1, 7)], True, True, True)
+    >>> @synthdef
+    ... def osc(outbus, buf, freq=220, amp=0.1):
+    ...     Out.ar(outbus, Osc.ar(buf, freq) * amp)
 
-        @synthdef
-        def osc(outbus, buf, freq=220, amp=0.1):
-            Out.ar(outbus, Osc.ar(buf, freq) * amp)
-
-        x = osc(buf=b)
-        x.free()
+    >>> x = osc(buf=b)
+    >>> x.free()
 
     '''
 
@@ -91,15 +89,13 @@ class SinOsc(ugn.PureUGenMixin, ugn.UGen):
 
     Examples
     --------
-    ::
+    >>> @synthdef
+    ... def sine(freq=440, amp=0.1):
+    ...    sig = SinOsc.ar(freq) * amp
+    ...    Out.ar(0, sig)
 
-        @synthdef
-        def sine(freq=440, amp=0.1):
-            sig = SinOsc.ar(freq) * amp
-            Out.ar(0, sig)
-
-        x = Synth('sine', {'freq': 220, 'amp': 0.1, 'pan': -0.25})
-        x.free()
+    >>> x = Synth('sine', {'freq': 220, 'amp': 0.1, 'pan': -0.25})
+    >>> x.free()
 
     '''
 

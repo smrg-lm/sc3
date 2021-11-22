@@ -8,6 +8,57 @@ from . import pan
 
 
 class Osc(ugn.PureUGenMixin, ugn.UGen):
+    '''Interpolating wavetable oscillator.
+
+    Linear interpolating wavetable lookup oscillator with frequency
+    and phase modulation inputs.
+
+    Parameters
+    ----------
+    bufnum : int
+        Buffer index.
+    freq : float
+        Frequency in Hertz.
+    phase : float
+        Phase offset or modulator in radians. Note: phase values should
+        be within the range +-8pi. If your phase values are larger then
+        simply use .mod(2pi) to wrap them.
+
+    Notes
+    -----
+    This oscillator requires a buffer to be filled with a wavetable
+    format signal. This preprocesses the Signal into a form which can
+    be used efficiently by the oscillator. The buffer size *must* be a
+    power of 2.
+
+    This can be achieved by creating a `Buffer` object and sending it
+    one of the '/b_gen' messages, e.g. `sine1`, `sine2` or `sine3`,
+    with the wavetable flag set to true.
+
+    .. note:: The following part is not implemented yet.
+
+    This can also be achieved by creating a `Signal` object and sending
+    it the `as_wavetable` message, thereby creating a `Wavetable` object
+    in the required format. Then, the wavetable data may be transmitted
+    to the server using the Buffer's `new_send_list` or `new_load_list`
+    constructors.
+
+    Examples
+    --------
+    ::
+
+        b = Buffer(8192, 1)
+        b.sine1([1.0 / x for x in range(1, 7)], True, True, True)
+
+        @synthdef
+        def osc(outbus, buf, freq=220, amp=0.1):
+            Out.ar(outbus, Osc.ar(buf, freq) * amp)
+
+        x = osc(buf=b)
+        x.free()
+
+    '''
+
     @classmethod
     def ar(cls, bufnum, freq=440.0, phase=0.0):
         return cls._multi_new('audio', bufnum, freq, phase)
@@ -18,6 +69,40 @@ class Osc(ugn.PureUGenMixin, ugn.UGen):
 
 
 class SinOsc(ugn.PureUGenMixin, ugn.UGen):
+    '''Interpolating sine wavetable oscillator.
+
+    Parameters
+    ----------
+    freq : float
+        Frequency in Hertz. Sampled at audio-rate.
+    phase : float
+        Phase in radians. Sampled at audio-rate.
+
+    Notes
+    -----
+    Generates a sine wave. Uses a wavetable lookup oscillator with
+    linear interpolation. Frequency and phase modulation are provided
+    for audio-rate modulation. Technically, `SinOsc` uses the same
+    implementation as `Osc` except that its table is fixed to be a
+    sine wave made of 8192 samples.
+
+    Phase values should be within the range +-8pi. If your phase
+    values are larger then simply use mod(2pi) to wrap them.
+
+    Examples
+    --------
+    ::
+
+        @synthdef
+        def sine(freq=440, amp=0.1):
+            sig = SinOsc.ar(freq) * amp
+            Out.ar(0, sig)
+
+        x = Synth('sine', {'freq': 220, 'amp': 0.1, 'pan': -0.25})
+        x.free()
+
+    '''
+
     @classmethod
     def ar(cls, freq=440.0, phase=0.0):
         return cls._multi_new('audio', freq, phase)

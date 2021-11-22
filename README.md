@@ -70,4 +70,6 @@ python3 setup.py develop --user
 License
 -------
 
-The sc3 library holds the same license as SuperCollider: sc3 is free software available under Version 3 of the GNU General Public License. See [COPYING](COPYING) for details.
+The sc3 library is free software available under Version 3 of the GNU General Public License. See [COPYING](COPYING) for details.
+
+NB: The sc3 library is a Python translation of the SuperCollider's library and inherits its same license and community guidelines.

@@ -24,7 +24,7 @@ except Exception as e:
 import sc3
 
 project = 'sc3'
-copyright = '2020, Lucas Samaruga'
+copyright = '2021, SuperCollider 3 documentation contributors'
 author = 'Lucas Samaruga'
 
 # The full version, including alpha/beta/rc tags

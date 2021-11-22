@@ -45,12 +45,20 @@ class Osc(ugn.PureUGenMixin, ugn.UGen):
 
     Examples
     --------
+    Allocate the buffer in the server and send the gen command as
+    wavetable through the `sine1` method. By default, `normalize` and
+    `as_wavetable` parameters are true.
+
     >>> b = Buffer(8192, 1)
-    >>> b.sine1([1.0 / x for x in range(1, 7)], True, True, True)
+    >>> b.sine1([1.0 / x for x in range(1, 7)])
+
+    Create the synthdef in the server.
 
     >>> @synthdef
     ... def osc(outbus, buf, freq=220, amp=0.1):
     ...     Out.ar(outbus, Osc.ar(buf, freq) * amp)
+
+    Create the synth node with the wavetable buffer as argument.
 
     >>> x = osc(buf=b)
     >>> x.free()
@@ -89,10 +97,14 @@ class SinOsc(ugn.PureUGenMixin, ugn.UGen):
 
     Examples
     --------
+    Create the synthdef in the server.
+
     >>> @synthdef
     ... def sine(freq=440, amp=0.1):
-    ...    sig = SinOsc.ar(freq) * amp
-    ...    Out.ar(0, sig)
+    ...     sig = SinOsc.ar(freq) * amp
+    ...     Out.ar(0, sig)
+
+    Create the synth node using a dictionary for the initial arguments.
 
     >>> x = Synth('sine', {'freq': 220, 'amp': 0.1, 'pan': -0.25})
     >>> x.free()

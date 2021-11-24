@@ -318,7 +318,7 @@ class RtMain(metaclass=Process):
 
         resp = rpd.OscFunc(resp_func, '/synced', server.addr)
 
-        with main._wait_cond:
+        with cls._wait_cond:
             server.addr.send_msg('/sync', id)
             try:
                 return cls._wait_cond.wait(timeout)

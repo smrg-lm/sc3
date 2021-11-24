@@ -33,7 +33,7 @@ class TimeThread():
 
         self.parent = None
         self.state = self.State.Init
-        self._state_lock = _libsc3.main._state_lock
+        self._state_lock = _libsc3.main._main_lock
         self._m_seconds = 0.0
         self._clock = clk.SystemClock  # Default clock.
         self._thread_player = None
@@ -632,7 +632,7 @@ class Condition():
 
     def __init__(self, test=False):
         self._test = test
-        self._state_lock = _libsc3.main._state_lock
+        self._state_lock = _libsc3.main._main_lock
         self._waiting_threads = []
 
     @property

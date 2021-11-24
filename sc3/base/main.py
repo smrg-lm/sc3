@@ -53,13 +53,6 @@ class Process(type):
         # Main library lock (guards clock's threads).
         cls._main_lock = threading.RLock()
 
-        # TimeThread lock (guards routine's current_tt changes).
-        # Using a different lock makes it possible to stop yield 0 hangs.
-        cls._state_lock = threading.RLock()
-
-        # Mode switch lock. Not defined behaviour.
-        # cls._switch_cond = threading.Condition(cls._main_lock)
-
         # Main TimeThread random generator.
         cls._m_rgen = random.Random()
 

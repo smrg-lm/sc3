@@ -85,7 +85,168 @@ class Defaults(enum.Enum):
 
 
 class ServerOptions():
-    '''Encapsulate servers' options and generate command options string.'''
+    '''Encapsulates commandline and other server options.
+
+    Attributes
+    ----------
+    program : str
+        Command name of the server.
+    protocol : str
+        Transport protocol of the server, either 'udp' or 'tcp'.
+    bind_address : str
+        The IP address that the server's TCP or UDP socket is listening
+        on. The default value is '127.0.0.1', meaning only listen to
+        OSC messages on localhost.
+    max_logins : int
+        Indicate the maximum number of clients which can simultaneously
+        receive notifications from the server. When using TCP this is
+        also the maximum number of simultaneous connections. This is
+        also used by the language to split ranges of nodes, buffers, or
+        busses. In multi-client situations you will need to set this to
+        at least the number of clients you wish to allow. This must be
+        the same in the Server instances on every client.
+        The default is 1.
+    password : str
+        Set servers' session password for TCP connections. When using
+        TCP, the session password must be the first command sent. UDP
+        ports never require passwords, so for security use TCP.
+        The default is `None` (no password).
+    zeroconf : bool
+        Indicate whether or not the server should publish its port
+        using zero configuration networking, to facilitate network
+        interaction. This is `True` by default. If you find
+        unacceptable delays (beachballing) upon server boot, you can
+        try setting this to false.
+    restricted_path : str
+        Restrict the system paths in which the server is allowed to
+        read/write files when running. If `None` (default) no
+        restrictions are applied. Otherwise, set it as a string
+        representing a single path.
+    ugen_plugins_path : str
+        A path or a list of paths. If not `None`, the standard paths
+        are **not** searched for plugins. Default is `None`.
+
+    control_buses :
+        The number of internal control rate busses.
+        The default is 16384.
+    audio_buses :
+        The number of internal audio rate busses.
+        The default is 1024.
+    input_channels :
+        The number of audio input bus channels. This need not
+        correspond to the number of hardware inputs.
+        The default is 2.
+    output_channels :
+        The number of audio output bus channels. This need not
+        correspond to the number of hardware outputs (this can be
+        useful for instance in the case of recording).
+        The default is 2.
+    block_size : int
+        The number of samples in one control period.
+        The default is 64.
+    buffers :
+        The number of global sample buffers available.
+        The default is 1024.
+    max_nodes :
+        The maximum number of nodes. The default is 1024.
+    max_synthdefs :
+        The maximum number of synthdefs. The default is 1024.
+    rt_memory :
+        The number of kilobytes of real time memory allocated to the
+        server. This memory is used to allocate synths and any memory
+        that unit generators themselves allocate (for instance in the
+        case of delay ugens which do not use buffers, such as CombN),
+        and is separate from the memory used for buffers. Setting this
+        too low is a common cause of 'exception in real time: alloc
+        failed' errors. The default is 8192.
+    wires :
+        The maximum number of buffers that are allocated to
+        interconnect unit generators. (Not to be confused with the
+        global sample buffers represented by Buffer.) This sets the
+        limit of complexity of SynthDefs that can be loaded at runtime.
+        This value will be automatically increased if a more complex
+        synthdef is loaded at startup, but it cannot be increased
+        thereafter without rebooting. The default is 64.
+    rgens :
+        The number of seedable random number generators.
+        The default is 64.
+    load_synthdefs : bool
+        Indicate whether or not to load the synth definitions in the
+        default synthdefs folder (or anywhere set in the environment
+        variable SC_SYNTHDEF_PATH) at startup. The default is `True`.
+    hw_device_name : str
+        A string that allows you to choose a sound device to use as
+        input and output. The default, `None`, will use the system's
+        default input and output.
+    hw_buffer_size : int
+        The preferred hardware buffer size. If not `None` the server
+        program will attempt to set the hardware buffer frame size.
+        Not all sizes are valid. See the documentation of your audio
+        hardware for details. Default value is `None`.
+    sample_rate : int
+        The preferred sample rate. If not `None` the server app will
+        attempt to set the sample rate of the hardware. The hardware
+        has to support the sample rate that you choose.
+    verbose : int
+        Control the verbosity of server messages. A value of 0 is
+        normal behaviour, -1 suppresses informational messages, -2
+        suppresses informational and many error messages, as well as
+        messages from `Poll`. The default is 0.
+
+    memory_locking : bool
+        Set whether the server should try to lock its memory into
+        physical RAM. Default is `False`. Supernova only option.
+    threads : int
+        Number of audio threads that are spawned by supernova. For
+        scsynth this value is ignored. If `None` or 0, it uses the one
+        thread per CPU. Default is `None`. Supernova only option.
+    use_system_clock : bool
+        Set whether to sync to the driver's sample clock, or to the
+        system clock. Supernova only option, scsynth always uses system
+        clock and this value is ignored. If `True` (default), use the
+        system clock. Timestamped messages will maintain consistent
+        latency over long sessions, but may not be perfectly
+        sample-accurate. If `False`, use the sample clock. This helps
+        to support sample-accurate scheduling; however, messaging
+        latency from the client language will drift over long
+        periods of time.
+
+    input_streams : str
+        Allow turning off input streams that you are not interested
+        in on the audio device. If the string is '01100', for example,
+        then only the second and third input streams on the device
+        will be enabled. Turning off streams can reduce CPU load.
+        The default value is None. Darwin only option.
+    output_streams :
+        Allow turning off output streams that you are not interested
+        in on the audio device. If the string is '11000', for example,
+        then only the first two output streams on the device will be
+        enabled. Turning off streams can reduce CPU load. Darwin only
+        option.
+
+    reserved_audio_buses : int
+        Undocumented client side option.
+    reserved_control_buses : int
+        Undocumented client side option.
+    reserved_buffers : int
+        Undocumented client side option.
+    initial_node_id : int
+        Node ID from which to start node allocation (client side
+        option). By default, the Server object in the client begins
+        allocating node IDs at 1000, reserving 0-999 for *permanent*
+        nodes.
+
+    rec_header_format : str
+        Default header format for NRT rendering.
+    rec_sample_format : str
+        Default sample format for NRT rendering.
+
+    rec_channels : int
+        Undocumented/unused client side option.
+    rec_buf_size : int
+        Undocumented/unused client side option.
+
+    '''
 
     # locals().update(Defaults.__members__)
 

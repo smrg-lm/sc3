@@ -408,6 +408,12 @@ class Env(gpp.UGenParameter, gpp.NodeParameter):
 
         return start_level
 
+    def __repr__(self):
+        return (
+            f'{type(self).__name__}({self.levels}, {self.times}, '
+            f'{repr(self.curves)}, {self.release_node}, {self.loop_node}, '
+            f'{self.offset})')
+
 
     ### Node parameter interface ###
 

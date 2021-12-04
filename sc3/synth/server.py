@@ -38,7 +38,9 @@ s = None
 
 
 class Defaults(enum.Enum):
-    '''Default command values for server options.'''
+    '''Default command values for server options.
+
+    '''
 
     UDP_PORT = ('-u', None)  # mutex -t, opt int
     TCP_PORT = ('-t', None)  # mutex -u, opt int
@@ -306,6 +308,10 @@ class ServerOptions():
 
     def options_list(self, port, osc_file=None, input_file=None,
                      output_file=None):
+        '''Return a list of options for the server command.
+
+        '''
+
         o = []
 
         if port is None:
@@ -410,6 +416,10 @@ class ServerOptions():
         return o
 
     def first_private_bus(self):
+        '''Return the bus number after output and input buses.
+
+        '''
+
         return self.output_channels + self.input_channels
 
 
@@ -545,7 +555,10 @@ class MetaServer(type):
 
     @property
     def default(cls):
-        '''Default server object usualy binded to the `s` global variable.'''
+        '''Default server object usualy binded to the `s` global variable.
+
+        '''
+
         return cls._default
 
     @default.setter
@@ -559,7 +572,10 @@ class MetaServer(type):
             mdl.NotificationCenter.notify(server, 'default', value)
 
     def remove(cls, server):
-        '''Remove a server instance from the instances registry.'''
+        '''Remove a server instance from the instances registry.
+
+        '''
+
         cls.all.remove(server)
         del cls.named[server.name]
 
@@ -580,6 +596,7 @@ class MetaServer(type):
         ----------
         even_remote : bool
             Free also the nodes of remote server. False by default.
+
         '''
 
         if even_remote:
@@ -598,6 +615,7 @@ class MetaServer(type):
         ----------
         even_remote : bool
             Free also the nodes of remote server. False by default.
+
         '''
 
         if even_remote:
@@ -669,7 +687,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def name(self):
-        '''Custom name of the server, only setteable at creation time.'''
+        '''Custom name of the server, only setteable at creation time.
+
+        '''
+
         return self._name
 
     def _set_name(self, value):
@@ -689,6 +710,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         ----------
         all_users: bool
             If true return a list of all default groups (multiuser setup).
+
         '''
 
         if all_users:
@@ -698,7 +720,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def status(self):
-        '''ServerStatusWatcher instance that keeps track of server status.'''
+        '''ServerStatusWatcher instance that keeps track of server status.
+
+        '''
+
         # This this read-only property (non-data descritor) is the only
         # intended user interface to ServerStatusWatcher instances. Library's
         # style always uses _status_watcher private attribute directly.
@@ -711,22 +736,34 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def volume(self):
-        '''Volume instance.'''
+        '''Volume instance.
+
+        '''
+
         return self._volume
 
     @property
     def recorder(self):
-        '''Recorder instance'''
+        '''Recorder instance
+
+        '''
+
         return self._recorder
 
     @property
     def pid(self):
-        '''Process ID of the server program.'''
+        '''Process ID of the server program.
+
+        '''
+
         return self._pid
 
     @property
     def program_running(self):
-        '''Returns ``True`` if the server program is running in localhost.'''
+        '''Returns ``True`` if the server program is running in localhost.
+
+        '''
+
         if self._server_process is None:
             return False
         return self._server_process.running()
@@ -736,7 +773,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     @property
     def client_id(self):
-        '''Client ID, usually 0 in a single user scenario.'''
+        '''Client ID, usually 0 in a single user scenario.
+
+        '''
+
         return self._client_id
 
     def _set_client_id(self, value):
@@ -820,6 +860,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         index.
 
         Raises an exception if the buffers can't be allocated.
+
         '''
 
         bufnum = self._buffer_allocator.alloc(n)
@@ -847,6 +888,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         '''Return the next available node ID.
 
         Each time this method is called the node allocator returns a new ID.
+
         '''
 
         return self._node_allocator.alloc()
@@ -862,13 +904,13 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
     ### Network messages ###
 
     def dump_tree(self, controls=False):
-        '''
-        Ask the server to dump its node tree to stdout.
+        '''Ask the server to dump its node tree to stdout.
 
         Parameters
         ----------
         controls: bool
             If `True` also print synth controls with current values.
+
         '''
 
         if not self._is_local:
@@ -887,6 +929,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
           * 2 - print the contents in hexadecimal.
           * 3 - print both the parsed and hexadecimal representations of the
           contents.
+
         '''
 
         self.dump_mode = code
@@ -916,6 +959,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         Internally, it sends a ``'/sync'`` message to the server, which will
         reply with the message ``'/synced'``, and waits in a Condition until
         all previous *asynchronous commands* have been completed.
+
         '''
 
         if _libsc3.main is _libsc3.NrtMain:
@@ -936,6 +980,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
               yield from s.sync()  # Sends previous messages in a bundle.
               s.addr.send_msg( ... )
               ...
+
         '''
 
         return nad.BundleNetAddr(self)
@@ -984,6 +1029,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         on_failure: function
             A function to be called if registration fails. Optionally, the
             function receives the server object as its only argument.
+
         '''
 
         if self._status_watcher._server_registering:
@@ -1030,6 +1076,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         on_failure: function
             A function called if unregistration fails. Optionally, the function
             receives the server object as its only argument.
+
         '''
 
         if self._status_watcher._server_unregistering:
@@ -1087,6 +1134,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         It is not possible to boot a server application in a remote machine.
         To register to an already running server in a remote machine use
         the ``register`` method.
+
         '''
 
         if _libsc3.main is _libsc3.NrtMain:
@@ -1217,6 +1265,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             A function to be called if the server reboot process fails.
             Optionally, the function receives the server object as its only
             argument.
+
         '''
 
         if _libsc3.main is _libsc3.NrtMain:
@@ -1262,6 +1311,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             A function to be called if the server quit process fails.
             Optionally, the function receives the server object as its only
             argument.
+
         '''
 
         if _libsc3.main is _libsc3.NrtMain:
@@ -1313,13 +1363,19 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         self._set_client_id(0)
 
     def free_nodes(self):  # Was instance freeAll in sclang.
-        '''Free all server's nodes.'''
+        '''Free all server's nodes.
+
+        '''
+
         self.addr.send_msg('/g_freeAll', 0)
         self.addr.send_msg('/clearSched')
         self._init_tree()
 
     def free_default_group(self, all_users=False):
-        '''Free all nodes within the client's default group.'''
+        '''Free all nodes within the client's default group.
+
+        '''
+
         if all_users:
             for group in self._default_groups:
                 self.addr.send_msg('/g_freeAll', group.node_id)
@@ -1327,7 +1383,10 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
             self.addr.send_msg('/g_freeAll', self._default_group.node_id)
 
     def reorder(self, node_list, target, add_action='addToHead'):
-        '''Reorder nodes in ``node_list`` relative to ``target``.'''
+        '''Reorder nodes in ``node_list`` relative to ``target``.
+
+        '''
+
         target = gpp.node_param(target)._as_target()
         node_list = [x.node_id for x in node_list]
         self.addr.send_msg(

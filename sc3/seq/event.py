@@ -486,7 +486,7 @@ class NoteEvent(EventType, partial_events=(
         self['server'] = server = self('server')
 
         self['node_id'] = node_id = server._next_node_id()
-        add_action = nod.Node.action_number_for(self('add_action'))
+        add_action = nod.Node._action_number_for(self('add_action'))
         self['group'] = group = gpp.node_param(
             self('group'))._as_control_input()
 
@@ -508,7 +508,7 @@ class _MonoOnEvent(EventType, partial_events=(
     is_playing = False
 
     def play(self):
-        self['add_action'] = nod.Node.action_number_for(self('add_action'))
+        self['add_action'] = nod.Node._action_number_for(self('add_action'))
         self['group'] = gpp.node_param(self('group'))._as_control_input()
         msg = [
             '/s_new', self['instrument'], self['node_id'],

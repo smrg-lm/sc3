@@ -93,7 +93,7 @@ class Node(gpp.NodeParameter):
         return obj
 
     @classmethod
-    def action_number_for(cls, add_action):
+    def _action_number_for(cls, add_action):
         return cls.add_actions[add_action]
 
     def free(self, send_flag=True):

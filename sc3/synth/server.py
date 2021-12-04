@@ -1390,7 +1390,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         target = gpp.node_param(target)._as_target()
         node_list = [x.node_id for x in node_list]
         self.addr.send_msg(
-            '/n_order', nod.Node.action_number_for(add_action), # 62
+            '/n_order', nod.Node._action_number_for(add_action), # 62
             target.node_id, *node_list)
 
 

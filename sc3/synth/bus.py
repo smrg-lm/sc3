@@ -44,21 +44,31 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         Sets the bus index. If ``index`` is None bus number
         is automatically allocated (client side) by the bus
         allocator class.
+
     '''
 
     @property
     def index(self):
-        '''Bus index in the server.'''
+        '''Bus index in the server.
+
+        '''
+
         return self._index
 
     @property
     def channels(self):
-        '''Number of channels.'''
+        '''Number of channels.
+
+        '''
+
         return self._channels
 
     @property
     def server(self):
-        '''Target server of the bus object.'''
+        '''Target server of the bus object.
+
+        '''
+
         return self._server
 
     @classmethod
@@ -73,6 +83,7 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
             Channel offset from wich to create the new bus object.
         channels: int
             Number of channels from to count from ``offset``.
+
         '''
 
         if offset > bus._channels\
@@ -83,7 +94,10 @@ class Bus(gpp.UGenParameter, gpp.NodeParameter):
         return cls(channels, bus.server, bus.index + offset)
 
     def sub_bus(self, offset, channels=1):
-        '''Return a sub-range of channels from this bus.'''
+        '''Return a sub-range of channels from this bus.
+
+        '''
+
         return type(self).new_from(self, offset, channels)
 
     def free(self):
@@ -147,7 +161,10 @@ class AudioBus(Bus):
     #     return self._index < self._server.options.first_private_bus()
 
     def free(self):
-        '''Free the bus object.'''
+        '''Free the bus object index.
+
+        '''
+
         if self._index is None:
             _logger.warning('AudioBus has already been freed')
             return
@@ -157,7 +174,10 @@ class AudioBus(Bus):
         self._map_symbol = None
 
     def as_map(self):
-        '''Return the map string of this bus.'''
+        '''Return the map string of this bus.
+
+        '''
+
         if self._map_symbol is None:
             if self._index is None:
                 raise BusException('bus not allocated')
@@ -202,11 +222,17 @@ class ControlBus(Bus):
         self._map_symbol = None
 
     def clear(self):
-        '''Set bus value to zero for all channels.'''
+        '''Set bus value to zero for all channels.
+
+        '''
+
         self.fill(0, self._channels)
 
     def free(self):
-        '''Free the bus object.'''
+        '''Free the bus object index.
+
+        '''
+
         if self._index is None:
             _logger.warning('ControlBus has already been freed')
             return
@@ -216,7 +242,10 @@ class ControlBus(Bus):
         self._map_symbol = None
 
     def as_map(self):
-        '''Return the map string of this bus.'''
+        '''Return the map string of this bus.
+
+        '''
+
         if self._map_symbol is None:
             if self._index is None:
                 raise BusException('bus not allocated')
@@ -226,9 +255,10 @@ class ControlBus(Bus):
     def set(self, *values):
         '''Set bus value or values for consecutive channels.
 
-        This method uses '/c_set' command. The length of ``*values`` shouldn't
-        be larger than the number of channels or it will override values set by
-        other bus objects.
+        This method uses '/c_set' command. The length of ``*values``
+        shouldn't be larger than the number of channels or it will
+        override values set by other bus objects.
+
         '''
 
         if self._index is None:
@@ -245,6 +275,7 @@ class ControlBus(Bus):
         contiguous range of buses. The length of ``*values`` shouldn't be
         larger than the number of channels or it will override values set by
         other bus objects.
+
         '''
 
         if self._index is None:
@@ -253,8 +284,22 @@ class ControlBus(Bus):
             '/c_setn', self._index, len(values), *values)
 
     def set_at(self, offset, *values):
-        '''Set ``values`` from ``offset`` (int) relative to this bus index
-        using '/c_set' command.'''
+        '''Set the value of consecutive buses using '/c_set' command.
+
+        Parameters
+        ----------
+        offset : int
+            Start index relative to this bus index.
+        *values : float
+            A scalar value for each consecutive bus.
+
+        Notes
+        -----
+        Booth ``set_at`` and ``set_pairs`` are different parameter
+        organizations for the '/c_set' command.
+
+        '''
+
         if self._index is None:
             raise BusAlreadyFreed('set_at')
         msg = [
@@ -263,9 +308,17 @@ class ControlBus(Bus):
         self._server.addr.send_msg(*utl.flat(msg))
 
     def setn_at(self, offset, values):
-        '''Set ``values`` from ``offset`` (int) relative to this bus index
-        using '/c_setn' command.
+        '''Set the value of consecutive buses using '/c_setn' command.
+
+        Parameters
+        ----------
+        offset : int
+            Start index relative to this bus index.
+        values : list[float]
+            A list of values for each consecutive bus.
+
         '''
+
         if self._index is None:
             raise BusAlreadyFreed('setn_at')
         # // could throw an error if values.size > numChannels
@@ -273,8 +326,20 @@ class ControlBus(Bus):
             '/c_setn', self._index + offset, len(values), *values)
 
     def set_pairs(self, *pairs):
-        '''Same as set_at or setn_at but grouping the list in pairs: offset1,
-        value1, offset2, value2, ...'''
+        '''Set the value of buses by index relative to this bus.
+
+        Parameters
+        ----------
+        *paris : tuple(int, float)
+            Tuples or lists indicating the index and value of each bus.
+
+        Notes
+        -----
+        Booth ``set_at`` and ``set_pairs`` are different parameter
+        organizations for the '/c_set' command.
+
+        '''
+
         if self._index is None:
             raise BusAlreadyFreed('set_pairs')
         msg = [
@@ -290,7 +355,9 @@ class ControlBus(Bus):
         ----------
         action: function
             A function to be evaluated with the bus' value as argument.
+
         '''
+
         if self._index is None:
             raise BusAlreadyFreed('get')
 
@@ -324,7 +391,9 @@ class ControlBus(Bus):
         action: function
             A function to be evaluated with a list of buses' values
             as argument.
+
         '''
+
         if self._index is None:
             raise BusAlreadyFreed('getn')
 
@@ -358,7 +427,9 @@ class ControlBus(Bus):
             Value to assign in the buses.
         channels: int
             Number of contiguous buses to set.
+
         '''
+
         if self._index is None:
             raise BusAlreadyFreed('fill')
         # // Could throw an error if numChans > numChannels.

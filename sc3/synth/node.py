@@ -217,7 +217,7 @@ class Node(gpp.NodeParameter):
     def wait_for_free(self):
         condition = stm.Condition()
         self.on_free(lambda: condition.unhang())
-        condition.hang()
+        yield from condition.hang()
 
     def move_before(self, node):
         self.group = node.group

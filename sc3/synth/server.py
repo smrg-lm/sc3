@@ -176,10 +176,10 @@ class ServerOptions():
         Indicate whether or not to load the synth definitions in the
         default synthdefs folder (or anywhere set in the environment
         variable SC_SYNTHDEF_PATH) at startup. The default is `True`.
-    hw_device_name : str
-        A string that allows you to choose a sound device to use as
-        input and output. The default, `None`, will use the system's
-        default input and output.
+    hw_device_name : str | tuple(str, str)
+        A string to choose I/O device by name or a tuple of two strings
+        for a different input and output device. Default is `None` and
+        will use the system's default input and output.
     hw_buffer_size : int
         The preferred hardware buffer size. If not `None` the server
         program will attempt to set the hardware buffer frame size.
@@ -277,10 +277,7 @@ class ServerOptions():
         self.rgens = Defaults.RGENS.default
         self.load_synthdefs = Defaults.LOAD_SYNTHDEFS.default
 
-        # removed sclang's inDevice, outDevice, prListDevices, etc., the
-        # solution would be to use an IOAudioDevice class that generate
-        # the string for this options.
-        self.hw_device_name = Defaults.HW_DEVICE_NAME.default
+        self.hw_device_name = Defaults.HW_DEVICE_NAME.default  # Was inDevice outDevice.
         self.hw_buffer_size = Defaults.HW_BUFFER_SIZE.default
         self.sample_rate = Defaults.SAMPLE_RATE.default
         # self.nrt = Defaults.NRT.default  # See options_list
@@ -388,7 +385,14 @@ class ServerOptions():
                 str(int(self.load_synthdefs))])
 
         if self.hw_device_name != Defaults.HW_DEVICE_NAME.default:
-            o.extend([Defaults.HW_DEVICE_NAME.flag, str(self.hw_device_name)])
+            flag = Defaults.HW_DEVICE_NAME.flag
+            dev = self.hw_device_name
+            if isinstance(dev, str):
+                o.extend([flag, repr(dev)])
+            elif isinstance(dev, tuple):
+                o.extend([flag, repr(dev[0]), repr(dev[1])])
+            else:
+                raise TypeError('hw_device_name must be str or tuple')
         if self.hw_buffer_size != Defaults.HW_BUFFER_SIZE.default:
             o.extend([Defaults.HW_BUFFER_SIZE.flag, str(self.hw_buffer_size)])
 
@@ -632,7 +636,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
         super(gpp.NodeParameter, self).__init__(self)
 
         self.addr = addr  # @property setter
-        self._set_name(name)  # Raises ValueException if duplicated.
+        self._set_name(name)  # Raises ValueError if duplicated.
         type(self).all.add(self)
 
         # These attributes are initialized through addr setter.

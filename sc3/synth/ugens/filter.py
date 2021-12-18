@@ -117,14 +117,14 @@ class Ramp(Lag):
 class LagUD(Filter):
     @classmethod
     def ar(cls, input=0.0, lag_time_up=0.1, lag_time_down=0.1):
-        if gpp.ugen_para(input)._as_ugen_rate() == 'scalar':
+        if gpp.ugen_param(input)._as_ugen_rate() == 'scalar':
             return input
         else:
             return cls._multi_new('audio', input, lag_time_up, lag_time_down)
 
     @classmethod
     def kr(cls, input=0.0, lag_time_up=0.1, lag_time_down=0.1):
-        if gpp.ugen_para(input)._as_ugen_rate() == 'scalar':
+        if gpp.ugen_param(input)._as_ugen_rate() == 'scalar':
             return input
         else:
             return cls._multi_new('control', input, lag_time_up, lag_time_down)
@@ -174,7 +174,7 @@ class VarLag(Filter):
             env = [tuple(env)]
             trig = getattr(Changed, selector)(input) +\
                    getattr(ocl.Impulse, selector)(0)
-            if gpp.ugen_para(time)._as_ugen_rate() != 'scalar':
+            if gpp.ugen_param(time)._as_ugen_rate() != 'scalar':
                 trig += Changed.kr(time)
             return getattr(evg.EnvGen, selector)(env, trig)
         else:
@@ -312,7 +312,7 @@ class Median(Filter):
 
     def _check_inputs(self):
         if self.rate == 'audio'\
-        and gpp.ugen_para(self.inputs[1])._as_ugen_rate() != 'audio':
+        and gpp.ugen_param(self.inputs[1])._as_ugen_rate() != 'audio':
             return 'input was not audio rate'
         else:
             return self._check_valid_inputs()

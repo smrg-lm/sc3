@@ -126,6 +126,9 @@ class Buffer(gpp.UGenParameter, gpp.NodeParameter):
         if cache:
             self._cache()
         if alloc:
+            if self._frames is None:
+                raise ValueError(
+                    f'cannot allocate buffer, frames is None')
             self.alloc(completion_msg)
 
     @property

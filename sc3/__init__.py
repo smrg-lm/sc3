@@ -15,7 +15,7 @@ LIB_SETUP_FILE = None
 
 # https://docs.python.org/3/howto/logging-cookbook.html#dealing-with-handlers-that-block
 
-def _init_logger(verbosity, bloking=False):
+def _init_logger(verbosity, blocking=False):
     import queue
     import logging
     import logging.handlers
@@ -23,7 +23,7 @@ def _init_logger(verbosity, bloking=False):
 
     formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
 
-    if bloking:
+    if blocking:
         handler = logging.StreamHandler()
         handler.setFormatter(formatter)
         root_logger = logging.getLogger()

@@ -94,8 +94,8 @@ _binops_list = [
     #'!==', # Python is not
     ('min',),
     ('max',),
-    ('bitAnd', 'bitand', '__and__', '__rand__', 'and'),
-    ('bitOr', 'bitor', '__or__', '__ror__', 'or'),
+    ('bitAnd', 'bitand', '__and__', '__rand__', 'and_'),
+    ('bitOr', 'bitor', '__or__', '__ror__', 'or_'),
     ('bitXor', 'bitxor', '__xor__', '__rxor__', 'xor'),
     ('lcm',),
     ('gcd',),

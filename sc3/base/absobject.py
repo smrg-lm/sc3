@@ -72,6 +72,14 @@ class AbstractObject():
     # def __floor__(self):
     #     return self._compose_unop(math.floor)
 
+    def abs(self):
+        return self._compose_unop(operator.abs)
+
+    def neg(self):
+        return self._compose_unop(operator.neg)
+
+    def bitnot(self):
+        return self._compose_unop(operator.invert)
 
     def reciprocal(self):
         return self._compose_unop(bi.reciprocal)
@@ -308,19 +316,17 @@ class AbstractObject():
     def __rand__(self, other):
         return self._rcompose_binop(operator.and_, other)
 
-    def __xor__(self, other): # ^
-        return self._compose_binop(operator.xor, other)
-
-    def __rxor__(self, other):
-        return self._rcompose_binop(operator.xor, other)
-
     def __or__(self, other): # |
         return self._compose_binop(operator.or_, other)
 
     def __ror__(self, other):
         return self._rcompose_binop(operator.or_, other)
 
-    # bitHammingDistance  # _HammingDistance -> ./lang/LangPrimSource/PyrBitPrim.cpp
+    def __xor__(self, other): # ^
+        return self._compose_binop(operator.xor, other)
+
+    def __rxor__(self, other):
+        return self._rcompose_binop(operator.xor, other)
 
     def __lt__(self, other): # <
         return self._compose_binop(operator.lt, other)
@@ -346,6 +352,17 @@ class AbstractObject():
 
     def max(self, other=0):
         return self._compose_binop(bi.max, other)
+
+    def bitand(self, other):
+        return self._compose_binop(operator.and_, other)
+
+    def bitor(self, other):
+        return self._compose_binop(operator.or_, other)
+
+    def bitxor(self, other):
+        return self._compose_binop(operator.xor, other)
+
+    # bitHammingDistance  # _HammingDistance -> ./lang/LangPrimSource/PyrBitPrim.cpp
 
     def lcm(self, other):
         return self._compose_binop(bi.lcm, other)

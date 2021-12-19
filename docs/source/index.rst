@@ -8,7 +8,7 @@ To get the latest version of this library clone it from
 `GitHub <https://github.com/smrg-lm/sc3>`_ and install
 in develop mode.
 
-::
+.. code-block:: bash
 
   git clone https://github.com/smrg-lm/sc3.git
   cd sc3
@@ -16,14 +16,14 @@ in develop mode.
 
 Or the latest alpha release (usually outdated) with pip.
 
-::
+.. code-block:: bash
 
   pip3 install sc3
 
 
 .. toctree::
    :maxdepth: 1
-   :caption: Contents:
+   :caption: Introduction
 
    intro/server
    intro/synthdef
@@ -31,9 +31,14 @@ Or the latest alpha release (usually outdated) with pip.
    intro/routine
    intro/nonrealtime
 
-   contribute
-   api/modules
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Library documentation
+
+   api/sc3
    glossary
+   contribute
 
 
 Indices and tables
@@ -41,7 +46,6 @@ Indices and tables
 
 * :ref:`genindex`
 * :ref:`modindex`
-* :ref:`search`
 
 
 Documentation license
@@ -51,6 +55,7 @@ The documentation of this project is based on SuperCollider's
 help.
 
 .. image:: images/ccbysa3_88x31.png
+   :alt: ccbysa3
 
 SuperCollider and sc3 documentation is licensed under a
 Creative Commons Attribution-Share Alike 3.0 Unported License.

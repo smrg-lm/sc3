@@ -67,13 +67,19 @@ html_theme = 'default'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-# -- Extensions configuration_ -----------------------------------------------
+# -- Extensions configuration ------------------------------------------------
 
 # Autodoc. Join class and __init__ docstring.
 autoclass_content = 'both'
 
-# Autodoc. Sort by member type
-autodoc_member_order = 'groupwise'
+# Autodoc. Don't evaluate functions' arguments.
+autodoc_preserve_defaults = True
+
+# Autodoc. Default directive options.
+autodoc_default_options = {
+    'member-order': 'bysource',
+    'ignore-module-all': True
+}
 
 # Don't show module path for each class.
 add_module_names = False

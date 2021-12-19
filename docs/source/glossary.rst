@@ -47,8 +47,8 @@ Glossary
 
    default group
       A server group created by the client application after the server
-      is booted. Default group id is usually 1000 but it may be a
-      different number in multi-user client's setup.
+      is booted. Default group ID is always 1 and is the user default
+      target group.
 
    demand rate
       A control or audio rate signal that changes at frequency defined
@@ -102,9 +102,9 @@ Glossary
    quark
       A SuperCollider extension library written in :term:`sclang`.
 
-   root group
-      The root group of a server's node tree. The id of the root node
-      is always 1.
+   root node
+      The root node group of a server's node tree.
+      The id of the root node is always 0.
       See :class:`RootGroup<sc3.synth.node.RootGroup>`.
 
    sclang

@@ -907,6 +907,22 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
 
     ### Network messages ###
 
+    def query_tree(self, controls=False, action=None, timeout=3):
+        '''Query the servers's node tree.
+
+        Parameters
+        ----------
+        controls: bool
+            If `True` also request synth controls values.
+        action: function
+            A responder function that receives the data in JSON format.
+        timeout: int | float
+            Request timeout in seconds.
+
+        '''
+
+        nod.RootNode(self).query_tree(controls, action, timeout)
+
     def dump_tree(self, controls=False):
         '''Ask the server to dump its node tree to stdout.
 

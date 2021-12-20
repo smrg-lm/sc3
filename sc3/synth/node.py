@@ -307,7 +307,7 @@ class Node(gpp.NodeParameter):
     def setn(self, *args):
         '''Set ranges of adjacent controls in this node to values.
 
-        See ``set``.
+        See  the``set`` method.
 
         '''
 
@@ -387,9 +387,47 @@ class Node(gpp.NodeParameter):
             self.server.latency, ['/n_set', self.node_id, 'gate', time])  # 15
 
     def trace(self):
+        '''Dump internal synth or group information to stdout.
+
+        Causes a synth to print out the values of the inputs and
+        outputs of its unit generators for one control period to the
+        post window. Causes a group to print the node IDs and names of
+        each node in the group for one control period.
+
+        '''
+
         self.server.addr.send_msg('/n_trace', self.node_id) # 10
 
     def query(self, action=None):
+        '''Retrieve information about this node within the server tree.
+
+        Sends an '/n_query' message to the server, which will reply
+        with a message containing information about this node and its
+        place in the server's node tree.
+
+        Parameters
+        ----------
+        action : callable
+            An optional function. If the node is a synth, the function
+            will take the arguments server_cmd, node_id, parent, prev,
+            next and is_group. If the node is a group, the function
+            will take the arguments server_cmd, node_id, parent, prev,
+            next, is_group, head, tail. Providing a function here will
+            bypass query's normal behaviour, i.e., the usual node
+            information will not be posted.
+
+        Notes
+        -----
+        By default this information will be printed to stdout with
+        the following format: 'parent' indicates the node's enclosing
+        group, if 'prev' or 'next' are equal to -1 that indicates that
+        there are no other nodes in the enclosing group before or after
+        this one, respectively.
+
+        See also the ``query_tree`` method of ``Server``.
+
+        '''
+
         if action is None:
             def action(cmd, node_id, parent, prev, next,
                        is_group, head=None, tail=None):
@@ -411,12 +449,43 @@ class Node(gpp.NodeParameter):
         self.server.addr.send_msg('/n_query', self.node_id)
 
     def register(self, playing=True, running=True):
+        '''Registers the node at the ``NodeWatcher`` object.
+
+        Parameters
+        ----------
+        playing : bool
+            Enable ``is_playing`` property.
+        running : bool
+            Enable ``is_running`` property.
+
+        Notes
+        -----
+        This will enable ``is_playing`` and ``is_running``, which
+        you can use for checking purposes. These properties can
+        also be enabled at instantiation time setting the
+        `register`` parameter to `True`.
+
+        '''
+
         self.server._node_watcher.register(self, playing, running)
 
     def unregister(self):
+        '''Unregisters the node at the ``NodeWatcher`` object.
+
+        '''
+
         self.server._node_watcher.unregister(self)
 
     def on_free(self, action):
+        '''Evaluate a function when this node is freed.
+
+        Parameters
+        ----------
+        action : callable
+            A function that optionaly receives this node as argument.
+
+        '''
+
         def action_wrapper():
             fn.value(action, self)
             mdl.NotificationCenter.unregister(self, '/n_end', self)
@@ -425,27 +494,99 @@ class Node(gpp.NodeParameter):
         mdl.NotificationCenter.register(self, '/n_end', self, action_wrapper)
 
     def wait_for_free(self):
+        '''Wait until this Node is freed.
+
+        Should be yield from inside a routine.
+
+        '''
+
         condition = stm.Condition()
         self.on_free(lambda: condition.unhang())
         yield from condition.hang()
 
-    def move_before(self, node):
-        self.group = node.group
+    def move_before(self, target):
+        '''Move this node to be directly before ``target``.
+
+        Parameters
+        ----------
+        target : Node
+            Reference node.
+
+        Notes
+        -----
+        This method sends a '/n_before' command that allows already
+        freed nodes as targets. This is so that one may attempt a
+        series of moves, with the last successful one taking effect.
+        For this reason this method will fail silently if either the
+        target or this node have already been freed. If you will need
+        to check, you may register the relevant nodes.
+
+        '''
+
+        self.group = target.group
         self.server.addr.send_msg(
-            '/n_before', self.node_id, node.node_id)  # 18
+            '/n_before', self.node_id, target.node_id)  # 18
 
-    def move_after(self, node):
-        self.group = node.group
+    def move_after(self, target):
+        '''Move this node to be directly after ``target``.
+
+        Parameters
+        ----------
+        target : Node
+            Reference node.
+
+        Notes
+        -----
+        This method sends a '/n_after' command that allows already
+        freed nodes as targets. This is so that one may attempt a
+        series of moves, with the last successful one taking effect.
+        For this reason this method will fail silently if either the
+        target or this node have already been freed. If you will need
+        to check, you may register the relevant nodes.
+
+        '''
+
+        self.group = target.group
         self.server.addr.send_msg(
-            '/n_after', self.node_id, node.node_id)  # 19
+            '/n_after', self.node_id, target.node_id)  # 19
 
-    def move_to_head(self, group=None):
-        group = group or self.server.default_group
-        group.move_node_to_head(self)
+    def move_to_head(self, target=None):
+        '''Move this node to head of the ``target`` group.
 
-    def move_to_tail(self, group=None):
-        group = group or self.server.default_group
-        group.move_node_to_tail(self)
+        Parameters
+        ----------
+        target : Group | None
+            Reference group.
+
+        Notes
+        -----
+        If ``target`` is a group then this method will move this node
+        to the head of that group. If it is `None` this will move this
+        node to the head of the default group of this node's server.
+
+        '''
+
+        target = target or self.server.default_group
+        target.move_node_to_head(self)
+
+    def move_to_tail(self, target=None):
+        '''Move this node to tail of the ``target`` group.
+
+        Parameters
+        ----------
+        target : Group | None
+            Reference group.
+
+        Notes
+        -----
+        If ``target`` is a group then this method will move this node
+        to the tail of that group. If it is `None` this will move this
+        node to the tail of the default group of this node's server.
+
+        '''
+
+        target = target or self.server.default_group
+        target.move_node_to_tail(self)
 
 
     ### Node parameter interface ###

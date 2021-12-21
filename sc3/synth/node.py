@@ -567,7 +567,7 @@ class Node(gpp.NodeParameter):
         '''
 
         target = target or self.server.default_group
-        target.move_node_to_head(self)
+        target._move_node_to_head(self)
 
     def move_to_tail(self, target=None):
         '''Move this node to tail of the ``target`` group.
@@ -586,7 +586,7 @@ class Node(gpp.NodeParameter):
         '''
 
         target = target or self.server.default_group
-        target.move_node_to_tail(self)
+        target._move_node_to_tail(self)
 
 
     ### Node parameter interface ###
@@ -642,11 +642,11 @@ class AbstractGroup(Node):
 
     # // move Nodes to this group
 
-    def move_node_to_head(self, node):
+    def _move_node_to_head(self, node):
         node.group = self
         self.server.addr.send_msg('/g_head', self.node_id, node.node_id) # 22
 
-    def move_node_to_tail(self, node):
+    def _move_node_to_tail(self, node):
         node.group = self
         self.server.addr.send_msg('/g_tail', self.node_id, node.node_id) # 23
 

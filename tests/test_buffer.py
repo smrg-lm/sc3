@@ -15,13 +15,13 @@ from sc3.synth.ugens import PlayBuf, RecordBuf
 @unittest.skipIf(not shutil.which(s.options.program), 'no server available')
 class BufferTestCase(unittest.TestCase):
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         lmbd = lambda: main.resume()
         s.boot(True, lmbd, lmbd)
         main.wait()
 
     @classmethod
-    def tearDownClass(self):
+    def tearDownClass(cls):
         lmbd = lambda: main.resume()
         s.quit(True, lmbd, lmbd)
         main.wait()

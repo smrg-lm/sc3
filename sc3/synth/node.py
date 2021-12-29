@@ -111,10 +111,7 @@ class Node(gpp.NodeParameter):
         obj = cls.__new__(cls)  # basic_new doesn't send therefore can't call __init__
         super(gpp.NodeParameter, obj).__init__(obj)
         obj.server = server or srv.Server.default
-        if node_id is None:
-            obj.node_id = obj.server._next_node_id()
-        else:
-            obj.node_id = node_id
+        obj.node_id = obj.server._next_node_id() if node_id is None else node_id
         obj.group = None
         obj._is_playing = None  # None (not watched/no info), True or False
         obj._is_running = None  # None (not watched/no info), True or False
@@ -611,10 +608,7 @@ class AbstractGroup(Node):
         self.server = target.server
         self.node_id = self.server._next_node_id()
         add_action_id = type(self).add_actions[add_action]
-        if add_action_id < 2:
-            self.group = target
-        else:
-            self.group = target.group
+        self.group = target if add_action_id < 2 else target.group
         self._init_register(register)
         self.server.addr.send_msg(
             self.creation_cmd(), self.node_id,
@@ -865,10 +859,7 @@ class Synth(Node):
         self.server = target.server
         self.node_id = self.server._next_node_id()
         add_action_id = type(self).add_actions[add_action]
-        if add_action_id < 2:
-            self.group = target
-        else:
-            self.group = target.group
+        self.group = target if add_action_id < 2 else target.group
         self.def_name = def_name
         self._init_register(register)
         self.server.addr.send_msg(
@@ -885,15 +876,14 @@ class Synth(Node):
         return obj
 
     @classmethod
-    def new_paused(cls, def_name, args=None, target=None, add_action='addToHead'):
+    def new_paused(cls, def_name, args=None, target=None,
+                   add_action='addToHead', register=False):
         target = gpp.node_param(target)._as_target()
         server = target.server
         add_action_id = cls.add_actions[add_action]
         synth = cls.basic_new(def_name, server)
-        if add_action_id < 2:
-            synth.group = target
-        else:
-            synth.group = target.group
+        synth.group = target if add_action_id < 2 else target.group
+        synth._init_register(register)
         synth.server.addr.send_bundle(
             None,
             [

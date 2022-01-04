@@ -407,7 +407,7 @@ class ServerKeys(PartialEvent):
 
     @keyfunction
     def synth_lib(self):
-        return sdc.SynthDescLib.default  # BUG: Was global_.
+        return sdc.SynthDescLib.default  # Was global_.
 
     @keyfunction
     def send_gate(self):

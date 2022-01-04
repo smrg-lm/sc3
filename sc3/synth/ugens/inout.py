@@ -30,6 +30,7 @@ class ControlName():
         self.arg_num = arg_num
         self.lag = lag or 0.0
 
+    @property
     def channels(self):
         return len(utl.as_list(self.default_value))
 

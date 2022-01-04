@@ -1132,7 +1132,7 @@ class Synth(Node):
         '''
 
         osc_msg = []
-        synth_desc = sdc.SynthDescLib.at(self.def_name)
+        synth_desc = sdc.SynthDescLib.default.at(self.def_name)  # Was global_.
         if synth_desc is None:
             _logger.warning(
                 f"message seti failed, SynthDef '{self.def_name}' "

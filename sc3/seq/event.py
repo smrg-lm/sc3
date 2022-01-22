@@ -455,6 +455,48 @@ class ServerKeys(PartialEvent):
     #     # // "offset" is the delta time for the clock (usually in beats)
 
 
+class MidiKeys(PartialEvent):
+    midicmd = 'note_on'
+    val = 0
+    chan = 0
+    port = 0
+    poly_touch = 125
+    midiout = None
+
+    def _note_on(self):
+        return [self('chan'), self('midinote'), int(bi.clip(self('amp') * 127, 0, 127))]
+
+    def _note_off(self):
+        return [self('chan'), self('midinote'), int(bi.clip(self('amp') * 127, 0, 127))]
+
+    def _poly_touch(self):
+        return [self('chan'), self('midinote'), self('poly_touch')]
+
+    def _control(self):
+        return [self('chan'), ...]
+
+    def _program(self):
+        ...
+
+    def _touch(self):
+        ...
+
+    def _bend(self):
+        ...
+
+    def _all_notes_off(self):
+        ...
+
+    def _smpte(self):
+        ...
+
+    def _song_ptr(self):
+        ...
+
+    def _sysex(self):
+        ...
+
+
 ### Event Types ###
 
 
@@ -500,6 +542,14 @@ class NoteEvent(EventType, partial_events=(
                 ['/n_set', node_id, 'gate', 0])
 
         self['is_playing'] = True
+
+
+class MidiEvent(EventType, partial_events=(
+        PitchKeys, AmplitudeKeys, DurationKeys, MidiKeys)):
+    type = 'midi'
+    is_playing = False
+
+    ...
 
 
 class _MonoOnEvent(EventType, partial_events=(

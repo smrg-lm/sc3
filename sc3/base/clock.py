@@ -645,12 +645,6 @@ class MetaTempoClock(MetaClock):
 
         clb.ClassLibrary.add(cls, init_func)
 
-    def __on_cmd_period(cls):
-        for clock in cls.all:
-            clock.clear()
-            if not clock.permanent:
-                clock.stop()
-
     @property
     def all(cls):
         return set(cls._all)
@@ -658,6 +652,15 @@ class MetaTempoClock(MetaClock):
     def stop_all(cls):
         for clock in list(cls._all):
             clock.stop()
+
+
+    ### System Actions ###
+
+    def __on_cmd_period(cls):
+        for clock in cls.all:
+            clock.clear()
+            if not clock.permanent:
+                clock.stop()
 
 
 class TempoClock(Clock, metaclass=MetaTempoClock):

@@ -136,7 +136,7 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
         super().free()
 
 
-class AbstractResponderFunc(ABC):
+class AbstractResponderFunc():  # Not a real ABC.
     '''
     Abstract superclass of responder funcs, which are classes which register
     one or more functions to respond to a particular type of input.
@@ -199,9 +199,6 @@ class AbstractResponderFunc(ABC):
             sac.CmdPeriod.remove(self.__on_cmd_period)
         self.dispatcher.remove(self)
         self.enabled = False
-
-    def __on_cmd_period(self):  # Avoid clash.
-        self.free()
 
     def one_shot(self):
         '''Make the responder a one time action.'''
@@ -282,6 +279,12 @@ class AbstractResponderFunc(ABC):
             except KeyError:
                 result[key] = [func_proxy]
         return result
+
+
+    ### System Actions ###
+
+    def __on_cmd_period(self):
+        self.free()
 
 
 ### OSC ###
@@ -465,25 +468,6 @@ class OscFunc(AbstractResponderFunc):
     set to any instance of an appropriate subclass of `AbstractDispatcher`.
     '''
 
-    @classmethod
-    def _trace_func_show_status(cls, msg, time, addr, recv_port):
-        log = ('OSC Message Received:\n'
-               f'    time: {time}\n'
-               f'    address: {addr}\n'
-               f'    recv_port: {recv_port}\n'
-               f'    msg: {msg}')
-        _logger.info(log)
-
-    @classmethod
-    def _trace_func_hide_status(cls, msg, time, addr, recv_port):
-        if msg[0] == '/status.reply'\
-        and any(server.addr == addr for server in srv.Server.all):
-            return
-        cls._trace_func_show_status(msg, time, addr, recv_port)
-
-    _trace_func = _trace_func_show_status
-    _trace_running = False
-
     def __init__(self, func, path, src_id=None, *, recv_port=None,
                  arg_template=None, dispatcher=None):
         super().__init__()
@@ -520,10 +504,6 @@ class OscFunc(AbstractResponderFunc):
             dispatcher=cls._default_matching_dispatcher)
 
     @classmethod
-    def __on_cmd_period(cls):  # Avoid clash.
-        cls.trace(False)
-
-    @classmethod
     def trace(cls, flag=True, hide_status=False):
         '''A convenience method which dumps all incoming OSC messages.
 
@@ -547,6 +527,33 @@ class OscFunc(AbstractResponderFunc):
             _libsc3.main.remove_osc_recv_func(cls._trace_func)
             sac.CmdPeriod.remove(cls.__on_cmd_period)
             cls._trace_running = False
+
+    @classmethod
+    def _trace_func_show_status(cls, msg, time, addr, recv_port):
+        log = ('OSC Message Received:\n'
+               f'    time: {time}\n'
+               f'    address: {addr}\n'
+               f'    recv_port: {recv_port}\n'
+               f'    msg: {msg}')
+        _logger.info(log)
+
+    @classmethod
+    def _trace_func_hide_status(cls, msg, time, addr, recv_port):
+        if msg[0] == '/status.reply'\
+        and any(server.addr == addr for server in srv.Server.all):
+            return
+        cls._trace_func_show_status(msg, time, addr, recv_port)
+
+    _trace_func = _trace_func_show_status
+    _trace_running = False
+
+
+    ### System Actions ###
+
+    @classmethod
+    def __on_cmd_period(cls):
+        cls.trace(False)
+
 
     def __repr__(self):
         return (

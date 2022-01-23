@@ -141,8 +141,8 @@ class AbstractResponderFunc():  # Not a real ABC.
     Abstract superclass of responder funcs, which are classes which register
     one or more functions to respond to a particular type of input.
     It provides some common functionality such as introspection. Its two main
-    subclasses are OSCFunc, and MIDIFunc. By default responder funcs do not
-    persist beyond `CmdPeriod.run()` (see `permanent` property below).
+    subclasses are `OscFunc`, and `MidiFunc`. By default responder funcs do
+    not persist beyond `CmdPeriod.run()` (see `permanent` property below).
 
     Instances will register with a dispatcher (an instance of a subclass of
     `AbstractDispatcher`), which will actually dispatch incoming messages
@@ -326,7 +326,7 @@ class OscFuncBothMessageMatcher(AbstractMessageMatcher):
             fn.value(self.func, msg, time, addr, recv_port)
 
 
-class OSCArgsMatcher(AbstractMessageMatcher):
+class OscArgsMatcher(AbstractMessageMatcher):
     def __init__(self, arg_template, func):
         self.arg_template = utl.as_list(arg_template)
         self.func = func
@@ -346,14 +346,14 @@ class OSCArgsMatcher(AbstractMessageMatcher):
 # // message argument for fast lookup. These are for use when more
 # // than just the 'most significant' argument needs to be matched.
 
-class OSCMessageDispatcher(AbstractWrappingDispatcher):
+class OscMessageDispatcher(AbstractWrappingDispatcher):
     def wrap_func(self, func_proxy):
         func = func_proxy.func
         src_id = func_proxy.src_id
         recv_port = getattr(func_proxy, 'recv_port', None)
         arg_template = getattr(func_proxy, 'arg_template', None)
         if arg_template is not None:
-            func = OSCArgsMatcher(arg_template, func)
+            func = OscArgsMatcher(arg_template, func)
         if src_id is not None and recv_port is not None:
             return OscFuncBothMessageMatcher(src_id, recv_port, func)
         elif src_id is not None:
@@ -383,7 +383,7 @@ class OSCMessageDispatcher(AbstractWrappingDispatcher):
         return 'OSC unmatched'
 
 
-class OSCMessagePatternDispatcher(OSCMessageDispatcher):
+class OscMessagePatternDispatcher(OscMessageDispatcher):
     def __call__(self, msg, time, addr, recv_port):
         pattern = msg[0]
         for key, funcs in self.active.items():
@@ -402,7 +402,7 @@ class OscFunc(AbstractResponderFunc):
     incoming OSC message which matches a specified OSC Address. Many of its
     methods are inherited from its superclass `AbstractResponderFunc`.
     It supports pattern matching of wildcards etc. in incoming messages.
-    For efficiency reasons you must specify that an `OSCFunc` will employ
+    For efficiency reasons you must specify that an `OscFunc` will employ
     pattern matching by creating it with the matching constructor, or by
     passing a matching dispatcher to `dispatcher` parameter of the default
     constructor. For details on the Open Sound Control protocol,
@@ -419,7 +419,7 @@ class OscFunc(AbstractResponderFunc):
         sender, and `recv_port`, an `int` corresponding to the port on which
         the message was received.
     path : str
-        The path of the OSC address of this object. Note that `OSCFunc`
+        The path of the OSC address of this object. Note that `OscFunc`
         demands OSC compliant addresses. If the path does not begin with a
         '/' one will be added automatically.
     src_id : NetAddr
@@ -436,7 +436,7 @@ class OscFunc(AbstractResponderFunc):
         match the arguments of an incoming OSC message by position. If a
         function, it will be evaluated with the corresponding message's value
         at the same positon as an argument, and should return a boolean
-        indicating whether the argument matches and this `OSCFunc` should
+        indicating whether the argument matches and this `OscFunc` should
         respond (providing all other arguments match). Template values of
         `None` will match any incoming argument value at that position.
     dispatcher : AbstractDispatcher
@@ -447,24 +447,24 @@ class OscFunc(AbstractResponderFunc):
 
     _all_func_proxies = set()
 
-    _default_dispatcher = OSCMessageDispatcher()
+    _default_dispatcher = OscMessageDispatcher()
     '''
     Default dispatcher object for new instances (this is what you get if you
     pass `None` as the `dispatcher` argument). This object will decide if any
-    of its registered `OSCFuncs` should respond to an incoming OSC message.
+    of its registered `OscFunc`s should respond to an incoming OSC message.
 
-    By default this will be an `OSCMessageDispatcher`, but it can be set to
+    By default this will be an `OscMessageDispatcher`, but it can be set to
     any instance of an appropriate subclass of `AbstractDispatcher`.
     '''
 
-    _default_matching_dispatcher = OSCMessagePatternDispatcher()
+    _default_matching_dispatcher = OscMessagePatternDispatcher()
     '''
     Default matching dispatcher object for new instances (this is what you
-    get if when you create an OSCFunc using `matching`). This object will
-    decide if any of its registered OSCFuncs should respond to an incoming
+    get if when you create an `OscFunc` using `matching`). This object will
+    decide if any of its registered `OscFunc`s should respond to an incoming
     OSC message using pattern matching.
 
-    By default this will be an `OSCMessagePatternDispatcher`, but it can be
+    By default this will be an `OscMessagePatternDispatcher`, but it can be
     set to any instance of an appropriate subclass of `AbstractDispatcher`.
     '''
 

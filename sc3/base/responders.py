@@ -12,7 +12,7 @@ from . import utils as utl
 from ._oscmatch import osc_rematch_pattern as _match_osc_address_pattern
 
 
-__all__ = ['OscFunc']
+__all__ = ['OscFunc', 'MidiFunc']
 
 
 _logger = logging.getLogger(__name__)
@@ -470,7 +470,7 @@ class OscFunc(AbstractResponderFunc):
     set to any instance of an appropriate subclass of `AbstractDispatcher`.
     '''
 
-    def __init__(self, func, path, src_id=None, *, recv_port=None,
+    def __init__(self, func, path, src_id=None, recv_port=None, *,
                  arg_template=None, dispatcher=None):
         super().__init__()
         if path[0] != '/':
@@ -568,91 +568,124 @@ class OscFunc(AbstractResponderFunc):
 
 ### MIDI ###
 
-# MIDI implementation needs some thought, mostly because there
-# are many libraries and so far sc3 is dependencies free.
 
-class MidiFuncSrcMessageMatcher(AbstractMessageMatcher):
-    # // If you need to test for srcID func gets wrapped in this.
-    ...
+class MidiFuncRecvPortMessageMatcher(AbstractMessageMatcher):
+    def __init__(self, midi_in, func):
+        self.midi_in = midi_in
+        self.func = func
 
-
-class MidiFuncChanMessageMatcher(AbstractMessageMatcher):
-    # // If you need to test for chan func gets wrapped in this.
-    ...
+    def __call__(self, data, midi_in):
+        if self.midi_in._port is midi_in._port:  # Port objects are unique, also by name.
+            fn.value(self.func, data, midi_in)
 
 
-class MidiFuncChanArrayMessageMatcher(AbstractMessageMatcher):
-    # // If you need to test for chanArray func gets wrapped in this.
-    ...
+class MidiArgsMatcher(AbstractMessageMatcher):
+    def __init__(self, arg_template, func):
+        self.arg_template = arg_template
+        self.func = func
+
+    def __call__(self, data, midi_in):
+        for key, item in self.arg_template.items():
+            if callable(item):
+                if not item(data[key]):
+                    return
+            elif item is not None and item != data[key]:
+                return
+        fn.value(self.func, data, midi_in)
 
 
-class MidiFuncSrcMessageMatcherNV(MidiFuncSrcMessageMatcher):
-    # // Version for message types which don't pass a val.
-    ...
+class MidiMessageDispatcher(AbstractWrappingDispatcher):
+    def wrap_func(self, func_proxy):
+        func = func_proxy.func
+        midi_in = func_proxy.port
+        arg_template = func_proxy.arg_template
+        if arg_template is not None:
+            func = MidiArgsMatcher(arg_template, func)
+        if midi_in is not None:
+            return MidiFuncRecvPortMessageMatcher(midi_in, func)
+        else:
+            return func
 
+    def get_keys_for_func_proxy(self, func_proxy):
+        mt = func_proxy.mtype
+        if isinstance(mt, (list, tuple, set)):
+            return list(mt)
+        else:
+            return [mt]
 
-class MidiFuncSrcSysMessageMatcher(MidiFuncSrcMessageMatcher):
-    # // Version for message types which don't pass a val.
-    ...
+    def __call__(self, data, midi_in):
+        mt = data['type']
+        if mt in self.active:
+            for func in self.active[mt]:
+                fn.value(func, data, midi_in)
 
+    def register(self):
+        _libsc3.main._midi_interface.add_recv_func(self)
+        self.registered = True
 
-class MidiFuncSrcSysMessageMatcherND(MidiFuncSrcMessageMatcher):
-    ...
+    def unregister(self):
+        _libsc3.main._midi_interface.remove_recv_func(self)
+        self.registered = False
 
-
-class MidiFuncBothMessageMatcher(AbstractMessageMatcher):
-    # // If you need to test for chan and srcID func gets wrapped in this.
-    ...
-
-
-class MidiFuncBothCAMessageMatcher(AbstractMessageMatcher):
-    # // If you need to test for chanArray and srcID func gets wrapped in this.
-    ...
-
-
-class MIDIValueMatcher(AbstractMessageMatcher):
-    # // If you want to test for the actual message value,
-    # // the func gets wrapped in this.
-    ...
-
-
-class MIDIMessageDispatcher(AbstractWrappingDispatcher):
-    # // For 'note_on', 'note_off', 'control', 'polytouch'.
-    ...
-
-
-class MIDIMessageDispatcherNV(MIDIMessageDispatcher):
-    # // For 'touch', 'program', 'bend'.
-    ...
-
-
-class MIDISysexDispatcher(MIDIMessageDispatcher):
-    # // For 'sysex'.
-    ...
-
-
-class MIDISysDataDispatcher(MIDIMessageDispatcher):
-    # // sysrt with data.
-    ...
-
-class MIDISysDataDropIndDispatcher(MIDISysDataDispatcher):
-    ...
-
-
-class MIDISysNoDataDispatcher(MIDISysDataDispatcher):
-    ...
-
-
-class MIDIMTCtoSMPTEDispatcher(MIDISysexDispatcher):
-    ...
-
-
-class MIDISMPTEAssembler(AbstractMessageMatcher):
-    # // Thanks to nescivi for code from MTC class!!
-    ...
+    def type_key(self):
+        return 'MIDI default'
 
 
 class MidiFunc(AbstractResponderFunc):
-    ...
+    # Constructor was changed to use mido's message model and parser.
+
+    _all_func_proxies = set()
+    _default_dispatcher = MidiMessageDispatcher()
+    _trace_running = False
+
+    def __init__(self, func, mtype, port=None, *,
+                 arg_template=None, dispatcher=None):
+        super().__init__()
+        self._func = func
+        self.mtype = mtype  # str | list
+        self.port = port  # MidiIn
+        self.arg_template = arg_template  # dict
+        self.dispatcher = dispatcher or type(self)._default_dispatcher
+        self.enable()
+
+    @classmethod
+    def trace(cls, flag=True):
+        '''A convenience method which dumps all incoming MIDI messages.
+
+        Parameters
+        ----------
+        flag : bool
+            Dumping on or off.
+        '''
+
+        if flag and not cls._trace_running:
+            _libsc3.main._midi_interface.add_recv_func(cls._trace_func)
+            sac.CmdPeriod.add(cls.__on_cmd_period)
+            cls._trace_running = True
+        elif cls._trace_running:
+            _libsc3.main._midi_interface.remove_recv_func(cls._trace_func)
+            sac.CmdPeriod.remove(cls.__on_cmd_period)
+            cls._trace_running = False
+
+    @staticmethod
+    def _trace_func(data, midi_in):
+        log = ('MIDI Message Received:\n'
+               f'    port: {midi_in}\n'
+               f'    msg: {data}')
+        _logger.info(log)
+
+
+    ### System Actions ###
+
+    @classmethod
+    def __on_cmd_period(cls):
+        cls.trace(False)
+
+
+    def __repr__(self):
+        return (
+            f'{type(self).__name__}({repr(self.mtype)}, {self.port}, '
+            f'{self.arg_template})')
+
 
 # class MidiDef(MidiFunc):

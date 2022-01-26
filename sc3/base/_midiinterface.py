@@ -3,9 +3,11 @@ from abc import ABC, abstractmethod
 import logging
 import threading
 
-import mido
+import mido  # *** TODO: This module is optional.
 
 from . import main as _libsc3
+from . import midi as mdi
+from . import clock as clk
 
 
 __all__ = ['MidiRtInterface', 'MidiNrtInterface']
@@ -93,24 +95,26 @@ class MidiRtInterface(MidiInterface):
 
     @staticmethod
     def _run(iface, port):
+        midi_in = mdi.MidiIn(port.name)
         while iface._running and not port.closed:
             try:
                 msg = port.receive()
                 if msg is None:
                     return  # HACK: See close_port.
-                # elapsed_time = _libsc3.main.elapsed_time()
-
-                # def sched_func():
-                #     # To solve this loop OscFunc has to be rewritten.
-                #     for func in type(self)._recv_functions:
-                #         func(list(msg), time, addr, self.port)
-
-                # clk.SystemClock.sched(0, sched_func)  # Updates logical time.
+                data = msg.dict()
+                iface._msg_dispatch(data, midi_in)
             except IOError as e:
                 if port.closed:
                     return
                 else:
                     raise e
+
+    def _msg_dispatch(self, data, midi_in):
+        def sched_func():
+            for func in self._recv_functions:
+                func(data, midi_in)
+
+        clk.SystemClock.sched(0, sched_func)
 
     def send_msg(self, port, msg, **kwargs):  # override
         if port.closed:  # Prevents segfault.

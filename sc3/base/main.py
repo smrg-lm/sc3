@@ -15,6 +15,7 @@ from . import platform as plf
 from . import systemactions as sac
 from . import stream as stm
 from . import _oscinterface as osci
+from . import _midiinterface as mii
 from . import classlibrary as clb
 from . import clock as clk
 from . import builtins as bi
@@ -45,6 +46,7 @@ class Process(type):
         PLATFORM = 700
         CLOCKS = 800
         NETWORKING = 900
+        MIDI = 1000
 
     _atexitq = tsq.TaskQueue()
     '''Functions registered in atexit with order by priority numbers.'''
@@ -156,9 +158,13 @@ class RtMain(metaclass=Process):
         cls._init_time = time.time()  # time_since_epoch
         cls.main_tt = stm._MainTimeThread()
         cls.current_tt = cls.main_tt
+
         cls._osc_interface = osci.OscUdpInterface(
             sc3.LIB_PORT, sc3.LIB_PORT_RANGE)
         cls._osc_interface.start()
+
+        cls._midi_interface = mii.MidiRtInterface()
+        cls._midi_interface.start()  # *** BUG: Tiene que comprobar que esté mido con python-rtmidi.
 
         # State to mimic time behaviour for all awakables in rt.
         cls._in_awake_call = False

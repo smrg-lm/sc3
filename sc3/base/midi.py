@@ -23,6 +23,15 @@ class MidiIO():
     def close(self):
         pass
 
+    def __eq__(self, other):
+        return self._port is other._port
+
+    def __hash__(self):
+        return hash((type(self), self._name, id(self._port)))
+
+    def __repr__(self):
+        return f'{type(self).__name__}({repr(self._name)}, {self._virtual})'
+
 
 class MidiIn(MidiIO):
     def __init__(self, name, virtual=False):

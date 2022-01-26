@@ -109,8 +109,10 @@ class AbstractWrappingDispatcher(AbstractDispatcher):
         func = self.wrapped_funcs[func_proxy]
         for key in keys:
             self.active[key].remove(func)
+            if not self.active[key]:
+                del self.active[key]
         del self.wrapped_funcs[func_proxy]
-        if len(self.active) == 0:
+        if not self.active:
             self.unregister()
 
     def update_func_for_func_proxy(self, func_proxy):
@@ -154,7 +156,6 @@ class AbstractResponderFunc():  # Not a real ABC.
     def __init__(self):
         self._func = None
         self._permanent = False
-        self.src_id = None
         self.enabled = False
         self.dispatcher = None
 
@@ -195,10 +196,11 @@ class AbstractResponderFunc():  # Not a real ABC.
 
     def disable(self):
         '''Disable the responder, no data is processed.'''
-        if not self.permanent:
-            sac.CmdPeriod.remove(self.__on_cmd_period)
-        self.dispatcher.remove(self)
-        self.enabled = False
+        if self.enabled:
+            if not self.permanent:
+                sac.CmdPeriod.remove(self.__on_cmd_period)
+            self.dispatcher.remove(self)
+            self.enabled = False
 
     def one_shot(self):
         '''Make the responder a one time action.'''

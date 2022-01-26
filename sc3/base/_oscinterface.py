@@ -77,7 +77,6 @@ class OscInterface(ABC):
         addr._osc_interface = self
 
         def sched_func():
-            # To solve this loop OscFunc has to be rewritten.
             for func in type(self)._recv_functions:
                 func(list(msg), time, addr, self.port)
 
@@ -139,7 +138,7 @@ class OscInterface(ABC):
             elif isinstance(arg, bool):
                 msg_builder.add_arg(int(arg))
             elif isinstance(arg, list):
-                if len(arg) == 0:
+                if not arg:
                     msg_builder.add_arg(0)
                 elif isinstance(arg[0], str):
                     msg_builder.add_arg(

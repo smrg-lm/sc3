@@ -31,9 +31,11 @@ class OscInterface(ABC):
     _recv_functions = set()
     _local_endpoints = dict()
 
-    def __init__(self, port, port_range):
+    def __init__(self, port=None, port_range=1):
         self._port = port
         self._port_range = port_range if port_range > 0 else 1
+        self._socket = None
+        self._proto = None
 
     @property
     def port(self):
@@ -46,6 +48,10 @@ class OscInterface(ABC):
     @property
     def socket(self):
         return self._socket
+
+    @property
+    def proto(self):
+        return self._proto
 
     @classmethod
     def add_recv_func(cls, func):
@@ -282,7 +288,7 @@ class OscUdpInterface(OscInterface):
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._udp_thread = None
         self._running = False
-        self.proto = 'udp'
+        self._proto = 'udp'
 
     def start(self):
         if self._running:
@@ -335,7 +341,7 @@ class OscTcpInterface(OscInterface):
         self._tcp_thread = None
         self._run_thread = False
         self._is_connected = False
-        self.proto = 'tcp'
+        self._proto = 'tcp'
 
     def connect(self, target):
         self._socket.connect(target)  # Exception on failure.
@@ -405,12 +411,6 @@ class OscTcpInterface(OscInterface):
 
 
 class OscNrtInterface(OscInterface):
-    def __init__(self):
-        self._port = None
-        self._port_range = None
-        self._socket = None
-        self.proto = None
-
     def init(self):
         self._osc_score = OscScore()
 
@@ -457,9 +457,7 @@ class OscScore():
         def __init__(self, bndl, msg):
             self.bndl = bndl
             self.msg = msg
-            # *** BUG: necesita definir __eq__ y __hash__ en base a estos
-            # *** BUG: parámetros para que sea único para remove, el problema
-            # *** BUG: son las listas de los bndls.
+            # *** NOTE: May need to define __eq__ and __hash__ for TaskQueue.
 
     def __init__(self):
         self._scoreq = tsq.TaskQueue()
@@ -482,7 +480,7 @@ class OscScore():
 
     def add(self, bndl):
         if self._finished:
-            raise Exception('already finished score')
+            raise Exception('already finished OSC score')
         send_time = _libsc3.main.current_tt._seconds
         msg = _libsc3.main._osc_interface._build_bundle(send_time, bndl)  # Raises Exception.
         msg = msg.size.to_bytes(4, 'big') + msg.dgram
@@ -553,9 +551,11 @@ class OscScore():
             bufsize=1,
             universal_newlines=True)
 
-        self._render_proc.wait()
-        osc_file.unlink()
-        return self._render_proc.poll()
+        try:
+            self._render_proc.wait()
+            return self._render_proc.poll()
+        finally:
+            osc_file.unlink()
 
     def __str__(self):
         return pprint.pformat(self._lst_score)

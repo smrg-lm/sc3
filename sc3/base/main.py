@@ -335,7 +335,8 @@ class NrtMain(metaclass=Process):
         cls._clock_scheduler = clk.ClockScheduler()
         cls._osc_interface = osci.OscNrtInterface()
         cls._osc_interface.init()
-        cls.osc_score = None
+        cls._midi_interface = mii.MidiNrtInterface()
+        cls._midi_interface.init()
 
         clb.ClassLibrary.init()
         cls._startup()
@@ -361,18 +362,38 @@ class NrtMain(metaclass=Process):
         cls.main_tt._m_seconds = seconds
 
     @classmethod
-    def process(cls, tailtime=0):
-        '''Generate and return the OSC score.'''
+    def process(cls, tailtime=0, proto='osc'):
+        '''Generate and return OSC or MIDI command scores.
+
+        Parameters
+        ----------
+        tailtime : float
+            Wait time after the last event. Used for reverb time or alike.
+            Only has effect for OSC scores.
+        proto : str
+            Score protocol to generate, possible values are `'osc'` or`'midi'`.
+
+        Returns
+        -------
+        An instance of either OscScore or MidiScore.
+
+        '''
 
         cls._clock_scheduler.run()
-        cls._osc_interface._osc_score.finish(tailtime)
-        cls.osc_score = cls._osc_interface._osc_score
-        return cls.osc_score
+        if proto == 'osc':
+            cls._osc_interface._osc_score.finish(tailtime)
+            return cls._osc_interface._osc_score
+        elif proto == 'midi':
+            cls._midi_interface._midi_score.finish()
+            return cls._midi_interface._midi_score
+        else:
+            ValueError(f'invalid protocol name {repr(proto)}')
 
     @classmethod
     def reset(cls):
-        '''Reset sc3 time, scheduler and osc score to initial state.'''
+        '''Reset sc3 time, scheduler and command scores to initial state.'''
 
         cls.main_tt._m_seconds = 0.0
         cls._clock_scheduler.reset()
         cls._osc_interface.init()  # Reset OscScore.
+        cls._midi_interface.init()  # Reset MidiScore.

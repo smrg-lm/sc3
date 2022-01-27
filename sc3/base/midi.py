@@ -24,7 +24,7 @@ class MidiIO():
         pass
 
     def __eq__(self, other):
-        return self._port is other._port
+        return type(self) == type(other) and self._name == other._name
 
     def __hash__(self):
         return hash((type(self), self._name, id(self._port)))

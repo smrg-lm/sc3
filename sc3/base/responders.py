@@ -575,7 +575,7 @@ class MidiFuncRecvPortMessageMatcher(AbstractMessageMatcher):
         self.func = func
 
     def __call__(self, data, midi_in):
-        if self.midi_in._port is midi_in._port:  # Port objects are unique, also by name.
+        if self.midi_in._name == midi_in._name:
             fn.value(self.func, data, midi_in)
 
 

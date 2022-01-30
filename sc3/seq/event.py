@@ -7,6 +7,7 @@ import sys
 
 from ..base import builtins as bi
 from ..base import operand as opd
+from ..base import clock as clk
 from ..synth import server as srv
 from ..synth import synthdesc as sdc
 from ..synth import node as nod
@@ -466,45 +467,133 @@ class ServerKeys(PartialEvent):
 
 
 class MidiKeys(PartialEvent):
-    midicmd = 'note_on'
-    val = 0
-    chan = 0
-    port = 0
-    poly_touch = 125
     midiout = None
+    midicmd = 'note_on'
+
+    channel = 0  # 'note_on', 'note_off', 'polytouch', 'control_change'
+                 # ''program_change', 'aftertouch', 'pitchwheel',
+                 # 'all_sounds_off', 'reset_all_controllers', 'all_notes_off'
+    control = 0  # 'control_change'
+    value = 0  # 'polytouch', 'control_change', 'aftertouch'
+    program = 0 # 'program_change'
+    pitch = 0  # 'pitchwheel'
+    data = b''  # 'sysx'
+
+    frame_type = ...  # 'quarter_frame'
+    frame_value = ...  # 'quarter_frame'
+
+    pos = 0  # 'songpos'
+    song = 0 # 'song_select'
 
     def _note_on(self):
-        return [self('chan'), self('midinote'), int(bi.clip(self('amp') * 127, 0, 127))]
+        return {
+            'type': 'note_on',
+            'channel': self('channel'),
+            'note': self('midinote'),
+            'velocity': bi.clip(self('velocity'), 0, 127)
+        }
 
     def _note_off(self):
-        return [self('chan'), self('midinote'), int(bi.clip(self('amp') * 127, 0, 127))]
+        return {
+            'type': 'note_off',
+            'channel': self('channel'),
+            'note': self('midinote'),
+            'velocity': bi.clip(self('velocity'), 0, 127)
+        }
 
-    def _poly_touch(self):
-        return [self('chan'), self('midinote'), self('poly_touch')]
+    def _polytouch(self):
+        return {
+            'type': 'polytouch',
+            'channel': self('channel'),
+            'note': self('midinote'),
+            'value': self('value')  # *** NOTE: 14 bits, 0-127. Could be expressed as bi.midiratio with mul + offset.
+        }
 
-    def _control(self):
-        return [self('chan'), ...]
+    def _control_change(self):
+        return {
+            'type': 'control_change',
+            'channel': self('channel'),
+            'control': self('control'),
+            'value': self('value')
+        }
 
-    def _program(self):
-        ...
+    def _program_change(self):
+        return {
+            'type': 'program_change',
+            'channel': self('channel'),
+            'program': self('program')
+        }
 
-    def _touch(self):
-        ...
+    def _aftertouch(self):
+        return {
+            'type': 'aftertouch',
+            'channel': self('channel'),
+            'value': self('value')
+        }
 
-    def _bend(self):
-        ...
-
-    def _all_notes_off(self):
-        ...
-
-    def _smpte(self):
-        ...
-
-    def _song_ptr(self):
-        ...
+    def _pitchwheel(self):
+        return {
+            'type': 'pitchwheel',
+            'channel': self('channel'),
+            'pitch': self('pitch')  # *** NOTE: 14 bits, 0-16383. Could be expressed as bi.midiratio with mul + offset.
+        }
 
     def _sysex(self):
-        ...
+        return {
+            'type': 'sysex',
+            'data': self('data')
+        }
+
+    def _quarter_frame(self):
+        return {
+            'type': 'quarter_frame',
+            'frame_type': self('frame_type'),
+            'frame_value': self('frame_value')
+        }
+
+    def _songpos(self):  # Song Position Pointer (SPP).
+        return {
+            'type': 'songpos',
+            'pos': self('pos')
+        }
+
+    def _song_select(self):
+        return {
+            'type': 'song_select',
+            'song': self('song')
+        }
+
+    # {'type': 'tune_request'}, {'type': 'clock'}, {'type': 'start'}
+    # {'type': 'continue'}, {'type': 'stop'}, {'type': 'active_sensing'}
+    # {'type': 'reset'}.
+
+    # Not MIDI messages.
+
+    def _all_sounds_off(self):
+        return {
+            'type': 'control_change',
+            'channel': self('channel'),
+            'control': 120  # All Sounds Off.
+        }
+
+    def _reset_all_controllers(self):
+        return {
+            'type': 'control_change',
+            'channel': self('channel'),
+            'control': 121  # Reset All Controllers
+        }
+
+    def _all_notes_off(self):
+        return {
+            'type': 'control_change',
+            'channel': self('channel'),
+            'control': 123  # All Notes Off.
+        }
+
+    # TODO: mido.midifiles.meta._META_SPEC_BY_TYPE. There is 'smpte_offset'.
+    # # There is 'quarter_frame' with ('frame_type', 'frame_value').
+    # def _smpte(self):
+    #     ...  # [ frames=0, seconds=0, minutes=0, hours=0, frameRate=25 ]
 
 
 ### Event Types ###
@@ -559,8 +648,18 @@ class MidiEvent(EventType, partial_events=(
     type = 'midi'
     is_playing = False
 
-    ...
-
+    def play(self):
+        freq = self['freq'] = self._detuned_freq()
+        self['midinote'] = int(bi.round(bi.cpsmidi(freq), 1))
+        midiout = self['midiout']
+        midicmd = self('midicmd')
+        msgargs = getattr(self, '_' + midicmd)()
+        midiout.send_msg(msgargs.pop('type'), **msgargs)
+        has_gate = self.get('has_gate', True)  # Server compatibility.
+        if has_gate and midicmd == 'note_on':
+            clk.SystemClock.sched(  # Clock's sched degrade performance.
+                self('sustain'),  # Missing ~latency, ~lag.
+                lambda: midiout.send_msg('note_off', **msgargs))
 
 class _MonoOnEvent(EventType, partial_events=(
         PitchKeys, AmplitudeKeys, DurationKeys, ServerKeys)):

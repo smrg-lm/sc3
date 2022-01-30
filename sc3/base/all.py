@@ -3,6 +3,7 @@ from . import builtins as bi
 from . clock import *
 from . functions import *
 from . main import main
+from . midi import *
 from . model import *
 from . netaddr import *
 from . operand import *

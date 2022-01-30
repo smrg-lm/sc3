@@ -41,3 +41,27 @@ def import_all_package(path, name, *, bind):
         full_cs.update(a)
         all_cs.update(p)
     return full_cs, all_cs
+
+
+
+class OptionalModuleNotFound(ModuleNotFoundError):
+    pass
+
+
+class OptionalModuleProxy():
+    def __init__(self, name):
+        super().__setattr__(
+            'msg', f'optional module {repr(name)} is not installed')
+
+    def __getattr__(self, name):
+        raise OptionalModuleNotFound(super().__getattribute__('msg'))
+
+    def __setattr__(self, name, value):
+        raise OptionalModuleNotFound(super().__getattribute__('msg'))
+
+
+def import_optional_module(name, package=None):
+    try:
+        return _importlib.import_module(name, package)
+    except ModuleNotFoundError:
+        return OptionalModuleProxy(name)

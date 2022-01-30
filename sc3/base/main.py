@@ -164,7 +164,7 @@ class RtMain(metaclass=Process):
         cls._osc_interface.start()
 
         cls._midi_interface = mii.MidiRtInterface()
-        cls._midi_interface.start()  # *** BUG: Tiene que comprobar que esté mido con python-rtmidi.
+        cls._midi_interface.start()
 
         # State to mimic time behaviour for all awakables in rt.
         cls._in_awake_call = False

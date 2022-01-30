@@ -3,12 +3,14 @@ from abc import ABC, abstractmethod
 import threading
 import pprint
 
-import mido  # *** TODO: This module is optional.
-
 from . import main as _libsc3
 from . import midi as mdi
 from . import clock as clk
 from . import _taskq as tsq
+from . import _hooks as hks
+
+
+mido = hks.import_optional_module('mido')
 
 
 __all__ = ['MidiRtInterface', 'MidiNrtInterface']

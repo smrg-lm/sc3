@@ -2,6 +2,9 @@
 from . import main as _libsc3
 
 
+__all__ = ['MidiIn', 'MidiOut']
+
+
 class MidiIO():
     def __init__(self, name, virtual=False):
         self._name = name

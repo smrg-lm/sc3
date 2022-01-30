@@ -172,8 +172,18 @@ class event(EventDict):
     _default_type = 'note'
 
     def __new__(cls, *args, **kwargs):
+        # There are three sources of type, from an EvenType instance, from
+        # the dictionary key and from **kwargs. Later ones override previous.
+        # This looks overcomplicated to me, it might be better to only use
+        # dictionaries and instantiate event types just when needed (e.g.
+        # just before calling play), but event streams expect event types
+        # and the type of the event must be mutable for derivated instances.
+        if args and isinstance(args[0], EventType):
+            type = args[0]('type')
+        else:
+            type = None
         d = {**dict(*args), **kwargs}  # Override duplicated 'type' keys.
-        type = d.pop('type', None)  # Remove 'type' from actual keys.
+        type = d.pop('type', None) or type  # Also remove 'type' from actual keys.
         if type:
             try:
                 return cls._event_types[type](d)

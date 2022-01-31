@@ -92,7 +92,7 @@ class MidiRtInterface(MidiInterface):
         thread = threading.Thread(
             target=self._run,
             name='MIDI ' + str(port),
-            args=(self, port))
+            args=(self, name, port))
         thread.daemon = True
         thread.start()
         self._threads[name] = thread
@@ -116,8 +116,8 @@ class MidiRtInterface(MidiInterface):
         del self._output_ports[name]
 
     @staticmethod
-    def _run(iface, port):
-        midi_in = mdi.MidiIn(port.name)
+    def _run(iface, name, port):
+        midi_in = mdi.MidiIn(name)  # MidiFunc port argument object.
         while iface._running and not port.closed:
             try:
                 msg = port.receive()

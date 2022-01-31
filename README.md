@@ -55,16 +55,38 @@ s.quit()  # Stop server at the end of interactive session or just quit ipython.
 Install
 -------
 
-From PyPI (usually outdated by now):
+Depending on your operating system you may need to use `python3` and `pip3`
+commands instead of `python` and `pip`.
 
-```
-pip3 install sc3
+From source using pip (recomended by now):
+
+```bash
+pip install git+https://github.com/smrg-lm/sc3.git
 ```
 
-From source in develop mode (recommended for the moment):
+Or with optional MIDI support:
 
+```bash
+pip install "sc3[midi] @ git+https://github.com/smrg-lm/sc3.git"
 ```
-python3 setup.py develop --user
+
+From source in develop mode (having a clone of this repo already):
+
+```bash
+python setup.py develop
+```
+
+For optional MIDI support also install mido and rtmidi backend:
+
+```bash
+pip install mido python-rtmidi
+```
+
+From PyPI (usually outdated by now, there will be a more stable beta version soon):
+
+```bash
+pip install sc3  # [midi] or [midi-nrt] for MIDI support, the nrt variant
+                 # installs mido but not the driver.
 ```
 
 License

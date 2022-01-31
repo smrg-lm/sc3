@@ -23,6 +23,10 @@ setuptools.setup(
         'sc3.synth', 'sc3.synth.ugens'
     ],
     python_requires='>=3.6',
+    extras_require = {
+        'midi': ['mido', 'python-rtmidi'],
+        'midi-nrt': ['mido']
+    },
     classifiers=[
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
@@ -32,5 +36,5 @@ setuptools.setup(
         'Operating System :: OS Independent',
         'Development Status :: 3 - Alpha'
     ],
-    keywords='SuperCollider sound synthesis music-composition'
+    keywords='SuperCollider sound synthesis music-composition',
 )

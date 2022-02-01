@@ -398,7 +398,7 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
         return None
 
     def _check_n_inputs(self, n):
-        """Check the rate match and validity of the inputs."""
+        '''Check the rate match and validity of the inputs.'''
         if self.rate == 'audio':
             if n > len(self.inputs):
                 n = len(self.inputs)

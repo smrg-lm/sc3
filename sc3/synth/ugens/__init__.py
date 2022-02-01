@@ -1,6 +1,4 @@
-"""
-Builtin UGen classes package.
-"""
+"""Builtin UGen classes package."""
 
 import sys as _sys
 

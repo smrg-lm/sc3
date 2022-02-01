@@ -1,6 +1,4 @@
-"""
-R/W functions for SynthDef format.
-"""
+"""R/W functions for SynthDef format."""
 
 import struct
 

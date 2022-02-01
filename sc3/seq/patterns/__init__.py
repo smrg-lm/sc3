@@ -1,6 +1,4 @@
-"""
-Builtin Pattern classes package.
-"""
+"""Builtin Pattern classes package."""
 
 from ...base import _hooks as hks
 

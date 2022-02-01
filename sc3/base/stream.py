@@ -80,7 +80,9 @@ class TimeThread():
 
         By default, routine's random generators are inherited
         from the parent routine and only change when seeded.
+
         '''
+
         return self._rand_seed
 
     @rand_seed.setter
@@ -162,9 +164,11 @@ class AlwaysYield(Exception):
 
 
 class Stream(aob.AbstractObject, ABC):
-    '''
+    '''Lazy sequence of values.
+
     Streams are iterator-generators compatible objects that implement
     a specific interface to interact with clocks and patterns.
+
     '''
 
     ### Iterator protocol ###
@@ -183,7 +187,10 @@ class Stream(aob.AbstractObject, ABC):
         return self
 
     def __embed__(self, inval=None):
-        '''Return generator-iterator that recursively embeds cointained sub-streams.'''
+        '''Return generator-iterator that recursively embeds sub-streams.
+
+        '''
+
         try:
             while True:
                 inval = yield self.next(inval)
@@ -203,7 +210,10 @@ class Stream(aob.AbstractObject, ABC):
     #     return self
 
     def all(self, inval=None):
-        '''Same as list(stream) but with inval argument.'''
+        '''Same as list(stream) but with inval argument.
+
+        '''
+
         lst = []
         try:
             while True:
@@ -324,7 +334,9 @@ class NaropStream(Stream):
 
 
 class FunctionStream(Stream):  # Was FuncStream
-    """Create a stream from function evaluations."""
+    '''Create a stream from function evaluations.
+
+    '''
 
     # Functions could use StopStream as sclang nil but is not nice.
     def __init__(self, next_func, reset_func=None, data=None):
@@ -335,10 +347,12 @@ class FunctionStream(Stream):  # Was FuncStream
         self.data = data
 
     def next(self, inval=None):
+        '''Return the next value from the stream.
+
+        Its behaviour is the same as in `Routine.next`.
+
         '''
-        Return the next value from the stream. Its behaviour is
-        the same as in `Routine.next`.
-        '''
+
         # return fn.value(self.next_func, inval, self.data)  # Not cheap.
         # return self.next_func(inval, self.data)  # Mandatory
         if self._next_nargs > 1:
@@ -349,9 +363,10 @@ class FunctionStream(Stream):  # Was FuncStream
             return self.next_func()
 
     def reset(self):
-        '''
-        Reset the stream by executing the `reset_func` if provided. If no
-        `reset_func` was provided this method does nothing.
+        '''Reset the stream by executing the `reset_func` if provided.
+
+        If no `reset_func` was provided this method does nothing.
+
         '''
         # fn.value(self.reset_func, self.data)  # Not cheap.
         # self.reset_func(self.data)  # Mandatory.
@@ -400,9 +415,10 @@ class Routine(TimeThread, Stream):
 
     @classmethod
     def run(cls, func, clock=None, quant=None):
-        '''
-        Convenience constructor that creates and plays a routine from
-        a common function.
+        '''Create and play a routine from a common function.
+
+        This method is a convenience constructor.
+
         '''
 
         obj = cls(func)
@@ -422,6 +438,7 @@ class Routine(TimeThread, Stream):
             A Quant object or a any value that can be cast into one with
             Quant.as_quant constructor. This parameter only works for
             TempoClock and is ignored by other clocks.
+
         '''
 
         with self._state_lock:
@@ -445,6 +462,7 @@ class Routine(TimeThread, Stream):
         function, an iterator will be created internally the first time
         this method is called and return the value of the first yield
         statement.
+
         '''
 
         with self._state_lock:
@@ -532,6 +550,7 @@ class Routine(TimeThread, Stream):
         ------
         RoutineException
             If this method is called from within the routine's function itself.
+
         '''
 
         with self._state_lock:
@@ -554,6 +573,7 @@ class Routine(TimeThread, Stream):
             A Quant object or a any value that can be cast into one with
             Quant.as_quant constructor. This parameter only works for
             TempoClock and is ignored by other clocks.
+
         '''
 
         with self._state_lock:
@@ -569,6 +589,7 @@ class Routine(TimeThread, Stream):
         ------
         RoutineException
             If this method is called from within the routine's function itself.
+
         '''
 
         with self._state_lock:
@@ -596,6 +617,7 @@ class routine():
 
     This decorator class is redundant with the `Routine` class, it returns an
     instance of that class, but its use is recommended when used as decorator.
+
     '''
 
     def __new__(cls, func):
@@ -628,6 +650,7 @@ class Condition():
     ----------
     test: bool | callable
         Initial test condition it can be a callable that return a boolean.
+
     '''
 
     def __init__(self, test=False):
@@ -671,6 +694,7 @@ class Condition():
         ------
         Exeption
             If the generator is yield outside a routine.
+
         '''
 
         current_tt = _libsc3.main.current_tt
@@ -704,6 +728,7 @@ class Condition():
         ------
         Exeption
             If the generator is yield outside a routine.
+
         '''
 
         current_tt = _libsc3.main.current_tt
@@ -740,6 +765,7 @@ class FlowVar():
     This class is similar of awaitables for routines. Internaly it uses the
     `Condition` class defined in this library. See `value` property for
     example usage.
+
     '''
 
     class _UNBOUND(): pass
@@ -770,6 +796,7 @@ class FlowVar():
         ------
         Exeption
             If the generator is yield outside a routine.
+
         '''
 
         yield from self.condition.wait()
@@ -783,6 +810,7 @@ class FlowVar():
         ------
         Exeption
             If the value set more than once (rebind).
+
         '''
 
         if self._value is not self._UNBOUND:
@@ -795,7 +823,9 @@ class FlowVar():
 
 
 class ValueStream(Stream):
-    """Create a stream from any object."""
+    '''Create a stream from any object.
+
+    '''
 
     def __init__(self, value):
         self.value = value
@@ -822,12 +852,13 @@ class ValueStream(Stream):
 
 
 class DictionaryStream(ValueStream):
-    """Create a stream from dict objects.
+    '''Create a stream from dict objects.
 
     Dictionaries have a special meaning because they are the base clase for
     events and can be used as specifications deferring the event object
     creation.
-    """
+
+    '''
 
     ### Iterator protocol ###
 
@@ -866,7 +897,9 @@ class DictionaryStream(ValueStream):
 
 
 def stream(obj):
-    '''Convert any object into a Stream.'''
+    '''Convert any object into a Stream.
+
+    '''
 
     if hasattr(obj, '__stream__'):
         return obj.__stream__()
@@ -881,6 +914,7 @@ def embed(obj, inval=None):
     '''
     Convert any object into a Stream and return its embeddable form passing
     inval to the `next` calls.
+
     '''
 
     if hasattr(obj, '__embed__'):

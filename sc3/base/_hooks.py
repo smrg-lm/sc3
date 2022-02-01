@@ -1,6 +1,4 @@
-"""
-Import related hooks.
-"""
+"""Import related hooks."""
 
 import importlib as _importlib
 import pkgutil as _pkgutil

@@ -7,11 +7,12 @@ __all__ = ['TaskQueue']
 
 
 class TaskQueue():
-    """
+    '''
     This class is an encapsulation of the algorithm found in heapq
     documentation. heapq module in itself use the same principles as
     SuperCollider's clocks implementation. TaskQueue is not thread safe.
-    """
+
+    '''
 
     class _REMOVED(): pass
 
@@ -46,7 +47,9 @@ class TaskQueue():
         '''
         Remove and return the lowest prio entry as a tuple (prio, task).
         Raise KeyError if empty.
+
         '''
+
         while self._queue:
             prio, count, task = heapq.heappop(self._queue)
             if task is not type(self)._REMOVED:
@@ -60,7 +63,9 @@ class TaskQueue():
         '''
         Return the lowest/highest prio entry as a tuple (prio, task) without
         removing it. Raise KeyError if empty.
+
         '''
+
         if self._queue:
             if smallest:
                 prio, count, task = heapq.nsmallest(

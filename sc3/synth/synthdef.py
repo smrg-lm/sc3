@@ -52,7 +52,7 @@ class MetaSynthDef(type):
 
 
 class SynthDef(metaclass=MetaSynthDef):
-    """Build the instructions to create synthesis nodes in the server.
+    '''Build the instructions to create synthesis nodes in the server.
 
     SynthDef instances build the instructions to create synthesis nodes
     in the server from a function containing interconnected UGen objects.
@@ -85,7 +85,8 @@ class SynthDef(metaclass=MetaSynthDef):
     metadata : dict
         An user defined JSON serializable dictionary to
         provide information about the synthesis definition.
-    """
+
+    '''
 
     _SUFFIX = 'scsyndef'
     _RATE_NAMES = ('ar', 'kr', 'ir', 'tr')
@@ -187,7 +188,9 @@ class SynthDef(metaclass=MetaSynthDef):
         The wrapped ``func`` must return an UGen or None, ``rates`` and
         ``prepend`` are processed as in the default constructor and parameters
         are converted to controls of the resulting SynthDef.
+
         '''
+
         if _libsc3.main._current_synthdef is not None:
             return _libsc3.main._current_synthdef._build_ugen_graph(
                 func, rates or [], prepend or [])
@@ -548,7 +551,7 @@ class SynthDef(metaclass=MetaSynthDef):
             self._constants[value] = len(self._constants)
 
     def dump_ugens(self):
-        """Print the generated graph instructions in a human readable way."""
+        '''Print the generated graph instructions in a human readable way.'''
 
         print(self._name)
         for ugen in self._children:
@@ -560,7 +563,7 @@ class SynthDef(metaclass=MetaSynthDef):
             print([ugen._dump_name(), ugen.rate, inputs])
 
     def add(self, libname=None, completion_msg=None, keep_def=True):
-        """Send the definition to the servers and keep a description.
+        '''Send the definition to the servers and keep a description.
 
         Adds the synthesis definition to the SynthDescLib specified by
         ``libname`` and sends it to the library's registered servers.
@@ -579,7 +582,8 @@ class SynthDef(metaclass=MetaSynthDef):
         keep_def : bool
             A flag indicating if the function's code will be kept in the
             SynthDesc object, default value is `True`.
-        """
+
+        '''
 
         # // Make SynthDef available to all servers.
         desc = sdc.SynthDesc.new_from(self, keep_def)
@@ -613,7 +617,7 @@ class SynthDef(metaclass=MetaSynthDef):
                 _logger.warning(f'SynthDef {self._name} too big for sending')
 
     def as_bytes(self):
-        """Binary format of the synthesis definition."""
+        '''Binary format of the synthesis definition.'''
 
         if self._bytes is None:
             stream = io.BytesIO()
@@ -750,7 +754,7 @@ class SynthDef(metaclass=MetaSynthDef):
     # // Methods for special optimizations.
 
     def send(self, server=None, completion_msg=None):
-        """Send the definition to the server.
+        '''Send the definition to the server.
 
         Parameters
         ----------
@@ -760,7 +764,8 @@ class SynthDef(metaclass=MetaSynthDef):
             An OSC message or a function that receives a server as argument
             and return an OSC message. This message will be executed in the
             server after the definition is loaded.
-        """
+
+        '''
 
         # // Only send to servers.
         if server is None:
@@ -796,7 +801,7 @@ class SynthDef(metaclass=MetaSynthDef):
                 f"Server '{server}' is remote, cannot load from disk")
 
     def load(self, server, completion_msg=None, dir=None):
-        """Write the definition to a file that is loaded from the server.
+        '''Write the definition to a file that is loaded from the server.
 
         This method is used for definitions too large to be sent over UDP.
 
@@ -811,7 +816,8 @@ class SynthDef(metaclass=MetaSynthDef):
         dir : str | pathlib.Path
             Directory in which the file is saved, if not specified
             platform's default directory is used.
-        """
+
+        '''
 
         server = server or srv.Server.default
         completion_msg = fn.value(completion_msg, server)
@@ -828,7 +834,7 @@ class SynthDef(metaclass=MetaSynthDef):
 
     def store(self, libname='default', dir=None, completion_msg=None,
               md_plugin=None):
-        """Add a description, write the definition to disk and send
+        '''Add a description, write the definition to disk and send
         it to the registered servers.
 
         Similar to ``add`` but write to disk.
@@ -847,7 +853,8 @@ class SynthDef(metaclass=MetaSynthDef):
             server after the definition is loaded.
         md_plugin :
             TODO: Not defined yet.
-        """
+
+        '''
 
         # // Write to file and make synth description.
         lib = sdc.SynthDescLib.get_lib(libname)
@@ -912,6 +919,7 @@ class SynthDef(metaclass=MetaSynthDef):
         dir: str | pathlib.Path
             Path to the synthdef directory, if not set default location is
             used.
+
         '''
 
         dir = dir or plf.Platform.synthdef_dir
@@ -938,6 +946,7 @@ class SynthDef(metaclass=MetaSynthDef):
         dir: str | pathlib.Path
             Path to the synthdef directory, if not set default location is
             used.
+
         '''
 
         dir = dir or plf.Platform.synthdef_dir
@@ -957,6 +966,7 @@ class SynthDef(metaclass=MetaSynthDef):
         completion_msg: list | function
             An OSC message to be evaluated by the server after load command
             finishes.
+
         '''
 
         server.addr.send_msg(
@@ -972,7 +982,7 @@ def _create_synthdef(func, **kwargs):
     return sdef
 
 def synthdef(func=None, **kwargs):
-    """Decorator function to build and add definitions.
+    '''Decorator function to build and add definitions.
 
     The name of the decorated function becomes the name of the
     definition. After instantiation the `add` method is called
@@ -1012,7 +1022,7 @@ def synthdef(func=None, **kwargs):
         sd = SynthDef('test', test, [0.02, 0.02], None, {'low': {'freq': 110}})
         sd.add()
 
-    """
+    '''
 
     if func is None:
         # action: 'load', 'send', 'store', 'add'? (needs kwargs filtering).

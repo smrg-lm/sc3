@@ -12,7 +12,7 @@ from . import utils as utl
 from ._oscmatch import osc_rematch_pattern as _match_osc_address_pattern
 
 
-__all__ = ['OscFunc', 'MidiFunc']
+__all__ = ['OscFunc', 'MidiFunc', 'oscfunc', 'midifunc']
 
 
 _logger = logging.getLogger(__name__)
@@ -487,8 +487,8 @@ class OscFunc(AbstractResponderFunc):
         # type(self)._all_func_proxies.add(self)  # Called by enable() already.
 
     @classmethod
-    def matching(cls, func, path, src_id=None, *,
-                 recv_port=None, arg_template=None):
+    def matching(cls, func, path, src_id=None, recv_port=None, *,
+                 arg_template=None):
         '''Create a responder with pattern matching capabilities.
 
         Pattern matching will be applied to any incoming messages to see
@@ -607,11 +607,11 @@ class MidiMessageDispatcher(AbstractWrappingDispatcher):
             return func
 
     def get_keys_for_func_proxy(self, func_proxy):
-        mt = func_proxy.mtype
-        if isinstance(mt, (list, tuple, set)):
-            return list(mt)
+        mm = func_proxy.midi_msg
+        if isinstance(mm, (list, tuple, set)):
+            return list(mm)
         else:
-            return [mt]
+            return [mm]
 
     def __call__(self, data, midi_in):
         mt = data['type']
@@ -638,11 +638,11 @@ class MidiFunc(AbstractResponderFunc):
     _default_dispatcher = MidiMessageDispatcher()
     _trace_running = False
 
-    def __init__(self, func, mtype, port=None, *,
+    def __init__(self, func, midi_msg, port=None, *,
                  arg_template=None, dispatcher=None):
         super().__init__()
         self._func = func
-        self.mtype = mtype  # str | list
+        self.midi_msg = midi_msg  # str | list
         self.port = port  # MidiIn
         self.arg_template = arg_template  # dict
         self.dispatcher = dispatcher or type(self)._default_dispatcher
@@ -684,8 +684,58 @@ class MidiFunc(AbstractResponderFunc):
 
     def __repr__(self):
         return (
-            f'{type(self).__name__}({repr(self.mtype)}, {self.port}, '
+            f'{type(self).__name__}({repr(self.midi_msg)}, {self.port}, '
             f'{self.arg_template})')
 
 
 # class MidiDef(MidiFunc):
+
+
+### Decorator syntax ###
+
+def oscfunc(path, matching=False, **kwargs):
+    '''Decorator function to build OscFunc responders.
+
+    The 'path' argument is mandatory and must contain an OSC address as str.
+
+    Examples
+    --------
+    ::
+
+        @oscfunc('/message')
+        def resp(msg, time, addr, recv_port):
+            print(msg, time, addr, recv_port)
+
+    '''
+
+    if callable(path) or not isinstance(path, str):
+        raise ValueError("missing decorator argument 'path' of type str")
+    if matching:
+        return lambda func: OscFunc.matching(func, path, **kwargs)
+    else:
+        return lambda func: OscFunc(func, path, **kwargs)
+
+def midifunc(midi_msg, **kwargs):
+    '''Decorator function to build MidiFunc responders.
+
+    The 'midi_msg' argument is mandatory and must contain a MIDI message
+    as str or a list of midi messages.
+
+    Examples
+    --------
+    ::
+
+        @midifunc('note_on')
+        def resp(msg, midi_in):
+            print(msg, midi_in)
+
+        @midifunc(['note_on', 'note_off'])
+        def resp(msg, midi_in):
+            print(msg, midi_in)
+
+    '''
+
+    if callable(midi_msg) or not isinstance(midi_msg, (str, list)):
+        raise ValueError(
+            "missing decorator argument 'midi_msg' of type str|list")
+    return lambda func: MidiFunc(func, midi_msg, **kwargs)

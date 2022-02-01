@@ -83,7 +83,7 @@ class OscInterface(ABC):
         addr._osc_interface = self
 
         def sched_func():
-            for func in type(self)._recv_functions:
+            for func in type(self)._recv_functions.copy():
                 func(list(msg), time, addr, self.port)
 
         clk.SystemClock.sched(0, sched_func)  # Updates logical time.

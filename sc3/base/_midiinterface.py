@@ -135,7 +135,7 @@ class MidiRtInterface(MidiInterface):
 
     def _msg_dispatch(self, data, midi_in):
         def sched_func():
-            for func in self._recv_functions:
+            for func in self._recv_functions.copy():
                 func(data, midi_in)
 
         clk.SystemClock.sched(0, sched_func)

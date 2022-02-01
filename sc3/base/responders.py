@@ -388,7 +388,7 @@ class OscMessageDispatcher(AbstractWrappingDispatcher):
 class OscMessagePatternDispatcher(OscMessageDispatcher):
     def __call__(self, msg, time, addr, recv_port):
         pattern = msg[0]
-        for key, funcs in self.active.items():
+        for key, funcs in self.active.copy().items():
             if _match_osc_address_pattern(pattern, key):
                 for func in funcs:
                     fn.value(func, msg, time, addr, recv_port)

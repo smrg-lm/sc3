@@ -4,24 +4,24 @@ Special Index and Symbols
 Indexes from enum in Opcodes.h, maps to Symbol in PyrParseNode.cpp
 initSpecialSelectors(). Names  of index opcodes (Opcodes.h) are selectors names
 (PyrParseNode). Used by BasicOpUGens to get an ID number for the operator.
+
+The leftmost string in the table is the actual opcode name, the rest are
+synonyms or replacements used in Python.
+
 """
 
-# TODO: special_index se usa en BasicOpUGen pero, además, creo, el atributo
-# operator tiene que ser uno de estos símbolos (porque un y bin comparten
-# números). Estos atributos special_index y name se usan en write_def de UGen.
-
-# TODO: Verify precise behavior and synonyms
+# TODO: Verify precise behavior and synonyms (partially done).
 
 # unary opcodes list
 _unops_list = [
     ('neg', '__neg__'),  # '-' unary
-    ('not',),  # boolean not buleano in sclang
-    ('isNil',),  # nil/obj in sclang
-    ('notNil',),  # nil/obj in sclang
+    ('not', 'not_'),  # boolean not
+    ('isNil',),  # nil/obj in sclang, not accessible as opcode
+    ('notNil',),  # nil/obj in sclang, not accessible as opcode
     ('bitNot', '__invert__', 'invert'),  # ~
     ('abs', '__abs__'),  # abs()
-    ('asFloat',),
-    ('asInt',),
+    ('asFloat', 'as_float'),
+    ('asInteger', 'as_int'),
     ('ceil', '__ceil__'),  # underscores?
     ('floor', '__floor__'),  # underscores?
     ('frac',),  # is math.modf(x)[0], not same behavior, returns tuple
@@ -85,7 +85,7 @@ _binops_list = [
     ('/', '__truediv__', '__rtruediv__', 'truediv'),
     ('mod', '__mod__', '__rmod__'),
     ('==', '__eq__', 'eq'),
-    ('!=', '__ne__', 'ne'),
+    ('!=', '__ne__', 'ne'),  # I can't find it in sclang.
     ('<', '__lt__', 'lt'),
     ('>', '__gt__', 'gt'),
     ('<=', '__le__', 'le'),
@@ -99,9 +99,9 @@ _binops_list = [
     ('bitXor', 'bitxor', '__xor__', '__rxor__', 'xor'),
     ('lcm',),
     ('gcd',),
-    ('round',), # Es trunc(x, quant) En Python __round__ es Unario con argumento
+    ('round',), # Is round(x, quant), in Python __round__ is unary with arg.
     ('roundUp', 'roundup'),
-    ('trunc',), # BUG: Es trunc(x, quant) # En Python __truc__ es Unario, es la operación por defecto para int(x)
+    ('trunc',), # Is trunc(x, quant), in Python __truc__ is unary, default op for int(x).
     ('atan2',),
     ('hypot',),
     ('hypotApx', 'hypotx'),

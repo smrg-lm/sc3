@@ -46,7 +46,7 @@ class AbstractObject():
         return self._compose_unop(operator.invert)  # ~ (bitwise inverse)
 
 
-    # # Python's numeric type conversion
+    # Python numeric type conversion must return adequate types.
     #
     # def __complex__(self):
     #     raise NotImplementedError()
@@ -57,8 +57,13 @@ class AbstractObject():
     # def __float__(self):  # used by math.floor
     #     raise NotImplementedError()
 
+    def as_int(self):
+        return self._compose_unop(bi.as_int)
 
-    # # Python's builtin round and math trunc/floor/ceil.
+    def as_float(self):
+        return self._compose_unop(bi.as_float)
+
+    # Python builtin round and math trunc/floor/ceil need adequate types.
     #
     # def __round__(self, ndigits=0):
     #     return self._compose_binop(round, ndigits)
@@ -71,6 +76,15 @@ class AbstractObject():
     #
     # def __floor__(self):
     #     return self._compose_unop(math.floor)
+
+
+    # `not obj` is not implementable but through __bool__ and __len__ which
+    # must return boolean or int(obj).
+    # def __not__(self):
+    #     return self._compose_unop(operator.not_)  # not
+
+    def not_(self):
+        return self._compose_unop(operator.not_)  # not
 
     def abs(self):
         return self._compose_unop(operator.abs)

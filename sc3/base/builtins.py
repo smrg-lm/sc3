@@ -231,6 +231,14 @@ def xrand2(x, exclude=0):
 
 ### Unary ###
 
+@scbuiltin.unop
+def as_int(x):
+    return int(x)
+
+@scbuiltin.unop
+def as_float(x):
+    return float(x)
+
 # // this is a function for preventing pathological math operations in ugens.
 # // can be used at the end of a block to fix any recirculating filter values.
 @scbuiltin.unop

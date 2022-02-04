@@ -10,10 +10,10 @@
 import math
 import builtins
 
-from . import classlibrary as clb
+from ..base import _hooks as hks
 
 
-clb.ClassLibrary.late_imports(__name__, ('sc3.base.main', '_libsc3'))
+_libsc3 = hks.late_import(__name__, 'sc3.base.main', '_libsc3')
 
 
 # Module Constants

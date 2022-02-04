@@ -14,18 +14,16 @@ data types must just work with its own interface.
 
 from math import isnan
 
-from ..base import classlibrary as clb
+from ..base import _hooks as hks
 from ..base import builtins as bi
 from ..base import utils as utl
 from . import _specialindex as _si
 from . import _fmtrw as frw
 
 
-clb.ClassLibrary.late_imports(__name__,
-    ('sc3.synth.server', 'srv'),
-    ('sc3.synth.node', 'nod'),
-    ('sc3.synth.ugens.line', 'lne')
-)
+srv = hks.late_import(__name__, 'sc3.synth.server', 'srv')
+nod = hks.late_import(__name__, 'sc3.synth.node', 'nod')
+lne = hks.late_import(__name__, 'sc3.synth.ugens.line', 'lne')
 
 
 ### Graphs Parameter Base Class ###

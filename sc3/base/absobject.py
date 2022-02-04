@@ -2,10 +2,10 @@
 import operator
 # import math
 
-from . import classlibrary as clb
+from ..base import _hooks as hks
 
 
-clb.ClassLibrary.late_imports(__name__, ('sc3.base.builtins', 'bi'))
+bi = hks.late_import(__name__, 'sc3.base.builtins', 'bi')
 
 
 class AbstractObject():

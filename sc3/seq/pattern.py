@@ -42,15 +42,14 @@ in the order the keys were defined.
 
 import inspect
 
-from ..base import classlibrary as clb
+from ..base import _hooks as hks
 from ..base import absobject as aob
 from ..base import stream as stm
 from . import event as evt
 
 
-clb.ClassLibrary.late_imports(__name__,
-    ('sc3.seq.eventstream', 'est'),
-    ('sc3.seq.patterns.filterpatterns', 'flp'))
+est = hks.late_import(__name__, 'sc3.seq.eventstream', 'est')
+flp = hks.late_import(__name__, 'sc3.seq.patterns.filterpatterns', 'flp')
 
 
 __all__ = ['pattern']

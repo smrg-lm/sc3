@@ -1,9 +1,13 @@
 """Import related hooks."""
 
+import logging as _logging
 import importlib as _importlib
 import pkgutil as _pkgutil
 import inspect as _inspect
 import sys as _sys
+
+
+_logger = _logging.getLogger(__name__)
 
 
 def import_all_module(name, package=None, *, bind):
@@ -40,6 +44,40 @@ def import_all_package(path, name, *, bind):
         all_cs.update(p)
     return full_cs, all_cs
 
+
+class LateImportProxy():
+    # This proxy object is replaced by the actual module object at runtime.
+    # Used only for internal imports in the library. If from a module that
+    # contains a late imported module the variable containing the proxy is
+    # assigned to another variable the proxy object will be returned the
+    # first time. That shouldn't happen because is not a proper use of
+    # internal submodules. This implementation avoids to define __getattr__
+    # in the host module (PEP 562).
+
+    def __init__(self, host, module, alias):
+        super().__setattr__('hma', (host, module, alias))
+
+    def __getattr__(self, attrname):
+        host, name, alias = super().__getattribute__('hma')
+        _logger.debug('+ late import by get: %s, %s, %s', host, name, alias)
+        module = _importlib.import_module(name)
+        _sys.modules[host].__dict__.update({alias: module})
+        return getattr(module, attrname)
+
+    def __setattr__(self, attrname, attrvalue):  # Not in use.
+        host, name, alias = super().__getattribute__('hma')
+        _logger.debug('+ late import by set: %s, %s, %s', host, name, alias)
+        module = _importlib.import_module(name)
+        _sys.modules[host].__dict__.update({alias: module})
+        return setattr(module, attrname, attrvalue)
+
+
+def late_import(host, module, alias):
+    '''
+    For nested imports in cyclic conflict that are used only at runtime.
+    Hack: late imports own imports still can have cyclic conflicts.
+    '''
+    return LateImportProxy(host, module, alias)
 
 
 class OptionalModuleNotFound(ModuleNotFoundError):

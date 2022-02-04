@@ -21,9 +21,6 @@ from . import clock as clk
 from . import builtins as bi
 from . import responders as rpd
 
-# Have late_imports and is not in the above tree.
-from ..seq import pattern as _
-
 
 __all__ = ['main', 'RtMain', 'NrtMain']
 

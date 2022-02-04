@@ -11,7 +11,7 @@ import inspect
 import operator
 import logging
 
-from ..base import classlibrary as clb
+from ..base import _hooks as hks
 from ..base import utils as utl
 from ..base import builtins as bi
 from ..base import absobject as aob
@@ -20,18 +20,16 @@ from . import _graphparam as gpp
 from . import _fmtrw as frw
 
 
-clb.ClassLibrary.late_imports(__name__,
-    ('sc3.base.main', '_libsc3'),
-    ('sc3.synth.ugens.trig', 'trg'),
-    ('sc3.synth.ugens.pan', 'pan'),
-    ('sc3.synth.ugens.infougens', 'ifu'),
-    ('sc3.synth.ugens.filter', 'flr'),
-    ('sc3.synth.ugens.oscillators', 'ocl'),
-    ('sc3.synth.ugens.testugens', 'tsu'),
-    ('sc3.synth.ugens.line', 'lne'),
-    ('sc3.synth.ugens.demand', 'dmd'),
-    ('sc3.synth.ugens.poll', 'pll'),
-)
+_libsc3 = hks.late_import(__name__, 'sc3.base.main', '_libsc3')
+trg = hks.late_import(__name__, 'sc3.synth.ugens.trig', 'trg')
+pan = hks.late_import(__name__, 'sc3.synth.ugens.pan', 'pan')
+ifu = hks.late_import(__name__, 'sc3.synth.ugens.infougens', 'ifu')
+flr = hks.late_import(__name__, 'sc3.synth.ugens.filter', 'flr')
+ocl = hks.late_import(__name__, 'sc3.synth.ugens.oscillators', 'ocl')
+tsu = hks.late_import(__name__, 'sc3.synth.ugens.testugens', 'tsu')
+lne = hks.late_import(__name__, 'sc3.synth.ugens.line', 'lne')
+dmd = hks.late_import(__name__, 'sc3.synth.ugens.demand', 'dmd')
+pll = hks.late_import(__name__, 'sc3.synth.ugens.poll', 'pll')
 
 
 __all__ = ['ChannelList']

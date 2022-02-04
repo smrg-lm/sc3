@@ -313,13 +313,13 @@ def tanh(x):
 # def log1p(x):
 #     return math.log1p(x)
 # @scbuiltin.unop
-# def asinh(x):
+# def asinh(x):  # Has no opcode.
 #     return math.asinh(x)
 # @scbuiltin.unop
-# def acosh(x):
+# def acosh(x):  # Has no opcode.
 #     return math.acosh(x)
 # @scbuiltin.unop
-# def atanh(x):
+# def atanh(x):  # Has no opcode.
 #     return math.atanh(x)
 
 _ONETWELFTH = 1. / 12.
@@ -932,16 +932,17 @@ def lcm(a, b):
 # bitHammingDistance  # missing
 
 # @scbuiltin.binop
-# def leftshift(a, b):  # has special index
+# def lshift(a, b):  # has special index
 #     return a << b
 #
 # @scbuiltin.binop
-# def rightshift(a, b):  # has special index
+# def rshift(a, b):  # has special index
 #     return a >> b
-#
-# @scbuiltin.binop
-# def urightshift(a, b):  # has special index
-#     return (uint32)a >> b;
+
+@scbuiltin.binop
+def urshift(a, b):
+    # return (uint32)a >> b;
+    raise NotImplemented('urshift only works with ugens')
 
 # @scbuiltin.binop # only used in /server/plugins/LFUGens.cpp and example in ServerPluginAPI.schelp
 # def powi(x, n):

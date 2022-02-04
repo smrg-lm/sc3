@@ -119,7 +119,7 @@ class AbstractObject():
     def log10(self):
         return self._compose_unop(bi.log10)
 
-    # def log1p(self):
+    # def log1p(self):  # Python builtin.
     #     return self._compose_unop(bi.log1p)
 
     def exp(self):
@@ -152,13 +152,13 @@ class AbstractObject():
     def tanh(self):
         return self._compose_unop(bi.tanh)
 
-    # def asinh(x):
+    # def asinh(x):  # Has no opcode.
     #     return self._compose_unop(bi.asinh)
 
-    # def acosh(x):
+    # def acosh(x):  # Has no opcode.
     #     return self._compose_unop(bi.acosh)
 
-    # def atanh(x):
+    # def atanh(x):  # Has no opcode.
     #     return self._compose_unop(bi.atanh)
 
     def midicps(self):
@@ -300,7 +300,7 @@ class AbstractObject():
     def __rmod__(self, other):
         return self._rcompose_binop(bi.mod, other)
 
-    # def __divmod__(self, other): # divmod(), método integrado
+    # def __divmod__(self, other): # divmod(), Python builtin.
     #     return self._compose_binop('divmod', other)
 
     # def __rdivmod__(self, other):
@@ -402,14 +402,17 @@ class AbstractObject():
     def hypotx(self, other):
         return self._compose_binop(bi.hypotx, other)
 
-    # def leftshift(self, other):
-    #     return self._compose_binop(bi.leftshift, other)
-    #
-    # def rightshift(self, other):
-    #     return self._compose_binop(bi.rightshift, other)
-    #
-    # def urightshift(self, other):
-    #     return self._compose_binop(bi.urightshift, other)
+    def pow(self, other):
+        return self._compose_binop(operator.pow, other)
+
+    def lshift(self, other):
+        return self._compose_binop(operator.lshift, other)
+
+    def rshift(self, other):
+        return self._compose_binop(operator.rshift, other)
+
+    def urshift(self, other):
+        return self._compose_binop(bi.urshift, other)
 
     def ring1(self, other):
         return self._compose_binop(bi.ring1, other)

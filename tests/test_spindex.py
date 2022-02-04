@@ -58,7 +58,7 @@ class SpIndexTestCase(unittest.TestCase):
 
         for name1, name2 in params:
             def test(): Out.ar(0, getattr(Saw(), name1)())
-            sd = SynthDef('neg', test)
+            sd = SynthDef('test', test)
             result = list_ugen_cmds(sd)
             self.assertEqual(result[1][0], name2)
 
@@ -76,22 +76,113 @@ class SpIndexTestCase(unittest.TestCase):
 
 
     def test_binary(self):
-        # params = [
-        #     ('', ''), ('', ''), ('', ''), ('', ''), ('', ''),
-        #     ('', ''), ('', ''), ('', ''), ('', ''), ('', ''), ('', ''),
-        #     ('', ''), ('', ''), ('', ''), ('', ''), ('', ''), ('', ''),
-        # ]
+        params = [
+            ('__add__', '1_+'), ('__sub__', '1_-'), ('__mul__', '1_*'),
+            ('__floordiv__', '1_div'), ('__truediv__', '1_/'),
+            ('__mod__', '1_mod'),
+            # ('', '1_=='), ('', '1_!='),  # TODO: Unused in sclang.
+            ('__lt__', '1_<'),
+            ('__gt__', '1_>'), ('__le__', '1_<='), ('__ge__', '1_>='),
+            ('min', '1_min'), ('max', '1_max'), ('bitand', '1_bitAnd'),
+            ('bitor', '1_bitOr'), ('bitxor', '1_bitXor'), ('lcm', '1_lcm'),
+            ('gcd', '1_gcd'), ('round', '1_round'), ('roundup', '1_roundUp'),
+            ('trunc', '1_trunc'), ('atan2', '1_atan2'), ('hypot', '1_hypot'),
+            ('hypotx', '1_hypotApx'), ('pow', '1_pow'),
+            ('lshift', '1_leftShift'), ('rshift', '1_rightShift'),
+            ('urshift', '1_unsignedRightShift'), # ('fill', '1_fill'),  # TODO: Unused in sclang.
+            ('ring1', '1_ring1'), ('ring2', '1_ring2'), ('ring3', '1_ring3'),
+            ('ring4', '1_ring4'), ('difsqr', '1_difsqr'),
+            ('sumsqr', '1_sumsqr'), ('sqrsum', '1_sqrsum'),
+            ('sqrdif', '1_sqrdif'), ('absdif', '1_absdif'),
+            ('thresh', '1_thresh'), ('amclip', '1_amclip'),
+            ('scaleneg', '1_scaleneg'), ('clip2', '1_clip2'),
+            ('excess', '1_excess'), ('fold2', '1_fold2'),
+            ('wrap2', '1_wrap2'), ('first_arg', '1_firstArg'),
+            ('rrand', '1_rrand'), ('exprand', '1_exprand')
+        ]
 
-        def test(): Out.ar(0, Saw().round(0.1))
+        for name1, name2 in params:
+            def test(): sig = Saw(); Out.ar(0, getattr(sig, name1)(sig))
+            sd = SynthDef('test', test)
+            result = list_ugen_cmds(sd)
+            self.assertEqual(result[1][0], name2)
+
+        # Alternative syntaxes.
+
+        def test(): sig = Saw(); Out.ar(0, sig + sig)
         sd = SynthDef('test', test)
         result = list_ugen_cmds(sd)
-        self.assertEqual(result[1][0], '1_round')
+        self.assertEqual(result[1][0], '1_+')
 
+        def test(): sig = Saw(); Out.ar(0, sig - sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_-')
 
-# def test(): Out.ar(0, Saw().xxx())
-# sd = SynthDef('test', test)
-# result = list_ugen_cmds(sd)
-# self.assertEqual(result[1][0], '1_xxx')
+        def test(): sig = Saw(); Out.ar(0, sig * sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_*')
+
+        def test(): sig = Saw(); Out.ar(0, sig / sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_/')
+
+        def test(): sig = Saw(); Out.ar(0, sig % sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_mod')
+
+        def test(): sig = Saw(); Out.ar(0, sig < sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_<')
+
+        def test(): sig = Saw(); Out.ar(0, sig > sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_>')
+
+        def test(): sig = Saw(); Out.ar(0, sig <= sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_<=')
+
+        def test(): sig = Saw(); Out.ar(0, sig >= sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_>=')
+
+        def test(): sig = Saw(); Out.ar(0, sig & sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_bitAnd')
+
+        def test(): sig = Saw(); Out.ar(0, sig | sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_bitOr')
+
+        def test(): sig = Saw(); Out.ar(0, sig ^ sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_bitXor')
+
+        def test(): sig = Saw(); Out.ar(0, sig ** sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_pow')
+
+        def test(): sig = Saw(); Out.ar(0, sig << sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_leftShift')
+
+        def test(): sig = Saw(); Out.ar(0, sig >> sig)
+        sd = SynthDef('test', test)
+        result = list_ugen_cmds(sd)
+        self.assertEqual(result[1][0], '1_rightShift')
 
 
 if __name__ == '__main__':

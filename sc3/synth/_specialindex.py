@@ -11,9 +11,9 @@ function names).
 
 """
 
-# TODO: Verify precise behavior and synonyms (partially done).
 
-# unary opcodes list
+### Unary opcodes ###
+
 _unops_list = [
     ('neg', '__neg__'),  # '-' unary
     ('not', 'not_'),  # boolean not
@@ -65,9 +65,9 @@ _unops_list = [
     ('distort',),
     ('softclip',),
     ('coin',),
-    ('digitValue',), # no existe en sclang
-    ('silence',), # no existe en sclang
-    ('thru',), # no existe en sclang
+    ('digitValue',),  # Unused in sclang.
+    ('silence',),  # Unused in sclang.
+    ('thru',),  # Unused in sclang.
     ('rectWindow', 'rectwindow'),
     ('hanWindow', 'hanwindow'),
     ('welWindow', 'welwindow'),
@@ -77,16 +77,18 @@ _unops_list = [
     #opNumUnarySelectors
 ]
 
-# binary opcodes list
+
+### Binary opcodes ###
+
 _binops_list = [
     ('+', '__add__', '__radd__', 'add'),
     ('-', '__sub__', '__rsub__', 'sub'),
     ('*', '__mul__', '__rmul__', 'mul'),
-    ('div', '__floordiv__', '__rfloordiv__', 'floordiv'),  # Python's '//'
+    ('div', '__floordiv__', '__rfloordiv__', 'floordiv'),  # //
     ('/', '__truediv__', '__rtruediv__', 'truediv'),
     ('mod', '__mod__', '__rmod__'),
-    ('==', '__eq__', 'eq'),
-    ('!=', '__ne__', 'ne'),  # I can't find it in sclang.
+    ('==', '__eq__', 'eq'),  # Unused in sclang.
+    ('!=', '__ne__', 'ne'),  # Unused in sclang.
     ('<', '__lt__', 'lt'),
     ('>', '__gt__', 'gt'),
     ('<=', '__le__', 'le'),
@@ -95,9 +97,9 @@ _binops_list = [
     #'!==', # Python is not
     ('min',),
     ('max',),
-    ('bitAnd', 'bitand', '__and__', '__rand__', 'and_'),
-    ('bitOr', 'bitor', '__or__', '__ror__', 'or_'),
-    ('bitXor', 'bitxor', '__xor__', '__rxor__', 'xor'),
+    ('bitAnd', 'bitand', '__and__', '__rand__', 'and_'),  # &
+    ('bitOr', 'bitor', '__or__', '__ror__', 'or_'),  # |
+    ('bitXor', 'bitxor', '__xor__', '__rxor__', 'xor'),  # ^
     ('lcm',),
     ('gcd',),
     ('round',), # Is round(x, quant), in Python __round__ is unary with arg.
@@ -107,10 +109,10 @@ _binops_list = [
     ('hypot',),
     ('hypotApx', 'hypotx'),
     ('pow', '__pow__', '__rpow__'),  # **
-    ('leftShift', 'leftshift', '__lshift__', '__rlshift__', 'lshift'),
-    ('rightShift', 'rightshift', '__rshift__', '__rrshift__', 'rshift'),
-    ('unsignedRightShift', 'urightshift'),
-    ('fill',),
+    ('leftShift', '__lshift__', '__rlshift__', 'lshift'),  # <<
+    ('rightShift', '__rshift__', '__rrshift__', 'rshift'),  # >>
+    ('unsignedRightShift', 'urshift'),
+    ('fill',),  # Unused in sclang.
     ('ring1',), # a * (b + 1) == a * b + a
     ('ring2',), # a * b + a + b
     ('ring3',), # a*a*b

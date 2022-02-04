@@ -6,7 +6,8 @@ initSpecialSelectors(). Names  of index opcodes (Opcodes.h) are selectors names
 (PyrParseNode). Used by BasicOpUGens to get an ID number for the operator.
 
 The leftmost string in the table is the actual opcode name, the rest are
-synonyms or replacements used in Python.
+synonyms or replacements used in Python (dunder methods or operator module
+function names).
 
 """
 
@@ -81,7 +82,7 @@ _binops_list = [
     ('+', '__add__', '__radd__', 'add'),
     ('-', '__sub__', '__rsub__', 'sub'),
     ('*', '__mul__', '__rmul__', 'mul'),
-    ('div', '__floordiv__', '__floordiv__', 'floordiv'),  # Python's '//'
+    ('div', '__floordiv__', '__rfloordiv__', 'floordiv'),  # Python's '//'
     ('/', '__truediv__', '__rtruediv__', 'truediv'),
     ('mod', '__mod__', '__rmod__'),
     ('==', '__eq__', 'eq'),

@@ -942,7 +942,7 @@ def lcm(a, b):
 @scbuiltin.binop
 def urshift(a, b):
     # return (uint32)a >> b;
-    raise NotImplemented('urshift only works with ugens')
+    raise NotImplementedError('urshift only works with ugens')
 
 # @scbuiltin.binop # only used in /server/plugins/LFUGens.cpp and example in ServerPluginAPI.schelp
 # def powi(x, n):

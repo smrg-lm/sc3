@@ -411,7 +411,7 @@ class TChoose(ugn.PseudoUGen):
 
     @staticmethod
     def _check_empty_list(lst):
-        if len(lst) == 0:
+        if not lst:
             raise ValueError("TChoose: lst can't be empty")
 
 

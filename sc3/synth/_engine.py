@@ -297,7 +297,7 @@ class ContiguousBlockAllocator():
         if self._freed.get(block.size) is not None:
             if block in self._freed[block.size]:
                 self._freed[block.size].remove(block)
-            if len(self._freed[block.size]) == 0:
+            if not self._freed[block.size]:
                 del self._freed[block.size]
 
     def _find_previous(self, addr):

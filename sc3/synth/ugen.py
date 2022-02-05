@@ -321,7 +321,7 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
         for item in args:
             if isinstance(item, list):
                 length = max(length, len(item))
-        if length == 0:
+        if not length:
             cls._check_valid_rate_name(args[0])
             return cls._new1(*args)
 
@@ -419,7 +419,7 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
             sig = inspect.signature(method)
             params = list(sig.parameters.values())
             arg_names = [x.name for x in params]
-            if len(arg_names) == 0:
+            if not arg_names:
                 return None
             i += self._arg_names_inputs_offset()
             if i < len(arg_names):
@@ -556,7 +556,7 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
             ugen._descendants.add(self)
 
     def _make_available(self):
-        if len(self._antecedents) == 0:
+        if not self._antecedents:
             self._synthdef._available.append(self)
 
     def _remove_antecedent(self, ugen):
@@ -574,7 +574,7 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
         pass
 
     def _perform_dead_code_elimination(self):
-        if len(self._descendants) == 0:
+        if not self._descendants:
             # for input in self._antecedents:  # ?
             for input in self.inputs:
                 if isinstance(input, UGen) and input._descendants:
@@ -1032,7 +1032,7 @@ class BasicOpUGen(UGen):
             sig = inspect.signature(method)
             params = list(sig.parameters.values())
             arg_names = [x.name for x in params]
-            if len(arg_names) == 0:
+            if not arg_names:
                 return None
             i += self._arg_names_inputs_offset()
             if i < len(arg_names):

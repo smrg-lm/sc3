@@ -249,7 +249,7 @@ class SoundIn(ugn.PseudoUGen):
         if not isinstance(bus, list):
             return In.ar(channel_offset + bus, 1)
         # // Check to see if channels array is consecutive [n,n+1,n+2...].
-        if all(item == 0 or item == bus[i-1]+1 for i, item in enumerate(bus)):
+        if all(i == 0 or item == bus[i-1]+1 for i, item in enumerate(bus)):
             return In.ar(channel_offset + bus[0], len(bus))
         else:
             # // Allow In to multi channel expand.

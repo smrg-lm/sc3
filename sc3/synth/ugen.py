@@ -732,7 +732,7 @@ class UGen(SynthObject, aob.AbstractObject):
         return self * (180. / bi.pi)
 
     def blend(self, other, frac=0.5):
-        if self.range == 'demand' or gpp.ugen_param(other).rate == 'demand':
+        if self.rate == 'demand' or gpp.ugen_param(other).rate == 'demand':
             raise NotImplementedError('blend is not implemented for dr ugens')
         else:
             pan = bi.linlin(frac, 0.0, 1.0, -1.0, 1.0)

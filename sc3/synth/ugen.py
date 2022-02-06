@@ -232,11 +232,14 @@ class ChannelList(list, gpp.UGenSequence, aob.AbstractObject):
     def __le__(self, other): # <=
         return self._compose_binop(operator.le, other)
 
-    # def __eq__(self, other):
-    #     return self._compose_binop(operator.eq, other)
+    def __eq__(self, other):
+        return self._compose_binop(operator.eq, other)
 
-    # def __ne__(self, other):
-    #     return self._compose_binop(operator.ne, other)
+    def __hash__(self):
+        return hash((type(self), id(self)))
+
+    def __ne__(self, other):
+        return self._compose_binop(operator.ne, other)
 
     def __gt__(self, other): # >
         return self._compose_binop(operator.gt, other)

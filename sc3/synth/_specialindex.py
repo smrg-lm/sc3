@@ -56,7 +56,7 @@ _unops_list = [
     ('rand2',),
     ('linrand',),
     ('bilinrand',),
-    #'exprand', # existe en AbstractFunction, está comentado acá.
+    #'exprand',
     #'biexprand',
     ('sum3rand',),
     #'gammarand',
@@ -87,8 +87,8 @@ _binops_list = [
     ('div', '__floordiv__', '__rfloordiv__', 'floordiv'),  # //
     ('/', '__truediv__', '__rtruediv__', 'truediv'),
     ('mod', '__mod__', '__rmod__'),
-    ('==', '__eq__', 'eq'),  # Unused in sclang.
-    ('!=', '__ne__', 'ne'),  # Unused in sclang.
+    ('==', '__eq__', 'eq'),  # Unused in sclang, added.
+    ('!=', '__ne__', 'ne'),  # Unused in sclang, added.
     ('<', '__lt__', 'lt'),
     ('>', '__gt__', 'gt'),
     ('<=', '__le__', 'le'),

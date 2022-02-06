@@ -1088,7 +1088,7 @@ class BinaryOpUGen(BasicOpUGen):
     def _new1(cls, rate, selector, a, b):  # override
         a_cmp = a if isinstance(a, (int, float)) else None
         b_cmp = b if isinstance(b, (int, float)) else None
-        if not (a_cmp and b_cmp):
+        if a_cmp is None and b_cmp is None:
             pass
         elif selector == '*':
             if a_cmp == 0.0: return 0.0

@@ -18,7 +18,7 @@ _logger.setLevel('ERROR')
 class SynthDefTestCase(unittest.TestCase):
     def test_build(self):
         def graph():
-            Out.ar(0, DC.ar(0.5) * 1)
+            Out.ar(0, [DC.ar(0.5) * 1, 0, 0, 0])
 
         sd = SynthDef('test', graph)
         self.assertEqual(sd.name, 'test')

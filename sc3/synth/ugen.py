@@ -485,9 +485,10 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
     def _replace_zeroes_with_silence(cls, lst):
         # // This replaces zeroes with audio rate silence.
         # // Sub collections are deep replaced.
+        silence = lne.DC.ar(0)
         for i, item in enumerate(lst):
             if isinstance(item, (int, float)) and item == 0.0:
-                lst[i] = lne.DC.ar(0)
+                lst[i] = silence
             elif isinstance(item, list):
                 lst[i] = cls._replace_zeroes_with_silence(item)
         return lst

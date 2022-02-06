@@ -248,8 +248,9 @@ class SoundIn(ugn.PseudoUGen):
         channel_offset = ifu.NumOutputBuses.ir()
         if not isinstance(bus, list):
             return In.ar(channel_offset + bus, 1)
-        # // Check to see if channels array is consecutive [n,n+1,n+2...].
-        if all(i == 0 or item == bus[i-1]+1 for i, item in enumerate(bus)):
+        # Check for a list of consecutive numbers [n,n+1,n+2...].
+        if all(isinstance(x, (int, float)) for x in bus)\
+        and all(a + 1 == b for a, b in utl.pairwise(bus)):
             return In.ar(channel_offset + bus[0], len(bus))
         else:
             # // Allow In to multi channel expand.

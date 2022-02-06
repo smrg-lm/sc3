@@ -89,14 +89,16 @@ class Decay2(Filter):
 class Lag(Filter):
     @classmethod
     def ar(cls, input=0.0, lag_time=0.1):
-        if gpp.ugen_param(input)._as_ugen_rate() == 'scalar' or lag_time == 0:
+        if gpp.ugen_param(input)._as_ugen_rate() == 'scalar'\
+        or isinstance(lag_time, (int, float)) and lag_time == 0:
             return input
         else:
             return cls._multi_new('audio', input, lag_time)
 
     @classmethod
     def kr(cls, input=0.0, lag_time=0.1):
-        if gpp.ugen_param(input)._as_ugen_rate() == 'scalar' or lag_time == 0:
+        if gpp.ugen_param(input)._as_ugen_rate() == 'scalar'\
+        or isinstance(lag_time, (int, float)) and lag_time == 0:
             return input
         else:
             return cls._multi_new('control', input, lag_time)
@@ -141,14 +143,16 @@ class Lag3UD(LagUD):
 class VarLag(Filter):
     @classmethod
     def ar(cls, input=0.0, time=0.1, curvature=0, warp=5, start=None):
-        if gpp.ugen_param(input)._as_ugen_rate() == 'scalar' or time == 0:
+        if gpp.ugen_param(input)._as_ugen_rate() == 'scalar'\
+        or isinstance(time, (int, float)) and time == 0:
             return input
         else:
             return cls._multi_new('audio', input, time, curvature, warp, start)
 
     @classmethod
     def kr(cls, input=0.0, time=0.1, curvature=0, warp=5, start=None):
-        if gpp.ugen_param(input)._as_ugen_rate() == 'scalar' or time == 0:
+        if gpp.ugen_param(input)._as_ugen_rate() == 'scalar'\
+        or isinstance(time, (int, float)) and time == 0:
             return input
         else:
             return cls._multi_new(

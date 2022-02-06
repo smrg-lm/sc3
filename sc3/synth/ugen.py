@@ -482,18 +482,11 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
     def _replace_zeroes_with_silence(cls, lst):
         # // This replaces zeroes with audio rate silence.
         # // Sub collections are deep replaced.
-        num_zeroes = lst.count(0.0)
-        if num_zeroes == 0:
-            return lst
-        silent_channels = ChannelList(lne.Silent.ar(num_zeroes))
-        pos = 0
         for i, item in enumerate(lst):
-            if item == 0.0:
-                lst[i] = silent_channels[pos]
-                pos += 1
+            if isinstance(item, (int, float)) and item == 0.0:
+                lst[i] = lne.DC.ar(0)
             elif isinstance(item, list):
-                res = cls._replace_zeroes_with_silence(item)
-                lst[i] = res
+                lst[i] = cls._replace_zeroes_with_silence(item)
         return lst
 
 
@@ -1090,22 +1083,26 @@ class UnaryOpUGen(BasicOpUGen):
 class BinaryOpUGen(BasicOpUGen):
     @classmethod
     def _new1(cls, rate, selector, a, b):  # override
-        if selector == '*':
-            if a == 0.0: return 0.0
-            if b == 0.0: return 0.0
-            if a == 1.0: return b
-            if a == -1.0: return -b  # neg
-            if b == 1.0: return a
-            if b == -1.0: return -a  # neg
-        if selector == '+':
-            if a == 0.0: return b
-            if b == 0.0: return a
-        if selector == '-':
-            if a == 0.0: return -b  # neg
-            if b == 0.0: return a
-        if selector == '/':
-            if b == 1.0: return a
-            if b == -1.0: return -a  # neg
+        a_cmp = a if isinstance(a, (int, float)) else None
+        b_cmp = b if isinstance(b, (int, float)) else None
+        if not (a_cmp and b_cmp):
+            pass
+        elif selector == '*':
+            if a_cmp == 0.0: return 0.0
+            if b_cmp == 0.0: return 0.0
+            if a_cmp == 1.0: return b
+            if a_cmp == -1.0: return -b  # neg
+            if b_cmp == 1.0: return a
+            if b_cmp == -1.0: return -a  # neg
+        elif selector == '+':
+            if a_cmp == 0.0: return b
+            if b_cmp == 0.0: return a
+        elif selector == '-':
+            if a_cmp == 0.0: return -b  # neg
+            if b_cmp == 0.0: return a
+        elif selector == '/':
+            if b_cmp == 1.0: return a
+            if b_cmp == -1.0: return -a  # neg
         return super()._new1(rate, selector, a, b)
 
     @classmethod
@@ -1330,10 +1327,12 @@ class MulAdd(UGen):
 
     @classmethod
     def _new1(cls, rate, input, mul, add):  # override
-        if mul == 0.0: return add
-        minus = mul == -1.0
-        nomul = mul == 1.0
-        noadd = add == 0.0
+        mul_cmp = mul if isinstance(mul, (int, float)) else None
+        add_cmp = mul if isinstance(add, (int, float)) else None
+        if mul_cmp == 0.0: return add
+        minus = mul_cmp == -1.0
+        nomul = mul_cmp == 1.0
+        noadd = add_cmp == 0.0
         if nomul and noadd: return input
         if minus and noadd: return -input  # neg
         if noadd: return input * mul
@@ -1375,9 +1374,9 @@ class Sum3(UGen):
 
     @classmethod
     def _new1(cls, _, in0, in1, in2):  # override
-        if in2 == 0.0: return in0 + in1
-        if in1 == 0.0: return in0 + in2
-        if in0 == 0.0: return in1 + in2
+        if isinstance(in2, (int, float)) and in2 == 0.0: return in0 + in1
+        if isinstance(in1, (int, float)) and in1 == 0.0: return in0 + in2
+        if isinstance(in0, (int, float)) and in0 == 0.0: return in1 + in2
 
         arg_list = [in0, in1, in2]
         rate = gpp.ugen_param(arg_list)._as_ugen_rate()
@@ -1395,10 +1394,14 @@ class Sum4(UGen):
 
     @classmethod
     def _new1(cls, _, in0, in1, in2, in3):  # override
-        if in0 == 0.0: return Sum3._new1(None, in1, in2, in3)
-        if in1 == 0.0: return Sum3._new1(None, in0, in2, in3)
-        if in2 == 0.0: return Sum3._new1(None, in0, in1, in3)
-        if in3 == 0.0: return Sum3._new1(None, in0, in1, in2)
+        if isinstance(in0, (int, float)) and in0 == 0.0:
+            return Sum3._new1(None, in1, in2, in3)
+        if isinstance(in1, (int, float)) and in1 == 0.0:
+            return Sum3._new1(None, in0, in2, in3)
+        if isinstance(in2, (int, float)) and in2 == 0.0:
+            return Sum3._new1(None, in0, in1, in3)
+        if isinstance(in3, (int, float)) and in3 == 0.0:
+            return Sum3._new1(None, in0, in1, in2)
 
         arg_list = [in0, in1, in2, in3]
         rate = gpp.ugen_param(arg_list)._as_ugen_rate()

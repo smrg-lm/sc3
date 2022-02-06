@@ -22,13 +22,13 @@ class Delay2(Delay1):
 
 class DelayN(ugn.PureUGenMixin, ugn.UGen):
     @classmethod
-    def ar(cls, input=0.0, max_delay_time=0.2, delay_time=0.2):
+    def ar(cls, input=0.0, max_delay=0.2, delay_time=0.2):
         input = gpp.ugen_param(input)._as_audio_rate_input()
-        return cls._multi_new('audio', input, max_delay_time, delay_time)
+        return cls._multi_new('audio', input, max_delay, delay_time)
 
     @classmethod
-    def kr(cls, input=0.0, max_delay_time=0.2, delay_time=0.2):
-        return cls._multi_new('control', input, max_delay_time, delay_time)
+    def kr(cls, input=0.0, max_delay=0.2, delay_time=0.2):
+        return cls._multi_new('control', input, max_delay, delay_time)
 
 
 class DelayL(DelayN):
@@ -41,15 +41,15 @@ class DelayC(DelayN):
 
 class CombN(ugn.PureUGenMixin, ugn.UGen):
     @classmethod
-    def ar(cls, input=0.0, max_delay_time=0.2, delay_time=0.2, decay_time=0.2):
+    def ar(cls, input=0.0, max_delay=0.2, delay_time=0.2, decay_time=0.2):
         input = gpp.ugen_param(input)._as_audio_rate_input()
         return cls._multi_new(
-            'audio', input, max_delay_time, delay_time, decay_time)
+            'audio', input, max_delay, delay_time, decay_time)
 
     @classmethod
-    def kr(cls, input=0.0, max_delay_time=0.2, delay_time=0.2, decay_time=0.2):
+    def kr(cls, input=0.0, max_delay=0.2, delay_time=0.2, decay_time=0.2):
         return cls._multi_new(
-            'control', input, max_delay_time, delay_time, decay_time)
+            'control', input, max_delay, delay_time, decay_time)
 
 
 class CombL(CombN):
@@ -97,7 +97,7 @@ class BufCombN(ugn.UGen):
     @classmethod
     def ar(cls, buf=0, input=0.0, delay_time=0.2, decay_time=1.0):
         input = gpp.ugen_param(input)._as_audio_rate_input()
-        return cls._multi_new('audio', buf, input, delay_time)
+        return cls._multi_new('audio', buf, input, delay_time, decay_time)
 
 
 class BufCombL(BufCombN):

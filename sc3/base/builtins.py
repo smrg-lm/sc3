@@ -549,17 +549,17 @@ def lg3interp(x1, a, b, c, d): # sc_lg3interp solo la define para float32
     return x12 * (d * x0 - a * x3) + x03 * (b * x2 - c * x1)
 
 @scbuiltin.binop
-def calcfeedback(delaytime, decaytime):  # CalcFeedback, solo la define para float32
-    # if (delaytime == 0.f || decaytime == 0.f)
+def calcfeedback(delay_time, decay_time):  # CalcFeedback, solo la define para float32
+    # if (delay_time == 0.f || decay_time == 0.f)
     #     return 0.f;
     #
-    # float32 absret = static_cast<float32>( std::exp(log001 * delaytime / std::abs(decaytime)));
-    # float32 ret = std::copysign(absret, decaytime);
+    # float32 absret = static_cast<float32>( std::exp(log001 * delay_time / std::abs(decay_time)));
+    # float32 ret = std::copysign(absret, decay_time);
     # return ret;
-    if delaytime == 0. or decaytime == 0.:
+    if delay_time == 0. or decay_time == 0.:
         return 0.
-    absret = math.exp(log001 * delaytime / abs(decaytime))
-    return math.copysign(absret, decaytime)
+    absret = math.exp(log001 * delay_time / abs(decay_time))
+    return math.copysign(absret, decay_time)
 
 @scbuiltin.unop
 def wrap1(x):

@@ -16,11 +16,11 @@ class PitchShift(ugn.UGen):
 
 class Pluck(ugn.UGen):
     @classmethod
-    def ar(cls, input=0.0, trig=1.0, maxdelaytime=0.2,
-           delaytime=0.2, decaytime=1.0, coef=0.5):
+    def ar(cls, input=0.0, trig=1.0, max_delay=0.2,
+           delay_time=0.2, decay_time=1.0, coef=0.5):
         return cls._multi_new(
-            'audio', input, trig, maxdelaytime,
-            delaytime, decaytime, coef)
+            'audio', input, trig, max_delay,
+            delay_time, decay_time, coef)
 
 
 class PSinGrain(ugn.UGen):

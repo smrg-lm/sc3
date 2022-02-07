@@ -115,6 +115,12 @@ class EnvGen(ugn.UGen):
     def _arg_names_inputs_offset(self):  # override
         return 1  # One less than sclang.
 
+    def __repr__(self):
+        name = type(self).__name__
+        selector = type(self)._method_selector_for_rate(self.rate)
+        (g, ls, lb, ts, da), env = self.inputs[:5], self.inputs[5:]
+        return f'{name}.{selector}({env}, {g}, {ls}, {lb}, {ts}, {da})'
+
 
 class IEnvGen(ugn.UGen):
     # // Envelope index generator.
@@ -140,6 +146,12 @@ class IEnvGen(ugn.UGen):
 
     def _arg_names_inputs_offset(self):  # override
         return 1  # One less than sclang.
+
+    def __repr__(self):
+        name = type(self).__name__
+        selector = type(self)._method_selector_for_rate(self.rate)
+        index, env = self.inputs[0], self.inputs[1:]
+        return f'{name}.{selector}({env}, {index})'
 
 
 class Linen(ugn.UGen):

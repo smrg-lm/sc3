@@ -99,6 +99,12 @@ class BufWr(ugn.UGen):
                     f'{[gpp.ugen_param(x)._as_ugen_rate() for x in self.inputs[3:]]}')
         return self._check_valid_inputs()
 
+    def __repr__(self):
+        name = type(self).__name__
+        selector = type(self)._method_selector_for_rate(self.rate)
+        (bn, p, l), il = self.inputs[:3], list(self.inputs[3:])
+        return f'{name}.{selector}({il}, {bn}, {p}, {l})'
+
 
 class RecordBuf(ugn.UGen):
     @classmethod
@@ -115,6 +121,15 @@ class RecordBuf(ugn.UGen):
             'control', bufnum, offset, rec_level, pre_level, run,
             float(loop), trigger, done_action, *utl.as_list(input_list))
 
+    def __repr__(self):
+        name = type(self).__name__
+        selector = type(self)._method_selector_for_rate(self.rate)
+        bn, o, rl, pl, r, l, t, da = self.inputs[:8]
+        il = list(self.inputs[8:])
+        return (
+            f'{name}.{selector}({il}, {bn}, {o}, '
+            f'{rl}, {pl}, {r}, {l}, {t}, {da})')
+
 
 class ScopeOut(ugn.UGen):
     @classmethod
@@ -126,6 +141,13 @@ class ScopeOut(ugn.UGen):
     def kr(cls, input_list, bufnum=0):
         cls._multi_new('control', bufnum, *utl.as_list(input_list))
         # return 0.0  # ScopeOut has no output.
+
+    def __repr__(self):
+        # Since constructor returns None this method is never called.
+        name = type(self).__name__
+        selector = type(self)._method_selector_for_rate(self.rate)
+        bn, il = self.inputs[0], list(self.inputs[1:])
+        return f'{name}.{selector}({il}, {bn})'
 
 
 class ScopeOut2(ugn.UGen):
@@ -147,8 +169,15 @@ class ScopeOut2(ugn.UGen):
             scope_frames, *utl.as_list(input_list))
         # return 0.0  # ScopeOut2 has no output.
 
+    def __repr__(self):
+        # Since constructor returns None this method is never called.
+        name = type(self).__name__
+        sn, mf, sf = self.inputs[:3]
+        il = list(self.inputs[3:])
+        return f'{name}.new({il}, {sn}, {mf}, {sf})'
 
-class Tap(ugn.UGen):
+
+class Tap(ugn.PseudoUGen):
     @classmethod
     def ar(cls, bufnum=0, channels=1, delay_time=0.2):
         # // This depends on the session sample rate, not buffer.
@@ -158,7 +187,7 @@ class Tap(ugn.UGen):
 
 class LocalBuf(ugn.WidthFirstUGen):
     @classmethod
-    def new(cls, channels=1, frames=1):
+    def new(cls, frames=1, channels=1):
         return cls._multi_new('scalar', channels, frames)
 
     @classmethod
@@ -200,10 +229,13 @@ class LocalBuf(ugn.WidthFirstUGen):
         return self.inputs[0]
 
     def set(self, values, offset=0):
-        SetBuf.new(self, utl.as_list(values), offset)
+        SetBuf.new(self, values, offset)
 
     def clear(self):
         ClearBuf.new(self)
+
+    def __repr__(self):
+        return f'{type(self).__name__}.new({self.inputs[0]}, {self.inputs[1]})'
 
 
 class MaxLocalBufs(ugn.UGen):
@@ -218,14 +250,27 @@ class MaxLocalBufs(ugn.UGen):
         inputs[0] += 1
         self._inputs = tuple(inputs)
 
+    def __repr__(self):
+        return f'{type(self).__name__}.new()'
+
 
 class SetBuf(ugn.WidthFirstUGen):
     @classmethod
     def new(cls, buf, values, offset=0):
+        values = utl.as_list(values)
         return cls._multi_new('scalar', buf, offset, len(values), *values)
+
+    def __repr__(self):
+        name = type(self).__name__
+        buf, offset = self.inputs[:2]
+        values = list(self.inputs[3:])
+        return f'{name}.new({buf}, {values}, {offset})'
 
 
 class ClearBuf(ugn.WidthFirstUGen):
     @classmethod
     def new(cls, buf):
         return cls._multi_new('scalar', buf)
+
+    def __repr__(self):
+        return f'{type(self).__name__}.new({self.inputs[0]})'

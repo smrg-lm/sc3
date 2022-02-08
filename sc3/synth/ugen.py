@@ -359,6 +359,7 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
 
     @classmethod
     def _new_from_desc(cls, rate, num_outputs, inputs, special_index):
+        # Unused num_outputs.
         obj = cls._create_ugen_object(rate)
         obj._inputs = tuple(inputs)
         obj._special_index = special_index
@@ -461,7 +462,8 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
             if hasattr(cls, 'new'):
                 return 'new'
         # return None  # original behaviour
-        raise AttributeError(f'{cls.__name__} has no {rate} rate constructor')
+        raise AttributeError(
+            f'{cls.__name__} has no {repr(rate)} rate constructor')
 
     def _dump_args(self):
         '''Used for error messages.'''
@@ -518,7 +520,7 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
         if self.rate == 'audio': return 2
         if self.rate == 'control': return 1
         if self.rate == 'demand': return 3
-        return 0  # 'scalar'
+        return 0  # 'scalar' (ir) or None (new) which is also scalar.
 
     def _num_inputs(self):
         return len(self.inputs)
@@ -906,6 +908,7 @@ class MultiOutUGen(UGen):
 
     @classmethod
     def _new_from_desc(cls, rate, num_outputs, inputs, special_index=None):  # override
+        # Unused special_index.
         obj = cls._create_ugen_object(rate)
         obj._inputs = tuple(inputs)
         obj._init_outputs(num_outputs, rate)
@@ -975,8 +978,10 @@ class OutputProxy(UGen):
 
 class WidthFirstUGen(SynthObject):  # Was in fft.py
     _default_rate = None
-    # bufio.py uses new to create 'scalar'
-    # fft uses new to create 'control'
+    # bufio.py uses new to create 'scalar', fft uses new to create 'control',
+    # for _method_selector_for_rate and _rate_number None is equivalent to
+    # 'scalar' but not used as default rate if the ugen has one. None in
+    # _default_rate is used to pick the new constructor instead of ir or kr.
 
     def _add_to_synth(self):  # override
         self._synthdef = _libsc3.main._current_synthdef

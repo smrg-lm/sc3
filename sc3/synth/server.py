@@ -1199,7 +1199,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
                 # Server can be quitting and booting at the same time, e.g.
                 # rebooting, pid release blocks boot until quit is completed.
                 if self._pid is not None:  # Is or was running.
-                    yield from self._pid_release_condition.hang()
+                    yield from self._pid_release_condition.wait()
 
                 if self._in_process:
                     _logger.info('booting internal server')

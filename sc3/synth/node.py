@@ -499,7 +499,7 @@ class Node(gpp.NodeParameter):
 
         condition = stm.Condition()
         self.on_free(lambda: condition.unhang())
-        yield from condition.hang()
+        yield from condition.wait()
 
     def move_before(self, target):
         '''Move this node to be directly before ``target``.

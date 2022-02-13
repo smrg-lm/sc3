@@ -707,37 +707,40 @@ class Condition():
         else:
             yield 0
 
-    def hang(self, value='hang'):
-        '''
-        Return a generator that adds the routine to a waiting queue and
-        yield the value of `value`. The routine will be recheduled when
-        `unhang` is called.
-
-        ::
-
-            cond = Condition()
-            @routine
-            def r():
-                yield from cond.hang()  # Queued.
-                print('resumed')
-            r.play()
-
-            cond.unhang()  # Resume the routine.
-
-        Raises
-        ------
-        Exeption
-            If the generator is yield outside a routine.
-
-        '''
-
-        current_tt = _libsc3.main.current_tt
-        if current_tt is _libsc3.main.main_tt:
-            raise Exception(
-                f'{type(self).__name__}.hang() called outside a routine')
-        # // Ignore the test, just wait.
-        self._waiting_threads.append(current_tt.thread_player)
-        yield value
+    # This method may fail in different ways because it doesn't check
+    # the test condition and routines can be added or not-removed from
+    # _waiting_threads queue at the right time when scheduling is nested.
+    # def hang(self, value='hang'):
+    #     '''
+    #     Return a generator that adds the routine to a waiting queue and
+    #     yield the value of `value`. The routine will be recheduled when
+    #     `unhang` is called.
+    #
+    #     ::
+    #
+    #         cond = Condition()
+    #         @routine
+    #         def r():
+    #             yield from cond.hang()  # Queued.
+    #             print('resumed')
+    #         r.play()
+    #
+    #         cond.unhang()  # Resume the routine.
+    #
+    #     Raises
+    #     ------
+    #     Exeption
+    #         If the generator is yield outside a routine.
+    #
+    #     '''
+    #
+    #     current_tt = _libsc3.main.current_tt
+    #     if current_tt is _libsc3.main.main_tt:
+    #         raise Exception(
+    #             f'{type(self).__name__}.hang() called outside a routine')
+    #     # // Ignore the test, just wait.
+    #     self._waiting_threads.append(current_tt.thread_player)
+    #     yield value
 
     def signal(self):
         '''Check the test and reschedule the routine if True.'''

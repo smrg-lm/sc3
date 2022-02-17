@@ -209,7 +209,12 @@ class LagControl(Control):
 
 class AbstractIn(ugn.MultiOutUGen):
     # def is_input_ugen(self):  # NOTE: See AbstractControl note.
-    pass
+
+    def __repr__(self):
+        selector = type(self)._method_selector_for_rate(self.rate)
+        return (
+            f'{type(self).__name__}.{selector}'
+            f'({self._inputs[0]}, {len(self._channels)})')
 
 
 class In(AbstractIn):
@@ -239,6 +244,12 @@ class LocalIn(AbstractIn):
         self._inputs = utl.wrap_extend(default, channels)
         return self._init_outputs(channels, self.rate)
 
+    def __repr__(self):
+        selector = type(self)._method_selector_for_rate(self.rate)
+        return (
+            f'{type(self).__name__}.{selector}'
+            f'({len(self._channels)}, {list(self._inputs)})')
+
 
 class LagIn(AbstractIn):
     _default_rate = 'control'
@@ -250,6 +261,12 @@ class LagIn(AbstractIn):
     def _init_ugen(self, channels, *inputs):  # override
         self._inputs = inputs
         return self._init_outputs(channels, self.rate)
+
+    def __repr__(self):
+        selector = type(self)._method_selector_for_rate(self.rate)
+        return (
+            f'{type(self).__name__}.{selector}'
+            f'({self._inputs[0]}, {len(self._channels)}, {self._inputs[1]})')
 
 
 class InFeedback(AbstractIn):

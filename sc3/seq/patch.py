@@ -1055,7 +1055,7 @@ class CleanupFunction(Tidyner):
     def __init__(self, func, args=None, delay=None):
         super().__init__()
         self.func = func
-        self.args = () if args is None else args
+        self.args = tuple() if args is None else args
         self.delay = 1.0 if delay is None else delay
 
     def _evaluate(self):

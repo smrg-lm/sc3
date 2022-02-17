@@ -42,20 +42,44 @@ class ControlName():
 
 
 class AbstractControl(ugn.MultiOutUGen):
-    # Base class for control ugens not present in sclang. Using type hierarchy
-    # properly simplify redundant methods like 'is_control_ugen' for Control
-    # and AudioControl and is_input_ugen/is_output_ugen for AbstractIn/AbstractOut
-    # ugens. Those methods are only relevant to SynthDesc no need for duck
-    # typing or alike.
-    pass
+    '''Create control ugens from synthdef function's arguments.
 
+    To instantiate a control manually it first has to be added to the
+    synthdef with the `add_name` constructor and then create ugen by
+    rate.
 
-class Control(AbstractControl):
-    _default_rate = 'control'
+    ::
+
+        @synthdef
+        def test():
+            LagControl.add_name('freq')
+            freq = LagControl.kr([440, 880], [0.1, 0.2])
+            Control.add_name('amp')
+            amp = Control.ir(0.1)
+            Out.ar(0, DC.ar(freq) * amp)
+
+    TODO: Implement NamedControl instead, remove add_name and make control
+    ugens internal.
+
+    '''
+
+    # Base class for control ugens not present in sclang. Using type
+    # hierarchy properly simplify redundant methods like 'is_control_ugen'
+    # for Control and AudioControl and is_input_ugen/is_output_ugen for
+    # AbstractIn/AbstractOut ugens. Those methods are only relevant to
+    # SynthDesc no need for duck typing or alike.
 
     def __init__(self):
         super().__init__()
         self.values = []
+
+    def __repr__(self):
+        selector = type(self)._method_selector_for_rate(self.rate)
+        return f'{type(self).__name__}.{selector}({self.values})'
+
+
+class Control(AbstractControl):
+    _default_rate = 'control'
 
     @classmethod
     def add_name(cls, name):  # Was names.
@@ -75,9 +99,11 @@ class Control(AbstractControl):
         return cls._multi_new('control', *utl.as_list(values))
 
     def _init_ugen(self, *values):  # override
+        # Control ugens don't write _inputs but store cn default value.
         self.values = list(values)
         if self._synthdef is not None:
-            self._special_index = len(self._synthdef._controls)  # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
+            # Special index field is reused as control type index.
+            self._special_index = len(self._synthdef._controls)
             self._synthdef._controls.extend(self.values)
 
             ctl_names = self._synthdef._control_names
@@ -95,10 +121,6 @@ class Control(AbstractControl):
 
 
 class AudioControl(AbstractControl):
-    def __init__(self):
-        super().__init__()
-        self.values = []
-
     @classmethod
     def add_name(cls, name):  # Was names.
         synthdef = _libsc3.main._current_synthdef
@@ -113,9 +135,11 @@ class AudioControl(AbstractControl):
         return cls._multi_new('audio', *utl.as_list(values))
 
     def _init_ugen(self, *values):  # override
+        # AudioControl ugens don't write _inputs but store cn default value.
         self.values = list(values)
         if self._synthdef is not None:
-            self._special_index = len(self._synthdef._controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
+            # Special index field is reused as control type index.
+            self._special_index = len(self._synthdef._controls)
             self._synthdef._controls.extend(self.values)
             self._synthdef._control_index += len(self.values)
         return self._init_outputs(len(self.values), self.rate)
@@ -130,7 +154,7 @@ class TrigControl(Control):
 
 class LagControl(Control):
     @classmethod
-    def ir(cls, values):
+    def ir(cls, values, lag):
         raise NotImplementedError(
             f'{cls.__name__} should not implemet ir constructor')
 
@@ -144,7 +168,7 @@ class LagControl(Control):
 
         if len(values) != len(lags):
             _logger.warning(
-                f'{cls.__name__} len(values) is not len(lags), '
+                f'{cls.__name__} len(values) != len(lags), '
                 f'{cls.__name__}.kr returns None')
             return None
 
@@ -155,7 +179,7 @@ class LagControl(Control):
         for i in range(len(values)):
             out = cls._multi_new('control', *values[i], *lags[i])
             outputs.extend(utl.as_list(out))
-        if len(outputs) == 1:  # *** BUG: sclang retorna siempre array y array vacío si se llama sin argumentos.
+        if len(outputs) == 1:
             return outputs[0]
         else:
             return outputs
@@ -167,12 +191,18 @@ class LagControl(Control):
     def _init_ugen(self, *stuff):  # override
         size = len(stuff)
         size2 = size >> 1  # size // 2
-        self.values = list(stuff)[size2:size]
+        # LagControl wites lag values as _inputs and store cn default values.
+        self._inputs = stuff[size2:size]
+        self.values = list(stuff[:size2])
         if self._synthdef is not None:
-            self._special_index = len(self._synthdef._controls) # TODO: VER, esto se relaciona con _Symbol_SpecialIndex como?
+            # Special index field is reused as control type index.
+            self._special_index = len(self._synthdef._controls)
             self._synthdef._controls.extend(self.values)
             self._synthdef._control_index += len(self.values)
         return self._init_outputs(len(self.values), self.rate)
+
+    def __repr__(self):
+        return f'{type(self).__name__}.kr({self.values}, {list(self._inputs)})'
 
 
 ### Inputs ###

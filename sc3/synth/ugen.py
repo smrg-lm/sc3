@@ -271,7 +271,7 @@ class SynthObject(gpp.UGenParameter, metaclass=MetaSynthObject):
         obj = cls.__new__(cls)
         super(SynthObject, obj).__init__(obj)
         obj._rate = rate
-        obj._inputs = ()
+        obj._inputs = tuple()
 
         obj._synthdef = None  # Is_current_synthdef after _add_to_synth.
         obj._channels = []  # For MultiOutUGen, related to _synth_index.

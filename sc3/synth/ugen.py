@@ -71,11 +71,9 @@ class ChannelList(list, gpp.UGenSequence, aob.AbstractObject):
     ### UGen convenience methods (keep in sync) ###
 
     def _multichannel_perform(self, selector, *args):
-        ret = type(self)()
-        for item in self:
-            item = gpp.ugen_param(item)
-            ret.append(getattr(item, selector)(*args))
-        return ret
+        l = [gpp.ugen_param(i) for i in self]
+        l = [getattr(i[0], selector)(*i[1:]) for i in utl.flop([l, *args])]
+        return type(self)(l)
 
     def dup(self, n=2):
         return ChannelList([self] * n)

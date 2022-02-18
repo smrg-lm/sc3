@@ -29,6 +29,8 @@ class FSinOsc(ugn.UGen):
 
 
 class Klang(ugn.UGen):
+    # Klang.ar(([800, 1000, 1200], [0.3, 0.3, 0.3], [3, 3, 3]), 1, 0)
+
     @classmethod
     def ar(cls, spec, freq_scale=1.0, freq_offset=0.0):
         spec = utl.multichannel_expand_tuple(spec, 2)
@@ -53,6 +55,11 @@ class Klang(ugn.UGen):
 
     def _arg_names_inputs_offset(self):  # override
         return 1  # One less than sclang.
+
+    def __repr__(self):
+        fs, fo = self._inputs[:2]
+        spec = tuple(utl.flop(utl.clump(list(self._inputs[2:]), 3)))
+        return f'{type(self).__name__}.ar({spec}, {fs}, {fo})'
 
 
 class DynKlang(ugn.PseudoUGen):
@@ -85,6 +92,8 @@ class DynKlang(ugn.PseudoUGen):
 
 
 class Klank(ugn.UGen):
+    # Klank.ar(([800, 1000, 1200], [0.3, 0.3, 0.3], [3, 3, 3]), WhiteNoise())
+
     @classmethod
     def ar(cls, spec, input, freq_scale=1.0, freq_offset=0.0, decay_scale=1.0):
         spec = utl.multichannel_expand_tuple(spec, 2)
@@ -112,6 +121,11 @@ class Klank(ugn.UGen):
 
     def _arg_names_inputs_offset(self):  # override
         return 1  # One less than sclang.
+
+    def __repr__(self):
+        ip, fs, fo, ds = self._inputs[:4]
+        spec = tuple(utl.flop(utl.clump(list(self._inputs[4:]), 3)))
+        return f'{type(self).__name__}.ar({spec}, {ip}, {fs}, {fo}, {ds})'
 
 
 class DynKlank(ugn.PseudoUGen):

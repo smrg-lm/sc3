@@ -16,7 +16,7 @@ _logger = logging.getLogger(__name__)
 
 class Volume():
     def __init__(self, server, start_bus=0, channels=None,
-                 min=-90, max=6, persist=False):
+                 min=-90, max=6, persist=True):
         self._server = server
         self._start_bus = start_bus
         self._channels = channels

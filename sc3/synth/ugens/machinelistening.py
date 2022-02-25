@@ -31,8 +31,8 @@ class SpecPcile(ugn.UGen):
     _default_rate = 'control'
 
     @classmethod
-    def kr(cls, chain, fraction=0.5, interpolate=0):
-        return cls._multi_new('control', chain, fraction, interpolate)
+    def kr(cls, chain, fraction=0.5, interpolate=0, binout=0):  # Added binout parameter, supercollider/supercollider#5097 v3.13.0
+        return cls._multi_new('control', chain, fraction, interpolate, binout)
 
 
 class SpecCentroid(ugn.UGen):

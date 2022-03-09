@@ -128,17 +128,17 @@ class ServerOptions():
         A path or a list of paths. If not `None`, the standard paths
         are **not** searched for plugins. Default is `None`.
 
-    control_buses :
+    control_buses : int
         The number of internal control rate busses.
         The default is 16384.
-    audio_buses :
+    audio_buses : int
         The number of internal audio rate busses.
         The default is 1024.
-    input_channels :
+    input_channels : int
         The number of audio input bus channels. This need not
         correspond to the number of hardware inputs.
         The default is 2.
-    output_channels :
+    output_channels : int
         The number of audio output bus channels. This need not
         correspond to the number of hardware outputs (this can be
         useful for instance in the case of recording).
@@ -146,14 +146,14 @@ class ServerOptions():
     block_size : int
         The number of samples in one control period.
         The default is 64.
-    buffers :
+    buffers : int
         The number of global sample buffers available.
         The default is 1024.
-    max_nodes :
+    max_nodes : int
         The maximum number of nodes. The default is 1024.
-    max_synthdefs :
+    max_synthdefs : int
         The maximum number of synthdefs. The default is 1024.
-    rt_memory :
+    rt_memory : int
         The number of kilobytes of real time memory allocated to the
         server. This memory is used to allocate synths and any memory
         that unit generators themselves allocate (for instance in the
@@ -161,7 +161,7 @@ class ServerOptions():
         and is separate from the memory used for buffers. Setting this
         too low is a common cause of 'exception in real time: alloc
         failed' errors. The default is 8192.
-    wires :
+    wires : int
         The maximum number of buffers that are allocated to
         interconnect unit generators. (Not to be confused with the
         global sample buffers represented by Buffer.) This sets the
@@ -169,7 +169,7 @@ class ServerOptions():
         This value will be automatically increased if a more complex
         synthdef is loaded at startup, but it cannot be increased
         thereafter without rebooting. The default is 64.
-    rgens :
+    rgens : int
         The number of seedable random number generators.
         The default is 64.
     load_synthdefs : bool
@@ -219,7 +219,7 @@ class ServerOptions():
         then only the second and third input streams on the device
         will be enabled. Turning off streams can reduce CPU load.
         The default value is None. Darwin only option.
-    output_streams :
+    output_streams : str
         Allow turning off output streams that you are not interested
         in on the audio device. If the string is '11000', for example,
         then only the first two output streams on the device will be

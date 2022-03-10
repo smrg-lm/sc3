@@ -87,18 +87,18 @@ When routines are scheduled on clocks their yield value is used as wait time
 for a next call or cancel its execution. When the return value is a number
 (``int`` or ``float``) the clock takes this value to re-schedule the routine
 after waiting that much seconds (if no tempo is used). When the generator
-returns, or yields another type of value, the clocks leaves the routine.
+returns, or yields another type of value, the routine leaves the clock's queue.
 
-The yielded values, as time, are used to wait in :term:`physical time` but
+Yielded values, as time, are used to wait in :term:`physical time` but
 routines also define :term:`logical time` which increments only from those
 values. In other words, the logical time in a routine is the sum of all yielded
 values so far, relative to the pysical time it started to play and the tempo of
 the clock.
 
 This way, when a routine is scheduled in Python, its next physical call time
-may not be precise, it may even have noticeable jitter under load, but if we
-use the logical time to generate :term:`timetag`s the wait time sent to the
-server will be precise.
+may not be precise, it may even have noticeable jitter under load, but when
+using logical time to generate :term:`timetags<timetag>` the wait time sent
+to the server will be precise according to it.
 
 Physical time can be accessed from ``main.elapsed_time()``, which is the time
 in seconds since the library started. The input value of a routine running in

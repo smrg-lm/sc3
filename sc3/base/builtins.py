@@ -1249,8 +1249,27 @@ def normalize(lst, min=0.0, max=1.0):
 def normsum(lst):  # normalizeSum/normalize_sum
     return list(map(operator.truediv, lst, itertools.repeat(sum(lst))))
 
-def shuffle(lst, random=None):  # scramble
-    return _libsc3.main._rgen.shuffle(lst, random)  # In place.
+def shuffle(lst, random=None):
+    '''Shuffle a list in place and return `None`.
+
+    This function is a wrapper of `random.shuffle` which takes routines'
+    random state into account.
+
+    '''
+
+    _libsc3.main._rgen.shuffle(lst, random)
+
+def scramble(lst, random=None):
+    '''Return a new shuffled list from `lst`.
+
+    This function uses `random.shuffle` internally and takes routines'
+    random state into account.
+
+    '''
+
+    lst = lst.copy()
+    _libsc3.main._rgen.shuffle(lst, random)
+    return lst
 
 # mirror, mirror1, mirror2  # one mirror with mode.
 # stutter, rotate, pyramid, pyramidg, sputter(rand), etc.

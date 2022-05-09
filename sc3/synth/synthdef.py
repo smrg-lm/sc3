@@ -16,7 +16,6 @@ from . import ugen as ugn
 from . import server as srv
 from . import synthdesc as sdc
 from . import _fmtrw as frw
-from . import _graphparam as gpp
 from . import node as nod
 from . import synthdef as sdf
 from .ugens import inout as iou
@@ -902,8 +901,7 @@ class SynthDef(metaclass=MetaSynthDef):
         # NOTE: kwargs can duplicate args.
         arg_list = [v for p in zip(self._callable_args, args) for v in p]
         arg_list += [v for p in kwargs.items() for v in p]
-        with gpp.node_param(target)._as_target().server.bind():
-            return nod.Synth(self.name, arg_list, target, add_action, register)
+        return nod.Synth(self.name, arg_list, target, add_action, register)
 
 
     # Utilities

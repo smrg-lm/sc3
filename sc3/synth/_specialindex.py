@@ -23,8 +23,8 @@ _unops_list = [
     ('abs', '__abs__'),  # abs()
     ('asFloat', 'as_float'),
     ('asInteger', 'as_int'),
-    ('ceil', '__ceil__'),  # underscores?
-    ('floor', '__floor__'),  # underscores?
+    ('ceil', '__ceil__'),
+    ('floor', '__floor__'),
     ('frac',),  # is math.modf(x)[0], not same behavior, returns tuple
     ('sign',),
     ('squared',),
@@ -102,9 +102,9 @@ _binops_list = [
     ('bitXor', 'bitxor', '__xor__', '__rxor__', 'xor'),  # ^
     ('lcm',),
     ('gcd',),
-    ('round',), # Is round(x, quant), in Python __round__ is unary with arg.
+    ('round', '__round__'),  # Is round(x, quant), in Python __round__ is unary with arg.
     ('roundUp', 'roundup'),
-    ('trunc',), # Is trunc(x, quant), in Python __truc__ is unary, default op for int(x).
+    ('trunc', '__trunc__'),  # Is trunc(x, quant), in Python __truc__ is unary, default op for int(x).
     ('atan2',),
     ('hypot',),
     ('hypotApx', 'hypotx'),

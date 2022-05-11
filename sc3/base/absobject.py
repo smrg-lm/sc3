@@ -64,18 +64,20 @@ class AbstractObject():
         return self._compose_unop(bi.as_float)
 
     # Python builtin round and math trunc/floor/ceil need adequate types.
-    #
-    # def __round__(self, ndigits=0):
-    #     return self._compose_binop(round, ndigits)
-    #
-    # def __trunc__(self):
-    #     return self._compose_unop(math.trunc)  # binary in sclang, possible si problem
-    #
-    # def __ceil__(self):
-    #     return self._compose_unop(math.ceil)
-    #
-    # def __floor__(self):
-    #     return self._compose_unop(math.floor)
+    # Fixed: Allowed in Python 3.9+.
+    # NOTE: round and trunc behave different from Python's.
+
+    def __round__(self, ndigits=1):
+        return self._compose_binop(bi.round, ndigits)
+
+    def __trunc__(self):
+        return self._compose_binop(bi.trunc, 1)
+
+    def __ceil__(self):
+        return self._compose_unop(bi.ceil)
+
+    def __floor__(self):
+        return self._compose_unop(bi.floor)
 
 
     # `not obj` is not implementable but through __bool__ and __len__ which

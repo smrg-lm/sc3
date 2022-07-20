@@ -11,8 +11,8 @@ The main reason for this port is Python's capacity of interaction with other lib
 
 Note that this project is still under development and there are missing parts, bugs you are welcome to report, and documentation is under construction. The best way to learn about SuperCollider is going to the [source](https://supercollider.github.io).
 
-Example
--------
+Examples
+--------
 
 The idea is that you can write the same in Python as in sclang, with the same logic regarding multichannel expansion, arguments conversion to Control ugens, etc., it should be the same result. For example:
 
@@ -51,6 +51,10 @@ n.release()
 ```python
 s.quit()  # Stop server at the end of interactive session or just quit ipython.
 ```
+
+More examples can be found as python notebooks in the following repo:
+
+[https://github.com/pabloriera/SC3_notebooks](https://github.com/pabloriera/SC3_notebooks)
 
 Install
 -------

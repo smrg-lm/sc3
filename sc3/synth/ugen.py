@@ -8,7 +8,6 @@
 # instance of the same type.
 
 import inspect
-import operator
 import logging
 
 from ..base import _hooks as hks

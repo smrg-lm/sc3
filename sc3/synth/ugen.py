@@ -8,7 +8,6 @@
 # instance of the same type.
 
 import inspect
-import logging
 
 from ..base import _hooks as hks
 from ..base import utils as utl
@@ -32,9 +31,6 @@ pll = hks.late_import(__name__, 'sc3.synth.ugens.poll', 'pll')
 
 
 __all__ = ['ChannelList']
-
-
-_logger = logging.getLogger(__name__)
 
 
 class ChannelList(gpp.UGenSequence, aob.AbstractObject, list):

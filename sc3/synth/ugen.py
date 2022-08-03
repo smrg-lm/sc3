@@ -38,16 +38,16 @@ __all__ = ['ChannelList']
 _logger = logging.getLogger(__name__)
 
 
-class ChannelList(list, gpp.UGenSequence, aob.AbstractObject):
+class ChannelList(gpp.UGenSequence, aob.AbstractObject, list):
     '''List wrapper for multichannel expansion graph operations.'''
 
     def __init__(self, obj=None):
         if obj is None:
-            super().__init__()
+            super(aob.AbstractObject, self).__init__()
         elif isinstance(obj, (str, tuple)):
-            super().__init__([obj])
+            super(aob.AbstractObject, self).__init__([obj])
         elif hasattr(obj, '__iter__'):
-            super().__init__(obj)
+            super(aob.AbstractObject, self).__init__(obj)
         else:
             super().__init__([obj])
         super(gpp.UGenSequence, self).__init__(self)
@@ -205,45 +205,6 @@ class ChannelList(list, gpp.UGenSequence, aob.AbstractObject):
 
     def check_bad_values(self, id=0, post=2):
         return self._multichannel_perform('check_bad_values', id, post)
-
-
-    ### Override list methods ###
-
-    def __add__(self, other): # +
-        return self._compose_binop(operator.add, other)
-
-    def __iadd__(self, other): # +=
-        return self._compose_binop(operator.add, other)
-
-    def __mul__(self, other): # *
-        return self._compose_binop(operator.mul, other)
-
-    def __rmul__(self, other):
-        return self._rcompose_binop(operator.mul, other)
-
-    def __imul__(self, other): # *=
-        return self._compose_binop(operator.mul, other)
-
-    def __lt__(self, other): # <
-        return self._compose_binop(operator.lt, other)
-
-    def __le__(self, other): # <=
-        return self._compose_binop(operator.le, other)
-
-    def __eq__(self, other):
-        return self._compose_binop(operator.eq, other)
-
-    def __hash__(self):
-        return hash((type(self), id(self)))
-
-    def __ne__(self, other):
-        return self._compose_binop(operator.ne, other)
-
-    def __gt__(self, other): # >
-        return self._compose_binop(operator.gt, other)
-
-    def __ge__(self, other): # >=
-        return self._compose_binop(operator.ge, other)
 
 
     def __repr__(self):

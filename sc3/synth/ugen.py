@@ -48,7 +48,7 @@ class ChannelList(gpp.UGenSequence, aob.AbstractObject, list):
         elif hasattr(obj, '__iter__'):
             super(aob.AbstractObject, self).__init__(obj)
         else:
-            super().__init__([obj])
+            super(aob.AbstractObject, self).__init__([obj])
         super(gpp.UGenSequence, self).__init__(self)
 
 

@@ -6,6 +6,7 @@ import types
 import sys
 
 from ..base import builtins as bi
+from ..base import absobject as aob
 from ..base import operand as opd
 from ..base import clock as clk
 from ..synth import server as srv
@@ -16,6 +17,16 @@ from . import scale as scl
 
 
 __all__ = ['event', 'new_event', 'Rest', 'silent', 'is_rest']
+
+
+### Arrayed Controls ###
+
+
+class arrayed_param(aob.AbstractSequence, tuple):
+    '''Return type to support for arrayed controls within event keys.'''
+
+    def __repr__(self):
+        return f'{type(self).__name__}{super(aob.AbstractSequence, self).__repr__()}'
 
 
 ### Rest ###
@@ -129,10 +140,13 @@ class EventDict(dict, metaclass=MetaEventDict):
 
     def __call__(self, key):
         if key in self:
-            if isinstance(self[key], types.FunctionType):
-                return self[key](self)
+            value = self[key]
+            if isinstance(value, types.FunctionType):
+                return value(self)
+            elif isinstance(value, tuple):
+                return arrayed_param(value)
             else:
-                return self[key]
+                return value
         elif key in self.default_functions:
             return self.default_functions[key](self)
         else:

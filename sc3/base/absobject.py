@@ -3,6 +3,7 @@ import operator
 # import math
 
 from ..base import _hooks as hks
+from ..base import utils as utl
 
 
 bi = hks.late_import(__name__, 'sc3.base.builtins', 'bi')
@@ -532,3 +533,20 @@ class AbstractObject():
         return self._compose_narop(bi.moddif, other, mod)
 
     # degreeToKey
+
+
+class AbstractSequence(AbstractObject):
+
+    ### AbstractObject interface ###
+
+    def _compose_unop(self, selector):
+        return utl.list_unop(selector, self, type(self))
+
+    def _compose_binop(self, selector, other):
+        return utl.list_binop(selector, self, other, type(self))
+
+    def _rcompose_binop(self, selector, other):
+        return utl.list_binop(selector, other, self, type(self))
+
+    def _compose_narop(self, selector, *args):
+        return utl.list_narop(selector, self, *args, t=type(self))

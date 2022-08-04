@@ -33,37 +33,22 @@ pll = hks.late_import(__name__, 'sc3.synth.ugens.poll', 'pll')
 __all__ = ['ChannelList']
 
 
-class ChannelList(gpp.UGenSequence, aob.AbstractObject, list):
+class ChannelList(gpp.UGenSequence, aob.AbstractSequence, list):
     '''List wrapper for multichannel expansion graph operations.'''
 
     def __init__(self, obj=None):
         if obj is None:
-            super(aob.AbstractObject, self).__init__()
+            super(aob.AbstractSequence, self).__init__()
         elif isinstance(obj, (str, tuple)):
-            super(aob.AbstractObject, self).__init__([obj])
+            super(aob.AbstractSequence, self).__init__([obj])
         elif hasattr(obj, '__iter__'):
-            super(aob.AbstractObject, self).__init__(obj)
+            super(aob.AbstractSequence, self).__init__(obj)
         else:
-            super(aob.AbstractObject, self).__init__([obj])
+            super(aob.AbstractSequence, self).__init__([obj])
         super(gpp.UGenSequence, self).__init__(self)
 
 
-    ### AbstractObject interface ###
-
-    def _compose_unop(self, selector):
-        return utl.list_unop(selector, self, type(self))
-
-    def _compose_binop(self, selector, other):
-        return utl.list_binop(selector, self, other, type(self))
-
-    def _rcompose_binop(self, selector, other):
-        return utl.list_binop(selector, other, self, type(self))
-
-    def _compose_narop(self, selector, *args):
-        return utl.list_narop(selector, self, *args, t=type(self))
-
-
-    ### UGen convenience methods (keep in sync) ###
+    ### UGen convenience methods (keep in sync with UGen) ###
 
     def _multichannel_perform(self, selector, *args):
         l = [gpp.ugen_param(i) for i in self]
@@ -203,7 +188,7 @@ class ChannelList(gpp.UGenSequence, aob.AbstractObject, list):
 
 
     def __repr__(self):
-        return f'{type(self).__name__}({super().__repr__()})'
+        return f'{type(self).__name__}({super(aob.AbstractSequence, self).__repr__()})'
 
 
 class MetaSynthObject(type):

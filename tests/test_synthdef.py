@@ -1,5 +1,6 @@
 
 import unittest
+from typing import List
 
 import sc3
 sc3.init()
@@ -13,6 +14,10 @@ from sc3.base.platform import Platform
 
 
 _logger.setLevel('ERROR')
+
+
+# TODO: Should be defined as types.
+ir, ar, kr, tr = 'ir', 'ar', 'kr', 'tr'
 
 
 class SynthDefTestCase(unittest.TestCase):
@@ -37,8 +42,8 @@ class SynthDefTestCase(unittest.TestCase):
     def test_rate_annot(self):
         # Annotations
 
-        def allin(a:'ir', b:'ar', c:'kr', d:'tr',
-                  f:'ir', g:'kr', h:'ar', i:'tr'):
+        def allin(a:ir, b:ar, c:kr, d:tr,
+                  f:ir, g:kr, h:ar, i:tr):
              Out(0,  DC() / a / b / c / d / f / g / h / i)
 
         sd = SynthDef('test', allin)
@@ -55,10 +60,10 @@ class SynthDefTestCase(unittest.TestCase):
         # Argument rate and override.
 
         rates = {
-            'ar': ['AudioControl', 'audio', True],
-            'kr': ['Control', 'control', False],
-            'ir': ['Control', 'scalar', True],
-            'tr': ['TrigControl', 'control', True]}
+            ar: ['AudioControl', 'audio', True],
+            kr: ['Control', 'control', False],
+            ir: ['Control', 'scalar', True],
+            tr: ['TrigControl', 'control', True]}
 
         keys = rates.keys()
 
@@ -94,7 +99,7 @@ class SynthDefTestCase(unittest.TestCase):
         def wrong(a:float=0): Out(0, DC() * a)
         self.assertRaises(ValueError, lambda: SynthDef('test', wrong))
 
-        def wrong(a:['ar']=0): Out(0, DC() * a)
+        def wrong(a:List[ar]=0): Out(0, DC() * a)
         self.assertRaises(ValueError, lambda: SynthDef('test', wrong))
 
         def wrong(a, *args): Out(0, DC() * a)
@@ -104,7 +109,7 @@ class SynthDefTestCase(unittest.TestCase):
         self.assertRaises(ValueError, lambda: SynthDef('test', wrong))
 
         # def ok(a=0): Out(0, DC() * a)
-        # sd = SynthDef('test', ok, [['ar', 'kr', 'ir']])  # *** BUG: Creates LagControl(s).
+        # sd = SynthDef('test', ok, [[ar, kr, ir]])  # *** BUG: Creates LagControl(s).
 
     def test_array_controls(self):
         def ok(a=(0,)): Out(0, DC() * a)
@@ -119,14 +124,14 @@ class SynthDefTestCase(unittest.TestCase):
         self.assertEqual(sd._all_control_names[0].rate, 'control')
         self.assertEqual(sd._all_control_names[0].default_value, [0, 1])
 
-        def ok(a:'ar'=(2, 3)): Out(0, DC() * a)
+        def ok(a:ar=(2, 3)): Out(0, DC() * a)
         sd = SynthDef('test', ok)
         self.assertEqual(sd._all_control_names[0].index, 0)
         self.assertEqual(sd._all_control_names[0].rate, 'audio')
         self.assertEqual(sd._all_control_names[0].default_value, [2, 3])
 
-        def ok(a:'ir'=(4, 5), b:'tr'=3, c:'kr'=(2, 1)): Out(0, DC() / a / b / c)
-        sd = SynthDef('test', ok, ['ir', 0.9, [0.8, 0.7]])
+        def ok(a:ir=(4, 5), b:tr=3, c:kr=(2, 1)): Out(0, DC() / a / b / c)
+        sd = SynthDef('test', ok, [ir, 0.9, [0.8, 0.7]])
         self.assertEqual(sd._all_control_names[0].index, 0)
         self.assertEqual(sd._all_control_names[0].rate, 'scalar')
         self.assertEqual(sd._all_control_names[0].default_value, [4, 5])
@@ -140,7 +145,7 @@ class SynthDefTestCase(unittest.TestCase):
         self.assertEqual(sd._all_control_names[2].default_value, [2, 1])
         self.assertEqual(sd._all_control_names[2].lag, [0.8, 0.7])
 
-        # Check: sd = SynthDef('test', ok, ['ir', 0.9, [0.8, (0.7, 0.6)]])
+        # Check: sd = SynthDef('test', ok, [ir, 0.9, [0.8, (0.7, 0.6)]])
         # Check: actual synthdef cmds.
 
         # Invalid cases.
@@ -158,7 +163,7 @@ class SynthDefTestCase(unittest.TestCase):
         ref_data0 = [[1, 2], [3, 4]]
         ref_data1 = 567
 
-        def test(data0=None, data1:'ar'=None, off=10, amp=0.1):
+        def test(data0=None, data1:ar=None, off=10, amp=0.1):
             for i, d in enumerate(data0):
                 self.assertEqual(d, ref_data0[i])
             self.assertEqual(data1, ref_data1)
@@ -173,7 +178,7 @@ class SynthDefTestCase(unittest.TestCase):
         self.assertEqual(sd._all_control_names[1].default_value, 0.1)
 
     def test_variants(self):
-        def test(a:'ar', b:'ir', c):
+        def test(a:ar, b:ir, c):
             Out(0, DC() / a / b / c)
 
         variants = {
@@ -201,7 +206,7 @@ class SynthDefTestCase(unittest.TestCase):
             'text': 'Test metadata 1.'
         }
 
-        def test(a:'ar'=220, b=2, c=0.1): Out(0, DC() / a / b / c)
+        def test(a:ar=220, b=2, c=0.1): Out(0, DC() / a / b / c)
         sd = SynthDef('test', test, metadata=md)
         self.assertEqual(sd._all_control_names[0].rate, 'audio')
         self.assertEqual(sd._all_control_names[0].default_value, 220)
@@ -220,7 +225,7 @@ class SynthDefTestCase(unittest.TestCase):
             'text': 'Test metadata 2.'
         }
 
-        def test(a:'ar'=None, b=None, c=0.1): Out(0, DC() / a / b / c)
+        def test(a:ar=None, b=None, c=0.1): Out(0, DC() / a / b / c)
         sd = SynthDef('test', test, metadata=md)
         self.assertEqual(sd._all_control_names[0].rate, 'audio')
         self.assertEqual(sd._all_control_names[0].default_value, 440)
@@ -239,7 +244,7 @@ class SynthDefTestCase(unittest.TestCase):
 
     def test_decorator(self):
         @synthdef
-        def sd(a, b:'ar'):
+        def sd(a, b:ar):
             Out(0, DC() / a / b)
 
         unames = [
@@ -252,7 +257,7 @@ class SynthDefTestCase(unittest.TestCase):
             rates=[0.02, 0.02],
             variants={'low': {'freq': 110}}
         )
-        def sd(a, b:'ir', c:'ar'):
+        def sd(a, b:ir, c:ar):
             Out(0, DC() / a / b / c)
 
         self.assertEqual(sd._children[0].name, 'Control')

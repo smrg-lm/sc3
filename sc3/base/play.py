@@ -22,6 +22,10 @@ __all__ = ['play']
 _logger = logging.getLogger(__name__)
 
 
+# TODO: Should be defined as type.
+ir = 'ir'
+
+
 def _play_func(func, target=None, outbus=0, fade=0.01,
                add_action='addToHead', args=()):
     # asDefName.sc
@@ -32,7 +36,7 @@ def _play_func(func, target=None, outbus=0, fade=0.01,
         return
 
     # GraphBuilder.sc
-    def wrapper(_iout:'ir'=0):
+    def wrapper(_iout:ir=0):
         # SynthDef.wrap function has to return an UGen-input or
         # None to be chained or not. UGens that don't return a
         # signal should return None. Generated synthdef of this

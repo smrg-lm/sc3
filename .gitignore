@@ -71,6 +71,9 @@ instance/
 docs/api/*
 docs/_rst/*
 docs/_build/*
+docs/source/api/*
+docs/source/_rst/*
+docs/source/_build/*
 
 # PyBuilder
 target/

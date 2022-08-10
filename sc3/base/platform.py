@@ -261,15 +261,19 @@ class Win32Platform(WindowsPlatform):
     def _startup(self):
         from . import _knownpaths as kp
 
+        default_folder = '.'
+
         self._local_app_data = kp.get_path(kp.FOLDERID.LocalAppData, 0)
         self._documents = kp.get_path(kp.FOLDERID.Documents, 0)
 
         program_files_x86 = kp.get_path(kp.FOLDERID.ProgramFilesX86, 0)
         program_files_x64 = kp.get_path(kp.FOLDERID.ProgramFilesX64, 0)
-        folders = list(Path(program_files_x86).glob('SuperCollider*'))
-        folders += list(Path(program_files_x64).glob('SuperCollider*'))
+        glob_pattern = 'SuperCollider-*.*.*'
+        folders = list(Path(program_files_x86).glob(glob_pattern))
+        folders += list(Path(program_files_x64).glob(glob_pattern))
 
-        self._installation_dir = str(self._get_lastest_version(folders))
+        self._installation_dir = str(
+            self._get_lastest_version(folders)) if folders else default_folder
         os.environ['PATH'] += str(self.bin_dir) + os.pathsep
         self.default_server_cmd = self.SCSYNTH_CMD
         # // load user startup file

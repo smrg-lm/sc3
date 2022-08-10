@@ -1,5 +1,5 @@
 
-__version__ = '1.1.2a0'
+__version__ = '1.1.3a0'
 __all__ = ['base', 'seq', 'synth']
 
 

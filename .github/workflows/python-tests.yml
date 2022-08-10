@@ -20,9 +20,9 @@ jobs:
         python-version: ['3.6', '3.10', 'pypy3.9']
         exclude:
           - os: macos-latest
-            python-version: '3.6'
+            python-version: ['3.6', 'pypy3.9']
           - os: windows-latest
-            python-version: '3.6'
+            python-version: ['3.6', 'pypy3.9']
 
     steps:
     - uses: actions/checkout@v3

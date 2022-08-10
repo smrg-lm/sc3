@@ -2,6 +2,7 @@
 import unittest
 from functools import partial
 import math
+import sys
 
 import sc3
 sc3.init()
@@ -59,6 +60,7 @@ class BundleTestCase(unittest.TestCase):
             n._calc_bndl_dgram_size(test_data[1:]),
             len(n._osc_interface._build_bundle(0, test_data).dgram))
 
+    @unittest.skipIf(sys.platform.startswith('darwin'), "OSX's UDP packet size is known to be shorter")
     def test_max_dgram_size(self):
         oscaddr = '/'
         test_msg = [oscaddr, 'x' * (NetAddr._MAX_UDP_DGRAM_SIZE - 12)]

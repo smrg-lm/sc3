@@ -99,3 +99,16 @@ License
 The sc3 library is free software available under Version 3 of the GNU General Public License. See [COPYING](COPYING) for details.
 
 NB: The sc3 library is a Python translation of the SuperCollider's library and inherits its same license and community guidelines.
+
+Citing
+-------
+
+```bibtex
+@inproceedings{samaruga2022port,
+  title={A port of the SuperCollider’s class library to Python},
+  author={Samaruga, Lucas and Riera, Pablo},
+  booktitle={Proceedings of the 17th International Audio Mostly Conference},
+  pages={137--142},
+  year={2022}
+}
+```

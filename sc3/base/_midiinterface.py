@@ -222,6 +222,8 @@ class MidiScore():
 
     @property
     def duration(self):
+        if self._scoreq.empty():
+            return None  # Uninitialized.
         return self._scoreq.peek(False)[0]
 
     def add(self, port, msg, **kwargs):

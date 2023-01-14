@@ -476,6 +476,8 @@ class OscScore():
 
     @property
     def duration(self):
+        if self._scoreq.empty():
+            return None  # Uninitialized.
         return self._scoreq.peek(False)[0] * clk.SystemClock._OSC_TO_SECONDS
 
     def add(self, bndl):

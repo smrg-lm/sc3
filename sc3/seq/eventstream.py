@@ -99,7 +99,7 @@ class EventStreamPlayer(stm.Routine):
     def __init__(self, stream, event=None):
         super().__init__(self._stream_player_func())
         self._stream = stream
-        self._event = event or evt.event()
+        self._event = event or dict()
         self._is_muted = False
         self._cleanup = EventStreamCleanup()
 
@@ -136,6 +136,7 @@ class EventStreamPlayer(stm.Routine):
             try:
                 while True:
                     outevent = self._stream.next(self._event.copy())
+                    outevent = evt.event(outevent)  # Create the appropriate event type note/midi.
                     yield self._play_and_delta(outevent)
             except stm.StopStream:
                 self._cleanup.run()
@@ -203,7 +204,7 @@ class PatternEventStream(PatternValueStream):
 
     def next(self, inevent=None):
         try:
-            inevent = evt.event() if inevent is None else inevent
+            inevent = inevent or dict()
             if self._stream is None:
                 self._stream = stm.embed(self.pattern, inevent)
                 return next(self._stream)

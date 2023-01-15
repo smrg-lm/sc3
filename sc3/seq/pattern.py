@@ -99,7 +99,7 @@ class Pattern(aob.AbstractObject):
     def play(self, clock=None, quant=None, proto=None):
         if not self.is_event_pattern:
             raise ValueError(f'{type(self)} is not an event pattern')
-        proto = evt.event() if proto is None else evt.event(proto)
+        proto = proto or dict()
         stream = est.EventStreamPlayer(self.__stream__(), proto)
         stream.play(clock, quant)
         return stream

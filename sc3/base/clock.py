@@ -570,10 +570,9 @@ class ClockTask():
 
 
 class Quant():
-    def __init__(self, quant=0, phase=None, timing_offset=None):
+    def __init__(self, quant=0, phase=None):
         self.quant = quant
         self.phase = phase
-        self.timing_offset = timing_offset
 
     # *default  # NOTE: Not really needed.
 
@@ -582,9 +581,9 @@ class Quant():
         '''Return a Quant object from the value of `quant`.
 
         The received object can be an int or float representing the `quant`
-        paramenter or a collection representing `quant`, `phase` and
-        `timing_offset` parameters. If is None an object with default values
-        is created.
+        paramenter or a length two collection representing `quant` and `phase`
+        parameters. If the received object is None a Quant object with default
+        values is created.
 
         This method is used internally to convert the type of valid Quant's
         constructor parameters values.
@@ -596,7 +595,7 @@ class Quant():
         elif isinstance(quant, (int, float)):
             quant = cls(quant)
         elif isinstance(quant, (list, tuple)):
-            quant = cls(*quant[:3])
+            quant = cls(*quant)
         elif quant is None:
             quant = cls()
         else:
@@ -605,14 +604,12 @@ class Quant():
         return quant
 
     def next_time_on_grid(self, clock):
-        '''Return the time of the next beat for a give `clock` object.'''
-        return clock.next_time_on_grid(
-            self.quant, (self.phase or 0) - (self.timing_offset or 0))
+        '''Return the time of the next beat for a given `clock` object.'''
+        return clock.next_time_on_grid(self.quant, self.phase or 0)
 
     def __repr__(self):
         return (
-            f'{type(self).__name__}(quant={self.quant}, '
-            f'phase={self.phase}, timing_offset={self.timing_offset})')
+            f'{type(self).__name__}(quant={self.quant}, phase={self.phase})')
 
 
 # /*

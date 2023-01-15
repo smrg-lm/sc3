@@ -124,7 +124,6 @@ class EventStreamPlayer(stm.Routine):
             if self.state == self.State.Paused:
                 self.state = self.State.Suspended
                 clock = clock or self._clock
-                self._event, quant = self._synch_with_quant(self._event, quant)
                 clock.play(self, quant)
 
     def stop(self):
@@ -156,21 +155,10 @@ class EventStreamPlayer(stm.Routine):
             or self.state == self.state.Paused:
                 self.state = self.State.Suspended
                 clock = clock or _libsc3.main.current_tt._clock
-                self._event, quant = self._synch_with_quant(self._event, quant)
                 clock.play(self, quant)
         # Pattern.play return the stream, maybe for API usage constency
         # Stream.play should return self, but I'm not sure.
         # return self
-
-    @staticmethod
-    def _synch_with_quant(event, quant):  # Was Event.synchWithQuant.
-        quant = clk.Quant.as_quant(quant)  # Also needs a copy or quant is disposable?
-        if quant.timing_offset is None:
-            quant.timing_offset = event('timing_offset')
-        else:
-            event = event.copy()
-            event['timing_offset'] = quant.timing_offset
-        return event, quant
 
 
 ### Pattern Streams ###

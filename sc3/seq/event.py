@@ -343,6 +343,7 @@ class DurationKeys(PartialEvent):
 
     # tempo = None
     # lag = 0.0
+    # timing_offset = 0
     # strum = 0.0
     # strum_ends_together = False
 
@@ -419,8 +420,6 @@ class ServerKeys(PartialEvent):
     has_gate = True  # // assume SynthDef has gate
     send_gate = None  # // sendGate == false turns off releases
     args = ('freq', 'amp', 'pan', 'trig')  # // for 'type' 'set'
-    # lag = 0
-    timing_offset = 0  # Used in EventStreamPlayer._synch_with_quant
 
     @keyfunction
     def server(self):

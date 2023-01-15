@@ -648,7 +648,7 @@ class NoteEvent(EventType, partial_events=(
         msg = ['/s_new', instrument, node_id, add_action, group, *param_list]
         msg = gpp.node_param(msg)._as_osc_arg_list()
 
-        server.addr.send_bundle(server.latency, msg)  # Missing ~latency, ~lag and ~timmingOffset.
+        server.addr.send_bundle(server.latency, msg)  # Missing ~latency, ~lag and ~timingOffset.
         if self('send_gate'):
             server.addr.send_bundle(
                 server.latency + self('sustain'),
@@ -687,7 +687,7 @@ class _MonoOnEvent(EventType, partial_events=(
             '/s_new', self['instrument'], self['node_id'],
             self['add_action'], self['group'], *self['msg_params']]
         msg = gpp.node_param(msg)._as_osc_arg_list()
-        self['server'].addr.send_bundle(self['server'].latency, msg)  # Missing ~latency, ~lag and ~timmingOffset.
+        self['server'].addr.send_bundle(self['server'].latency, msg)  # Missing ~latency, ~lag and ~timingOffset.
         self['is_playing'] = True
 
     def _prepare_event(self, instrument):

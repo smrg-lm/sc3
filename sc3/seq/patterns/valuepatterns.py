@@ -19,7 +19,7 @@ class Pvalue(ValuePattern):
         self.value = value
 
     def __embed__(self, inval):
-        return (yield from stm.stream(self.value))
+        return (yield from stm.embed(self.value, inval))
 
     # storeArgs
 

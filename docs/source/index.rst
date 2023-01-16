@@ -27,6 +27,7 @@ Or the latest alpha release (usually outdated) from PyPI.
    intro/event
    intro/routine
    intro/nonrealtime
+   intro/midi
 
 
 .. toctree::

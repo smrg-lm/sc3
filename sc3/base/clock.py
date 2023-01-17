@@ -562,14 +562,39 @@ class ClockTask():
 
 
 ### Quant.sc ###
-# // This class is used to encapsulate quantization issues associated
-# // with EventStreamPlayer and TempoClock, quant and phase determine the
-# // starting time of something scheduled by a TempoClock timingOffset
-# // is an additional timing factor that allows an EventStream to compute
-# // "ahead of time" enough to allow negative lags for strumming a chord, etc.
 
 
 class Quant():
+    '''Quantization object used as argument to `TempoClock`'s `play` method.
+
+    To set the quantization guaranties logical time synchronicity between
+    routines running in the same `TempoClock`.
+
+    ::
+
+      def r(name, note):
+          def _(inval):
+              rout, clock = inval
+              while True:
+                  if int(clock.beat_in_bar()) == 0:
+                      print(name, clock.beats, clock.seconds)
+                      play(midinote=note - 12, dur=0.3)
+                  else:
+                      play(midinote=note, dur=0.1)
+                  yield 1
+          return _
+
+      a = Routine(r('routine A:', 60))
+      b = Routine(r('routine B:', 67))
+
+      clock = TempoClock()
+
+      # Both routines will start in sync at the next bar.
+      a.play(clock, Quant(4))
+      b.play(clock, Quant(4))
+
+    '''
+
     def __init__(self, quant=0, phase=None):
         self.quant = quant
         self.phase = phase

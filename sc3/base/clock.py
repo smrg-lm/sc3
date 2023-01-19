@@ -3,6 +3,7 @@
 import logging
 import threading
 import weakref
+import typing
 
 from . import classlibrary as clb
 from . import main as _libsc3
@@ -49,9 +50,9 @@ class MetaClock(type):
             Task to be scheduled. If the argument is a common function it
             will be wrapped into a Function object to be scheduled.
         quant : Quant
-            A Quant object or a any value that can be cast into one with
-            Quant.as_quant constructor. This parameter only works for
-            TempoClock and is ignored by other clocks.
+            A `Quant` object or a any value that can be cast into one with the
+            `Quant.as_quant` constructor. This parameter only works for
+            `TempoClock` and is ignored by other clocks.
 
         '''
 
@@ -98,14 +99,6 @@ class MetaClock(type):
     def time_to_next_beat(cls, quant=1):
         '''Return the duration remaining until the next beat.'''
         return 0
-
-    # def next_time_on_grid(cls, quant=1, phase=0):
-    #     '''Return the time of the next beat.'''
-    #     if quant == 0:
-    #         return cls.beats + phase
-    #     if phase < 0:
-    #         phase = bi.mod(phase, quant)
-    #     return bi.roundup(cls.beats - bi.mod(phase, quant), quant) + phase
 
 
 class Clock(metaclass=MetaClock):
@@ -564,10 +557,34 @@ class ClockTask():
 ### Quant.sc ###
 
 
-class Quant():
+class Quant(typing.NamedTuple):
     '''Quantization object used as argument to `TempoClock`'s `play` method.
 
-    To set the quantization guaranties logical time synchronicity between
+    Using `Quant` routines can be scheduled to the next beat or bar of the
+    running clock. For example, to schedule a routine to the next beat use
+    `Quant(1)` or, to schedule it to the next bar of the running clock use
+    `Quant(clock.beats_per_bar)`.
+
+    To schedule a routine to a specific beat or fraction within a bar
+    use the `phase` argument. If `phase` is positive the routine will be
+    scheduled to the specified beat of the next bar and if `phase` is
+    negative it will be scheduled to the next specified beat within the
+    current or next bar depending on whether the current beat is before or
+    after the specified beat.
+
+    Setting the `quant` argument to zero avoids quantization.
+
+    Parameters
+    ----------
+    quant : int
+        Quantization unit in beats. This value must be a positive number
+        or zero, floats will be rounded up.
+    phase : int | float
+        Offset from the quantization unit between `-quant` and `quant`.
+
+    Notes
+    -----
+    To set the quantization guaranties `logical time` synchronicity between
     routines running in the same `TempoClock`.
 
     ::
@@ -577,6 +594,7 @@ class Quant():
               rout, clock = inval
               while True:
                   if int(clock.beat_in_bar()) == 0:
+                      # Print logical time in beats and seconds.
                       print(name, clock.beats, clock.seconds)
                       play(midinote=note - 12, dur=0.3)
                   else:
@@ -590,16 +608,13 @@ class Quant():
       clock = TempoClock()
 
       # Both routines will start in sync at the next bar.
-      a.play(clock, Quant(4))
-      b.play(clock, Quant(4))
+      a.play(clock, Quant(clock.beats_per_bar))
+      b.play(clock, Quant(clock.beats_per_bar))
 
     '''
 
-    def __init__(self, quant=0, phase=None):
-        self.quant = quant
-        self.phase = phase
-
-    # *default  # NOTE: Not really needed.
+    quant: int = 1
+    phase: float = 0.0
 
     @classmethod
     def as_quant(cls, quant):
@@ -627,14 +642,6 @@ class Quant():
             msg = f'unsuported type conversion to Quant: {type(quant)}'
             raise TypeError(msg)
         return quant
-
-    def next_time_on_grid(self, clock):
-        '''Return the time of the next beat for a given `clock` object.'''
-        return clock.next_time_on_grid(self.quant, self.phase or 0)
-
-    def __repr__(self):
-        return (
-            f'{type(self).__name__}(quant={self.quant}, phase={self.phase})')
 
 
 # /*
@@ -894,13 +901,14 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
             Task to be scheduled. If the argument is a common function it
             will be wrapped into a Function object to be scheduled.
         quant : Quant
-            A Quant object or a any value that can be cast into one with
-            Quant.as_quant constructor.
+            A `Quant` object or a any value that can be cast into one with
+            `Quant.as_quant` constructor.
 
         '''
 
         quant = Quant.as_quant(quant)
-        self.sched_abs(quant.next_time_on_grid(self), task)
+        ntog = self.next_time_on_grid(quant.quant, quant.phase)
+        self.sched_abs(ntog, task)
 
     def play_next_bar(self, task):
         '''Schedule a Routine or Function to be evaluated at the next bar.'''
@@ -1191,33 +1199,58 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
         else:
             raise ClockNotRunning(self)
 
-    def next_time_on_grid(self, quant=1, phase=0):
+    def next_time_on_grid(self, quant=1, phase=0, refbeat=None):
         '''Return the next quantized beat.
 
-        With default values for `quant` and `phase` it returns the next whole
-        beat. The `quant` parameter is relative to `base_bar_beat`, such that::
+        Quantization rounds the reference beat to the next integer multiple
+        of `quant`. If `refbeat` is None it will be set to the current beat
+        of this clock counting from the last `beats_per_bar` change.
+
+        Parameters
+        ----------
+        quant : int
+            Quantization unit applied to `refbeat`. This value must be a
+            positive number or zero, floats will be rounded up.
+        phase : int | float
+            Offset from the quantization unit between `-quant` and `quant`.
+        refbeat : int | float
+            Reference beat for the quantization. If None the current value
+            of this clock's `beats` is used.
+
+        Notes
+        -----
+        With default values for `quant`, `phase` and `refbeat` it returns the
+        next whole beat. The `quant` parameter is relative to `base_bar_beat`,
+        such that
+
+        ::
 
             clock = TempoClock()
             clock.next_time_on_grid(clock.beats_per_bar) == clock.next_bar()
 
         Together `quant` and `phase` are useful for finding the next *n* beat
-        in a bar, e.g. `clock.next_time_on_grid(4, 2)` may return the next
-        third beat of the current or next bar depending on whether the current
-        beat is before or after the third beat of the current bar, whereas
-        `clock.next_bar() - 2` may return an elapsed beat and
-        `clock.next_bar() + 2` will always return the third beat of the next
-        bar only.
+        in a bar, e.g. `clock.next_time_on_grid(clock.beats_per_bar, 2)` may
+        return the next third beat of the current or next bar depending on
+        whether the current beat is before or after the third beat of the
+        current bar, whereas if `refbeat = clock.next_bar()` `refbeat - 2` may
+        return an elapsed beat and `refbeat + 2` will always return the third
+        beat of the next bar only.
 
         '''
 
+        if refbeat is None:
+            refbeat = self.beats
+
         if quant == 0:
-            return self.beats + phase
-        if quant < 0:
-            quant = self.beats_per_bar * -quant
+            return refbeat + phase
+        elif quant < 0:
+            raise ValueError("quant can't be negative")
+
         if phase < 0:
             phase = bi.mod(phase, quant)
+
         return bi.roundup(
-            self.beats - self._base_bar_beat - bi.mod(phase, quant),
+            refbeat - self._base_bar_beat - bi.mod(phase, quant),
             quant
         ) + self._base_bar_beat + phase
 
@@ -1228,7 +1261,9 @@ class TempoClock(Clock, metaclass=MetaTempoClock):
 
         '''
 
-        return Quant.as_quant(quant).next_time_on_grid(self) - self.beats
+        quant = Quant.as_quant(quant)
+        ntog = self.next_time_on_grid(quant.quant, quant.phase)
+        return ntog - self.beats
 
     def beats2bars(self, beats):
         '''Return the bar number relative to `base_bar_beat`.'''

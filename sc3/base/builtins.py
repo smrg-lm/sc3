@@ -31,31 +31,13 @@ sqrt2 = math.sqrt(2.)
 rsqrt2 = 1. / sqrt2
 
 
-# There is a thing, some operators are unary or binary with argument, some are
-# math functions with arguments, the problem is that when declared as binops
-# they will use rcompose but unops and narops will not. That creates a possible
-# behaviour inconsistency problem.
 class scbuiltin():
-    # def __new__(cls, func):
-    #     def scbuiltin_(*args):
-    #         return func(*args)
-    #
-    #     scbuiltin_.__name__ = func.__name__  # used to obtain special_index.
-    #     scbuiltin_.__qualname__ += func.__name__
-    #     return scbuiltin_
-
     @staticmethod
     def unop(func):
         def scbuiltin_(x):
-            try:
+            if hasattr(x, '_compose_unop'):
                 return x._compose_unop(func)
-            except AttributeError:
-                try:
-                    return func(x)
-                except TypeError:
-                    pass
-            raise TypeError(f"scbuiltin '{func.__name__}' function is not "
-                            f"supported for type '{type(x).__name__}'")
+            return func(x)
 
         scbuiltin_.__name__ = func.__name__  # used to obtain special_index.
         scbuiltin_.__qualname__ += func.__name__
@@ -63,26 +45,12 @@ class scbuiltin():
 
     @staticmethod
     def binop(func):
-        def scbuiltin_(a, *b):
-            try:
-                return a._compose_binop(func, *b)
-            except AttributeError:
-                try:
-                    return b._rcompose_binop(func, a)
-                except AttributeError:
-                    try:
-                        return func(a, *b)
-                    except TypeError:
-                        pass
-            if len(b) > 0:
-                raise TypeError(
-                    f"scbuiltin '{func.__name__}' function is not "
-                    f"supported between types '{type(a).__name__}' "
-                    f"and '{type(*b).__name__}'")
-            else:
-                raise TypeError(
-                    f"scbuiltin '{func.__name__}' function is not "
-                    f"supported for type '{type(a).__name__}' ")
+        def scbuiltin_(a, b):
+            if hasattr(a, '_compose_binop'):
+                return a._compose_binop(func, b)
+            if hasattr(b, '_rcompose_binop'):
+                return b._rcompose_binop(func, a)
+            return func(a, b)
 
         scbuiltin_.__name__ = func.__name__  # used to obtain special_index.
         scbuiltin_.__qualname__ += func.__name__
@@ -91,16 +59,9 @@ class scbuiltin():
     @staticmethod
     def narop(func):
         def scbuiltin_(x, *args):
-            try:
+            if hasattr(x, '_compose_narop'):
                 return x._compose_narop(func, *args)
-            except AttributeError:
-                try:
-                    return func(x, *args)
-                except TypeError:
-                    pass
-            raise TypeError(f"scbuiltin '{func.__name__}' function is not "
-                            f"supported for type '{type(x).__name__}' "
-                            f"with parameteres {args}")
+            return func(x, *args)
 
         scbuiltin_.__name__ = func.__name__  # used to obtain special_index.
         scbuiltin_.__qualname__ += func.__name__

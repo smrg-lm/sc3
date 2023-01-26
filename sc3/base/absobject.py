@@ -113,7 +113,7 @@ class AbstractObject():
     def sign(self):
         return self._compose_unop(bi.sign)
 
-    def log(self):  #, base=math.e):  # In SI is unary, can't change the base.
+    def log(self):  #, base=math.e):  # In special index is unary, can't change the base.
         return self._compose_unop(bi.log)
 
     def log2(self):
@@ -493,7 +493,7 @@ class AbstractObject():
         return self._compose_narop(bi.fold, lo, hi)
 
     def blend(self, other, frac=0.5):
-        return self._compose_narop(bi.blend, frac)
+        return self._compose_narop(bi.blend, other, frac)
 
     def linlin(self, inmin, inmax, outmin, outmax, clip='minmax'):
         return self._compose_narop(

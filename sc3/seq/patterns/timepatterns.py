@@ -3,12 +3,24 @@ from ...base import main as _libsc3
 from ...base import builtins as bi
 from ...base import stream as stm
 from ...synth import envelope as evp
-from .. import pattern as ptt
+from . import valuepatterns as vlp
 from . import listpatterns as lsp
 
 
-class TimePattern(ptt.Pattern):
+class TimePattern(vlp.ValuePattern):
     pass
+
+
+class Ptime(TimePattern):
+    # // Returns relative time (in beats) from moment of embedding.
+    def __init__(self, repeats=float('inf')):
+        self.repeats = repeats
+
+    def __embed__(self, inval):
+        start = _libsc3.main.current_tt._beats
+        for _ in bi.counter(self.repeats):
+            inval = yield _libsc3.main.current_tt._beats - start
+        return inval
 
 
 class Pstep(TimePattern):

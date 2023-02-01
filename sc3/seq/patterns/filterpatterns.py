@@ -516,3 +516,22 @@ class Pavaroh(FilterPattern):
 # class Pprotect(FilterPattern):
 #     # // if an error is thrown in the stream, func is evaluated
 #     ...
+
+
+class Pseed(FilterPattern):
+    def __init__(self, rand_seed, pattern):
+        super().__init__(pattern)
+        self.rand_seed = rand_seed
+
+    def __embed__(self, inval=None):
+        stream = stm.stream(self.rand_seed)
+        rout = None
+        try:
+            while True:
+                def func(inval): yield from stm.embed(self.pattern, inval)
+                rout = stm.Routine(func)
+                rout.rand_seed = stream.next(inval)
+                inval = yield from stm.embed(stm.stream(rout), inval)
+        except stm.StopStream:
+            pass
+        return inval

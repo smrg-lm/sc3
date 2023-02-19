@@ -10,7 +10,7 @@ from sc3.base.stream import routine, embed
 from sc3.base.clock import TempoClock
 from sc3.seq.patterns.eventpatterns import Pbind
 from sc3.seq.patterns.listpatterns import Pseq
-from sc3.seq.patterns.valuepatterns import *
+from sc3.seq.patterns.timepatterns import *
 
 
 class ValuePatternsTestCase(unittest.TestCase):

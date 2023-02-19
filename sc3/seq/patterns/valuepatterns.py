@@ -161,3 +161,140 @@ class Pprob(ValuePattern):
         except stm.StopStream:
             pass
         return inval
+
+
+### Random distribution patterns ###
+
+
+class Plprand(Pwhite):  # It iherits just for the constructor.
+    def __embed__(self, inval):
+        pw = Pwhite(self.lo, self.hi, self.length)  # type(self).__base__(lo, hi, length)
+        return (yield from stm.embed(bi.min(pw, pw), inval))
+
+
+class Phprand(Pwhite):
+    def __embed__(self, inval):
+        pw = Pwhite(self.lo, self.hi, self.length)
+        return (yield from stm.embed(bi.max(pw, pw), inval))
+
+
+class Pmeanrand(Pwhite):
+    def __embed__(self, inval):
+        pw = Pwhite(self.lo, self.hi, self.length)
+        return (yield from stm.embed((pw + pw) * 0.5, inval))
+
+
+class Pbeta(ValuePattern):
+    def __init__(self, lo=0.0, hi=1.0, prob1=1, prob2=1, length=float('inf')):
+        self.lo = lo
+        self.hi = hi
+        self.prob1 = prob1
+        self.prob2 = prob2
+        self.length = length
+
+    def __embed__(self, inval):
+        lo_stream = stm.stream(self.lo)
+        hi_stream = stm.stream(self.hi)
+        prob1_stream = stm.stream(self.prob1)
+        prob2_stream = stm.stream(self.prob2)
+        loval = hival = sum = temp = rprob1 = rprob2 = None
+        try:
+            for _ in bi.counter(self.length):
+                sum = 2
+                rprob1 = bi.reciprocal(prob1_stream.next(inval))
+                rprob2 = bi.reciprocal(prob2_stream.next(inval))
+                loval = lo_stream.next(inval)
+                hival = hi_stream.next(inval)
+                while sum > 1:
+                    temp = bi.rand(1.0) ** rprob1
+                    sum = temp + bi.rand(1.0) ** rprob2
+                inval = yield temp / sum * (hival - loval) + loval
+        except stm.StopStream:
+            pass
+        return inval
+
+
+class Pcauchy(ValuePattern):
+    def __init__(self, mean=0.0, spread=1.0, length=float('inf')):
+        self.mean = mean
+        self.spread = spread
+        self.length = length
+
+    def __embed__(self, inval):
+        mean_stream = stm.stream(self.mean)
+        spread_stream = stm.stream(self.spread)
+        ran = meanval = spreadval = None
+        try:
+            for _ in bi.counter(self.length):
+                ran = 0.5
+                meanval = mean_stream.next(inval)
+                spreadval = spread_stream.next(inval)
+                while ran == 0.5:
+                    ran = bi.rand(1.0)
+                inval = yield spreadval * bi.tan(ran * bi.pi) + meanval
+        except stm.StopStream:
+            pass
+        return inval
+
+
+class Pgauss(ValuePattern):
+    def __init__(self, mean=0.0, dev=1, length=float('inf')):
+        self.mean = mean
+        self.dev = dev
+        self.length = length
+
+    def __embed__(self, inval):
+        mean_stream = stm.stream(self.mean)
+        dev_stream = stm.stream(self.dev)
+        devval = meanval = None
+        try:
+            for _ in bi.counter(self.length):
+                devval = dev_stream.next(inval)
+                meanval = mean_stream.next(inval)
+                inval = yield bi.sqrt(-2 * bi.log(bi.rand(1.0))) * bi.sin(bi.rand(bi.pi2)) * devval + meanval
+        except stm.StopStream:
+            pass
+        return inval
+
+
+class Ppoisson(ValuePattern):
+    def __init__(self, mean=1, length=float('inf')):
+        self.mean = mean
+        self.length = length
+
+    def __embed__(self, inval):
+        mean_stream = stm.stream(self.mean)
+        meanval = inc = test = temp = None
+        try:
+            for _ in bi.counter(self.length):
+                meanval = mean_stream.next(inval)
+                inc = 0
+                test = bi.rand(1.0)
+                temp = bi.exp(-meanval)
+                while test > temp:
+                    inc += 1
+                    test = test * bi.rand(1.0)
+                inval = yield inc
+        except stm.StopStream:
+            pass
+        return inval
+
+
+class Pexprand(ValuePattern):
+    def __init__(self, lo=0.0001, hi=1.0, length=float('inf')):
+        self.lo = lo
+        self.hi = hi
+        self.length = length
+
+    def __embed__(self, inval):
+        lo_stream = stm.stream(self.lo)
+        hi_stream = stm.stream(self.hi)
+        loval = hival = None
+        try:
+            for _ in bi.counter(self.length):
+                loval = lo_stream.next(inval)
+                hival = hi_stream.next(inval)
+                inval = yield bi.exprand(loval, hival)
+        except stm.StopStream:
+            pass
+        return inval

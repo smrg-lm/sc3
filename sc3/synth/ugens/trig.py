@@ -154,7 +154,9 @@ class PulseDivider(ugn.UGen):
 
 
 class SetResetFF(PulseCount):
-    pass
+    @classmethod
+    def signal_range(cls):  # override
+        return 'unipolar'
 
 
 class ToggleFF(ugn.UGen):
@@ -165,6 +167,10 @@ class ToggleFF(ugn.UGen):
     @classmethod
     def kr(cls, trig=0.0):
         return cls._multi_new('control', trig)
+
+    @classmethod
+    def signal_range(cls):  # override
+        return 'unipolar'
 
 
 class ZeroCrossing(ugn.UGen):

@@ -388,9 +388,9 @@ class ServerOptions():
             flag = Defaults.HW_DEVICE_NAME.flag
             dev = self.hw_device_name
             if isinstance(dev, str):
-                o.extend([flag, repr(dev)])
+                o.extend([flag, str(dev)])
             elif isinstance(dev, tuple):
-                o.extend([flag, repr(dev[0]), repr(dev[1])])
+                o.extend([flag, str(dev[0]), str(dev[1])])
             else:
                 raise TypeError('hw_device_name must be str or tuple')
         if self.hw_buffer_size != Defaults.HW_BUFFER_SIZE.default:

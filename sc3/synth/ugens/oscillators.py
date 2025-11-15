@@ -5,6 +5,7 @@ from .. import ugen as ugn
 from .. import _graphparam as gpp
 from . import noise as nse
 from . import pan
+from . import mix
 
 
 class Osc(ugn.PureUGenMixin, ugn.UGen):
@@ -367,11 +368,11 @@ class SelectXFocus(ugn.PseudoUGen):
     @classmethod
     def new(cls, which, lst, focus=1, wrap=False):
         if wrap:
-            return ugn.Mix.new(
+            return mix.Mix.new(
                 [bi.max(1 - (bi.moddif(which, i, len(lst)) * focus), 0) * input
                  for i, input in enumerate(lst)])
         else:
-            return ugn.Mix.new(
+            return mix.Mix.new(
                 [bi.max(1 - (bi.absdif(which, i) * focus), 0) * input
                  for i, input in enumerate(lst)])
 

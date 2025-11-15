@@ -1,0 +1,7 @@
+
+.. warning:: Under construction.
+
+Patterns
+========
+
+...

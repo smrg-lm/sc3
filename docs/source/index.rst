@@ -26,6 +26,9 @@ Or the latest alpha release (usually outdated) from PyPI.
    intro/synthdef
    intro/event
    intro/routine
+   intro/absobject
+   intro/patterns
+   intro/oscfunc
    intro/nonrealtime
    intro/midi
 

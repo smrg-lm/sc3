@@ -71,8 +71,8 @@ class BufRd(ugn.MultiOutUGen):
         if self.rate == 'audio'\
         and gpp.ugen_param(self.inputs[1])._as_ugen_rate() != 'audio':
             return (
-                f'phase input is not audio rate: {self.inputs[1]}'
-                f'{gpp.ugen_param(self.inputs[1])._as_ugen_rate()}')
+                f'phase input must be audio rate, received {self.inputs[1]} '
+                f'({gpp.ugen_param(self.inputs[1])._as_ugen_rate()})')
         return self._check_valid_inputs()
 
 
@@ -91,12 +91,12 @@ class BufWr(ugn.UGen):
         if self.rate == 'audio':
             if gpp.ugen_param(self.inputs[1])._as_ugen_rate() != 'audio':
                 return (
-                    f'phase input is not audio rate: {self.inputs[1]} '
-                    f'{gpp.ugen_param(self.inputs[1])._as_ugen_rate()}')
+                    f'phase input must be audio rate, received {self.inputs[1]} '
+                    f'({gpp.ugen_param(self.inputs[1])._as_ugen_rate()})')
             elif any(gpp.ugen_param(x)._as_ugen_rate() != 'audio' for x in self.inputs[3:]):
                 return (
-                    f'input_list input is not audio rate: {self.inputs[3:]} '
-                    f'{[gpp.ugen_param(x)._as_ugen_rate() for x in self.inputs[3:]]}')
+                    f'input_list input must be audio rate, received {self.inputs[3:]} '
+                    f'({[gpp.ugen_param(x)._as_ugen_rate() for x in self.inputs[3:]]})')
         return self._check_valid_inputs()
 
     def __repr__(self):

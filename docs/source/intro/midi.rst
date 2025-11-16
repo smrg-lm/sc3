@@ -24,7 +24,7 @@ libraries directly from PyPI.
 
 The MIDI backend is automatically initialized and uses default mido's
 configuration. To configure mido's backend see its
-`documentation <https://mido.readthedocs.io/en/latest/backends/index.html>`_.
+`documentation <https://mido.readthedocs.io/en/latest/backends/index.html>`__.
 
 If using pipewire, e.g. on Fedora, install pipewire's development files
 for jack and manually add the linking location before pip install for
@@ -120,7 +120,7 @@ and can be used with the `play` function `event` objects. When using
 `MidiOut.send_msg` directly the first argument is the event type and its
 attributes are passed as keyword arguments as shown in the examples above.
 
-See mido's `documentation <https://mido.readthedocs.io/en/latest/index.html>`_
+See mido's `documentation <https://mido.readthedocs.io/en/latest/index.html>`__
 for more details about message attributes.
 
 

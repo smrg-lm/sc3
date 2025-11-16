@@ -368,7 +368,7 @@ class NrtMain(metaclass=Process):
             Wait time after the last event. Used for reverb time or alike.
             Only has effect for OSC scores.
         proto : str
-            Score protocol to generate, possible values are `'osc'` or`'midi'`.
+            Score protocol to generate, possible values are `'osc'` or `'midi'`.
 
         Returns
         -------

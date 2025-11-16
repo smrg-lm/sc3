@@ -947,8 +947,7 @@ class Server(gpp.NodeParameter, metaclass=MetaServer):
           * 0 - turn dumping OFF.
           * 1 - print the parsed contents of the message.
           * 2 - print the contents in hexadecimal.
-          * 3 - print both the parsed and hexadecimal representations of the
-          contents.
+          * 3 - print both the parsed and hexadecimal representations of the contents.
 
         '''
 

@@ -15,7 +15,7 @@ Or the latest alpha release (usually outdated) from PyPI.
 
 .. code-block:: bash
 
-  pip3 install sc3
+  pip install sc3
 
 
 .. toctree::
@@ -38,6 +38,7 @@ Or the latest alpha release (usually outdated) from PyPI.
    :caption: Library documentation
 
    api/sc3
+   api/modules
    glossary
    contribute
 

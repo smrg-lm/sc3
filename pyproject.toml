@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sc3"
+dynamic = ["version"]
+requires-python = ">=3.7"
+
+description = "SuperCollider library for Python"
+keywords = ["SuperCollider", "sound", "synthesis", "music-composition"]
+readme = "README.md"
+license = { file = "COPYING" }
+
+authors = [
+  { name = "Lucas Samaruga", email = "samarugalucas@gmail.com" }
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha"
+]
+
+[project.urls]
+Homepage = "https://github.com/smrg-lm/sc3"
+
+[project.optional-dependencies]
+midi = ["mido", "python-rtmidi"]
+"midi-nrt" = ["mido"]
+
+[tool.setuptools]
+packages = { find = {} }
+
+[tool.setuptools.dynamic]
+version = { attr = "sc3.__version__" }

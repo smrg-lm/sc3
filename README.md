@@ -77,7 +77,7 @@ pip install "sc3[midi] @ git+https://github.com/smrg-lm/sc3.git"
 From source in develop mode (having a clone of this repo already):
 
 ```bash
-python setup.py develop  # --user flag might be needed
+python -m pip install --editable .
 ```
 
 For optional MIDI support also install mido and rtmidi backend:
@@ -89,8 +89,8 @@ pip install mido python-rtmidi
 From PyPI (usually outdated by now, there will be a more stable beta version soon):
 
 ```bash
-pip install sc3  # [midi] or [midi-nrt] for MIDI support, the nrt variant
-                 # installs mido but not the driver.
+pip install sc3  # [midi] or [midi-nrt] for MIDI support,
+                 # the nrt variant installs mido but not the driver.
 ```
 
 License

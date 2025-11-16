@@ -44,7 +44,7 @@ jobs:
     #     flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Install
       run: |
-        python setup.py install
+        python -m pip install .
     - name: Tests
       run: |
         python -m tests

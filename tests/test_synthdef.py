@@ -16,7 +16,7 @@ from sc3.base.platform import Platform
 _logger.setLevel('ERROR')
 
 
-# TODO: Should be defined as types.
+# FIXME: Should be defined as types (SynthDef._args_to_controls).
 ir, ar, kr, tr = 'ir', 'ar', 'kr', 'tr'
 
 
@@ -68,28 +68,27 @@ class SynthDefTestCase(unittest.TestCase):
         keys = rates.keys()
 
         for r in keys:
-            exec(f"def {r}(a:'{r}'): Out(0, DC() * a)\n")
-            for o in keys ^ [r]:
-                exec(
-                    f"sd = SynthDef('test', {r}, ['{o}'])\n"
-                    f"c = sd._children[0]\n"
-                    f"self.assertEqual(c.name, rates['{o}'][0])\n"
-                    f"self.assertEqual(c.rate, rates['{o}'][1])\n"
-                    # f"print(c.name, c.rate, '{o}')\n"
-                )
+            scope = {'Out': Out, 'DC': DC}
+            exec(f"def test_func(a:'{r}'): Out(0, DC() * a)", scope)
+            test_func = scope['test_func']
+            for o in keys ^ {r}:
+                sd = SynthDef('test', test_func, [o])
+                c = sd._children[0]
+                self.assertEqual(c.name, rates[o][0])
+                self.assertEqual(c.rate, rates[o][1])
 
         for r in keys:
-            exec(
-                f"def {r}(a:'{r}'): Out(0, DC() * a)\n"
-                f"sd = SynthDef('test', {r}, [0.8])\n"  # LagControl
-                f"c = sd._children[0]\n"
-                f"if rates['{r}'][2]:\n"
-                f"    self.assertEqual(c.name, rates['{r}'][0])\n"
-                f"    self.assertEqual(c.rate, rates['{r}'][1])\n"
-                f"else:\n"
-                f"    self.assertEqual(c.name, 'LagControl')\n"
-                f"    self.assertEqual(c.rate, 'control')\n"
-            )
+            scope = {'Out': Out, 'DC': DC}
+            exec(f"def test_func(a:'{r}'): Out(0, DC() * a)", scope)
+            test_func = scope['test_func']
+            sd = SynthDef('test', test_func, [0.8])  # LagControl
+            c = sd._children[0]
+            if rates[r][2]:
+                self.assertEqual(c.name, rates[r][0])
+                self.assertEqual(c.rate, rates[r][1])
+            else:
+                self.assertEqual(c.name, 'LagControl')
+                self.assertEqual(c.rate, 'control')
 
         # Invalid cases.
 

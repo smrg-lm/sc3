@@ -4,10 +4,11 @@
 # implementations of sc server opcodes to obtain special index symbols and
 # conform AbstractObject interface. A few are also wrappers to match
 # sclang's behaviour too (e.g. mod and random functions). They will need to be
-# optimized along with events, patterns and streams. However, when running the
+# optimized along with events, patterns and streams. However, when running
 # library on pypy all unoptimized code at least matches sclang.
 
 import math
+import inspect
 import builtins
 
 from ..base import _hooks as hks
@@ -45,12 +46,23 @@ class scbuiltin():
 
     @staticmethod
     def binop(func):
-        def scbuiltin_(a, b):
-            if hasattr(a, '_compose_binop'):
-                return a._compose_binop(func, b)
-            if hasattr(b, '_rcompose_binop'):
-                return b._rcompose_binop(func, a)
-            return func(a, b)
+        sig = inspect.signature(func)
+        default_b = list(sig.parameters.values())[1].default
+
+        if default_b is inspect.Parameter.empty:
+            def scbuiltin_(a, b):
+                if hasattr(a, '_compose_binop'):
+                    return a._compose_binop(func, b)
+                if hasattr(b, '_rcompose_binop'):
+                    return b._rcompose_binop(func, a)
+                return func(a, b)
+        else:
+            def scbuiltin_(a, b=default_b):
+                if hasattr(a, '_compose_binop'):
+                    return a._compose_binop(func, b)
+                if hasattr(b, '_rcompose_binop'):
+                    return b._rcompose_binop(func, a)
+                return func(a, b)
 
         scbuiltin_.__name__ = func.__name__  # used to obtain special_index.
         scbuiltin_.__qualname__ += func.__name__

@@ -1276,7 +1276,7 @@ class MulAdd(UGen):
     @classmethod
     def _new1(cls, rate, input, mul, add):  # override
         mul_cmp = mul if isinstance(mul, (int, float)) else None
-        add_cmp = mul if isinstance(add, (int, float)) else None
+        add_cmp = add if isinstance(add, (int, float)) else None
         if mul_cmp == 0.0: return add
         minus = mul_cmp == -1.0
         nomul = mul_cmp == 1.0

@@ -259,15 +259,13 @@ class WindowsPlatform(Platform):
 
 class Win32Platform(WindowsPlatform):
     def _startup(self):
-        from . import _knownpaths as kp
-
         default_folder = '.'
 
-        self._local_app_data = kp.get_path(kp.FOLDERID.LocalAppData, 0)
-        self._documents = kp.get_path(kp.FOLDERID.Documents, 0)
+        self._local_app_data = os.environ.get('LOCALAPPDATA', str(Path.home() / 'AppData' / 'Local'))
+        self._documents = str(Path.home() / 'Documents')
 
-        program_files_x86 = kp.get_path(kp.FOLDERID.ProgramFilesX86, 0)
-        program_files_x64 = kp.get_path(kp.FOLDERID.ProgramFilesX64, 0)
+        program_files_x86 = os.environ.get('ProgramFiles(x86)', os.environ.get('ProgramFiles', 'C:\\Program Files'))
+        program_files_x64 = os.environ.get('ProgramW6432', os.environ.get('ProgramFiles', 'C:\\Program Files'))
         glob_pattern = 'SuperCollider-*.*.*'
         folders = list(Path(program_files_x86).glob(glob_pattern))
         folders += list(Path(program_files_x64).glob(glob_pattern))

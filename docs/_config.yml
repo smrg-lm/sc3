@@ -1,0 +1,17 @@
+title: Documentación de Tu Librería
+author: Tu Nombre
+copyright: "2026, Tu Nombre"
+
+execute:
+  execute_notebooks: off
+
+sphinx:
+  extra_extensions:
+    - sphinx.ext.autodoc
+    - sphinx.ext.napoleon
+    - sphinx.ext.autosummary
+    - sphinx.ext.viewcode
+  config:
+    autodoc_member_order: 'bysource'
+    myst_enable_extensions:
+      - "colon_fence"

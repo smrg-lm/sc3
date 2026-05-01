@@ -1,0 +1,16 @@
+format: jb-book
+root: intro
+chapters:
+  - file: guides/server
+  - file: guides/synthdef
+  - file: guides/routine
+  - file: guides/event
+  - file: guides/nonrealtime
+  - file: guides/midi
+  # - file: guides/patterns
+  # - file: guides/oscfunc
+  # - file: guides/absobject
+
+  - file: api
+  - file: glossary
+  - file: contribute

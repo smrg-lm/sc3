@@ -75,6 +75,9 @@ docs/source/api/*
 docs/source/_rst/*
 docs/source/_build/*
 
+# Jupyter Book documentation
+/docs/conf.py
+
 # PyBuilder
 target/
 

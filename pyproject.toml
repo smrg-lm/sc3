@@ -32,6 +32,12 @@ Homepage = "https://github.com/smrg-lm/sc3"
 midi = ["mido", "python-rtmidi"]
 "midi-nrt" = ["mido"]
 
+docs = [
+    "jupyter-book>=0.15.0",
+    "sphinx-autodoc-typehints",
+    "sphinxcontrib-napoleon"
+]
+
 [tool.setuptools]
 packages = { find = {} }
 

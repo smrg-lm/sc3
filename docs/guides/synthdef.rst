@@ -1,7 +1,3 @@
-.. _synthdef:
-
-.. warning:: Under construction.
-
 Synthesis definitions
 =====================
 

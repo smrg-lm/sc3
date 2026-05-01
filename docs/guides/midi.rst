@@ -1,6 +1,3 @@
-
-.. warning:: Under construction.
-
 MIDI Support
 ============
 

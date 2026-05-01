@@ -1,7 +1,3 @@
-.. _routine:
-
-.. warning:: Under construction.
-
 Routines, streams and logical time
 ==================================
 

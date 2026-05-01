@@ -1,7 +1,3 @@
-.. _nonrealtime:
-
-.. warning:: Under construction.
-
 Non real time mode
 ==================
 

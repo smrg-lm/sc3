@@ -1,5 +1,3 @@
-.. _server:
-
 Server configuration
 ====================
 

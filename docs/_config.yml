@@ -1,6 +1,6 @@
-title: Documentación de Tu Librería
-author: Tu Nombre
-copyright: "2026, Tu Nombre"
+title: sc3 - SuperCollider Library for Python
+author: Lucas Samaruga
+copyright: "2026, Lucas Samaruga"
 
 execute:
   execute_notebooks: off

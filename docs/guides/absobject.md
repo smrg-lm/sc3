@@ -1,0 +1,3 @@
+# AbstractObject interface
+
+...

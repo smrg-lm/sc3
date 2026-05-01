@@ -4,7 +4,7 @@
    Documentation is under construction.
 ```
 
-To get the latest version of this library install it with `pip` from [GitHub](https://github.com/smrg-lm/sc3>).
+To get the latest version of this library install it with `pip` from [GitHub](https://github.com/smrg-lm/sc3).
 
 ```console
    pip install git+https://github.com/smrg-lm/sc3.git

@@ -33,7 +33,7 @@ midi = ["mido", "python-rtmidi"]
 "midi-nrt" = ["mido"]
 
 docs = [
-    "jupyter-book>=0.15.0",
+    "jupyter-book<2.0.0",
     "sphinx-autodoc-typehints",
     "sphinxcontrib-napoleon"
 ]

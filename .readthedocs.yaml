@@ -11,4 +11,5 @@ build:
   commands:
     - pip install -e .[docs]
     - jupyter-book build docs/
-    - cp -r docs/_build/html/* $READTHEDOCS_OUTPUT/html/
+    - mkdir -p $READTHEDOCS_OUTPUT/html/
+    - cp -a docs/_build/html/. $READTHEDOCS_OUTPUT/html/

@@ -43,7 +43,7 @@ sc3.LIB_SETUP_FILE = args.setup_file
 
 ### Init library ###
 
-sc3.init(sc3.LIB_MODE, logging.getLevelName(args.verbosity))
+sc3.init(sc3.LIB_MODE, logging.getLevelName(int(args.verbosity)))
 
 
 ### Run script ###

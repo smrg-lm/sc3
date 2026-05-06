@@ -15,7 +15,7 @@ LIB_SETUP_FILE = None
 
 # https://docs.python.org/3/howto/logging-cookbook.html#dealing-with-handlers-that-block
 
-def _init_logger(verbosity, blocking=False):
+def _init_logger(verbosity, blocking):
     import queue
     import logging
     import logging.handlers
@@ -46,14 +46,14 @@ def _init_logger(verbosity, blocking=False):
 
 _libsc3_initialized = False
 
-def init(mode='rt', verbosity='INFO'):
+def init(mode='rt', verbosity='INFO', blocking=False):
     global _libsc3_initialized
 
     if _libsc3_initialized:
         return
 
     mode = mode.lower()
-    _init_logger(verbosity, True if mode == 'nrt' else False)
+    _init_logger(verbosity, True if mode == 'nrt' else blocking)
 
     import sc3.base.main
 

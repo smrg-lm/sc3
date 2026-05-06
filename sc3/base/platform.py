@@ -311,7 +311,7 @@ class Win32Platform(WindowsPlatform):
 
     @property
     def recording_dir(self):
-        return Path(self._documents) / Path('Recordings')
+        return Path(self._documents) / Path('SuperCollider/Recordings')
 
     @property
     def bin_dir(self):
